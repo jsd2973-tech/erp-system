@@ -277,7 +277,7 @@ export default function App() {
     setMenuTab("new");
     setEditingPurchaseId(p.id);
     setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "" });
-    setRows((p.rows || []).map((r) => ({ id: uid(), ...r })));
+    setRows((p.rows || []).map((r) => ({ ...r, id: uid() })));
   };
 
   const filteredPurchases = purchases.filter(
@@ -492,10 +492,10 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={(id) => setPurchases((prev) => prev.filter((p) => p.id !== id))} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={(id: string) => setPurchases((prev) => prev.filter((p) => p.id !== id))} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={() => { setVendors([]); setVendorImportMessage("거래처 전체 삭제 완료"); }}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deleteVendor={(id) => setVendors((prev) => prev.filter((v) => v.id !== id))} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={() => { setVendors([]); setVendorImportMessage("거래처 전체 삭제 완료"); }}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deletePurchase={(id: string) => setVendors((prev) => prev.filter((v) => v.id !== id))} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
@@ -510,7 +510,7 @@ export default function App() {
           <section className="card"><h2>{editingMaintId ? "정비수정" : "정비등록"}</h2><div className="grid3"><Field label="정비일자"><input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} /></Field><SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="로더 입력" /><Field label="담당자"><input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} /></Field><Field label="정비제목"><input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} /></Field><Field label="정비내용"><input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} /></Field><Field label="정비비용"><input value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveMaint}>정비 저장</button><button onClick={resetMaintForm}>초기화</button></div></section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={(id) => setMaints((prev) => prev.filter((m) => m.id !== id))} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={(id: string) => setMaints((prev) => prev.filter((m) => m.id !== id))} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
