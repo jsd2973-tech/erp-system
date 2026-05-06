@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
@@ -9,6 +10,36 @@ type Item = { id: string; code: string; name: string; spec?: string; unit?: stri
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string };
+
+
+const supabase = createClient(
+  "https://jqdvxmatbmmeubtoogvl.supabase.co",
+  "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7"
+);
+
+const toPurchase = (p: any): Purchase => ({
+  id: p.id,
+  date: p.date || "",
+  vendor: p.vendor || "",
+  warehouse: p.warehouse || "",
+  rows: p.rows || [],
+  supplyTotal: Number(p.supplytotal ?? p.supplyTotal ?? 0),
+  vatTotal: Number(p.vattotal ?? p.vatTotal ?? 0),
+  total: Number(p.total || 0),
+  itemSummary: p.itemsummary ?? p.itemSummary ?? "",
+});
+
+const fromPurchase = (p: Purchase) => ({
+  id: p.id,
+  date: p.date,
+  vendor: p.vendor,
+  warehouse: p.warehouse,
+  rows: p.rows,
+  supplytotal: p.supplyTotal,
+  vattotal: p.vatTotal,
+  total: p.total,
+  itemsummary: p.itemSummary,
+});
 
 const KEY = {
   vendors: "erp_vendors_v2",
@@ -178,6 +209,7 @@ export default function App() {
   );
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
+  const [loading, setLoading] = useState(false);
 
   const [menuTab, setMenuTab] = useState("home");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
@@ -197,12 +229,46 @@ export default function App() {
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
 
-  useEffect(() => localStorage.setItem(KEY.vendors, JSON.stringify(vendors)), [vendors]);
-  useEffect(() => localStorage.setItem(KEY.groups, JSON.stringify(groups)), [groups]);
-  useEffect(() => localStorage.setItem(KEY.warehouses, JSON.stringify(warehouses)), [warehouses]);
-  useEffect(() => localStorage.setItem(KEY.items, JSON.stringify(items)), [items]);
-  useEffect(() => localStorage.setItem(KEY.purchases, JSON.stringify(purchases)), [purchases]);
-  useEffect(() => localStorage.setItem(KEY.maints, JSON.stringify(maints)), [maints]);
+  const loadAll = async () => {
+    setLoading(true);
+    const [vRes, gRes, wRes, iRes, pRes, mRes] = await Promise.all([
+      supabase.from("vendors").select("*").order("code", { ascending: true }),
+      supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
+      supabase.from("warehouses").select("*").order("code", { ascending: true }),
+      supabase.from("items").select("*").order("code", { ascending: true }),
+      supabase.from("purchases").select("*").order("date", { ascending: false }),
+      supabase.from("maints").select("*").order("date", { ascending: false }),
+    ]);
+
+    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error) {
+      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error);
+      alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
+      setLoading(false);
+      return;
+    }
+
+    const nextVendors = (vRes.data || []) as Vendor[];
+    const nextGroups = (gRes.data || []) as Group[];
+    const nextWarehouses = (wRes.data || []) as Warehouse[];
+    const nextItems = ((iRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
+
+    setVendors(nextVendors);
+    setGroups(nextGroups);
+    setWarehouses(nextWarehouses);
+    setItems(nextItems);
+    setPurchases(((pRes.data || []) as any[]).map(toPurchase));
+    setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0) })));
+
+    setVendorForm({ code: `V${String(nextVendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
+    setGroupForm({ code: nextCode(nextGroups), name: "" });
+    setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
+    setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const vendorOptions = useMemo(
     () =>
@@ -256,7 +322,7 @@ export default function App() {
     setEditingPurchaseId("");
   };
 
-  const savePurchase = () => {
+  const savePurchase = async () => {
     const validRows = rows.filter((r) => r.item && Number(r.qty) > 0);
     if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("거래처, 창고, 품목/수량을 확인하세요.");
     const payload: Purchase = {
@@ -268,6 +334,8 @@ export default function App() {
       total: purchaseTotal,
       itemSummary: validRows[0].item,
     };
+    const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
+    if (error) return alert(`구매 저장 실패: ${error.message}`);
     setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
     resetPurchaseForm();
     setMenuTab("list");
@@ -287,10 +355,13 @@ export default function App() {
       (!purchaseSearch.item || p.rows.some((r) => r.item.includes(purchaseSearch.item)))
   );
 
-  const saveVendor = () => {
+  const saveVendor = async () => {
     if (!vendorForm.name) return;
     const existing = vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
-    const next = existing ? vendors.map((v) => (v.id === existing.id ? { ...v, ...vendorForm } : v)) : [...vendors, { id: uid(), ...vendorForm }];
+    const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
+    const { error } = await supabase.from("vendors").upsert(payload);
+    if (error) return alert(`거래처 저장 실패: ${error.message}`);
+    const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
     setVendorForm({ code: `V${String(next.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
   };
@@ -313,43 +384,62 @@ export default function App() {
       if (idx >= 0) merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
       else merged.push(row);
     });
+    const { error } = await supabase.from("vendors").upsert(merged);
+    if (error) return alert(`거래처 업로드 실패: ${error.message}`);
     setVendors(merged);
     setVendorImportMessage(`${imported.length}건 불러왔습니다.`);
   };
 
-  const saveGroup = () => {
+  const saveGroup = async () => {
     if (!groupForm.name) return;
-    const next = [...groups, { id: uid(), ...groupForm }];
+    const payload: Group = { id: uid(), ...groupForm };
+    const { error } = await supabase.from("warehouse_groups").insert(payload);
+    if (error) return alert(`대분류 저장 실패: ${error.message}`);
+    const next = [...groups, payload];
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
   };
 
-  const saveWarehouse = () => {
+  const saveWarehouse = async () => {
     if (!warehouseForm.group || !warehouseForm.name) return;
-    const next = [...warehouses, { id: uid(), ...warehouseForm }];
+    const payload: Warehouse = { id: uid(), ...warehouseForm };
+    const { error } = await supabase.from("warehouses").insert(payload);
+    if (error) return alert(`창고 저장 실패: ${error.message}`);
+    const next = [...warehouses, payload];
     setWarehouses(next);
     setWarehouseForm({ group: "", code: nextCode(next), name: "" });
   };
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
-  const deleteGroup = (id: string, name: string) => {
+  const deleteGroup = async (id: string, name: string) => {
     const newGroups = reseq(groups.filter((g) => g.id !== id));
     const newWarehouses = reseq(warehouses.filter((w) => w.group !== name));
+    const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
+    if (delGroup.error) return alert(`대분류 삭제 실패: ${delGroup.error.message}`);
+    const delWh = await supabase.from("warehouses").delete().eq("group", name);
+    if (delWh.error) return alert(`세부창고 삭제 실패: ${delWh.error.message}`);
+    if (newGroups.length) await supabase.from("warehouse_groups").upsert(newGroups);
+    if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
     setGroups(newGroups);
     setWarehouses(newWarehouses);
     setGroupForm({ code: nextCode(newGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
-  const deleteWarehouse = (id: string) => {
+  const deleteWarehouse = async (id: string) => {
     const newWarehouses = reseq(warehouses.filter((w) => w.id !== id));
+    const { error } = await supabase.from("warehouses").delete().eq("id", id);
+    if (error) return alert(`창고 삭제 실패: ${error.message}`);
+    if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
     setWarehouses(newWarehouses);
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!itemForm.name) return;
     const existing = items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
     const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
+    const { error } = await supabase.from("items").upsert(payload);
+    if (error) return alert(`품목 저장 실패: ${error.message}`);
     const next = existing ? items.map((i) => (i.id === existing.id ? payload : i)) : [...items, payload];
     setItems(next);
     setItemForm({ code: nextCode(next), name: "", spec: "", unit: "", price: "" });
@@ -373,6 +463,8 @@ export default function App() {
       if (idx >= 0) merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
       else merged.push({ ...row, code: row.code || nextCode(merged) });
     });
+    const { error } = await supabase.from("items").upsert(merged);
+    if (error) return alert(`품목 업로드 실패: ${error.message}`);
     setItems(merged);
     setItemImportMessage(`${imported.length}건 불러왔습니다.`);
   };
@@ -387,7 +479,7 @@ export default function App() {
     setNewItemForm({ name: "", spec: "", unit: "", price: "" });
   };
 
-  const saveNewItemFromModal = () => {
+  const saveNewItemFromModal = async () => {
     const name = newItemForm.name.trim();
     if (!name) return alert("품목명을 입력하세요.");
 
@@ -404,6 +496,8 @@ export default function App() {
       price,
     };
 
+    const { error } = await supabase.from("items").insert(newItem);
+    if (error) return alert(`신규 품목 저장 실패: ${error.message}`);
     setItems((prev) => [...prev, newItem]);
 
     if (newItemModal.rowIndex !== null) {
@@ -419,9 +513,11 @@ export default function App() {
     setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
     setEditingMaintId("");
   };
-  const saveMaint = () => {
+  const saveMaint = async () => {
     if (!maintForm.warehouse || !maintForm.title) return;
     const payload = { id: editingMaintId || uid(), ...maintForm, cost: Number(maintForm.cost || 0) };
+    const { error } = await supabase.from("maints").upsert(payload);
+    if (error) return alert(`정비 저장 실패: ${error.message}`);
     setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
     resetMaintForm();
   };
@@ -430,6 +526,39 @@ export default function App() {
     setEditingMaintId(m.id);
     setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || "") });
   };
+
+  const deletePurchase = async (id: string) => {
+    const { error } = await supabase.from("purchases").delete().eq("id", id);
+    if (error) return alert(`구매 삭제 실패: ${error.message}`);
+    setPurchases((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const deleteVendor = async (id: string) => {
+    const { error } = await supabase.from("vendors").delete().eq("id", id);
+    if (error) return alert(`거래처 삭제 실패: ${error.message}`);
+    setVendors((prev) => prev.filter((v) => v.id !== id));
+  };
+
+  const clearVendors = async () => {
+    const { error } = await supabase.from("vendors").delete().neq("id", "");
+    if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
+    setVendors([]);
+    setVendorImportMessage("거래처 전체 삭제 완료");
+    setVendorForm({ code: "V001", name: "", owner: "", phone: "", mobile: "" });
+  };
+
+  const deleteItem = async (id: string) => {
+    const { error } = await supabase.from("items").delete().eq("id", id);
+    if (error) return alert(`품목 삭제 실패: ${error.message}`);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const deleteMaint = async (id: string) => {
+    const { error } = await supabase.from("maints").delete().eq("id", id);
+    if (error) return alert(`정비 삭제 실패: ${error.message}`);
+    setMaints((prev) => prev.filter((m) => m.id !== id));
+  };
+
   const filteredMaints = maints.filter((m) => (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)));
 
   return (
@@ -441,11 +570,14 @@ export default function App() {
           <p>구매 · 기초등록 · 정비 관리</p>
         </header>
 
+        {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
+
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
+          <button onClick={loadAll}>새로고침</button>
         </nav>
 
         {menuTab === "home" && <Home setMenuTab={setMenuTab} />}
@@ -462,20 +594,12 @@ export default function App() {
               <table>
                 <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th></th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
-  <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 360 }}>
-    <div style={{ width: 170 }}>
-      <SearchSelect
-        value={r.item}
-        options={itemOptions}
-        onChange={(v) => updateRow(i, "item", v)}
-        placeholder="품목 검색"
-      />
-    </div>
-    <input
+  <div style={{ display: "flex", gap: 6 }}>
+    <SearchSelect
       value={r.item}
-      onChange={(e) => updateRow(i, "item", e.target.value)}
-      placeholder="품목명 수정"
-      style={{ minWidth: 160 }}
+      options={itemOptions}
+      onChange={(v) => updateRow(i, "item", v)}
+      placeholder="품목명이나 코드 입력"
     />
     <button
       type="button"
@@ -492,10 +616,10 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={(id: string) => setPurchases((prev) => prev.filter((p) => p.id !== id))} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={() => { setVendors([]); setVendorImportMessage("거래처 전체 삭제 완료"); }}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deletePurchase={(id: string) => setVendors((prev) => prev.filter((v) => v.id !== id))} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={clearVendors}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
@@ -503,14 +627,14 @@ export default function App() {
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveItem}>품목 저장</button></div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{items.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td><button className="icon" onClick={() => setItems((prev) => prev.filter((i) => i.id !== it.id))}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveItem}>품목 저장</button></div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{items.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
           <section className="card"><h2>{editingMaintId ? "정비수정" : "정비등록"}</h2><div className="grid3"><Field label="정비일자"><input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} /></Field><SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="로더 입력" /><Field label="담당자"><input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} /></Field><Field label="정비제목"><input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} /></Field><Field label="정비내용"><input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} /></Field><Field label="정비비용"><input value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveMaint}>정비 저장</button><button onClick={resetMaintForm}>초기화</button></div></section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={(id: string) => setMaints((prev) => prev.filter((m) => m.id !== id))} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -549,57 +673,7 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
-  const [zoom, setZoom] = useState(false);
-
-  return (
-    <section className="card">
-      <h2>생산라인 구성도</h2>
-
-      <div className="home-img">
-        <img
-          src="/line-layout.png"
-          alt="생산라인 구성도"
-          onClick={() => setZoom(true)}
-          style={{ cursor: "zoom-in" }}
-        />
-      </div>
-
-      <div className="home-buttons">
-        <button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button>
-      </div>
-
-      {zoom && (
-        <div
-          onClick={() => setZoom(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.85)",
-            zIndex: 999999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 30,
-            cursor: "zoom-out",
-          }}
-        >
-          <img
-            src="/line-layout.png"
-            alt="생산라인 구성도 확대"
-            style={{
-              maxWidth: "95vw",
-              maxHeight: "95vh",
-              objectFit: "contain",
-              background: "white",
-              borderRadius: 12,
-            }}
-          />
-        </div>
-      )}
-    </section>
-  );
+  return <section className="card"><h2>생산라인 구성도</h2><div className="home-img"><img src="/line-layout.png" alt="생산라인 구성도" /></div><div className="home-buttons"><button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button><button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button><button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button></div></section>;
 }
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase }: any) {
   return <section className="card"><h2>구매조회</h2><div className="grid3"><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>;
@@ -612,5 +686,5 @@ function SimpleVendorTable({ vendors, deleteVendor }: any) {
 }
 
 const css = `
-*{box-sizing:border-box} body{margin:0;font-family:Arial,'Malgun Gothic',sans-serif;background:#0f172a;color:#0f172a} button{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:#e2e8f0} button:hover{filter:brightness(.96)} input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;background:#fff} label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px}.app{max-width:1280px;margin:auto;padding:24px}.hero{background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}.hero h1{margin:0;font-size:30px}.hero p{margin:8px 0 0;color:#dbeafe}.menu{display:flex;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:18px 0}.menu>button,.menu-group>button{background:rgba(255,255,255,.18);color:white}.menu>button.active{background:#facc15;color:#111827}.menu-group{position:relative}.sub{display:none;position:absolute;top:100%;left:0;padding-top:6px;z-index:100}.sub button{display:block;width:150px;border-radius:0;background:white;color:#111827;text-align:left}.sub button:first-child{border-radius:10px 10px 0 0}.sub button:last-child{border-radius:0 0 10px 10px}.menu-group:hover .sub{display:block}.card{background:rgba(255,255,255,.94);border-radius:24px;padding:22px;margin-top:18px;box-shadow:0 20px 50px rgba(0,0,0,.2)}.card h2{margin:0 0 18px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}.field{margin-bottom:12px}.search-wrap{position:relative}.dropdown{position:absolute;left:0;right:0;top:100%;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.18);max-height:320px;overflow:auto}.dropdown-item{padding:10px;cursor:pointer}.dropdown-item:hover{background:#f1f5f9}.dropdown-empty{padding:10px;color:#94a3b8}.table-wrap{overflow:visible;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px}.scroll-table{overflow:auto;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px;max-height:420px}table{width:100%;border-collapse:collapse;background:white}th{background:#e2e8f0;text-align:left;padding:10px;white-space:nowrap}td{border-top:1px solid #e2e8f0;padding:8px;white-space:nowrap}td input{height:36px}.right{text-align:right}.bold{font-weight:800}.between{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:14px 0}.totals{text-align:right}.totals .big{font-size:20px;font-weight:800;margin-top:5px}.actions{display:flex;gap:10px;margin-top:16px}.right-actions{justify-content:flex-end}.primary{background:#16a34a;color:white}.icon{padding:6px 8px;margin-right:4px}.upload{display:inline-flex;gap:7px;align-items:center;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}.upload input{display:none}.empty{text-align:center;color:#64748b;padding:36px}.home-img{height:520px;background:#f1f5f9;border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden}.home-img img{width:100%;height:100%;object-fit:contain}.home-buttons{display:flex;justify-content:center;gap:16px;margin-top:18px}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;z-index:999999}.modal-box{width:min(620px,92vw);background:white;border-radius:22px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35)}.modal-box h2{margin:0 0 18px}@media(max-width:900px){.grid2,.grid3,.grid5,.two{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,'Malgun Gothic',sans-serif;background:#0f172a;color:#0f172a} button{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:#e2e8f0} button:hover{filter:brightness(.96)} input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;background:#fff} label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px}.app{max-width:1280px;margin:auto;padding:24px}.hero{background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}.hero h1{margin:0;font-size:30px}.hero p{margin:8px 0 0;color:#dbeafe}.loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}.menu{display:flex;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:18px 0}.menu>button,.menu-group>button{background:rgba(255,255,255,.18);color:white}.menu>button.active{background:#facc15;color:#111827}.menu-group{position:relative}.sub{display:none;position:absolute;top:100%;left:0;padding-top:6px;z-index:100}.sub button{display:block;width:150px;border-radius:0;background:white;color:#111827;text-align:left}.sub button:first-child{border-radius:10px 10px 0 0}.sub button:last-child{border-radius:0 0 10px 10px}.menu-group:hover .sub{display:block}.card{background:rgba(255,255,255,.94);border-radius:24px;padding:22px;margin-top:18px;box-shadow:0 20px 50px rgba(0,0,0,.2)}.card h2{margin:0 0 18px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}.field{margin-bottom:12px}.search-wrap{position:relative}.dropdown{position:absolute;left:0;right:0;top:100%;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.18);max-height:320px;overflow:auto}.dropdown-item{padding:10px;cursor:pointer}.dropdown-item:hover{background:#f1f5f9}.dropdown-empty{padding:10px;color:#94a3b8}.table-wrap{overflow:visible;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px}.scroll-table{overflow:auto;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px;max-height:420px}table{width:100%;border-collapse:collapse;background:white}th{background:#e2e8f0;text-align:left;padding:10px;white-space:nowrap}td{border-top:1px solid #e2e8f0;padding:8px;white-space:nowrap}td input{height:36px}.right{text-align:right}.bold{font-weight:800}.between{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:14px 0}.totals{text-align:right}.totals .big{font-size:20px;font-weight:800;margin-top:5px}.actions{display:flex;gap:10px;margin-top:16px}.right-actions{justify-content:flex-end}.primary{background:#16a34a;color:white}.icon{padding:6px 8px;margin-right:4px}.upload{display:inline-flex;gap:7px;align-items:center;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}.upload input{display:none}.empty{text-align:center;color:#64748b;padding:36px}.home-img{height:520px;background:#f1f5f9;border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden}.home-img img{width:100%;height:100%;object-fit:contain}.home-buttons{display:flex;justify-content:center;gap:16px;margin-top:18px}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;z-index:999999}.modal-box{width:min(620px,92vw);background:white;border-radius:22px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35)}.modal-box h2{margin:0 0 18px}@media(max-width:900px){.grid2,.grid3,.grid5,.two{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
 `;
