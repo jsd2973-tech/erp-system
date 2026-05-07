@@ -644,7 +644,13 @@ export default function App() {
     setMaints((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const filteredMaints = maints.filter((m) => (!maintSearch.from || (m.date || "") >= maintSearch.from) && (!maintSearch.to || (m.date || "") <= maintSearch.to) && (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)));
+  const filteredMaints = maints
+    .filter((m) => (!maintSearch.from || (m.date || "") >= maintSearch.from) && (!maintSearch.to || (m.date || "") <= maintSearch.to) && (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)))
+    .sort((a, b) => {
+      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    });
 
   return (
     <div>
@@ -962,6 +968,34 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
 function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab }: any) {
   const [selected, setSelected] = useState<Maint | null>(null);
 
+  const maintNoMap = useMemo(() => {
+    const dateCounts = new Map<string, number>();
+    const orderedByOldest = [...maints].sort((a, b) => {
+      const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+
+    orderedByOldest.forEach((m) => {
+      const date = m.date || "날짜없음";
+      const nextNo = (dateCounts.get(date) || 0) + 1;
+      dateCounts.set(date, nextNo);
+    });
+
+    const running = new Map<string, number>();
+    const map = new Map<string, string>();
+
+    orderedByOldest.forEach((m) => {
+      const date = m.date || "날짜없음";
+      const nextNo = (running.get(date) || 0) + 1;
+      running.set(date, nextNo);
+      const displayDate = date === "날짜없음" ? "날짜없음" : date.replaceAll("-", "/");
+      map.set(m.id, `${displayDate}-${String(nextNo).padStart(2, "0")}`);
+    });
+
+    return map;
+  }, [maints]);
+
   return (
     <section className="card">
       <div className="between" style={{marginBottom:16}}>
@@ -993,6 +1027,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <table>
           <thead>
             <tr>
+              <th>관리번호</th>
               <th>일자</th>
               <th>창고</th>
               <th>제목</th>
@@ -1005,7 +1040,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           </thead>
           <tbody>
             {!maints.length ? (
-              <tr><td colSpan={8} className="empty">저장된 정비내역 없음</td></tr>
+              <tr><td colSpan={9} className="empty">저장된 정비내역 없음</td></tr>
             ) : (
               maints.map((m: Maint) => {
                 const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
@@ -1013,6 +1048,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                 const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
                 return (
                   <tr key={m.id}>
+                    <td>{maintNoMap.get(m.id) || "-"}</td>
                     <td>{m.date}</td>
                     <td>{m.warehouse}</td>
                     <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
@@ -1036,7 +1072,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
           <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{selected.title}</h2>
-            <p><b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>담당자:</b> {selected.manager || "-"}</p>
+            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>담당자:</b> {selected.manager || "-"}</p>
             <p><b>내용:</b> {selected.detail || "-"}</p>
             <ScrollTable>
               <table>
