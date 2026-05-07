@@ -1030,7 +1030,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               <th>관리번호</th>
               <th>창고</th>
               <th>제목</th>
-              <th>담당자</th>
+              <th>내용</th>
               <th>공급가액</th>
               <th>부가세</th>
               <th>합계</th>
@@ -1050,7 +1050,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     <td>{maintNoMap.get(m.id) || "-"}</td>
                     <td>{m.warehouse}</td>
                     <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
-                    <td>{m.manager}</td>
+                    <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
                     <td className="right">{money(supply)}</td>
                     <td className="right">{money(vat)}</td>
                     <td className="right bold">{money(total)}</td>
@@ -1221,6 +1221,11 @@ td .icon{
 .table-wrap th,
 .table-wrap td{
   padding:10px 8px;
+}
+
+.maint-detail-text{
+  font-size:13px;
+  color:#64748b;
 }
 
 `;
