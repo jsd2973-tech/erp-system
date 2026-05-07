@@ -1028,7 +1028,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           <thead>
             <tr>
               <th>관리번호</th>
-              <th>일자</th>
               <th>창고</th>
               <th>제목</th>
               <th>담당자</th>
@@ -1049,7 +1048,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                 return (
                   <tr key={m.id}>
                     <td>{maintNoMap.get(m.id) || "-"}</td>
-                    <td>{m.date}</td>
                     <td>{m.warehouse}</td>
                     <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
                     <td>{m.manager}</td>
