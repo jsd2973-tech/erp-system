@@ -1099,8 +1099,10 @@ td input{height:36px}
   color:#2563eb;
   text-decoration:underline;
   padding:0;
-  font-weight:700;
-  font-size:14px;
+  border:none;
+  font:inherit;
+  font-weight:600;
+  cursor:pointer;
 }
 .wide-modal{width:min(1100px,94vw)}
 @media(max-width:900px){.maint-filter{grid-template-columns:1fr}}
