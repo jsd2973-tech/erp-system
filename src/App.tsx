@@ -626,7 +626,7 @@ export default function App() {
       <style>{css}</style>
       <div className="app">
         <header className="hero">
-          <h1>태명산업개발</h1>
+          <h1 className="main-title">태명산업개발</h1>
 <p>통합 관리 시스템</p>
         </header>
 
@@ -940,8 +940,23 @@ input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;backgro
 label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px}
 .app{width:100%;min-height:100vh;margin:0;padding:24px;box-sizing:border-box}
 .hero{width:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
-.hero h1{margin:0;font-size:30px;text-align:center}
-.hero p{margin:8px 0 0;color:#dbeafe;text-align:center}
+.main-title{
+  margin:0;
+  text-align:center;
+  font-size:42px;
+  font-weight:900;
+  letter-spacing:4px;
+  color:white;
+  text-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.hero p{
+  margin:10px 0 0;
+  color:#dbeafe;
+  text-align:center;
+  font-size:18px;
+  font-weight:600;
+  letter-spacing:2px;
+}
 .loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}
 .menu{display:flex;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:18px 0;width:100%}
 .menu>button,.menu-group>button{background:rgba(255,255,255,.18);color:white}
