@@ -594,12 +594,18 @@ export default function App() {
               <table>
                 <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th></th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
-  <div style={{ display: "flex", gap: 6 }}>
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, minWidth: 520 }}>
     <SearchSelect
       value={r.item}
       options={itemOptions}
       onChange={(v) => updateRow(i, "item", v)}
-      placeholder="품목명이나 코드 입력"
+      placeholder="품목 검색"
+    />
+    <input
+      value={r.item}
+      onChange={(e) => updateRow(i, "item", e.target.value)}
+      placeholder="품목명 직접수정"
+      title="이번 구매입력에서만 품목명을 수정합니다. 품목등록 원본은 바뀌지 않습니다."
     />
     <button
       type="button"
