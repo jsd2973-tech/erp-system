@@ -594,7 +594,7 @@ export default function App() {
               <table>
                 <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th></th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, minWidth: 520 }}>
+  <div style={{ display: "grid", gridTemplateColumns: "220px 220px 70px", gap: 6, minWidth: 520 }}>
     <SearchSelect
       value={r.item}
       options={itemOptions}
