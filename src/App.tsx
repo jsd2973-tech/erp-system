@@ -228,7 +228,12 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
-  const [maintSearch, setMaintSearch] = useState({ warehouse: "", keyword: "" });
+  const [maintSearch, setMaintSearch] = useState({
+  from: "",
+  to: "",
+  warehouse: "",
+  keyword: "",
+});
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
 
