@@ -574,7 +574,7 @@ export default function App() {
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
           <button onClick={loadAll}>새로고침</button>
@@ -617,6 +617,8 @@ export default function App() {
         )}
 
         {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} />}
+
+        {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
         {menuTab === "vendors" && (
           <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={clearVendors}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} /></section>
@@ -678,6 +680,104 @@ function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase }: any) {
   return <section className="card"><h2>구매조회</h2><div className="grid3"><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>;
 }
+
+function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [vendor, setVendor] = useState("");
+  const [item, setItem] = useState("");
+
+  const filtered = useMemo(() => {
+    return purchases.filter((p) => {
+      const d = p.date || "";
+      const okFrom = !from || d >= from;
+      const okTo = !to || d <= to;
+      const okVendor = !vendor || p.vendor.includes(vendor);
+      const okItem = !item || p.rows.some((r) => r.item.includes(item));
+      return okFrom && okTo && okVendor && okItem;
+    });
+  }, [purchases, from, to, vendor, item]);
+
+  const summary = useMemo(() => {
+    const totalSupply = filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0);
+    const totalVat = filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0);
+    const total = filtered.reduce((sum, p) => sum + Number(p.total || 0), 0);
+    const rowCount = filtered.reduce((sum, p) => sum + (p.rows?.length || 0), 0);
+    return { totalSupply, totalVat, total, rowCount };
+  }, [filtered]);
+
+  const monthly = useMemo(() => {
+    const map = new Map<string, { month: string; count: number; supply: number; vat: number; total: number }>();
+    filtered.forEach((p) => {
+      const month = (p.date || "미지정").slice(0, 7) || "미지정";
+      const cur = map.get(month) || { month, count: 0, supply: 0, vat: 0, total: 0 };
+      cur.count += 1;
+      cur.supply += Number(p.supplyTotal || 0);
+      cur.vat += Number(p.vatTotal || 0);
+      cur.total += Number(p.total || 0);
+      map.set(month, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
+  }, [filtered]);
+
+  const byVendor = useMemo(() => {
+    const map = new Map<string, { vendor: string; count: number; total: number }>();
+    filtered.forEach((p) => {
+      const name = p.vendor || "미지정";
+      const cur = map.get(name) || { vendor: name, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += Number(p.total || 0);
+      map.set(name, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  return (
+    <section className="card">
+      <h2>구매현황</h2>
+      <div className="grid5">
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
+        <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
+        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
+      </div>
+
+      <div className="status-cards">
+        <div><span>구매건수</span><b>{filtered.length}건</b></div>
+        <div><span>품목행수</span><b>{summary.rowCount}건</b></div>
+        <div><span>공급가액</span><b>{money(summary.totalSupply)}원</b></div>
+        <div><span>부가세액</span><b>{money(summary.totalVat)}원</b></div>
+        <div><span>총합계</span><b>{money(summary.total)}원</b></div>
+      </div>
+
+      <h3>월별 구매현황</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>월</th><th>구매건수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
+          <tbody>{!monthly.length ? <tr><td colSpan={5} className="empty">조회된 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.count}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>거래처별 구매현황</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>거래처</th><th>구매건수</th><th>합계</th></tr></thead>
+          <tbody>{!byVendor.length ? <tr><td colSpan={3} className="empty">조회된 거래처 없음</td></tr> : byVendor.map((v) => <tr key={v.vendor}><td>{v.vendor}</td><td>{v.count}</td><td className="right bold">{money(v.total)}</td></tr>)}</tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>상세 구매내역</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
+          <tbody>{!filtered.length ? <tr><td colSpan={7} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
+        </table>
+      </ScrollTable>
+    </section>
+  );
+}
+
 function MaintList({ maints, search, setSearch, editMaint, deleteMaint }: any) {
   return <section className="card"><h2>정비조회</h2><div className="grid2"><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="제목/내용/담당자 검색" value={search.keyword} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>창고</th><th>제목</th><th>담당자</th><th>비용</th><th>관리</th></tr></thead><tbody>{!maints.length ? <tr><td colSpan={6} className="empty">저장된 정비내역 없음</td></tr> : maints.map((m: Maint) => <tr key={m.id}><td>{m.date}</td><td>{m.warehouse}</td><td>{m.title}</td><td>{m.manager}</td><td>{money(m.cost)}</td><td><button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>;
 }
@@ -743,5 +843,9 @@ td input{height:36px}
 .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;z-index:999999}
 .modal-box{width:min(620px,92vw);background:white;border-radius:22px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 .modal-box h2{margin:0 0 18px}
-@media(max-width:900px){.grid2,.grid3,.grid5,.two{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
+.status-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:16px 0}
+.status-cards div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:16px}
+.status-cards span{display:block;color:#64748b;font-size:13px;margin-bottom:8px}
+.status-cards b{font-size:20px}
+@media(max-width:900px){.grid2,.grid3,.grid5,.two,.status-cards{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
 `;
