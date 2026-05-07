@@ -735,7 +735,12 @@ export default function App() {
 
             <div className="grid3">
               <Field label="정비일자">
-                <input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} />
+                <input
+                  type="text"
+                  placeholder="20260508"
+                  value={maintForm.date}
+                  onChange={(e) => setMaintForm({ ...maintForm, date: formatInputDate(e.target.value) })}
+                />
               </Field>
               <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
               <Field label="담당자">
