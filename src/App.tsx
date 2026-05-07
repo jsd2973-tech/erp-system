@@ -779,7 +779,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -921,12 +921,17 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   );
 }
 
-function MaintList({ maints, search, setSearch, editMaint, deleteMaint }: any) {
+function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab }: any) {
   const [selected, setSelected] = useState<Maint | null>(null);
 
   return (
     <section className="card">
-      <h2>정비조회</h2>
+      <div className="between" style={{marginBottom:16}}>
+        <h2 style={{margin:0}}>정비조회</h2>
+        <button className="primary" onClick={() => setMenuTab("maint_new")}>
+          <Plus size={16} /> 정비등록
+        </button>
+      </div>
 
       <div className="maint-filter">
         <Field label="시작일">
