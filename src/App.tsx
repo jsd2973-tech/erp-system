@@ -62,6 +62,17 @@ const read = <T,>(key: string, fallback: T): T => {
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
+
+const formatInputDate = (value: string) => {
+  const numbers = value.replace(/\D/g, "").slice(0, 8);
+
+  if (numbers.length === 8) {
+    return `${numbers.slice(0, 4)}-${numbers.slice(4, 6)}-${numbers.slice(6, 8)}`;
+  }
+
+  return value;
+};
+
 const money = (v: number | string | undefined) => Number(v || 0).toLocaleString("ko-KR");
 
 const pick = (obj: Record<string, any>, keys: string[]) => {
