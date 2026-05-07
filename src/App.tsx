@@ -221,10 +221,14 @@ export default function App() {
 
   const [vendorForm, setVendorForm] = useState({ code: `V${String(vendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
+  const [editingVendorId, setEditingVendorId] = useState("");
   const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
   const [warehouseForm, setWarehouseForm] = useState({ group: "", code: nextCode(warehouses), name: "" });
+  const [editingGroupId, setEditingGroupId] = useState("");
+  const [editingWarehouseId, setEditingWarehouseId] = useState("");
   const [itemForm, setItemForm] = useState({ code: nextCode(items), name: "", spec: "", unit: "", price: "" });
   const [itemImportMessage, setItemImportMessage] = useState("");
+  const [editingItemId, setEditingItemId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
@@ -369,13 +373,14 @@ export default function App() {
 
   const saveVendor = async () => {
     if (!vendorForm.name) return;
-    const existing = vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
+    const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
     const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
     const { error } = await supabase.from("vendors").upsert(payload);
     if (error) return alert(`거래처 저장 실패: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
     setVendorForm({ code: `V${String(next.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
+    setEditingVendorId("");
   };
 
   const importVendors = async (file: File) => {
@@ -404,22 +409,24 @@ export default function App() {
 
   const saveGroup = async () => {
     if (!groupForm.name) return;
-    const payload: Group = { id: uid(), ...groupForm };
-    const { error } = await supabase.from("warehouse_groups").insert(payload);
+    const payload: Group = { id: editingGroupId || uid(), ...groupForm };
+    const { error } = await supabase.from("warehouse_groups").upsert(payload);
     if (error) return alert(`대분류 저장 실패: ${error.message}`);
-    const next = [...groups, payload];
+    const next = editingGroupId ? groups.map((g) => (g.id === editingGroupId ? payload : g)) : [...groups, payload];
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
+    setEditingGroupId("");
   };
 
   const saveWarehouse = async () => {
     if (!warehouseForm.group || !warehouseForm.name) return;
-    const payload: Warehouse = { id: uid(), ...warehouseForm };
-    const { error } = await supabase.from("warehouses").insert(payload);
+    const payload: Warehouse = { id: editingWarehouseId || uid(), ...warehouseForm };
+    const { error } = await supabase.from("warehouses").upsert(payload);
     if (error) return alert(`창고 저장 실패: ${error.message}`);
-    const next = [...warehouses, payload];
+    const next = editingWarehouseId ? warehouses.map((w) => (w.id === editingWarehouseId ? payload : w)) : [...warehouses, payload];
     setWarehouses(next);
     setWarehouseForm({ group: "", code: nextCode(next), name: "" });
+    setEditingWarehouseId("");
   };
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
@@ -448,13 +455,14 @@ export default function App() {
 
   const saveItem = async () => {
     if (!itemForm.name) return;
-    const existing = items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
+    const existing = editingItemId ? items.find((i) => i.id === editingItemId) : items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
     const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
     const { error } = await supabase.from("items").upsert(payload);
     if (error) return alert(`품목 저장 실패: ${error.message}`);
     const next = existing ? items.map((i) => (i.id === existing.id ? payload : i)) : [...items, payload];
     setItems(next);
     setItemForm({ code: nextCode(next), name: "", spec: "", unit: "", price: "" });
+    setEditingItemId("");
   };
 
   const importItems = async (file: File) => {
@@ -583,6 +591,27 @@ export default function App() {
     setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
   };
 
+
+  const editVendor = (v: Vendor) => {
+    setEditingVendorId(v.id);
+    setVendorForm({ code: v.code || "", name: v.name || "", owner: v.owner || "", phone: v.phone || "", mobile: v.mobile || "" });
+  };
+
+  const editGroup = (g: Group) => {
+    setEditingGroupId(g.id);
+    setGroupForm({ code: g.code || "", name: g.name || "" });
+  };
+
+  const editWarehouse = (w: Warehouse) => {
+    setEditingWarehouseId(w.id);
+    setWarehouseForm({ code: w.code || "", group: w.group || "", name: w.name || "" });
+  };
+
+  const editItem = (it: Item) => {
+    setEditingItemId(it.id);
+    setItemForm({ code: it.code || "", name: it.name || "", spec: it.spec || "", unit: it.unit || "", price: String(it.price || "") });
+  };
+
   const deletePurchase = async (id: string) => {
     const { error } = await supabase.from("purchases").delete().eq("id", id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
@@ -683,15 +712,15 @@ export default function App() {
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={clearVendors}>전체삭제</button><button className="primary" onClick={saveVendor}>거래처 저장</button></div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions"><button onClick={clearVendors}>전체삭제</button><button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button></div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
-          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field><button className="primary" onClick={saveGroup}>대분류 저장</button><ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field><button className="primary" onClick={saveWarehouse}>세부 창고 저장</button><ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></div></div></section>
+          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field><button className="primary" onClick={saveGroup}>{editingGroupId ? "대분류 수정저장" : "대분류 저장"}</button><ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field><button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "세부창고 수정저장" : "세부 창고 저장"}</button><ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></div></div></section>
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveItem}>품목 저장</button></div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveItem}>{editingItemId ? "품목 수정저장" : "품목 저장"}</button></div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
@@ -1038,8 +1067,8 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     </section>
   );
 }
-function SimpleVendorTable({ vendors, deleteVendor }: any) {
-  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable>;
+function SimpleVendorTable({ vendors, deleteVendor, editVendor }: any) {
+  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable>;
 }
 
 const css = `
