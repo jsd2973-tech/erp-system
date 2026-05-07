@@ -1094,7 +1094,14 @@ td input{height:36px}
 .maint-filter{display:grid;grid-template-columns:170px 170px 260px 1fr 120px;gap:12px;align-items:end;margin-bottom:16px}
 .maint-filter .field{margin-bottom:0}
 .maint-filter button{height:40px;justify-content:center}
-.link-btn{background:transparent;color:#2563eb;text-decoration:underline;padding:0;font-weight:700}
+.link-btn{
+  background:transparent;
+  color:#2563eb;
+  text-decoration:underline;
+  padding:0;
+  font-weight:700;
+  font-size:14px;
+}
 .wide-modal{width:min(1100px,94vw)}
 @media(max-width:900px){.maint-filter{grid-template-columns:1fr}}
 
