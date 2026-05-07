@@ -225,7 +225,7 @@ export default function App() {
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
   const [editingMaintId, setEditingMaintId] = useState("");
-  const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
+  const [maintSearch, setMaintSearch] = useState({ warehouse: "", keyword: "" });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
 
@@ -559,14 +559,7 @@ export default function App() {
     setMaints((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const filteredMaints = maints.filter((m) => {
-    const d = m.date || "";
-    const okFrom = !maintSearch.from || d >= maintSearch.from;
-    const okTo = !maintSearch.to || d <= maintSearch.to;
-    const okWarehouse = !maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse);
-    const okKeyword = !maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword);
-    return okFrom && okTo && okWarehouse && okKeyword;
-  });
+  const filteredMaints = maints.filter((m) => (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)));
 
   return (
     <div>
@@ -649,7 +642,7 @@ export default function App() {
           <section className="card"><h2>{editingMaintId ? "정비수정" : "정비등록"}</h2><div className="grid3"><Field label="정비일자"><input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} /></Field><SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="로더 입력" /><Field label="담당자"><input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} /></Field><Field label="정비제목"><input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} /></Field><Field label="정비내용"><input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} /></Field><Field label="정비비용"><input value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveMaint}>정비 저장</button><button onClick={resetMaintForm}>초기화</button></div></section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} warehouseOptions={warehouseNames} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -791,106 +784,8 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   );
 }
 
-function MaintList({ maints, search, setSearch, editMaint, deleteMaint, warehouseOptions }: any) {
-  const [openId, setOpenId] = useState("");
-
-  const getMaintItems = (m: any) => Array.isArray(m.items) ? m.items : [];
-  const getSupply = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.supply || 0), 0);
-  const getVat = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.vat || 0), 0);
-  const getTotal = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.total || 0), 0) || Number(m.cost || 0);
-
-  return (
-    <section className="card">
-      <h2>정비조회</h2>
-      <div className="grid5">
-        <Field label="시작일">
-          <input type="date" value={search.from || ""} onChange={(e) => setSearch({ ...search, from: e.target.value })} />
-        </Field>
-        <Field label="종료일">
-          <input type="date" value={search.to || ""} onChange={(e) => setSearch({ ...search, to: e.target.value })} />
-        </Field>
-        <SearchSelect
-          label="창고"
-          value={search.warehouse || ""}
-          options={warehouseOptions || []}
-          onChange={(v) => setSearch({ ...search, warehouse: v })}
-          placeholder="창고 선택/검색"
-        />
-        <Field label="제목/내용/담당자">
-          <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
-        </Field>
-        <Field label="초기화">
-          <button onClick={() => setSearch({ from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
-        </Field>
-      </div>
-
-      <ScrollTable>
-        <table>
-          <thead>
-            <tr>
-              <th>일자</th><th>창고</th><th>제목</th><th>담당자</th><th>공급가액</th><th>부가세</th><th>합계</th><th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!maints.length ? (
-              <tr><td colSpan={8} className="empty">조회된 정비내역 없음</td></tr>
-            ) : maints.map((m: any) => {
-              const isOpen = openId === m.id;
-              const items = getMaintItems(m);
-              return (
-                <>
-                  <tr key={m.id}>
-                    <td>{m.date}</td>
-                    <td>{m.warehouse}</td>
-                    <td>
-                      <button className="link-btn" onClick={() => setOpenId(isOpen ? "" : m.id)}>
-                        {m.title || "상세보기"}
-                      </button>
-                    </td>
-                    <td>{m.manager}</td>
-                    <td className="right">{money(getSupply(m))}</td>
-                    <td className="right">{money(getVat(m))}</td>
-                    <td className="right bold">{money(getTotal(m))}</td>
-                    <td>
-                      <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
-                      <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
-                    </td>
-                  </tr>
-                  {isOpen && (
-                    <tr key={`${m.id}-detail`}>
-                      <td colSpan={8}>
-                        <div className="detail-box">
-                          <b>정비내용</b>
-                          <div style={{ margin: "6px 0 12px" }}>{m.detail || "-"}</div>
-                          <b>사용 품목</b>
-                          <table style={{ marginTop: 8 }}>
-                            <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-                            <tbody>
-                              {!items.length ? <tr><td colSpan={7} className="empty">등록된 사용 품목 없음</td></tr> : items.map((it: any, idx: number) => (
-                                <tr key={idx}>
-                                  <td>{it.item || it.name || "-"}</td>
-                                  <td>{it.spec || "-"}</td>
-                                  <td className="right">{it.qty || 0}</td>
-                                  <td className="right">{money(it.price)}</td>
-                                  <td className="right">{money(it.supply)}</td>
-                                  <td className="right">{money(it.vat)}</td>
-                                  <td className="right bold">{money(it.total)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
-      </ScrollTable>
-    </section>
-  );
+function MaintList({ maints, search, setSearch, editMaint, deleteMaint }: any) {
+  return <section className="card"><h2>정비조회</h2><div className="grid2"><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="제목/내용/담당자 검색" value={search.keyword} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>창고</th><th>제목</th><th>담당자</th><th>비용</th><th>관리</th></tr></thead><tbody>{!maints.length ? <tr><td colSpan={6} className="empty">저장된 정비내역 없음</td></tr> : maints.map((m: Maint) => <tr key={m.id}><td>{m.date}</td><td>{m.warehouse}</td><td>{m.title}</td><td>{m.manager}</td><td>{money(m.cost)}</td><td><button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable></section>;
 }
 function SimpleVendorTable({ vendors, deleteVendor }: any) {
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></td></tr>)}</tbody></table></ScrollTable>;
@@ -906,8 +801,8 @@ input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;backgro
 label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px}
 .app{width:100%;min-height:100vh;margin:0;padding:24px;box-sizing:border-box}
 .hero{width:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
-.hero h1{margin:0;font-size:30px;text-align:center}
-.hero p{margin:8px 0 0;color:#dbeafe;text-align:center}
+.main-title{margin:0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;color:white;text-shadow:0 4px 14px rgba(0,0,0,.35)}
+.hero p{margin:10px 0 0;color:#dbeafe;text-align:center;font-size:18px;font-weight:600;letter-spacing:2px}
 .loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}
 .menu{display:flex;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:18px 0;width:100%}
 .menu>button,.menu-group>button{background:rgba(255,255,255,.18);color:white}
@@ -958,7 +853,5 @@ td input{height:36px}
 .status-cards div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:16px}
 .status-cards span{display:block;color:#64748b;font-size:13px;margin-bottom:8px}
 .status-cards b{font-size:20px}
-.link-btn{background:transparent;color:#2563eb;padding:0;font-weight:800;text-decoration:underline}
-.detail-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
 @media(max-width:900px){.grid2,.grid3,.grid5,.two,.status-cards{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
 `;
