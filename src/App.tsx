@@ -802,7 +802,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, warehous
   return (
     <section className="card">
       <h2>정비조회</h2>
-      <div className="grid5">
+      <div className="maint-filter">
         <Field label="시작일">
           <input type="date" value={search.from || ""} onChange={(e) => setSearch({ ...search, from: e.target.value })} />
         </Field>
@@ -960,5 +960,19 @@ td input{height:36px}
 .status-cards b{font-size:20px}
 .link-btn{background:transparent;color:#2563eb;padding:0;font-weight:800;text-decoration:underline}
 .detail-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
+
+.maint-filter{
+  display:grid;
+  grid-template-columns:180px 180px 260px 1fr 120px;
+  gap:14px;
+  align-items:end;
+  margin-bottom:16px;
+}
+.maint-filter .field{margin-bottom:0}
+.maint-filter button{height:40px;justify-content:center}
+@media(max-width:900px){
+  .maint-filter{grid-template-columns:1fr}
+}
+
 @media(max-width:900px){.grid2,.grid3,.grid5,.two,.status-cards{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
 `;
