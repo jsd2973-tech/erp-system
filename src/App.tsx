@@ -1111,7 +1111,7 @@ td{
 td.right,
 th.right,
 .right{
-  text-align:right;
+  text-align:center;
 }
 td:last-child,
 th:last-child{
