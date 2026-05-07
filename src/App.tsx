@@ -626,8 +626,8 @@ export default function App() {
       <style>{css}</style>
       <div className="app">
         <header className="hero">
-          <h1>구매관리 시스템</h1>
-          <p>구매 · 기초등록 · 정비 관리</p>
+          <h1>태명산업개발</h1>
+<p>통합 관리 시스템</p>
         </header>
 
         {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
