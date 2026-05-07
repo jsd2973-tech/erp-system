@@ -9,7 +9,8 @@ type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
-type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string };
+type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
+type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 
 
 const supabase = createClient(
@@ -180,6 +181,7 @@ function SearchSelect({
 }
 
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
+const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 
 export default function App() {
   const [vendors, setVendors] = useState<Vendor[]>(() =>
@@ -224,8 +226,9 @@ export default function App() {
   const [itemForm, setItemForm] = useState({ code: nextCode(items), name: "", spec: "", unit: "", price: "" });
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
+  const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
-  const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
+  const [maintSearch, setMaintSearch] = useState({ warehouse: "", keyword: "" });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
 
@@ -257,7 +260,7 @@ export default function App() {
     setWarehouses(nextWarehouses);
     setItems(nextItems);
     setPurchases(((pRes.data || []) as any[]).map(toPurchase));
-    setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0) })));
+    setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
 
     setVendorForm({ code: `V${String(nextVendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
@@ -509,13 +512,56 @@ export default function App() {
     closeNewItemModal();
   };
 
+
+  const updateMaintItem = (index: number, key: keyof MaintItem, value: any) => {
+    const next = [...maintItems];
+    next[index] = { ...next[index], [key]: value };
+
+    if (key === "item") {
+      const found = items.find((it) => it.name === value);
+      if (found) {
+        next[index].spec = found.spec || "";
+        next[index].price = found.price || 0;
+      }
+    }
+
+    if (["item", "qty", "price"].includes(key)) {
+      const qty = Number(next[index].qty || 0);
+      const price = Number(next[index].price || 0);
+      next[index].supply = qty * price;
+      next[index].vat = Math.round(next[index].supply * 0.1);
+      next[index].total = next[index].supply + next[index].vat;
+    }
+
+    if (key === "supply") {
+      next[index].supply = Number(value || 0);
+      next[index].vat = Math.round(next[index].supply * 0.1);
+      next[index].total = next[index].supply + next[index].vat;
+    }
+
+    if (key === "vat") {
+      next[index].vat = Number(value || 0);
+      next[index].total = Number(next[index].supply || 0) + next[index].vat;
+    }
+
+    setMaintItems(next);
+    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+  };
+
+  const maintSupplyTotal = maintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
+  const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
+  const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
+
   const resetMaintForm = () => {
     setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
+    setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
   };
   const saveMaint = async () => {
     if (!maintForm.warehouse || !maintForm.title) return;
-    const payload = { id: editingMaintId || uid(), ...maintForm, cost: Number(maintForm.cost || 0) };
+    const validItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
+    const payload = { id: editingMaintId || uid(), ...maintForm, items: validItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal, cost: Number(maintGrandTotal || maintForm.cost || 0) };
     const { error } = await supabase.from("maints").upsert(payload);
     if (error) return alert(`정비 저장 실패: ${error.message}`);
     setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
@@ -525,6 +571,7 @@ export default function App() {
     setMenuTab("maint_new");
     setEditingMaintId(m.id);
     setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || "") });
+    setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
   };
 
   const deletePurchase = async (id: string) => {
@@ -559,14 +606,7 @@ export default function App() {
     setMaints((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const filteredMaints = maints.filter((m) => {
-    const d = m.date || "";
-    const okFrom = !maintSearch.from || d >= maintSearch.from;
-    const okTo = !maintSearch.to || d <= maintSearch.to;
-    const okWarehouse = !maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse);
-    const okKeyword = !maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword);
-    return okFrom && okTo && okWarehouse && okKeyword;
-  });
+  const filteredMaints = maints.filter((m) => (!maintSearch.from || (m.date || "") >= maintSearch.from) && (!maintSearch.to || (m.date || "") <= maintSearch.to) && (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)));
 
   return (
     <div>
@@ -646,10 +686,100 @@ export default function App() {
         )}
 
         {menuTab === "maint_new" && (
-          <section className="card"><h2>{editingMaintId ? "정비수정" : "정비등록"}</h2><div className="grid3"><Field label="정비일자"><input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} /></Field><SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="로더 입력" /><Field label="담당자"><input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} /></Field><Field label="정비제목"><input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} /></Field><Field label="정비내용"><input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} /></Field><Field label="정비비용"><input value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} /></Field></div><div className="actions right-actions"><button className="primary" onClick={saveMaint}>정비 저장</button><button onClick={resetMaintForm}>초기화</button></div></section>
+          <section className="card">
+            <h2>{editingMaintId ? "정비수정" : "정비등록"}</h2>
+
+            <div className="grid3">
+              <Field label="정비일자">
+                <input type="date" value={maintForm.date} onChange={(e) => setMaintForm({ ...maintForm, date: e.target.value })} />
+              </Field>
+              <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
+              <Field label="담당자">
+                <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
+              </Field>
+              <Field label="정비제목">
+                <input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
+              </Field>
+              <Field label="정비내용">
+                <input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} />
+              </Field>
+              <Field label="정비비용">
+                <input value={maintForm.cost} readOnly />
+              </Field>
+            </div>
+
+            <h3>사용 품목</h3>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>품목</th>
+                    <th>규격</th>
+                    <th>수량</th>
+                    <th>단가</th>
+                    <th>공급가액</th>
+                    <th>부가세</th>
+                    <th>합계</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {maintItems.map((r, i) => (
+                    <tr key={r.id}>
+                      <td>
+                        <div style={{ display: "grid", gridTemplateColumns: "220px 220px", gap: 6, minWidth: 460 }}>
+                          <SearchSelect
+                            value={r.item}
+                            options={itemOptions}
+                            onChange={(v) => updateMaintItem(i, "item", v)}
+                            placeholder="품목 검색"
+                          />
+                          <input
+                            value={r.item}
+                            onChange={(e) => updateMaintItem(i, "item", e.target.value)}
+                            placeholder="품목명 직접수정"
+                          />
+                        </div>
+                      </td>
+                      <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
+                      <td><input className="right" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
+                      <td><input className="right" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
+                      <td><input className="right" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
+                      <td><input className="right" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
+                      <td className="right bold">{money(r.total)}</td>
+                      <td>
+                        <button className="icon" onClick={() => {
+                          const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, idx) => idx !== i);
+                          setMaintItems(next);
+                          const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
+                          setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+                        }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="between">
+              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목행 추가</button>
+              <div className="totals">
+                <div>공급가액 합계: <b>{money(maintSupplyTotal)}원</b></div>
+                <div>부가세 합계: <b>{money(maintVatTotal)}원</b></div>
+                <div className="big">정비비 총합: {money(maintGrandTotal)}원</div>
+              </div>
+            </div>
+
+            <div className="actions right-actions">
+              <button className="primary" onClick={saveMaint}>정비 저장</button>
+              <button onClick={resetMaintForm}>초기화</button>
+            </div>
+          </section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={maintSearch} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} warehouseOptions={warehouseNames} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -791,17 +921,13 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   );
 }
 
-function MaintList({ maints, search, setSearch, editMaint, deleteMaint, warehouseOptions }: any) {
-  const [openId, setOpenId] = useState("");
-
-  const getMaintItems = (m: any) => Array.isArray(m.items) ? m.items : [];
-  const getSupply = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.supply || 0), 0);
-  const getVat = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.vat || 0), 0);
-  const getTotal = (m: any) => getMaintItems(m).reduce((sum: number, it: any) => sum + Number(it.total || 0), 0) || Number(m.cost || 0);
+function MaintList({ maints, search, setSearch, editMaint, deleteMaint }: any) {
+  const [selected, setSelected] = useState<Maint | null>(null);
 
   return (
     <section className="card">
       <h2>정비조회</h2>
+
       <div className="maint-filter">
         <Field label="시작일">
           <input type="date" value={search.from || ""} onChange={(e) => setSearch({ ...search, from: e.target.value })} />
@@ -809,18 +935,14 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, warehous
         <Field label="종료일">
           <input type="date" value={search.to || ""} onChange={(e) => setSearch({ ...search, to: e.target.value })} />
         </Field>
-        <SearchSelect
-          label="창고"
-          value={search.warehouse || ""}
-          options={warehouseOptions || []}
-          onChange={(v) => setSearch({ ...search, warehouse: v })}
-          placeholder="창고 선택/검색"
-        />
+        <Field label="창고">
+          <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
+        </Field>
         <Field label="제목/내용/담당자">
           <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
         </Field>
         <Field label="초기화">
-          <button onClick={() => setSearch({ from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
+          <button onClick={() => setSearch({ ...search, from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
         </Field>
       </div>
 
@@ -828,67 +950,77 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, warehous
         <table>
           <thead>
             <tr>
-              <th>일자</th><th>창고</th><th>제목</th><th>담당자</th><th>공급가액</th><th>부가세</th><th>합계</th><th>관리</th>
+              <th>일자</th>
+              <th>창고</th>
+              <th>제목</th>
+              <th>담당자</th>
+              <th>공급가액</th>
+              <th>부가세</th>
+              <th>합계</th>
+              <th>관리</th>
             </tr>
           </thead>
           <tbody>
             {!maints.length ? (
-              <tr><td colSpan={8} className="empty">조회된 정비내역 없음</td></tr>
-            ) : maints.map((m: any) => {
-              const isOpen = openId === m.id;
-              const items = getMaintItems(m);
-              return (
-                <>
+              <tr><td colSpan={8} className="empty">저장된 정비내역 없음</td></tr>
+            ) : (
+              maints.map((m: Maint) => {
+                const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
+                const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
+                const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+                return (
                   <tr key={m.id}>
                     <td>{m.date}</td>
                     <td>{m.warehouse}</td>
-                    <td>
-                      <button className="link-btn" onClick={() => setOpenId(isOpen ? "" : m.id)}>
-                        {m.title || "상세보기"}
-                      </button>
-                    </td>
+                    <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
                     <td>{m.manager}</td>
-                    <td className="right">{money(getSupply(m))}</td>
-                    <td className="right">{money(getVat(m))}</td>
-                    <td className="right bold">{money(getTotal(m))}</td>
+                    <td className="right">{money(supply)}</td>
+                    <td className="right">{money(vat)}</td>
+                    <td className="right bold">{money(total)}</td>
                     <td>
                       <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
                       <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
                     </td>
                   </tr>
-                  {isOpen && (
-                    <tr key={`${m.id}-detail`}>
-                      <td colSpan={8}>
-                        <div className="detail-box">
-                          <b>정비내용</b>
-                          <div style={{ margin: "6px 0 12px" }}>{m.detail || "-"}</div>
-                          <b>사용 품목</b>
-                          <table style={{ marginTop: 8 }}>
-                            <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-                            <tbody>
-                              {!items.length ? <tr><td colSpan={7} className="empty">등록된 사용 품목 없음</td></tr> : items.map((it: any, idx: number) => (
-                                <tr key={idx}>
-                                  <td>{it.item || it.name || "-"}</td>
-                                  <td>{it.spec || "-"}</td>
-                                  <td className="right">{it.qty || 0}</td>
-                                  <td className="right">{money(it.price)}</td>
-                                  <td className="right">{money(it.supply)}</td>
-                                  <td className="right">{money(it.vat)}</td>
-                                  <td className="right bold">{money(it.total)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
-            })}
+                );
+              })
+            )}
           </tbody>
         </table>
       </ScrollTable>
+
+      {selected && (
+        <div className="modal-backdrop" onClick={() => setSelected(null)}>
+          <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>{selected.title}</h2>
+            <p><b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>담당자:</b> {selected.manager || "-"}</p>
+            <p><b>내용:</b> {selected.detail || "-"}</p>
+            <ScrollTable>
+              <table>
+                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+                <tbody>
+                  {!(selected.items || []).length ? (
+                    <tr><td colSpan={7} className="empty">사용 품목 없음</td></tr>
+                  ) : (
+                    (selected.items || []).map((r: any) => (
+                      <tr key={r.id || `${r.item}-${r.spec}`}>
+                        <td>{r.item}</td>
+                        <td>{r.spec || "-"}</td>
+                        <td className="right">{r.qty}</td>
+                        <td className="right">{money(r.price)}</td>
+                        <td className="right">{money(r.supply)}</td>
+                        <td className="right">{money(r.vat)}</td>
+                        <td className="right bold">{money(r.total)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+            <div className="actions right-actions"><button onClick={() => setSelected(null)}>닫기</button></div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -958,21 +1090,13 @@ td input{height:36px}
 .status-cards div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:16px}
 .status-cards span{display:block;color:#64748b;font-size:13px;margin-bottom:8px}
 .status-cards b{font-size:20px}
-.link-btn{background:transparent;color:#2563eb;padding:0;font-weight:800;text-decoration:underline}
-.detail-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
 
-.maint-filter{
-  display:grid;
-  grid-template-columns:180px 180px 260px 1fr 120px;
-  gap:14px;
-  align-items:end;
-  margin-bottom:16px;
-}
+.maint-filter{display:grid;grid-template-columns:170px 170px 260px 1fr 120px;gap:12px;align-items:end;margin-bottom:16px}
 .maint-filter .field{margin-bottom:0}
 .maint-filter button{height:40px;justify-content:center}
-@media(max-width:900px){
-  .maint-filter{grid-template-columns:1fr}
-}
+.link-btn{background:transparent;color:#2563eb;text-decoration:underline;padding:0;font-weight:700}
+.wide-modal{width:min(1100px,94vw)}
+@media(max-width:900px){.maint-filter{grid-template-columns:1fr}}
 
 @media(max-width:900px){.grid2,.grid3,.grid5,.two,.status-cards{grid-template-columns:1fr}.menu{flex-wrap:wrap}.home-img{height:320px}}
 `;
