@@ -126,26 +126,53 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
     return { wch: Math.min(Math.max(maxLength + 3, 12), 30) };
   });
 
-  worksheet["!rows"] = [{ hpt: 22 }, ...body.map(() => ({ hpt: 20 }))];
+  worksheet["!rows"] = [{ hpt: 24 }, ...body.map(() => ({ hpt: 20 }))];
 
   for (let r = 1; r <= lastRow; r++) {
+    const isHeader = r === 1;
+    const firstCell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: 0 })];
+    const isTotalRow = !isHeader && String(firstCell?.v || "").includes("총합계");
+
     for (let c = 0; c <= lastColIndex; c++) {
       const cellAddress = XLSX.utils.encode_cell({ r: r - 1, c });
       const cell = worksheet[cellAddress];
       if (!cell) continue;
 
       const header = headers[c] || "";
-      if (r === 1) {
+
+      if (isHeader) {
         cell.t = "s";
+        cell.s = {
+          fill: { fgColor: { rgb: "D9EAF7" } },
+          font: { bold: true },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "B7C9D6" } },
+            bottom: { style: "thin", color: { rgb: "B7C9D6" } },
+            left: { style: "thin", color: { rgb: "B7C9D6" } },
+            right: { style: "thin", color: { rgb: "B7C9D6" } },
+          },
+        };
       }
 
-      if (r > 1 && ["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
+      if (!isHeader && ["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
         const num = Number(cell.v || 0);
         if (!Number.isNaN(num)) {
           cell.v = num;
           cell.t = "n";
           cell.z = "#,##0";
         }
+      }
+
+      if (isTotalRow) {
+        cell.s = {
+          fill: { fgColor: { rgb: "FFF2CC" } },
+          font: { bold: true },
+          border: {
+            top: { style: "thin", color: { rgb: "D6B656" } },
+            bottom: { style: "thin", color: { rgb: "D6B656" } },
+          },
+        };
       }
     }
   }
@@ -1466,7 +1493,14 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
     <section className="card">
       <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, withTotalRow(
   filtered.flatMap((p) => (p.rows || []).map((r) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 품목: r.item, 규격: r.spec, 수량: r.qty, 단가: r.price, 공급가액: r.supply, 부가세액: r.vat, 합계: r.total }))),
-  { 일자: "총합계", 공급가액: filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0), 부가세액: filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0), 합계: filtered.reduce((sum, p) => sum + Number(p.total || 0), 0) }
+  {
+    일자: "총합계",
+    수량: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.qty || 0), 0), 0),
+    단가: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.price || 0), 0), 0),
+    공급가액: filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0),
+    부가세액: filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0),
+    합계: filtered.reduce((sum, p) => sum + Number(p.total || 0), 0)
+  }
 ))}>엑셀 다운로드</button></div>
       <div className="grid5">
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
