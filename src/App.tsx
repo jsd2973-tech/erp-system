@@ -402,8 +402,8 @@ export default function App() {
 
 
   const uploadReceipt = async (file: File) => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, "_");
-    const fileName = `${Date.now()}-${safeName}`;
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error } = await supabase.storage.from("receipts").upload(fileName, file, {
       cacheControl: "3600",
