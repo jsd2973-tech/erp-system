@@ -199,6 +199,129 @@ function SearchSelect({
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 
+
+const loginCss = `
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.35), transparent 28%),
+    radial-gradient(circle at 80% 80%, rgba(79, 70, 229, 0.28), transparent 32%),
+    linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%);
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Arial, 'Malgun Gothic', sans-serif;
+}
+
+.login-card {
+  width: min(430px, 94vw);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 30px;
+  padding: 42px 36px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.login-badge {
+  width: max-content;
+  margin: 0 auto 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.login-card h1 {
+  margin: 0;
+  text-align: center;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #111827;
+}
+
+.login-card p {
+  margin: 0 0 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.login-card label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.login-card input {
+  width: 100%;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0 16px;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.login-button {
+  width: 100%;
+  height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: white;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.login-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.receipt-preview{
+  font-size:14px;
+  color:#64748b;
+}
+.receipt-preview a{
+  color:#2563eb;
+  font-weight:800;
+  text-decoration:none;
+}
+
+`;
+
 export default function App() {
   const [vendors, setVendors] = useState<Vendor[]>(() =>
     read(KEY.vendors, [
@@ -784,16 +907,21 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="login-page">
-        <div className="login-card">로그인 확인 중...</div>
-      </div>
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card">로그인 확인 중...</div>
+        </div>
+      </>
     );
   }
 
   if (!session) {
     return (
-      <div className="login-page">
-        <div className="login-card">
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card">
           <div className="login-badge">TAEMYUNG ERP</div>
           <h1>태명산업개발</h1>
           <p>통합 관리 시스템 로그인</p>
@@ -819,8 +947,9 @@ export default function App() {
           {loginError && <div className="login-error">{loginError}</div>}
 
           <button className="primary login-button" onClick={login}>로그인</button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -839,7 +968,7 @@ export default function App() {
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
-          <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
+          <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
           <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
@@ -1095,6 +1224,8 @@ export default function App() {
         )}
 
         {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} />}
+
+        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -1374,6 +1505,191 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     </section>
   );
 }
+
+function MaintenanceStats({ maints }: { maints: Maint[] }) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [warehouse, setWarehouse] = useState("");
+  const [keyword, setKeyword] = useState("");
+
+  const filtered = useMemo(() => {
+    return maints.filter((m) => {
+      const d = m.date || "";
+      const okFrom = !from || d >= from;
+      const okTo = !to || d <= to;
+      const okWarehouse = !warehouse || (m.warehouse || "").includes(warehouse);
+      const okKeyword = !keyword || `${m.title || ""} ${m.detail || ""} ${m.manager || ""}`.includes(keyword);
+      return okFrom && okTo && okWarehouse && okKeyword;
+    });
+  }, [maints, from, to, warehouse, keyword]);
+
+  const getSupply = (m: Maint) => Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
+  const getVat = (m: Maint) => Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
+  const getTotal = (m: Maint) => Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+
+  const summary = useMemo(() => {
+    const supply = filtered.reduce((sum, m) => sum + getSupply(m), 0);
+    const vat = filtered.reduce((sum, m) => sum + getVat(m), 0);
+    const total = filtered.reduce((sum, m) => sum + getTotal(m), 0);
+
+    const byWh = new Map<string, number>();
+    filtered.forEach((m) => {
+      const name = m.warehouse || "미지정";
+      byWh.set(name, (byWh.get(name) || 0) + getTotal(m));
+    });
+
+    const topWarehouse = Array.from(byWh.entries()).sort((a, b) => b[1] - a[1])[0];
+
+    return {
+      count: filtered.length,
+      supply,
+      vat,
+      total,
+      topWarehouseName: topWarehouse?.[0] || "-",
+      topWarehouseTotal: topWarehouse?.[1] || 0,
+    };
+  }, [filtered]);
+
+  const byWarehouse = useMemo(() => {
+    const map = new Map<string, { warehouse: string; count: number; supply: number; vat: number; total: number }>();
+    filtered.forEach((m) => {
+      const name = m.warehouse || "미지정";
+      const cur = map.get(name) || { warehouse: name, count: 0, supply: 0, vat: 0, total: 0 };
+      cur.count += 1;
+      cur.supply += getSupply(m);
+      cur.vat += getVat(m);
+      cur.total += getTotal(m);
+      map.set(name, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, { month: string; count: number; total: number }>();
+    filtered.forEach((m) => {
+      const month = (m.date || "미지정").slice(0, 7) || "미지정";
+      const cur = map.get(month) || { month, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += getTotal(m);
+      map.set(month, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
+  }, [filtered]);
+
+  const byItem = useMemo(() => {
+    const map = new Map<string, { item: string; count: number; qty: number; total: number }>();
+    filtered.forEach((m) => {
+      (m.items || []).forEach((r: any) => {
+        const name = r.item || "미지정";
+        const cur = map.get(name) || { item: name, count: 0, qty: 0, total: 0 };
+        cur.count += 1;
+        cur.qty += Number(r.qty || 0);
+        cur.total += Number(r.total || 0);
+        map.set(name, cur);
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 20);
+  }, [filtered]);
+
+  const recent = useMemo(() => {
+    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
+  }, [filtered]);
+
+  return (
+    <section className="card">
+      <h2>정비통계</h2>
+
+      <div className="grid5">
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
+        <Field label="제목/내용/담당자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
+        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
+      </div>
+
+      <div className="status-cards">
+        <div><span>정비건수</span><b>{summary.count}건</b></div>
+        <div><span>공급가액</span><b>{money(summary.supply)}원</b></div>
+        <div><span>부가세</span><b>{money(summary.vat)}원</b></div>
+        <div><span>총 정비비</span><b>{money(summary.total)}원</b></div>
+        <div><span>최고 지출 창고</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}원</b></div>
+      </div>
+
+      <h3>창고별 정비비</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+          <tbody>
+            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
+              <tr key={w.warehouse}>
+                <td>{i + 1}</td>
+                <td>{w.warehouse}</td>
+                <td>{w.count}</td>
+                <td className="right">{money(w.supply)}</td>
+                <td className="right">{money(w.vat)}</td>
+                <td className="right bold">{money(w.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>월별 정비비</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
+          <tbody>
+            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
+              <tr key={m.month}>
+                <td>{m.month}</td>
+                <td>{m.count}</td>
+                <td className="right bold">{money(m.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>품목별 사용금액 TOP 20</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
+          <tbody>
+            {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
+              <tr key={it.item}>
+                <td>{i + 1}</td>
+                <td>{it.item}</td>
+                <td>{it.count}</td>
+                <td className="right">{money(it.qty)}</td>
+                <td className="right bold">{money(it.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>최근 정비내역</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
+          <tbody>
+            {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
+              <tr key={m.id}>
+                <td>{m.date || "-"}</td>
+                <td>{m.warehouse || "-"}</td>
+                <td>{m.title || "-"}</td>
+                <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
+                <td className="right bold">{money(getTotal(m))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+    </section>
+  );
+}
+
+
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
 }
@@ -1624,16 +1940,6 @@ td .icon{
 .user-box button{
   background:#334155;
   color:white;
-}
-
-.receipt-preview{
-  font-size:14px;
-  color:#64748b;
-}
-.receipt-preview a{
-  color:#2563eb;
-  font-weight:800;
-  text-decoration:none;
 }
 
 `;
