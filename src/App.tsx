@@ -60,7 +60,16 @@ const read = <T,>(key: string, fallback: T): T => {
   }
 };
 
-const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a}
+.login-card{width:360px;background:white;padding:32px;border-radius:24px;display:flex;flex-direction:column;gap:12px}
+.login-card h1{margin:0;text-align:center;color:#1d4ed8}
+.login-card p{text-align:center;color:#64748b;margin:0 0 10px}
+.login-button{justify-content:center}
+.login-error{color:#dc2626;font-size:13px}
+.user-box{margin-left:auto;display:flex;gap:8px;align-items:center;color:white}
+
+`;
 const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
 
 const formatInputDate = (value: string) => {
@@ -108,7 +117,60 @@ function SearchSelect({
   const [open, setOpen] = useState(false);
 
   const normalized = useMemo(() => {
-    return (options || [])
+  
+  const login = async () => {
+    setLoginError("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginForm.email,
+      password: loginForm.password,
+    });
+
+    if (error) {
+      setLoginError("로그인 실패");
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (authLoading) {
+    return <div style={{padding:40,color:"white"}}>로그인 확인중...</div>;
+  }
+
+  if (!session) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <h1>태명산업개발</h1>
+          <p>통합 관리 시스템</p>
+
+          <input
+            placeholder="이메일"
+            value={loginForm.email}
+            onChange={(e)=>setLoginForm({...loginForm,email:e.target.value})}
+          />
+
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={loginForm.password}
+            onChange={(e)=>setLoginForm({...loginForm,password:e.target.value})}
+            onKeyDown={(e)=>{ if(e.key==="Enter") login(); }}
+          />
+
+          {loginError && <div className="login-error">{loginError}</div>}
+
+          <button className="primary login-button" onClick={login}>
+            로그인
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (options || [])
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
@@ -227,6 +289,14 @@ export default function App() {
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
   const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+  const adminEmails = ["jsd2973@gmail.com"];
+  const userEmail = session?.user?.email || "";
+  const isAdmin = adminEmails.includes(userEmail);
+
 
   const [menuTab, setMenuTab] = useState("home");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
@@ -290,8 +360,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    loadAll();
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (session) loadAll();
+  }, [session]);
 
   const vendorOptions = useMemo(
     () =>
@@ -683,7 +768,7 @@ export default function App() {
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
-          <button onClick={loadAll}>새로고침</button>
+          <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : ""}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
         {menuTab === "home" && <Home setMenuTab={setMenuTab} />}
