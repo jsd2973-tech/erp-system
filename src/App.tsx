@@ -217,6 +217,16 @@ const withTotalRow = (rows: Record<string, any>[], totalRow: Record<string, any>
 };
 
 
+const upsertInChunks = async (table: string, rows: any[], chunkSize = 500) => {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await supabase.from(table).upsert(chunk);
+    if (error) return error;
+  }
+  return null;
+};
+
+
 
 function SearchSelect({
   label,
@@ -519,7 +529,7 @@ export default function App() {
       supabase.from("vendors").select("*").order("code", { ascending: true }),
       supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
       supabase.from("warehouses").select("*").order("code", { ascending: true }),
-      supabase.from("items").select("*").order("code", { ascending: true }),
+      supabase.from("items").select("*").order("code", { ascending: true }).range(0, 9999),
       supabase.from("purchases").select("*").order("date", { ascending: false }),
       supabase.from("maints").select("*").order("date", { ascending: false }),
       supabase.from("card_uses").select("*").order("date", { ascending: false }),
@@ -874,26 +884,52 @@ export default function App() {
 
   const importItems = async (file: File) => {
     const rows = await readExcelRows(file);
+
     const imported = rows
-      .map((r) => ({
-        id: uid(),
-        code: String(pick(r, ["품목코드", "코드"]) || "").trim(),
-        name: String(pick(r, ["품목명", "품명"]) || "").trim(),
-        spec: String(pick(r, ["규격정보", "규격"]) || "").trim(),
-        unit: String(pick(r, ["단위"]) || "").trim(),
-        price: Number(pick(r, ["단가", "입고단가", "매입단가"]) || 0),
-      }))
+      .map((r, idx) => {
+        const rawCode = String(pick(r, ["품목코드", "코드"]) || "").trim();
+        const name = String(pick(r, ["품목명", "품명"]) || "").trim();
+        const spec = String(pick(r, ["규격정보", "규격"]) || "").trim();
+        const unit = String(pick(r, ["단위"]) || "").trim();
+        const price = Number(pick(r, ["단가", "입고단가", "매입단가"]) || 0);
+
+        return {
+          id: uid(),
+          code: rawCode || String(items.length + idx + 1).padStart(5, "0"),
+          name,
+          spec,
+          unit,
+          price,
+        };
+      })
       .filter((x) => x.name || x.code);
+
     const merged = [...items];
+
     imported.forEach((row) => {
       const idx = merged.findIndex((i) => (row.code && i.code === row.code) || (row.name && i.name === row.name));
-      if (idx >= 0) merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
-      else merged.push({ ...row, code: row.code || nextCode(merged) });
+      if (idx >= 0) {
+        merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
+      } else {
+        merged.push(row);
+      }
     });
-    const { error } = await supabase.from("items").upsert(merged);
+
+    const error = await upsertInChunks("items", merged, 500);
     if (error) return alert(`품목 업로드 실패: ${error.message}`);
-    setItems(merged);
-    setItemImportMessage(`${imported.length}건 불러왔습니다.`);
+
+    const { data, error: loadError } = await supabase
+      .from("items")
+      .select("*")
+      .order("code", { ascending: true })
+      .range(0, 9999);
+
+    if (loadError) return alert(`품목 다시 불러오기 실패: ${loadError.message}`);
+
+    const nextItems = ((data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
+    setItems(nextItems);
+    setItemImportMessage(`${imported.length}건 업로드 / 현재 ${nextItems.length}건 표시`);
+    setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
   };
 
   const openNewItemModal = (rowIndex: number) => {
@@ -1144,7 +1180,6 @@ export default function App() {
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
@@ -1154,13 +1189,11 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} />}
-
         {menuTab === "new" && (
           <section className="card">
             <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
             <div className="grid3">
-              <Field label="일자"><input type="text" placeholder="240107 또는 20240107" value={purchaseHeader.date} onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })} /></Field>
+              <Field label="일자"><input type="date" value={purchaseHeader.date} onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })} /></Field>
               <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
               <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
@@ -1260,8 +1293,8 @@ export default function App() {
 ))}>엑셀 다운로드</button>
             </div>
             <div className="grid5">
-              <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: formatInputDate(e.target.value) })} /></Field>
-              <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: formatInputDate(e.target.value) })} /></Field>
+              <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
+              <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
               <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="담당자 검색" /></Field>
               <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
               <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
@@ -1526,8 +1559,8 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   }
 ))}>엑셀 다운로드</button></div>
       <div className="grid5">
-        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
-        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
         <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
         <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
@@ -1725,23 +1758,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 
-
-function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
-  return (
-    <section className="card">
-      <h2>생산라인 구성도</h2>
-      <div className="home-img">
-        <img src="/line-layout.png" alt="생산라인 구성도" />
-      </div>
-      <div className="home-buttons">
-        <button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button>
-      </div>
-    </section>
-  );
-}
-
 function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[]; maints: Maint[]; cardUses: CardUse[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
@@ -1934,8 +1950,8 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
-        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
         <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
         <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
@@ -2118,8 +2134,8 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
-        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
         <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
         <Field label="제목/내용/담당자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
