@@ -1450,9 +1450,7 @@ function Field({ label, children }: { label: string; children: any }) {
 function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
-function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
-  return <section className="card"><h2>생산라인 구성도</h2><div className="home-img"><img src="/line-layout.png" alt="생산라인 구성도" /></div><div className="home-buttons"><button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button><button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button><button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button></div></section>;
-}
+
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin }: any) {
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
