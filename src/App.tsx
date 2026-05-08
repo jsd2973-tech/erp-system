@@ -98,8 +98,61 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
     return;
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const headers = Object.keys(rows[0] || {});
+  const body = rows.map((row) => headers.map((h) => row[h] ?? ""));
+  const sheetData = [
+    [fileName],
+    ["태명산업개발 통합 관리 시스템"],
+    [`다운로드일: ${todayText()}`],
+    [],
+    headers,
+    ...body,
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+  const lastRow = sheetData.length;
+  const lastCol = headers.length ? XLSX.utils.encode_col(headers.length - 1) : "A";
+
+  worksheet["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: Math.max(headers.length - 1, 0) } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: Math.max(headers.length - 1, 0) } },
+  ];
+
+  worksheet["!autofilter"] = { ref: `A5:${lastCol}${lastRow}` };
+  worksheet["!freeze"] = { xSplit: 0, ySplit: 5 };
+
+  worksheet["!cols"] = headers.map((h, colIndex) => {
+    const maxLength = sheetData.reduce((max, row) => {
+      const value = row[colIndex] == null ? "" : String(row[colIndex]);
+      return Math.max(max, value.length);
+    }, String(h).length);
+
+    return { wch: Math.min(Math.max(maxLength + 4, 12), 34) };
+  });
+
+  worksheet["!rows"] = [
+    { hpt: 28 },
+    { hpt: 20 },
+    { hpt: 18 },
+    { hpt: 8 },
+    { hpt: 24 },
+  ];
+
+  headers.forEach((_, colIndex) => {
+    const cell = worksheet[XLSX.utils.encode_cell({ r: 4, c: colIndex })];
+    if (cell) cell.v = String(cell.v || "");
+  });
+
   const workbook = XLSX.utils.book_new();
+  workbook.Props = {
+    Title: fileName,
+    Subject: "태명산업개발 ERP 다운로드",
+    Author: "태명산업개발",
+    CreatedDate: new Date(),
+  };
+
   XLSX.utils.book_append_sheet(workbook, worksheet, "자료");
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
