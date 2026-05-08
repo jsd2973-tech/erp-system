@@ -198,6 +198,119 @@ function SearchSelect({
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 
+
+const loginCss = `
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.35), transparent 28%),
+    radial-gradient(circle at 80% 80%, rgba(79, 70, 229, 0.28), transparent 32%),
+    linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%);
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: Arial, 'Malgun Gothic', sans-serif;
+}
+
+.login-card {
+  width: min(430px, 94vw);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 30px;
+  padding: 42px 36px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.login-badge {
+  width: max-content;
+  margin: 0 auto 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.login-card h1 {
+  margin: 0;
+  text-align: center;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #111827;
+}
+
+.login-card p {
+  margin: 0 0 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.login-card label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+}
+
+.login-card input {
+  width: 100%;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0 16px;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.login-button {
+  width: 100%;
+  height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: white;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.login-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+`;
+
 export default function App() {
   const [vendors, setVendors] = useState<Vendor[]>(() =>
     read(KEY.vendors, [
@@ -721,16 +834,21 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="login-page">
-        <div className="login-card">로그인 확인 중...</div>
-      </div>
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card">로그인 확인 중...</div>
+        </div>
+      </>
     );
   }
 
   if (!session) {
     return (
-      <div className="login-page">
-        <div className="login-card">
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card">
           <div className="login-badge">TAEMYUNG ERP</div>
           <h1>태명산업개발</h1>
           <p>통합 관리 시스템 로그인</p>
@@ -756,8 +874,9 @@ export default function App() {
           {loginError && <div className="login-error">{loginError}</div>}
 
           <button className="primary login-button" onClick={login}>로그인</button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
