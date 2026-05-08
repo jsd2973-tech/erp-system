@@ -60,16 +60,7 @@ const read = <T,>(key: string, fallback: T): T => {
   }
 };
 
-const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a}
-.login-card{width:360px;background:white;padding:32px;border-radius:24px;display:flex;flex-direction:column;gap:12px}
-.login-card h1{margin:0;text-align:center;color:#1d4ed8}
-.login-card p{text-align:center;color:#64748b;margin:0 0 10px}
-.login-button{justify-content:center}
-.login-error{color:#dc2626;font-size:13px}
-.user-box{margin-left:auto;display:flex;gap:8px;align-items:center;color:white}
-
-`;
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
 
 const formatInputDate = (value: string) => {
@@ -117,60 +108,7 @@ function SearchSelect({
   const [open, setOpen] = useState(false);
 
   const normalized = useMemo(() => {
-  
-  const login = async () => {
-    setLoginError("");
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginForm.email,
-      password: loginForm.password,
-    });
-
-    if (error) {
-      setLoginError("로그인 실패");
-    }
-  };
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  if (authLoading) {
-    return <div style={{padding:40,color:"white"}}>로그인 확인중...</div>;
-  }
-
-  if (!session) {
-    return (
-      <div className="login-page">
-        <div className="login-card">
-          <h1>태명산업개발</h1>
-          <p>통합 관리 시스템</p>
-
-          <input
-            placeholder="이메일"
-            value={loginForm.email}
-            onChange={(e)=>setLoginForm({...loginForm,email:e.target.value})}
-          />
-
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={loginForm.password}
-            onChange={(e)=>setLoginForm({...loginForm,password:e.target.value})}
-            onKeyDown={(e)=>{ if(e.key==="Enter") login(); }}
-          />
-
-          {loginError && <div className="login-error">{loginError}</div>}
-
-          <button className="primary login-button" onClick={login}>
-            로그인
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (options || [])
+    return (options || [])
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
@@ -296,7 +234,6 @@ export default function App() {
   const adminEmails = ["jsd2973@gmail.com"];
   const userEmail = session?.user?.email || "";
   const isAdmin = adminEmails.includes(userEmail);
-
 
   const [menuTab, setMenuTab] = useState("home");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
@@ -472,6 +409,7 @@ export default function App() {
   );
 
   const saveVendor = async () => {
+    if (!isAdmin) return alert("관리자만 거래처를 등록/수정할 수 있습니다.");
     if (!vendorForm.name) return;
     const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
     const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
@@ -508,6 +446,7 @@ export default function App() {
   };
 
   const saveGroup = async () => {
+    if (!isAdmin) return alert("관리자만 창고를 등록/수정할 수 있습니다.");
     if (!groupForm.name) return;
     const payload: Group = { id: editingGroupId || uid(), ...groupForm };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
@@ -519,6 +458,7 @@ export default function App() {
   };
 
   const saveWarehouse = async () => {
+    if (!isAdmin) return alert("관리자만 창고를 등록/수정할 수 있습니다.");
     if (!warehouseForm.group || !warehouseForm.name) return;
     const payload: Warehouse = { id: editingWarehouseId || uid(), ...warehouseForm };
     const { error } = await supabase.from("warehouses").upsert(payload);
@@ -531,6 +471,7 @@ export default function App() {
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
   const deleteGroup = async (id: string, name: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const newGroups = reseq(groups.filter((g) => g.id !== id));
     const newWarehouses = reseq(warehouses.filter((w) => w.group !== name));
     const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
@@ -545,6 +486,7 @@ export default function App() {
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
   const deleteWarehouse = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const newWarehouses = reseq(warehouses.filter((w) => w.id !== id));
     const { error } = await supabase.from("warehouses").delete().eq("id", id);
     if (error) return alert(`창고 삭제 실패: ${error.message}`);
@@ -554,6 +496,7 @@ export default function App() {
   };
 
   const saveItem = async () => {
+    if (!isAdmin) return alert("관리자만 품목을 등록/수정할 수 있습니다.");
     if (!itemForm.name) return;
     const existing = editingItemId ? items.find((i) => i.id === editingItemId) : items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
     const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
@@ -713,18 +656,21 @@ export default function App() {
   };
 
   const deletePurchase = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const { error } = await supabase.from("purchases").delete().eq("id", id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
   };
 
   const deleteVendor = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const { error } = await supabase.from("vendors").delete().eq("id", id);
     if (error) return alert(`거래처 삭제 실패: ${error.message}`);
     setVendors((prev) => prev.filter((v) => v.id !== id));
   };
 
   const clearVendors = async () => {
+    if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
     const { error } = await supabase.from("vendors").delete().neq("id", "");
     if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
     setVendors([]);
@@ -733,12 +679,14 @@ export default function App() {
   };
 
   const deleteItem = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const { error } = await supabase.from("items").delete().eq("id", id);
     if (error) return alert(`품목 삭제 실패: ${error.message}`);
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   const deleteMaint = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     const { error } = await supabase.from("maints").delete().eq("id", id);
     if (error) return alert(`정비 삭제 실패: ${error.message}`);
     setMaints((prev) => prev.filter((m) => m.id !== id));
@@ -751,6 +699,66 @@ export default function App() {
       if (dateCompare !== 0) return dateCompare;
       return String(b.id || "").localeCompare(String(a.id || ""));
     });
+
+  const login = async () => {
+    setLoginError("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginForm.email.trim(),
+      password: loginForm.password,
+    });
+
+    if (error) {
+      setLoginError("로그인 실패: 이메일 또는 비밀번호를 확인하세요.");
+      return;
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-card">로그인 확인 중...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <h1>태명산업개발</h1>
+          <p>통합 관리 시스템 로그인</p>
+
+          <label>이메일</label>
+          <input
+            value={loginForm.email}
+            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+            placeholder="이메일 입력"
+          />
+
+          <label>비밀번호</label>
+          <input
+            type="password"
+            value={loginForm.password}
+            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+            placeholder="비밀번호 입력"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") login();
+            }}
+          />
+
+          {loginError && <div className="login-error">{loginError}</div>}
+
+          <button className="primary login-button" onClick={login}>로그인</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -768,7 +776,7 @@ export default function App() {
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
-          <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : ""}</span><button onClick={logout}>로그아웃</button></div>
+          <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
         {menuTab === "home" && <Home setMenuTab={setMenuTab} />}
@@ -1331,6 +1339,67 @@ td .icon{
 .maint-detail-text{
   font-size:13px;
   color:#64748b;
+}
+
+.login-page{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#0f172a;
+  padding:24px;
+}
+.login-card{
+  width:min(420px,94vw);
+  background:white;
+  border-radius:24px;
+  padding:32px;
+  box-shadow:0 30px 90px rgba(0,0,0,.35);
+}
+.login-card h1{
+  margin:0;
+  text-align:center;
+  font-size:34px;
+  font-weight:900;
+  letter-spacing:3px;
+  color:#1e3a8a;
+}
+.login-card p{
+  text-align:center;
+  color:#64748b;
+  margin:8px 0 24px;
+  font-weight:700;
+}
+.login-card input{
+  margin-bottom:14px;
+}
+.login-button{
+  width:100%;
+  justify-content:center;
+  margin-top:8px;
+}
+.login-error{
+  background:#fee2e2;
+  color:#991b1b;
+  border-radius:10px;
+  padding:10px;
+  margin:4px 0 10px;
+  font-size:13px;
+}
+.user-box{
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  color:white;
+}
+.user-box span{
+  font-size:13px;
+  color:#e2e8f0;
+}
+.user-box button{
+  background:#334155;
+  color:white;
 }
 
 `;
