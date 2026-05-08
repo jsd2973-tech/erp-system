@@ -1160,7 +1160,7 @@ export default function App() {
           <section className="card">
             <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
             <div className="grid3">
-              <Field label="일자"><input type="date" value={purchaseHeader.date} onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })} /></Field>
+              <Field label="일자"><input type="text" placeholder="240107 또는 20240107" value={purchaseHeader.date} onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })} /></Field>
               <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
               <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
@@ -1260,8 +1260,8 @@ export default function App() {
 ))}>엑셀 다운로드</button>
             </div>
             <div className="grid5">
-              <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
-              <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
+              <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: formatInputDate(e.target.value) })} /></Field>
+              <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: formatInputDate(e.target.value) })} /></Field>
               <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="담당자 검색" /></Field>
               <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
               <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
@@ -1526,8 +1526,8 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   }
 ))}>엑셀 다운로드</button></div>
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
+        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
         <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
         <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
@@ -1934,8 +1934,8 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
+        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
         <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
         <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
@@ -2118,8 +2118,8 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><input type="text" placeholder="240107 또는 20240107" value={from} onChange={(e) => setFrom(formatInputDate(e.target.value))} /></Field>
+        <Field label="종료일"><input type="text" placeholder="240107 또는 20240107" value={to} onChange={(e) => setTo(formatInputDate(e.target.value))} /></Field>
         <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
         <Field label="제목/내용/담당자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
