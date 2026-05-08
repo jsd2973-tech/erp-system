@@ -11,6 +11,7 @@ type PurchaseRow = { id: string; item: string; spec: string; qty: string | numbe
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
+type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string; image_url?: string; created_at?: string };
 
 
 const supabase = createClient(
@@ -198,119 +199,6 @@ function SearchSelect({
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 
-
-const loginCss = `
-html, body, #root {
-  width: 100%;
-  min-height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.login-page {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.35), transparent 28%),
-    radial-gradient(circle at 80% 80%, rgba(79, 70, 229, 0.28), transparent 32%),
-    linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%);
-  padding: 24px;
-  box-sizing: border-box;
-  font-family: Arial, 'Malgun Gothic', sans-serif;
-}
-
-.login-card {
-  width: min(430px, 94vw);
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 30px;
-  padding: 42px 36px;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  box-sizing: border-box;
-}
-
-.login-badge {
-  width: max-content;
-  margin: 0 auto 8px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
-}
-
-.login-card h1 {
-  margin: 0;
-  text-align: center;
-  font-size: 44px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  color: #111827;
-}
-
-.login-card p {
-  margin: 0 0 20px;
-  text-align: center;
-  color: #64748b;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.login-card label {
-  font-size: 13px;
-  font-weight: 800;
-  color: #334155;
-}
-
-.login-card input {
-  width: 100%;
-  height: 52px;
-  border-radius: 14px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  padding: 0 16px;
-  font-size: 15px;
-  box-sizing: border-box;
-}
-
-.login-card input:focus {
-  outline: none;
-  border-color: #2563eb;
-  background: white;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
-}
-
-.login-button {
-  width: 100%;
-  height: 54px;
-  border: 0;
-  border-radius: 14px;
-  background: linear-gradient(90deg, #2563eb, #4f46e5);
-  color: white;
-  font-size: 16px;
-  font-weight: 900;
-  cursor: pointer;
-  margin-top: 8px;
-}
-
-.login-error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 12px;
-  font-size: 13px;
-  font-weight: 700;
-}
-`;
-
 export default function App() {
   const [vendors, setVendors] = useState<Vendor[]>(() =>
     read(KEY.vendors, [
@@ -339,6 +227,7 @@ export default function App() {
   );
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
+  const [cardUses, setCardUses] = useState<CardUse[]>([]);
   const [loading, setLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -371,20 +260,23 @@ export default function App() {
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
+  const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+  const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
   const loadAll = async () => {
     setLoading(true);
-    const [vRes, gRes, wRes, iRes, pRes, mRes] = await Promise.all([
+    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
       supabase.from("vendors").select("*").order("code", { ascending: true }),
       supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
       supabase.from("warehouses").select("*").order("code", { ascending: true }),
       supabase.from("items").select("*").order("code", { ascending: true }),
       supabase.from("purchases").select("*").order("date", { ascending: false }),
       supabase.from("maints").select("*").order("date", { ascending: false }),
+      supabase.from("card_uses").select("*").order("date", { ascending: false }),
     ]);
 
-    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error) {
-      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error);
+    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
+      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
       alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
       setLoading(false);
       return;
@@ -401,6 +293,7 @@ export default function App() {
     setItems(nextItems);
     setPurchases(((pRes.data || []) as any[]).map(toPurchase));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
+    setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
 
     setVendorForm({ code: `V${String(nextVendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
@@ -506,6 +399,63 @@ export default function App() {
     resetPurchaseForm();
     setMenuTab("list");
   };
+
+
+  const uploadReceipt = async (file: File) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, "_");
+    const fileName = `${Date.now()}-${safeName}`;
+
+    const { error } = await supabase.storage.from("receipts").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (error) {
+      alert(`영수증 업로드 실패: ${error.message}`);
+      return "";
+    }
+
+    const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  const resetCardForm = () => {
+    setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+  };
+
+  const saveCardUse = async () => {
+    if (!cardForm.date || !cardForm.place || !Number(cardForm.amount || 0)) {
+      return alert("사용일자, 사용처, 금액을 확인하세요.");
+    }
+
+    const payload: CardUse = {
+      id: uid(),
+      date: cardForm.date,
+      user_name: cardForm.user_name,
+      place: cardForm.place,
+      amount: Number(cardForm.amount || 0),
+      memo: cardForm.memo,
+      image_url: cardForm.image_url,
+    };
+
+    const { error } = await supabase.from("card_uses").insert(payload);
+    if (error) return alert(`카드사용 저장 실패: ${error.message}`);
+
+    setCardUses((prev) => [payload, ...prev]);
+    resetCardForm();
+    alert("카드사용 저장 완료");
+  };
+
+  const deleteCardUse = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    const { error } = await supabase.from("card_uses").delete().eq("id", id);
+    if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
+    setCardUses((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const filteredCardUses = cardUses
+    .filter((c) => (!cardSearch.from || (c.date || "") >= cardSearch.from) && (!cardSearch.to || (c.date || "") <= cardSearch.to) && (!cardSearch.user_name || (c.user_name || "").includes(cardSearch.user_name)) && (!cardSearch.place || (c.place || "").includes(cardSearch.place)))
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
   const editPurchase = (p: Purchase) => {
     setMenuTab("new");
@@ -834,21 +784,16 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <>
-        <style>{loginCss}</style>
-        <div className="login-page">
-          <div className="login-card">로그인 확인 중...</div>
-        </div>
-      </>
+      <div className="login-page">
+        <div className="login-card">로그인 확인 중...</div>
+      </div>
     );
   }
 
   if (!session) {
     return (
-      <>
-        <style>{loginCss}</style>
-        <div className="login-page">
-          <div className="login-card">
+      <div className="login-page">
+        <div className="login-card">
           <div className="login-badge">TAEMYUNG ERP</div>
           <h1>태명산업개발</h1>
           <p>통합 관리 시스템 로그인</p>
@@ -874,9 +819,8 @@ export default function App() {
           {loginError && <div className="login-error">{loginError}</div>}
 
           <button className="primary login-button" onClick={login}>로그인</button>
-          </div>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -893,9 +837,9 @@ export default function App() {
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
-          <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
+          <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button></div></div>
           <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
@@ -944,6 +888,100 @@ export default function App() {
         {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={isAdmin} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
+
+
+        {menuTab === "card_use" && (
+          <section className="card">
+            <h2>카드사용</h2>
+
+            <div className="grid5">
+              <Field label="사용일자">
+                <input
+                  type="text"
+                  placeholder="240107 또는 20240107"
+                  value={cardForm.date}
+                  onChange={(e) => setCardForm({ ...cardForm, date: formatInputDate(e.target.value) })}
+                />
+              </Field>
+              <Field label="담당자">
+                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/담당자" />
+              </Field>
+              <Field label="사용처">
+                <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="상호/구매처" />
+              </Field>
+              <Field label="금액">
+                <input className="right" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="0" />
+              </Field>
+              <Field label="메모">
+                <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="구매내용 메모" />
+              </Field>
+            </div>
+
+            <div className="between">
+              <label className="upload">
+                <Upload size={16} /> 영수증 이미지 업로드
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const url = await uploadReceipt(file);
+                    if (url) setCardForm({ ...cardForm, image_url: url });
+                  }}
+                />
+              </label>
+              <div className="receipt-preview">
+                {cardForm.image_url ? <a href={cardForm.image_url} target="_blank">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>}
+              </div>
+            </div>
+
+            <div className="actions right-actions">
+              <button className="primary" onClick={saveCardUse}>카드사용 저장</button>
+              <button onClick={resetCardForm}>초기화</button>
+            </div>
+
+            <h3>카드사용 조회</h3>
+            <div className="grid5">
+              <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
+              <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
+              <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="담당자 검색" /></Field>
+              <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
+              <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
+            </div>
+
+            <div className="status-cards">
+              <div><span>카드사용 건수</span><b>{filteredCardUses.length}건</b></div>
+              <div><span>카드사용 합계</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}원</b></div>
+            </div>
+
+            <ScrollTable>
+              <table>
+                <thead>
+                  <tr><th>사용일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
+                </thead>
+                <tbody>
+                  {!filteredCardUses.length ? (
+                    <tr><td colSpan={7} className="empty">저장된 카드사용 내역 없음</td></tr>
+                  ) : (
+                    filteredCardUses.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.date}</td>
+                        <td>{c.user_name || "-"}</td>
+                        <td>{c.place}</td>
+                        <td className="right bold">{money(c.amount)}</td>
+                        <td>{c.memo || "-"}</td>
+                        <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
+                        <td>{isAdmin ? <button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button> : "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </section>
+        )}
+
 
         {menuTab === "vendors" && (
           <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={isAdmin} /></section>
@@ -1057,8 +1095,6 @@ export default function App() {
         )}
 
         {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} />}
-
-        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
@@ -1338,191 +1374,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     </section>
   );
 }
-
-function MaintenanceStats({ maints }: { maints: Maint[] }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [warehouse, setWarehouse] = useState("");
-  const [keyword, setKeyword] = useState("");
-
-  const filtered = useMemo(() => {
-    return maints.filter((m) => {
-      const d = m.date || "";
-      const okFrom = !from || d >= from;
-      const okTo = !to || d <= to;
-      const okWarehouse = !warehouse || (m.warehouse || "").includes(warehouse);
-      const okKeyword = !keyword || `${m.title || ""} ${m.detail || ""} ${m.manager || ""}`.includes(keyword);
-      return okFrom && okTo && okWarehouse && okKeyword;
-    });
-  }, [maints, from, to, warehouse, keyword]);
-
-  const getSupply = (m: Maint) => Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-  const getVat = (m: Maint) => Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-  const getTotal = (m: Maint) => Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-
-  const summary = useMemo(() => {
-    const supply = filtered.reduce((sum, m) => sum + getSupply(m), 0);
-    const vat = filtered.reduce((sum, m) => sum + getVat(m), 0);
-    const total = filtered.reduce((sum, m) => sum + getTotal(m), 0);
-
-    const byWh = new Map<string, number>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      byWh.set(name, (byWh.get(name) || 0) + getTotal(m));
-    });
-
-    const topWarehouse = Array.from(byWh.entries()).sort((a, b) => b[1] - a[1])[0];
-
-    return {
-      count: filtered.length,
-      supply,
-      vat,
-      total,
-      topWarehouseName: topWarehouse?.[0] || "-",
-      topWarehouseTotal: topWarehouse?.[1] || 0,
-    };
-  }, [filtered]);
-
-  const byWarehouse = useMemo(() => {
-    const map = new Map<string, { warehouse: string; count: number; supply: number; vat: number; total: number }>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      const cur = map.get(name) || { warehouse: name, count: 0, supply: 0, vat: 0, total: 0 };
-      cur.count += 1;
-      cur.supply += getSupply(m);
-      cur.vat += getVat(m);
-      cur.total += getTotal(m);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filtered]);
-
-  const byMonth = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; total: number }>();
-    filtered.forEach((m) => {
-      const month = (m.date || "미지정").slice(0, 7) || "미지정";
-      const cur = map.get(month) || { month, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += getTotal(m);
-      map.set(month, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [filtered]);
-
-  const byItem = useMemo(() => {
-    const map = new Map<string, { item: string; count: number; qty: number; total: number }>();
-    filtered.forEach((m) => {
-      (m.items || []).forEach((r: any) => {
-        const name = r.item || "미지정";
-        const cur = map.get(name) || { item: name, count: 0, qty: 0, total: 0 };
-        cur.count += 1;
-        cur.qty += Number(r.qty || 0);
-        cur.total += Number(r.total || 0);
-        map.set(name, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 20);
-  }, [filtered]);
-
-  const recent = useMemo(() => {
-    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
-  }, [filtered]);
-
-  return (
-    <section className="card">
-      <h2>정비통계</h2>
-
-      <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
-        <Field label="제목/내용/담당자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
-      </div>
-
-      <div className="status-cards">
-        <div><span>정비건수</span><b>{summary.count}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.supply)}원</b></div>
-        <div><span>부가세</span><b>{money(summary.vat)}원</b></div>
-        <div><span>총 정비비</span><b>{money(summary.total)}원</b></div>
-        <div><span>최고 지출 창고</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}원</b></div>
-      </div>
-
-      <h3>창고별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
-              <tr key={w.warehouse}>
-                <td>{i + 1}</td>
-                <td>{w.warehouse}</td>
-                <td>{w.count}</td>
-                <td className="right">{money(w.supply)}</td>
-                <td className="right">{money(w.vat)}</td>
-                <td className="right bold">{money(w.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>월별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
-              <tr key={m.month}>
-                <td>{m.month}</td>
-                <td>{m.count}</td>
-                <td className="right bold">{money(m.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>품목별 사용금액 TOP 20</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
-          <tbody>
-            {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
-              <tr key={it.item}>
-                <td>{i + 1}</td>
-                <td>{it.item}</td>
-                <td>{it.count}</td>
-                <td className="right">{money(it.qty)}</td>
-                <td className="right bold">{money(it.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>최근 정비내역</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
-          <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
-              <tr key={m.id}>
-                <td>{m.date || "-"}</td>
-                <td>{m.warehouse || "-"}</td>
-                <td>{m.title || "-"}</td>
-                <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
-                <td className="right bold">{money(getTotal(m))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-    </section>
-  );
-}
-
-
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
 }
@@ -1773,6 +1624,16 @@ td .icon{
 .user-box button{
   background:#334155;
   color:white;
+}
+
+.receipt-preview{
+  font-size:14px;
+  color:#64748b;
+}
+.receipt-preview a{
+  color:#2563eb;
+  font-weight:800;
+  text-decoration:none;
 }
 
 `;
