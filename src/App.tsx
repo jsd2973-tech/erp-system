@@ -1220,7 +1220,21 @@ export default function App() {
           <section className="card">
             <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
             <div className="grid3">
-              <Field label="일자"><input type="date" value={purchaseHeader.date} onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })} /></Field>
+              <Field label="일자">
+                <div className="date-combo">
+                  <input
+                    type="text"
+                    placeholder="240107 또는 20240107"
+                    value={purchaseHeader.date}
+                    onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })}
+                  />
+                  <input
+                    type="date"
+                    value={purchaseHeader.date}
+                    onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })}
+                  />
+                </div>
+              </Field>
               <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
               <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
@@ -2580,6 +2594,26 @@ td .icon{
   .dashboard-two{
     grid-template-columns:1fr;
   }
+}
+
+.date-combo{
+  display:grid;
+  grid-template-columns:1fr 44px;
+  gap:8px;
+  align-items:center;
+}
+.date-combo input[type="date"]{
+  padding:0;
+  text-align:center;
+  color:transparent;
+  cursor:pointer;
+}
+.date-combo input[type="date"]::-webkit-calendar-picker-indicator{
+  opacity:1;
+  cursor:pointer;
+  width:22px;
+  height:22px;
+  margin:auto;
 }
 
 `;
