@@ -66,6 +66,10 @@ const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4
 const formatInputDate = (value: string) => {
   const numbers = value.replace(/\D/g, "").slice(0, 8);
 
+  if (numbers.length === 6) {
+    return `20${numbers.slice(0, 2)}-${numbers.slice(2, 4)}-${numbers.slice(4, 6)}`;
+  }
+
   if (numbers.length === 8) {
     return `${numbers.slice(0, 4)}-${numbers.slice(4, 6)}-${numbers.slice(6, 8)}`;
   }
@@ -748,7 +752,7 @@ export default function App() {
               <Field label="정비일자">
                 <input
                   type="text"
-                  placeholder="20260508"
+                  placeholder="240107 또는 20240107"
                   value={maintForm.date}
                   onChange={(e) => setMaintForm({ ...maintForm, date: formatInputDate(e.target.value) })}
                 />
@@ -1005,7 +1009,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
       const date = m.date || "날짜없음";
       const nextNo = (running.get(date) || 0) + 1;
       running.set(date, nextNo);
-      const displayDate = date === "날짜없음" ? "날짜없음" : date.replaceAll("-", "/");
+      const displayDate = date === "날짜없음" ? "날짜없음" : date;
       map.set(m.id, `${displayDate}-${String(nextNo).padStart(2, "0")}`);
     });
 
