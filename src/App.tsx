@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
 type Group = { id: string; code: string; name: string };
@@ -1554,7 +1553,10 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => <tr key={p.id}><td>{`${p.date || ""}-${String(index + 1).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>;
+))}>엑셀 다운로드</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+  const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
+  const seq = sameDateBeforeCount + 1;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -1841,20 +1843,6 @@ function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[];
   purchases.forEach((p)=> (p.rows || []).forEach((r)=> itemMap.set(r.item || "-", (itemMap.get(r.item || "-") || 0) + Number(r.qty || 0))));
   const topItems = Array.from(itemMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  const chartMap = new Map<string, any>();
-  purchases.forEach((p)=>{
-    const month=(p.date||"").slice(0,7);
-    const cur=chartMap.get(month)||{month,purchase:0,card:0};
-    cur.purchase += Number(p.total || 0);
-    chartMap.set(month,cur);
-  });
-  cardUses.forEach((c)=>{
-    const month=(c.date||"").slice(0,7);
-    const cur=chartMap.get(month)||{month,purchase:0,card:0};
-    cur.card += Number(c.amount || 0);
-    chartMap.set(month,cur);
-  });
-  const chartData = Array.from(chartMap.values()).sort((a,b)=>a.month.localeCompare(b.month));
 
   return (
     <section className="dashboard-wrap">
@@ -1901,22 +1889,6 @@ function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[];
         </div>
       </div>
 
-      <div className="dashboard-panel">
-        <h3>월별 구매 / 카드사용</h3>
-        <div style={{ width: "100%", height: 340 }}>
-          <ResponsiveContainer>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(v) => money(Number(v))} />
-              <Legend />
-              <Bar dataKey="purchase" name="구매" fill="#2563eb" radius={[6,6,0,0]} />
-              <Bar dataKey="card" name="카드" fill="#f59e0b" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
     </section>
   );
 }
