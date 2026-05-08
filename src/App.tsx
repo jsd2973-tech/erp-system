@@ -227,6 +227,32 @@ const upsertInChunks = async (table: string, rows: any[], chunkSize = 500) => {
 };
 
 
+const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000) => {
+  let allRows: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order(orderColumn, { ascending: true })
+      .range(from, to);
+
+    if (error) return { data: allRows, error };
+
+    const rows = data || [];
+    allRows = [...allRows, ...rows];
+
+    if (rows.length < pageSize) break;
+
+    from += pageSize;
+  }
+
+  return { data: allRows, error: null };
+};
+
 
 function SearchSelect({
   label,
@@ -525,15 +551,16 @@ export default function App() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
+    const [vRes, gRes, wRes, pRes, mRes, cRes] = await Promise.all([
       supabase.from("vendors").select("*").order("code", { ascending: true }),
       supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
       supabase.from("warehouses").select("*").order("code", { ascending: true }),
-      supabase.from("items").select("*").order("code", { ascending: true }).range(0, 9999),
       supabase.from("purchases").select("*").order("date", { ascending: false }),
       supabase.from("maints").select("*").order("date", { ascending: false }),
       supabase.from("card_uses").select("*").order("date", { ascending: false }),
     ]);
+
+    const iRes = await fetchAllRows("items", "code", 1000);
 
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
       console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
@@ -885,6 +912,11 @@ export default function App() {
   const importItems = async (file: File) => {
     const rows = await readExcelRows(file);
 
+    const existingRes = await fetchAllRows("items", "code", 1000);
+    if (existingRes.error) return alert(`기존 품목 불러오기 실패: ${existingRes.error.message}`);
+
+    const existingItems = ((existingRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
+
     const imported = rows
       .map((r, idx) => {
         const rawCode = String(pick(r, ["품목코드", "코드"]) || "").trim();
@@ -895,7 +927,7 @@ export default function App() {
 
         return {
           id: uid(),
-          code: rawCode || String(items.length + idx + 1).padStart(5, "0"),
+          code: rawCode || String(existingItems.length + idx + 1).padStart(5, "0"),
           name,
           spec,
           unit,
@@ -904,7 +936,7 @@ export default function App() {
       })
       .filter((x) => x.name || x.code);
 
-    const merged = [...items];
+    const merged = [...existingItems];
 
     imported.forEach((row) => {
       const idx = merged.findIndex((i) => (row.code && i.code === row.code) || (row.name && i.name === row.name));
@@ -918,15 +950,10 @@ export default function App() {
     const error = await upsertInChunks("items", merged, 500);
     if (error) return alert(`품목 업로드 실패: ${error.message}`);
 
-    const { data, error: loadError } = await supabase
-      .from("items")
-      .select("*")
-      .order("code", { ascending: true })
-      .range(0, 9999);
+    const reloadRes = await fetchAllRows("items", "code", 1000);
+    if (reloadRes.error) return alert(`품목 다시 불러오기 실패: ${reloadRes.error.message}`);
 
-    if (loadError) return alert(`품목 다시 불러오기 실패: ${loadError.message}`);
-
-    const nextItems = ((data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
+    const nextItems = ((reloadRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
     setItems(nextItems);
     setItemImportMessage(`${imported.length}건 업로드 / 현재 ${nextItems.length}건 표시`);
     setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
