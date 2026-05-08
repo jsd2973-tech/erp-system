@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
 
@@ -128,6 +128,37 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
 
   worksheet["!rows"] = [{ hpt: 24 }, ...body.map(() => ({ hpt: 20 }))];
 
+  const headerStyle = {
+    fill: { patternType: "solid", fgColor: { rgb: "1F4E78" } },
+    font: { bold: true, color: { rgb: "FFFFFF" } },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "BFBFBF" } },
+      bottom: { style: "thin", color: { rgb: "BFBFBF" } },
+      left: { style: "thin", color: { rgb: "BFBFBF" } },
+      right: { style: "thin", color: { rgb: "BFBFBF" } },
+    },
+  };
+
+  const totalStyle = {
+    fill: { patternType: "solid", fgColor: { rgb: "FFF2CC" } },
+    font: { bold: true, color: { rgb: "7F6000" } },
+    alignment: { vertical: "center" },
+    border: {
+      top: { style: "thin", color: { rgb: "C9B458" } },
+      bottom: { style: "thin", color: { rgb: "C9B458" } },
+      left: { style: "thin", color: { rgb: "C9B458" } },
+      right: { style: "thin", color: { rgb: "C9B458" } },
+    },
+  };
+
+  const normalBorder = {
+    top: { style: "thin", color: { rgb: "E5E7EB" } },
+    bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+    left: { style: "thin", color: { rgb: "E5E7EB" } },
+    right: { style: "thin", color: { rgb: "E5E7EB" } },
+  };
+
   for (let r = 1; r <= lastRow; r++) {
     const isHeader = r === 1;
     const firstCell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: 0 })];
@@ -142,20 +173,11 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
 
       if (isHeader) {
         cell.t = "s";
-        cell.s = {
-          fill: { fgColor: { rgb: "D9EAF7" } },
-          font: { bold: true },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: "B7C9D6" } },
-            bottom: { style: "thin", color: { rgb: "B7C9D6" } },
-            left: { style: "thin", color: { rgb: "B7C9D6" } },
-            right: { style: "thin", color: { rgb: "B7C9D6" } },
-          },
-        };
+        cell.s = headerStyle;
+        continue;
       }
 
-      if (!isHeader && ["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
+      if (["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
         const num = Number(cell.v || 0);
         if (!Number.isNaN(num)) {
           cell.v = num;
@@ -164,15 +186,13 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
         }
       }
 
+      cell.s = {
+        border: normalBorder,
+        alignment: { vertical: "center" },
+      };
+
       if (isTotalRow) {
-        cell.s = {
-          fill: { fgColor: { rgb: "FFF2CC" } },
-          font: { bold: true },
-          border: {
-            top: { style: "thin", color: { rgb: "D6B656" } },
-            bottom: { style: "thin", color: { rgb: "D6B656" } },
-          },
-        };
+        cell.s = totalStyle;
       }
     }
   }
