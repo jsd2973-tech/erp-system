@@ -1017,7 +1017,8 @@ export default function App() {
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
+          <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
           <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
@@ -1162,6 +1163,8 @@ export default function App() {
           </section>
         )}
 
+
+        {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
           <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={isAdmin} /></section>
@@ -1556,6 +1559,183 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     </section>
   );
 }
+
+
+function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [userName, setUserName] = useState("");
+  const [place, setPlace] = useState("");
+
+  const filtered = useMemo(() => {
+    return cardUses.filter((c) => {
+      const d = c.date || "";
+      const okFrom = !from || d >= from;
+      const okTo = !to || d <= to;
+      const okUser = !userName || (c.user_name || "").includes(userName);
+      const okPlace = !place || (c.place || "").includes(place);
+      return okFrom && okTo && okUser && okPlace;
+    });
+  }, [cardUses, from, to, userName, place]);
+
+  const summary = useMemo(() => {
+    const total = filtered.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+    const byUser = new Map<string, number>();
+    const byPlace = new Map<string, number>();
+
+    filtered.forEach((c) => {
+      const u = c.user_name || "미지정";
+      const p = c.place || "미지정";
+      byUser.set(u, (byUser.get(u) || 0) + Number(c.amount || 0));
+      byPlace.set(p, (byPlace.get(p) || 0) + Number(c.amount || 0));
+    });
+
+    const topUser = Array.from(byUser.entries()).sort((a, b) => b[1] - a[1])[0];
+    const topPlace = Array.from(byPlace.entries()).sort((a, b) => b[1] - a[1])[0];
+
+    return {
+      count: filtered.length,
+      total,
+      avg: filtered.length ? Math.round(total / filtered.length) : 0,
+      topUserName: topUser?.[0] || "-",
+      topUserTotal: topUser?.[1] || 0,
+      topPlaceName: topPlace?.[0] || "-",
+      topPlaceTotal: topPlace?.[1] || 0,
+    };
+  }, [filtered]);
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, { month: string; count: number; total: number }>();
+    filtered.forEach((c) => {
+      const month = (c.date || "미지정").slice(0, 7) || "미지정";
+      const cur = map.get(month) || { month, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += Number(c.amount || 0);
+      map.set(month, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
+  }, [filtered]);
+
+  const byUser = useMemo(() => {
+    const map = new Map<string, { user_name: string; count: number; total: number }>();
+    filtered.forEach((c) => {
+      const name = c.user_name || "미지정";
+      const cur = map.get(name) || { user_name: name, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += Number(c.amount || 0);
+      map.set(name, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  const byPlace = useMemo(() => {
+    const map = new Map<string, { place: string; count: number; total: number }>();
+    filtered.forEach((c) => {
+      const name = c.place || "미지정";
+      const cur = map.get(name) || { place: name, count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += Number(c.amount || 0);
+      map.set(name, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 30);
+  }, [filtered]);
+
+  const recent = useMemo(() => {
+    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
+  }, [filtered]);
+
+  return (
+    <section className="card">
+      <h2>카드통계</h2>
+
+      <div className="grid5">
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
+        <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
+        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
+      </div>
+
+      <div className="status-cards">
+        <div><span>카드사용 건수</span><b>{summary.count}건</b></div>
+        <div><span>총 사용금액</span><b>{money(summary.total)}원</b></div>
+        <div><span>건당 평균</span><b>{money(summary.avg)}원</b></div>
+        <div><span>최고 사용 담당자</span><b>{summary.topUserName}<br />{money(summary.topUserTotal)}원</b></div>
+        <div><span>최고 사용처</span><b>{summary.topPlaceName}<br />{money(summary.topPlaceTotal)}원</b></div>
+      </div>
+
+      <h3>월별 카드사용</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>월</th><th>건수</th><th>합계</th></tr></thead>
+          <tbody>
+            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 카드사용 없음</td></tr> : byMonth.map((m) => (
+              <tr key={m.month}>
+                <td>{m.month}</td>
+                <td>{m.count}</td>
+                <td className="right bold">{money(m.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>담당자별 카드사용</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>순위</th><th>담당자</th><th>건수</th><th>합계</th></tr></thead>
+          <tbody>
+            {!byUser.length ? <tr><td colSpan={4} className="empty">조회된 담당자별 카드사용 없음</td></tr> : byUser.map((u, i) => (
+              <tr key={u.user_name}>
+                <td>{i + 1}</td>
+                <td>{u.user_name}</td>
+                <td>{u.count}</td>
+                <td className="right bold">{money(u.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>사용처별 카드사용 TOP 30</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>순위</th><th>사용처</th><th>건수</th><th>합계</th></tr></thead>
+          <tbody>
+            {!byPlace.length ? <tr><td colSpan={4} className="empty">조회된 사용처별 카드사용 없음</td></tr> : byPlace.map((p, i) => (
+              <tr key={p.place}>
+                <td>{i + 1}</td>
+                <td>{p.place}</td>
+                <td>{p.count}</td>
+                <td className="right bold">{money(p.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <h3>최근 카드사용 내역</h3>
+      <ScrollTable>
+        <table>
+          <thead><tr><th>일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>영수증</th></tr></thead>
+          <tbody>
+            {!recent.length ? <tr><td colSpan={5} className="empty">최근 카드사용 없음</td></tr> : recent.map((c) => (
+              <tr key={c.id}>
+                <td>{c.date || "-"}</td>
+                <td>{c.user_name || "-"}</td>
+                <td>{c.place || "-"}</td>
+                <td className="right bold">{money(c.amount)}</td>
+                <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+    </section>
+  );
+}
+
 
 function MaintenanceStats({ maints }: { maints: Maint[] }) {
   const [from, setFrom] = useState("");
