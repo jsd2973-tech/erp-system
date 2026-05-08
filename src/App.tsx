@@ -227,7 +227,6 @@ export default function App() {
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
   const [loading, setLoading] = useState(false);
-  const adminEmails = ["jsd2973@gmail.com"];
 
   const [menuTab, setMenuTab] = useState("home");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
