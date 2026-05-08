@@ -92,6 +92,21 @@ async function readExcelRows(file: File) {
   return XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
 }
 
+const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
+  if (!rows.length) {
+    alert("다운로드할 데이터가 없습니다.");
+    return;
+  }
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "자료");
+  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};
+
+const todayText = () => new Date().toISOString().slice(0, 10);
+
+
 function SearchSelect({
   label,
   value,
@@ -1122,7 +1137,10 @@ export default function App() {
               <button onClick={resetCardForm}>초기화</button>
             </div>
 
-            <h3>카드사용 조회</h3>
+            <div className="between" style={{marginTop:24}}>
+              <h3>카드사용 조회</h3>
+              <button onClick={() => downloadExcel(`카드사용_${todayText()}`, filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })))}>엑셀 다운로드</button>
+            </div>
             <div className="grid5">
               <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
               <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
@@ -1321,7 +1339,7 @@ function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
   return <section className="card"><h2>생산라인 구성도</h2><div className="home-img"><img src="/line-layout.png" alt="생산라인 구성도" /></div><div className="home-buttons"><button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button><button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button><button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button></div></section>;
 }
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin }: any) {
-  return <section className="card"><h2>구매조회</h2><div className="grid3"><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>;
+  return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })))}>엑셀 다운로드</button></div><div className="grid3"><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -1377,7 +1395,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
 
   return (
     <section className="card">
-      <h2>구매현황</h2>
+      <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, filtered.flatMap((p) => (p.rows || []).map((r) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 품목: r.item, 규격: r.spec, 수량: r.qty, 단가: r.price, 공급가액: r.supply, 부가세액: r.vat, 합계: r.total }))))}>엑셀 다운로드</button></div>
       <div className="grid5">
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
@@ -1456,9 +1474,17 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     <section className="card">
       <div className="between" style={{marginBottom:16}}>
         <h2 style={{margin:0}}>정비조회</h2>
-        <button className="primary" onClick={() => setMenuTab("maint_new")}>
-          <Plus size={16} /> 정비등록
-        </button>
+        <div style={{display:"flex", gap:8}}>
+          <button onClick={() => downloadExcel(`정비조회_${todayText()}`, maints.map((m: Maint) => {
+            const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
+            const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
+            const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+            return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 담당자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
+          }))}>엑셀 다운로드</button>
+          <button className="primary" onClick={() => setMenuTab("maint_new")}>
+            <Plus size={16} /> 정비등록
+          </button>
+        </div>
       </div>
 
       <div className="maint-filter">
@@ -1647,7 +1673,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
 
   return (
     <section className="card">
-      <h2>카드통계</h2>
+      <div className="between"><h2>카드통계</h2><button onClick={() => downloadExcel(`카드통계_${todayText()}`, filtered.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
@@ -1828,7 +1854,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 
   return (
     <section className="card">
-      <h2>정비통계</h2>
+      <div className="between"><h2>정비통계</h2><button onClick={() => downloadExcel(`정비통계_${todayText()}`, filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 담당자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
