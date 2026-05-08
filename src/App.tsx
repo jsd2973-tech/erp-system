@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
 type Group = { id: string; code: string; name: string };
@@ -445,19 +446,6 @@ html, body, #root {
   text-decoration:none;
 }
 
-.dashboard-wrap{display:flex;flex-direction:column;gap:18px}
-.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-.dashboard-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
-.dashboard-card span{font-size:13px;color:#64748b;font-weight:700}
-.dashboard-card b{display:block;margin-top:12px;font-size:30px}
-.dashboard-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.dashboard-panel{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
-.dashboard-panel h3{margin:0 0 14px}
-.dashboard-table{width:100%;border-collapse:collapse}
-.dashboard-table th{background:#eff6ff;padding:10px;border-bottom:1px solid #dbeafe;text-align:left}
-.dashboard-table td{padding:10px;border-bottom:1px solid #f1f5f9}
-.home-btn{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:800}
-@media (max-width:900px){.dashboard-two{grid-template-columns:1fr}}
 
 `;
 
@@ -1162,8 +1150,6 @@ export default function App() {
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
           <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
-
-        {menuTab === "home" && <Home setMenuTab={setMenuTab} />}
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
@@ -2454,6 +2440,85 @@ td .icon{
 .user-box button{
   background:#334155;
   color:white;
+}
+
+.dashboard-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+.dashboard-title-row{
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:20px 22px;
+  box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+.dashboard-title-row h2{
+  margin:0;
+  font-size:26px;
+}
+.dashboard-title-row p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-weight:700;
+}
+.dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:16px;
+}
+.dashboard-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:22px;
+  box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+.dashboard-card span{
+  font-size:13px;
+  color:#64748b;
+  font-weight:800;
+}
+.dashboard-card b{
+  display:block;
+  margin-top:12px;
+  font-size:30px;
+  color:#0f172a;
+}
+.dashboard-two{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+.dashboard-panel{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+.dashboard-panel h3{
+  margin:0 0 14px;
+}
+.dashboard-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.dashboard-table th{
+  background:#eff6ff;
+  padding:10px;
+  border-bottom:1px solid #dbeafe;
+  text-align:left;
+}
+.dashboard-table td{
+  padding:10px;
+  border-bottom:1px solid #f1f5f9;
+}
+@media (max-width:900px){
+  .dashboard-two{
+    grid-template-columns:1fr;
+  }
 }
 
 `;
