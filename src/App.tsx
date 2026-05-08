@@ -731,6 +731,7 @@ export default function App() {
     return (
       <div className="login-page">
         <div className="login-card">
+          <div className="login-badge">TAEMYUNG ERP</div>
           <h1>태명산업개발</h1>
           <p>통합 관리 시스템 로그인</p>
 
@@ -1348,45 +1349,92 @@ td .icon{
   display:flex;
   align-items:center;
   justify-content:center;
-  background:#0f172a;
+  background:
+    radial-gradient(circle at top left, rgba(59,130,246,.35), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(79,70,229,.28), transparent 36%),
+    linear-gradient(135deg,#0f172a 0%,#111827 45%,#1e293b 100%);
   padding:24px;
 }
 .login-card{
-  width:min(420px,94vw);
-  background:white;
-  border-radius:24px;
-  padding:32px;
-  box-shadow:0 30px 90px rgba(0,0,0,.35);
+  width:min(430px,94vw);
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:30px;
+  padding:38px 34px;
+  box-shadow:0 34px 100px rgba(0,0,0,.42);
+  backdrop-filter:blur(12px);
 }
+
+.login-badge{
+  width:max-content;
+  margin:0 auto 14px;
+  padding:7px 12px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:1px;
+}
+
 .login-card h1{
   margin:0;
   text-align:center;
-  font-size:34px;
+  font-size:36px;
   font-weight:900;
-  letter-spacing:3px;
-  color:#1e3a8a;
+  letter-spacing:4px;
+  color:#1d4ed8;
+  text-shadow:0 2px 10px rgba(37,99,235,.12);
 }
 .login-card p{
   text-align:center;
   color:#64748b;
-  margin:8px 0 24px;
-  font-weight:700;
+  margin:10px 0 28px;
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:2px;
+}
+.login-card label{
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
 }
 .login-card input{
-  margin-bottom:14px;
+  height:46px;
+  margin-bottom:16px;
+  border-radius:14px;
+  border:1px solid #cbd5e1;
+  background:#f8fafc;
+  font-size:15px;
+  transition:.15s;
+}
+.login-card input:focus{
+  outline:none;
+  border-color:#2563eb;
+  background:white;
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
 }
 .login-button{
   width:100%;
+  height:48px;
   justify-content:center;
   margin-top:8px;
+  border-radius:14px;
+  background:linear-gradient(90deg,#2563eb,#4f46e5);
+  color:white;
+  font-weight:900;
+  font-size:16px;
+  box-shadow:0 14px 28px rgba(37,99,235,.28);
 }
 .login-error{
   background:#fee2e2;
   color:#991b1b;
-  border-radius:10px;
-  padding:10px;
-  margin:4px 0 10px;
+  border:1px solid #fecaca;
+  border-radius:12px;
+  padding:11px 12px;
+  margin:0 0 12px;
   font-size:13px;
+  font-weight:700;
 }
 .user-box{
   margin-left:auto;
