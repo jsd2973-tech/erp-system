@@ -445,6 +445,20 @@ html, body, #root {
   text-decoration:none;
 }
 
+.dashboard-wrap{display:flex;flex-direction:column;gap:18px}
+.dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.dashboard-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.dashboard-card span{font-size:13px;color:#64748b;font-weight:700}
+.dashboard-card b{display:block;margin-top:12px;font-size:30px}
+.dashboard-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.dashboard-panel{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.dashboard-panel h3{margin:0 0 14px}
+.dashboard-table{width:100%;border-collapse:collapse}
+.dashboard-table th{background:#eff6ff;padding:10px;border-bottom:1px solid #dbeafe;text-align:left}
+.dashboard-table td{padding:10px;border-bottom:1px solid #f1f5f9}
+.home-btn{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:800}
+@media (max-width:900px){.dashboard-two{grid-template-columns:1fr}}
+
 `;
 
 export default function App() {
@@ -1151,6 +1165,8 @@ export default function App() {
 
         {menuTab === "home" && <Home setMenuTab={setMenuTab} />}
 
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
+
         {menuTab === "new" && (
           <section className="card">
             <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
@@ -1720,6 +1736,107 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
   );
 }
 
+
+
+function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[]; maints: Maint[]; cardUses: CardUse[] }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthKey = today.slice(0, 7);
+
+  const todayPurchaseTotal = purchases.filter((p) => p.date === today).reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const monthPurchaseTotal = purchases.filter((p) => (p.date || "").startsWith(monthKey)).reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const monthMaintTotal = maints.filter((m) => (m.date || "").startsWith(monthKey)).reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
+
+  const recentMaints = [...maints].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
+  const recentCards = [...cardUses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
+
+  const vendorMap = new Map<string, number>();
+  purchases.forEach((p)=>vendorMap.set(p.vendor || "-", (vendorMap.get(p.vendor || "-") || 0) + Number(p.total || 0)));
+  const topVendors = Array.from(vendorMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const itemMap = new Map<string, number>();
+  purchases.forEach((p)=> (p.rows || []).forEach((r)=> itemMap.set(r.item || "-", (itemMap.get(r.item || "-") || 0) + Number(r.qty || 0))));
+  const topItems = Array.from(itemMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const chartMap = new Map<string, any>();
+  purchases.forEach((p)=>{
+    const month=(p.date||"").slice(0,7);
+    const cur=chartMap.get(month)||{month,purchase:0,card:0};
+    cur.purchase += Number(p.total || 0);
+    chartMap.set(month,cur);
+  });
+  cardUses.forEach((c)=>{
+    const month=(c.date||"").slice(0,7);
+    const cur=chartMap.get(month)||{month,purchase:0,card:0};
+    cur.card += Number(c.amount || 0);
+    chartMap.set(month,cur);
+  });
+  const chartData = Array.from(chartMap.values()).sort((a,b)=>a.month.localeCompare(b.month));
+
+  return (
+    <section className="dashboard-wrap">
+      <div className="dashboard-grid">
+        <div className="dashboard-card"><span>오늘 구매금액</span><b>{money(todayPurchaseTotal)}원</b></div>
+        <div className="dashboard-card"><span>이번달 구매금액</span><b>{money(monthPurchaseTotal)}원</b></div>
+        <div className="dashboard-card"><span>이번달 카드사용</span><b>{money(monthCardTotal)}원</b></div>
+        <div className="dashboard-card"><span>이번달 정비금액</span><b>{money(monthMaintTotal)}원</b></div>
+      </div>
+
+      <div className="dashboard-two">
+        <div className="dashboard-panel">
+          <h3>최근 정비내역</h3>
+          <table className="dashboard-table">
+            <thead><tr><th>일자</th><th>제목</th><th>창고</th></tr></thead>
+            <tbody>{recentMaints.map((m)=><tr key={m.id}><td>{m.date}</td><td>{m.title}</td><td>{m.warehouse}</td></tr>)}</tbody>
+          </table>
+        </div>
+
+        <div className="dashboard-panel">
+          <h3>최근 카드사용</h3>
+          <table className="dashboard-table">
+            <thead><tr><th>일자</th><th>사용처</th><th>금액</th></tr></thead>
+            <tbody>{recentCards.map((c)=><tr key={c.id}><td>{c.date}</td><td>{c.place}</td><td className="right">{money(c.amount)}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="dashboard-two">
+        <div className="dashboard-panel">
+          <h3>거래처 TOP5</h3>
+          <table className="dashboard-table">
+            <thead><tr><th>거래처</th><th>금액</th></tr></thead>
+            <tbody>{topVendors.map(([n,a])=><tr key={n}><td>{n}</td><td className="right">{money(a)}</td></tr>)}</tbody>
+          </table>
+        </div>
+
+        <div className="dashboard-panel">
+          <h3>품목 TOP5</h3>
+          <table className="dashboard-table">
+            <thead><tr><th>품목</th><th>수량</th></tr></thead>
+            <tbody>{topItems.map(([n,q])=><tr key={n}><td>{n}</td><td className="right">{money(q)}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="dashboard-panel">
+        <h3>월별 구매 / 카드사용</h3>
+        <div style={{ width: "100%", height: 340 }}>
+          <ResponsiveContainer>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip formatter={(v) => money(Number(v))} />
+              <Legend />
+              <Bar dataKey="purchase" name="구매" fill="#2563eb" radius={[6,6,0,0]} />
+              <Bar dataKey="card" name="카드" fill="#f59e0b" radius={[6,6,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const [from, setFrom] = useState("");
