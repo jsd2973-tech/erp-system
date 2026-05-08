@@ -100,28 +100,15 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
 
   const headers = Object.keys(rows[0] || {});
   const body = rows.map((row) => headers.map((h) => row[h] ?? ""));
-  const sheetData = [
-    [fileName],
-    ["태명산업개발 통합 관리 시스템"],
-    [`다운로드일: ${todayText()}`],
-    [],
-    headers,
-    ...body,
-  ];
+  const sheetData = [headers, ...body];
 
   const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-
   const lastRow = sheetData.length;
-  const lastCol = headers.length ? XLSX.utils.encode_col(headers.length - 1) : "A";
+  const lastColIndex = Math.max(headers.length - 1, 0);
+  const lastCol = XLSX.utils.encode_col(lastColIndex);
 
-  worksheet["!merges"] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(headers.length - 1, 0) } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: Math.max(headers.length - 1, 0) } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: Math.max(headers.length - 1, 0) } },
-  ];
-
-  worksheet["!autofilter"] = { ref: `A5:${lastCol}${lastRow}` };
-  worksheet["!freeze"] = { xSplit: 0, ySplit: 5 };
+  worksheet["!autofilter"] = { ref: `A1:${lastCol}${lastRow}` };
+  worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
 
   worksheet["!cols"] = headers.map((h, colIndex) => {
     const maxLength = sheetData.reduce((max, row) => {
@@ -129,21 +116,39 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
       return Math.max(max, value.length);
     }, String(h).length);
 
-    return { wch: Math.min(Math.max(maxLength + 4, 12), 34) };
+    const header = String(h);
+    if (header.includes("일자") || header.includes("관리번호")) return { wch: 18 };
+    if (header.includes("거래처") || header.includes("사용처")) return { wch: 24 };
+    if (header.includes("품목") || header.includes("제목") || header.includes("내용") || header.includes("메모")) return { wch: 28 };
+    if (header.includes("영수증")) return { wch: 34 };
+    if (["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) return { wch: 14 };
+
+    return { wch: Math.min(Math.max(maxLength + 3, 12), 30) };
   });
 
-  worksheet["!rows"] = [
-    { hpt: 28 },
-    { hpt: 20 },
-    { hpt: 18 },
-    { hpt: 8 },
-    { hpt: 24 },
-  ];
+  worksheet["!rows"] = [{ hpt: 22 }, ...body.map(() => ({ hpt: 20 }))];
 
-  headers.forEach((_, colIndex) => {
-    const cell = worksheet[XLSX.utils.encode_cell({ r: 4, c: colIndex })];
-    if (cell) cell.v = String(cell.v || "");
-  });
+  for (let r = 1; r <= lastRow; r++) {
+    for (let c = 0; c <= lastColIndex; c++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: r - 1, c });
+      const cell = worksheet[cellAddress];
+      if (!cell) continue;
+
+      const header = headers[c] || "";
+      if (r === 1) {
+        cell.t = "s";
+      }
+
+      if (r > 1 && ["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
+        const num = Number(cell.v || 0);
+        if (!Number.isNaN(num)) {
+          cell.v = num;
+          cell.t = "n";
+          cell.z = "#,##0";
+        }
+      }
+    }
+  }
 
   const workbook = XLSX.utils.book_new();
   workbook.Props = {
