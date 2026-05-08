@@ -524,13 +524,64 @@ export default function App() {
   };
 
 
-  const uploadReceipt = async (file: File) => {
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-    const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { error } = await supabase.storage.from("receipts").upload(fileName, file, {
+  const compressReceiptImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith("image/")) return resolve(file);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onload = () => {
+          const maxSize = 1600;
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const width = Math.round(img.width * scale);
+          const height = Math.round(img.height * scale);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(file);
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return resolve(file);
+
+              const compressed = new File(
+                [blob],
+                `receipt-${Date.now()}.jpg`,
+                { type: "image/jpeg" }
+              );
+
+              resolve(compressed);
+            },
+            "image/jpeg",
+            0.75
+          );
+        };
+
+        img.onerror = () => resolve(file);
+        img.src = String(reader.result || "");
+      };
+
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const uploadReceipt = async (file: File) => {
+    const compressedFile = await compressReceiptImage(file);
+    const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+
+    const { error } = await supabase.storage.from("receipts").upload(fileName, compressedFile, {
       cacheControl: "3600",
       upsert: false,
+      contentType: "image/jpeg",
     });
 
     if (error) {
