@@ -566,6 +566,7 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
@@ -1675,12 +1676,23 @@ export default function App() {
             </div>
           </div>
         )}
+        <div className="mobile-more-sheet" style={{ display: mobileMoreOpen ? "grid" : "none" }}>
+          <button onClick={() => { setMenuTab("layout"); setMobileMoreOpen(false); }}>생산라인</button>
+          <button onClick={() => { setMenuTab("vendors"); setMobileMoreOpen(false); }}>거래처등록</button>
+          <button onClick={() => { setMenuTab("warehouse_groups"); setMobileMoreOpen(false); }}>창고등록</button>
+          <button onClick={() => { setMenuTab("items"); setMobileMoreOpen(false); }}>품목등록</button>
+          <button onClick={() => { setMenuTab("list"); setMobileMoreOpen(false); }}>구매조회</button>
+          <button onClick={() => { setMenuTab("card_stats"); setMobileMoreOpen(false); }}>카드통계</button>
+          <button onClick={() => { setMenuTab("maint_list"); setMobileMoreOpen(false); }}>정비조회</button>
+          <button onClick={() => { setMenuTab("maint_stats"); setMobileMoreOpen(false); }}>정비통계</button>
+        </div>
+
         <div className="mobile-bottom-nav">
-          <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <button className={menuTab === "new" ? "active" : ""} onClick={() => setMenuTab("new")}>구매</button>
-          <button className={menuTab === "card_use" ? "active" : ""} onClick={() => setMenuTab("card_use")}>카드</button>
-          <button className={menuTab === "maint_new" ? "active" : ""} onClick={() => setMenuTab("maint_new")}>정비</button>
-          <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
+          <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileMoreOpen(false); }}>홈</button>
+          <button className={menuTab === "new" ? "active" : ""} onClick={() => { setMenuTab("new"); setMobileMoreOpen(false); }}>구매</button>
+          <button className={menuTab === "card_use" ? "active" : ""} onClick={() => { setMenuTab("card_use"); setMobileMoreOpen(false); }}>카드</button>
+          <button className={menuTab === "maint_new" ? "active" : ""} onClick={() => { setMenuTab("maint_new"); setMobileMoreOpen(false); }}>정비</button>
+          <button className={mobileMoreOpen ? "active" : ""} onClick={() => setMobileMoreOpen((v) => !v)}>더보기</button>
         </div>
 
       </div>
@@ -3309,6 +3321,141 @@ td .icon{
 
   .app{
     padding-bottom:88px !important;
+  }
+}
+
+/* ===== Cleaner Mobile App Layout ===== */
+@media (max-width: 900px){
+  .menu{
+    display:none !important;
+  }
+
+  .hero{
+    margin-bottom:12px;
+    padding:22px 14px !important;
+    border-radius:22px !important;
+  }
+
+  .main-title{
+    font-size:30px !important;
+    letter-spacing:1px;
+  }
+
+  .hero p{
+    margin-top:6px;
+    font-size:14px !important;
+  }
+
+  .dashboard-grid{
+    gap:10px !important;
+  }
+
+  .dashboard-card{
+    padding:18px 14px !important;
+    min-height:92px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    border-radius:18px !important;
+  }
+
+  .dashboard-card span{
+    font-size:13px !important;
+    margin-bottom:8px;
+  }
+
+  .dashboard-card b{
+    margin-top:0 !important;
+    font-size:26px !important;
+  }
+
+  .dashboard-panel{
+    padding:14px !important;
+    border-radius:18px !important;
+  }
+
+  .dashboard-panel h3{
+    text-align:left;
+    font-size:18px !important;
+    margin-bottom:12px !important;
+  }
+
+  .mobile-bottom-nav{
+    height:62px !important;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom)) !important;
+    background:rgba(255,255,255,.96) !important;
+    backdrop-filter:blur(16px);
+    border-top:1px solid #e5e7eb;
+    grid-template-columns:repeat(5,1fr);
+    gap:6px !important;
+  }
+
+  .mobile-bottom-nav button{
+    min-height:48px !important;
+    height:48px !important;
+    border-radius:16px !important;
+    font-size:12px !important;
+    font-weight:900 !important;
+    background:#f8fafc !important;
+    color:#334155 !important;
+  }
+
+  .mobile-bottom-nav button.active{
+    background:#2563eb !important;
+    color:#ffffff !important;
+    box-shadow:0 8px 18px rgba(37,99,235,.25);
+  }
+
+  .mobile-more-sheet{
+    position:fixed;
+    left:12px;
+    right:12px;
+    bottom:76px;
+    z-index:99998;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    padding:12px;
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-radius:20px;
+    box-shadow:0 18px 50px rgba(15,23,42,.22);
+  }
+
+  .mobile-more-sheet button{
+    min-height:44px;
+    border:0;
+    border-radius:14px;
+    background:#f1f5f9;
+    color:#111827;
+    font-size:14px;
+    font-weight:900;
+  }
+
+  .app{
+    padding-bottom:86px !important;
+  }
+}
+
+@media (max-width: 520px){
+  .hero{
+    padding:20px 12px !important;
+  }
+
+  .main-title{
+    font-size:28px !important;
+  }
+
+  .dashboard-card{
+    min-height:86px;
+  }
+
+  .dashboard-card b{
+    font-size:24px !important;
+  }
+
+  .mobile-more-sheet{
+    bottom:72px;
   }
 }
 
