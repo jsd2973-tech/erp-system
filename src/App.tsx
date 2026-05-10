@@ -1362,7 +1362,7 @@ export default function App() {
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
-          <button onClick={loadAll}>새로고침</button><div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
+          <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
@@ -1460,7 +1460,7 @@ export default function App() {
                 <Upload size={16} /> 영수증 이미지 업로드
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf" capture="environment"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -1675,6 +1675,14 @@ export default function App() {
             </div>
           </div>
         )}
+        <div className="mobile-bottom-nav">
+          <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
+          <button className={menuTab === "new" ? "active" : ""} onClick={() => setMenuTab("new")}>구매</button>
+          <button className={menuTab === "card_use" ? "active" : ""} onClick={() => setMenuTab("card_use")}>카드</button>
+          <button className={menuTab === "maint_new" ? "active" : ""} onClick={() => setMenuTab("maint_new")}>정비</button>
+          <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
+        </div>
+
       </div>
     </div>
   );
@@ -3217,6 +3225,90 @@ td .icon{
   .menu-group .sub{
     top:122px;
     grid-template-columns:1fr 1fr;
+  }
+}
+
+/* ===== Mobile Bottom Navigation ===== */
+.mobile-bottom-nav{
+  display:none;
+}
+
+@media (max-width: 900px){
+  .mobile-bottom-nav{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    height:66px;
+    background:#ffffff;
+    border-top:1px solid #e5e7eb;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:6px;
+    padding:7px 8px;
+    z-index:99999;
+    box-shadow:0 -8px 30px rgba(15,23,42,.10);
+    box-sizing:border-box;
+  }
+
+  .mobile-bottom-nav button{
+    border:0;
+    background:#f8fafc;
+    border-radius:14px;
+    font-size:12px;
+    font-weight:900;
+    color:#334155;
+    min-height:48px !important;
+    padding:4px 2px !important;
+    white-space:nowrap;
+  }
+
+  .mobile-bottom-nav button.active{
+    background:#2563eb;
+    color:#ffffff;
+  }
+
+  .mobile-bottom-nav button:active{
+    transform:scale(.97);
+  }
+
+  .app{
+    padding-bottom:92px !important;
+  }
+
+  .menu{
+    padding:7px !important;
+    gap:5px !important;
+  }
+
+  .menu > button,
+  .menu-group > button,
+  .user-box button{
+    min-height:34px !important;
+    height:34px !important;
+    padding:6px 10px !important;
+    font-size:12px !important;
+  }
+
+  .user-box{
+    display:none !important;
+  }
+}
+
+@media (max-width: 520px){
+  .mobile-bottom-nav{
+    height:64px;
+    padding:6px;
+    gap:5px;
+  }
+
+  .mobile-bottom-nav button{
+    font-size:11.5px;
+    border-radius:12px;
+  }
+
+  .app{
+    padding-bottom:88px !important;
   }
 }
 
