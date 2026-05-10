@@ -1853,6 +1853,23 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 
+
+function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
+  return (
+    <section className="card">
+      <h2>생산라인 구성도</h2>
+      <div className="home-img">
+        <img src="/line-layout.png" alt="생산라인 구성도" />
+      </div>
+      <div className="home-buttons">
+        <button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button>
+        <button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button>
+        <button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button>
+      </div>
+    </section>
+  );
+}
+
 function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[]; maints: Maint[]; cardUses: CardUse[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
