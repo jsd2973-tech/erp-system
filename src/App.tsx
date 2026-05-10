@@ -567,6 +567,7 @@ export default function App() {
 
   const [menuTab, setMenuTab] = useState("home");
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
@@ -1676,23 +1677,46 @@ export default function App() {
             </div>
           </div>
         )}
-        <div className="mobile-more-sheet" style={{ display: mobileMoreOpen ? "grid" : "none" }}>
-          <button onClick={() => { setMenuTab("layout"); setMobileMoreOpen(false); }}>생산라인</button>
-          <button onClick={() => { setMenuTab("vendors"); setMobileMoreOpen(false); }}>거래처등록</button>
-          <button onClick={() => { setMenuTab("warehouse_groups"); setMobileMoreOpen(false); }}>창고등록</button>
-          <button onClick={() => { setMenuTab("items"); setMobileMoreOpen(false); }}>품목등록</button>
-          <button onClick={() => { setMenuTab("list"); setMobileMoreOpen(false); }}>구매조회</button>
-          <button onClick={() => { setMenuTab("card_stats"); setMobileMoreOpen(false); }}>카드통계</button>
-          <button onClick={() => { setMenuTab("maint_list"); setMobileMoreOpen(false); }}>정비조회</button>
-          <button onClick={() => { setMenuTab("maint_stats"); setMobileMoreOpen(false); }}>정비통계</button>
+        <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
+          {mobileSheet === "buy" && (
+            <>
+              <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
+              <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>
+              <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
+            </>
+          )}
+
+          {mobileSheet === "card" && (
+            <>
+              <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>카드사용</button>
+              <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>카드통계</button>
+            </>
+          )}
+
+          {mobileSheet === "maint" && (
+            <>
+              <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>
+              <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>
+              <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>
+            </>
+          )}
+
+          {mobileSheet === "more" && (
+            <>
+              <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
+              <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
+              <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
+              <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
+            </>
+          )}
         </div>
 
         <div className="mobile-bottom-nav">
-          <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileMoreOpen(false); }}>홈</button>
-          <button className={menuTab === "new" ? "active" : ""} onClick={() => { setMenuTab("new"); setMobileMoreOpen(false); }}>구매</button>
-          <button className={menuTab === "card_use" ? "active" : ""} onClick={() => { setMenuTab("card_use"); setMobileMoreOpen(false); }}>카드</button>
-          <button className={menuTab === "maint_new" ? "active" : ""} onClick={() => { setMenuTab("maint_new"); setMobileMoreOpen(false); }}>정비</button>
-          <button className={mobileMoreOpen ? "active" : ""} onClick={() => setMobileMoreOpen((v) => !v)}>더보기</button>
+          <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
+          <button className={mobileSheet === "buy" || ["new", "list", "status"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
+          <button className={mobileSheet === "card" || ["card_use", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
+          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+          <button className={mobileSheet === "more" || ["layout", "vendors", "warehouse_groups", "items"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
         </div>
 
       </div>
@@ -3456,6 +3480,35 @@ td .icon{
 
   .mobile-more-sheet{
     bottom:72px;
+  }
+}
+
+/* ===== Mobile Bottom Menu Detail Fix ===== */
+@media (max-width: 900px){
+  .mobile-bottom-nav button{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    text-align:center !important;
+    line-height:1 !important;
+    padding:0 !important;
+  }
+
+  .mobile-more-sheet{
+    grid-template-columns:1fr 1fr !important;
+  }
+
+  .mobile-more-sheet button{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+  }
+}
+
+@media (max-width: 520px){
+  .mobile-bottom-nav button{
+    font-size:12px !important;
   }
 }
 
