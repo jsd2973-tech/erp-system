@@ -546,6 +546,7 @@ export default function App() {
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+  const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
   const loadAll = async () => {
@@ -758,6 +759,7 @@ export default function App() {
 
   const resetCardForm = () => {
     setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+    setEditingCardUseId("");
   };
 
   const saveCardUse = async () => {
@@ -766,7 +768,7 @@ export default function App() {
     }
 
     const payload: CardUse = {
-      id: uid(),
+      id: editingCardUseId || uid(),
       date: cardForm.date,
       user_name: cardForm.user_name,
       place: cardForm.place,
@@ -775,12 +777,31 @@ export default function App() {
       image_url: cardForm.image_url,
     };
 
-    const { error } = await supabase.from("card_uses").insert(payload);
+    const { error } = await supabase.from("card_uses").upsert(payload);
     if (error) return alert(`카드사용 저장 실패: ${error.message}`);
 
-    setCardUses((prev) => [payload, ...prev]);
+    setCardUses((prev) =>
+      editingCardUseId
+        ? prev.map((c) => (c.id === editingCardUseId ? payload : c))
+        : [payload, ...prev]
+    );
+
     resetCardForm();
-    alert("카드사용 저장 완료");
+    alert(editingCardUseId ? "카드사용 수정 완료" : "카드사용 저장 완료");
+  };
+
+  const editCardUse = (c: CardUse) => {
+    setEditingCardUseId(c.id);
+    setCardForm({
+      date: c.date || "",
+      user_name: c.user_name || "",
+      place: c.place || "",
+      amount: String(c.amount || ""),
+      memo: c.memo || "",
+      image_url: c.image_url || "",
+    });
+    setMenuTab("card_use");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const deleteCardUse = async (id: string) => {
@@ -1298,7 +1319,7 @@ export default function App() {
 
         {menuTab === "card_use" && (
           <section className="card">
-            <h2>카드사용</h2>
+            <h2>{editingCardUseId ? "카드사용 수정" : "카드사용"}</h2>
 
             <div className="grid5">
               <Field label="사용일자">
@@ -1343,7 +1364,7 @@ export default function App() {
             </div>
 
             <div className="actions right-actions">
-              <button className="primary" onClick={saveCardUse}>카드사용 저장</button>
+              <button className="primary" onClick={saveCardUse}>{editingCardUseId ? "카드사용 수정저장" : "카드사용 저장"}</button>
               <button onClick={resetCardForm}>초기화</button>
             </div>
 
@@ -1370,23 +1391,29 @@ export default function App() {
             <ScrollTable>
               <table>
                 <thead>
-                  <tr><th>사용일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
+                  <tr><th>관리번호</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
                 </thead>
                 <tbody>
                   {!filteredCardUses.length ? (
                     <tr><td colSpan={7} className="empty">저장된 카드사용 내역 없음</td></tr>
                   ) : (
-                    filteredCardUses.map((c) => (
+                    filteredCardUses.map((c, index) => {
+                      const sameDateBeforeCount = filteredCardUses
+                        .slice(0, index)
+                        .filter((x) => x.date === c.date).length;
+                      const seq = sameDateBeforeCount + 1;
+
+                      return (
                       <tr key={c.id}>
-                        <td>{c.date}</td>
+                        <td>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</td>
                         <td>{c.user_name || "-"}</td>
                         <td>{c.place}</td>
                         <td className="right bold">{money(c.amount)}</td>
                         <td>{c.memo || "-"}</td>
                         <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
-                        <td>{isAdmin ? <button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button> : "-"}</td>
+                        <td>{isAdmin ? <><button className="icon" onClick={() => editCardUse(c)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button></> : "-"}</td>
                       </tr>
-                    ))
+                    )})
                   )}
                 </tbody>
               </table>
