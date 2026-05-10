@@ -2637,4 +2637,235 @@ td .icon{
   margin:auto;
 }
 
+/* ===== Mobile UI Optimization ===== */
+@media (max-width: 900px){
+  .app{
+    padding:14px;
+  }
+
+  .hero{
+    padding:18px 14px;
+    border-radius:18px;
+  }
+
+  .main-title{
+    font-size:28px;
+    line-height:1.2;
+  }
+
+  .hero p{
+    font-size:14px;
+  }
+
+  .menu{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    align-items:flex-start;
+    padding:10px;
+    position:sticky;
+    top:0;
+    z-index:50;
+    background:#f8fafc;
+    border-radius:16px;
+    box-shadow:0 4px 16px rgba(15,23,42,.08);
+  }
+
+  .menu > button,
+  .menu-group > button,
+  .user-box button{
+    min-height:44px;
+    padding:10px 13px;
+    font-size:14px;
+    border-radius:12px;
+  }
+
+  .menu-group{
+    position:relative;
+  }
+
+  .menu-group .sub{
+    min-width:150px;
+    border-radius:14px;
+  }
+
+  .menu-group .sub button{
+    min-height:42px;
+    font-size:14px;
+    padding:10px 12px;
+  }
+
+  .user-box{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    align-items:center;
+    padding:8px 4px 0;
+    font-size:13px;
+  }
+
+  .card{
+    padding:16px;
+    border-radius:18px;
+    margin-top:14px;
+  }
+
+  .card h2{
+    font-size:22px;
+    margin-bottom:14px;
+  }
+
+  .grid3,
+  .grid5,
+  .two,
+  .dashboard-two{
+    grid-template-columns:1fr !important;
+  }
+
+  input,
+  select,
+  textarea,
+  button{
+    min-height:44px;
+    font-size:16px;
+  }
+
+  label{
+    font-size:13px;
+  }
+
+  .actions,
+  .right-actions,
+  .between{
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+  }
+
+  .actions button,
+  .right-actions button,
+  .between button,
+  .upload{
+    width:100%;
+    justify-content:center;
+  }
+
+  .table-wrap,
+  .scroll-table{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  table{
+    min-width:760px;
+    font-size:13px;
+  }
+
+  th,
+  td{
+    padding:9px 8px;
+    white-space:nowrap;
+  }
+
+  .dashboard-grid{
+    grid-template-columns:1fr !important;
+    gap:12px;
+  }
+
+  .dashboard-card{
+    padding:18px;
+    border-radius:16px;
+  }
+
+  .dashboard-card b{
+    font-size:24px;
+  }
+
+  .dashboard-title-row{
+    padding:16px;
+    border-radius:16px;
+  }
+
+  .dashboard-title-row h2{
+    font-size:22px;
+  }
+
+  .dashboard-panel{
+    padding:14px;
+    border-radius:16px;
+  }
+
+  .date-combo{
+    grid-template-columns:1fr 48px;
+  }
+
+  .search-wrap{
+    min-width:0;
+  }
+
+  .dropdown{
+    max-height:260px;
+    overflow:auto;
+  }
+
+  .home-img img{
+    max-width:100%;
+    height:auto;
+  }
+
+  .home-buttons{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .totals{
+    width:100%;
+    display:grid;
+    gap:8px;
+    font-size:14px;
+  }
+
+  .totals .big{
+    font-size:18px;
+  }
+}
+
+@media (max-width: 520px){
+  .app{
+    padding:10px;
+  }
+
+  .main-title{
+    font-size:24px;
+  }
+
+  .menu{
+    gap:6px;
+    padding:8px;
+  }
+
+  .menu > button,
+  .menu-group > button{
+    flex:1 1 calc(50% - 6px);
+  }
+
+  .card{
+    padding:13px;
+  }
+
+  .card h2{
+    font-size:20px;
+  }
+
+  table{
+    min-width:680px;
+  }
+
+  .dashboard-card b{
+    font-size:22px;
+  }
+}
+
 `;
