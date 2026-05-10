@@ -52,6 +52,22 @@ const KEY = {
   maints: "erp_maints_v2",
 };
 
+
+const AUTH_PREF_KEY = "erp_auth_preferences_v1";
+
+const readAuthPrefs = () => {
+  try {
+    const saved = localStorage.getItem(AUTH_PREF_KEY);
+    return saved ? JSON.parse(saved) : { saveEmail: false, autoLogin: false, email: "" };
+  } catch {
+    return { saveEmail: false, autoLogin: false, email: "" };
+  }
+};
+
+const writeAuthPrefs = (prefs: { saveEmail: boolean; autoLogin: boolean; email: string }) => {
+  localStorage.setItem(AUTH_PREF_KEY, JSON.stringify(prefs));
+};
+
 const read = <T,>(key: string, fallback: T): T => {
   try {
     const v = localStorage.getItem(key);
@@ -462,6 +478,32 @@ html, body, #root {
   margin-top: 8px;
 }
 
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 2px;
+}
+
+.login-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+}
+
+.login-options input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  accent-color: #2563eb;
+}
+
 .login-error {
   background: #fee2e2;
   color: #991b1b;
@@ -516,7 +558,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [authPrefs, setAuthPrefs] = useState(() => readAuthPrefs());
+  const [loginForm, setLoginForm] = useState(() => ({ email: readAuthPrefs().email || "", password: "" }));
   const [loginError, setLoginError] = useState("");
   const adminEmails = ["jsd2973@gmail.com"];
   const userEmail = session?.user?.email || "";
@@ -1172,8 +1215,10 @@ export default function App() {
   const login = async () => {
     setLoginError("");
 
+    const email = loginForm.email.trim();
+
     const { error } = await supabase.auth.signInWithPassword({
-      email: loginForm.email.trim(),
+      email,
       password: loginForm.password,
     });
 
@@ -1181,11 +1226,28 @@ export default function App() {
       setLoginError("로그인 실패: 이메일 또는 비밀번호를 확인하세요.");
       return;
     }
+
+    const nextPrefs = {
+      ...authPrefs,
+      email: authPrefs.saveEmail || authPrefs.autoLogin ? email : "",
+    };
+
+    setAuthPrefs(nextPrefs);
+    writeAuthPrefs(nextPrefs);
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+
+    const nextPrefs = {
+      ...authPrefs,
+      autoLogin: false,
+      email: authPrefs.saveEmail ? authPrefs.email : "",
+    };
+
+    setAuthPrefs(nextPrefs);
+    writeAuthPrefs(nextPrefs);
   };
 
   if (authLoading) {
@@ -1212,7 +1274,16 @@ export default function App() {
           <label>이메일</label>
           <input
             value={loginForm.email}
-            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+            onChange={(e) => {
+              const email = e.target.value;
+              setLoginForm({ ...loginForm, email });
+
+              if (authPrefs.saveEmail || authPrefs.autoLogin) {
+                const nextPrefs = { ...authPrefs, email };
+                setAuthPrefs(nextPrefs);
+                writeAuthPrefs(nextPrefs);
+              }
+            }}
             placeholder="이메일 입력"
           />
 
@@ -1226,6 +1297,43 @@ export default function App() {
               if (e.key === "Enter") login();
             }}
           />
+
+          <div className="login-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={authPrefs.saveEmail}
+                onChange={(e) => {
+                  const nextPrefs = {
+                    ...authPrefs,
+                    saveEmail: e.target.checked,
+                    email: e.target.checked || authPrefs.autoLogin ? loginForm.email.trim() : "",
+                  };
+                  setAuthPrefs(nextPrefs);
+                  writeAuthPrefs(nextPrefs);
+                }}
+              />
+              아이디 저장
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={authPrefs.autoLogin}
+                onChange={(e) => {
+                  const nextPrefs = {
+                    ...authPrefs,
+                    autoLogin: e.target.checked,
+                    saveEmail: e.target.checked ? true : authPrefs.saveEmail,
+                    email: e.target.checked || authPrefs.saveEmail ? loginForm.email.trim() : "",
+                  };
+                  setAuthPrefs(nextPrefs);
+                  writeAuthPrefs(nextPrefs);
+                }}
+              />
+              자동 로그인
+            </label>
+          </div>
 
           {loginError && <div className="login-error">{loginError}</div>}
 
