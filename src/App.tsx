@@ -4673,4 +4673,40 @@ td .icon{
   }
 }
 
+/* ===== Force Hide Hotspots When Not Editing ===== */
+.layout-map:not(.editing) .layout-hotspot,
+.layout-map:not(.editing) .layout-hotspot:hover,
+.layout-map:not(.editing) .layout-hotspot:focus,
+.layout-map:not(.editing) .layout-hotspot:active{
+  border:0 !important;
+  outline:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+.layout-map:not(.editing) .layout-hotspot::before,
+.layout-map:not(.editing) .layout-hotspot::after{
+  display:none !important;
+  content:none !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+.layout-map:not(.editing) .layout-hotspot span{
+  display:none !important;
+  opacity:0 !important;
+}
+
+.layout-map.editing .layout-hotspot{
+  border:2px solid rgba(245,158,11,.9) !important;
+  background:rgba(245,158,11,.18) !important;
+  box-shadow:none !important;
+}
+
+.layout-map.editing .layout-hotspot.selected{
+  border-color:#2563eb !important;
+  background:rgba(37,99,235,.22) !important;
+  box-shadow:0 0 0 4px rgba(37,99,235,.18) !important;
+}
+
 `;
