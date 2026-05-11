@@ -2533,21 +2533,6 @@ function Home({
           </button>
         ))}
       </div>
-
-      <div className="equipment-link-box">
-        <h3>크라샤 생산라인 정비이력 바로가기</h3>
-        <div className="equipment-link-grid">
-          {!crusherWarehouses.length ? (
-            <div className="empty">크라샤 세부창고가 없습니다.</div>
-          ) : (
-            crusherWarehouses.map((w) => (
-              <button key={w.id} onClick={() => openMaintHistory(w.name)}>
-                {w.name}
-              </button>
-            ))
-          )}
-        </div>
-      </div>
     </section>
   );
 }
@@ -4423,8 +4408,9 @@ td .icon{
 /* ===== Production Line Image Hotspots ===== */
 .layout-map{
   position:relative;
-  width:min(100%, 1120px);
-  margin:0 auto;
+  width:100%;
+  max-width:none;
+  margin:0;
   background:#ffffff;
   border-radius:16px;
   overflow:hidden;
@@ -4612,6 +4598,17 @@ td .icon{
 
   .layout-edit-actions button{
     width:100%;
+  }
+}
+
+/* ===== Full Width Production Layout ===== */
+.card:has(.layout-map){
+  padding:12px;
+}
+
+@media (max-width:900px){
+  .card:has(.layout-map){
+    padding:8px;
   }
 }
 
