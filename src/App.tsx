@@ -1683,6 +1683,27 @@ export default function App() {
               </div>
             </div>
 
+            <div className="between maint-photo-box">
+              <label className="upload">
+                <Upload size={16} /> 작업사진 업로드
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    await uploadMaintImage(file);
+                  }}
+                />
+              </label>
+              <div className="receipt-preview">
+                {maintForm.image_url ? (
+                  <a href={maintForm.image_url} target="_blank" rel="noreferrer">작업사진 보기</a>
+                ) : <span>작업사진 미첨부</span>}
+              </div>
+            </div>
+
             <div className="actions right-actions">
               <button className="primary" onClick={saveMaint}>정비 저장</button>
               <button onClick={resetMaintForm}>초기화</button>
@@ -2003,7 +2024,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           meta: m.warehouse,
           date: `${m.date || ""}-${String(seq).padStart(2, "0")}`,
           imageUrl: m.image_url,
-          onImageClick: m.image_url ? () => setReceiptPreviewUrl(m.image_url || "") : undefined,
           onEdit: () => editMaint(m),
           onDelete: isAdmin ? () => deleteMaint(m.id) : undefined,
         };
@@ -2121,7 +2141,7 @@ function MobileCardList({
           {row.sub && <div className="mobile-list-sub">{row.sub}</div>}
           {row.meta && <div className="mobile-list-meta">{row.meta}</div>}
           {row.imageUrl && (
-            <button className="mobile-image-link" onClick={row.onImageClick}>
+            <button className="mobile-image-link" onClick={row.onImageClick || (() => window.open(row.imageUrl, "_blank"))}>
               작업사진 보기
             </button>
           )}
