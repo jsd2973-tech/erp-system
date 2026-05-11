@@ -1536,7 +1536,7 @@ export default function App() {
                   onDelete: isAdmin ? () => deleteCardUse(c.id) : undefined,
                 };
               })} />
-            </div><div className="desktop-table"><ScrollTable>
+            </div><ScrollTable>
               <table>
                 <thead>
                   <tr><th>관리번호</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
@@ -2008,7 +2008,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           onDelete: isAdmin ? () => deleteMaint(m.id) : undefined,
         };
       })} />
-    </div><div className="desktop-table"><ScrollTable>
+    </div><ScrollTable>
         <table>
           <thead>
             <tr>
