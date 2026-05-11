@@ -4669,6 +4669,11 @@ td .icon{
 }
 
 .layout-hotspot span{
+  display:none;
+}
+
+.layout-map.editing .layout-hotspot span{
+  display:block;
   position:absolute;
   left:50%;
   top:50%;
