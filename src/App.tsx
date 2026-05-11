@@ -10,7 +10,7 @@ type Item = { id: string; code: string; name: string; spec?: string; unit?: stri
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string; image_url?: string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
+type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string; image_url?: string; created_at?: string };
 
 
@@ -566,6 +566,7 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
@@ -583,7 +584,7 @@ export default function App() {
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
-  const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_url: "" });
+  const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
@@ -592,7 +593,6 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
-  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
 
   const loadAll = async () => {
     setLoading(true);
@@ -800,25 +800,6 @@ export default function App() {
 
     const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
     return data.publicUrl;
-  };
-
-  const uploadMaintImage = async (file: File) => {
-    const compressedFile = await compressReceiptImage(file);
-    const fileName = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-
-    const { error } = await supabase.storage.from("receipts").upload(fileName, compressedFile, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: "image/jpeg",
-    });
-
-    if (error) {
-      alert(`작업사진 업로드 실패: ${error.message}`);
-      return;
-    }
-
-    const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-    setMaintForm((prev) => ({ ...prev, image_url: data.publicUrl }));
   };
 
   const resetCardForm = () => {
@@ -1133,7 +1114,7 @@ export default function App() {
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   const resetMaintForm = () => {
-    setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_url: "" });
+    setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
   };
@@ -1149,7 +1130,7 @@ export default function App() {
   const editMaint = (m: Maint) => {
     setMenuTab("maint_new");
     setEditingMaintId(m.id);
-    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_url: m.image_url || "" });
+    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || "") });
     setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
   };
 
@@ -1520,23 +1501,7 @@ export default function App() {
               <div><span>카드사용 합계</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}원</b></div>
             </div>
 
-            <div className="mobile-only-list">{/* 카드 모바일 카드 */}
-              <MobileCardList rows={filteredCardUses.map((c, index) => {
-                const sameDateBeforeCount = filteredCardUses.slice(0, index).filter((x) => x.date === c.date).length;
-                const seq = sameDateBeforeCount + 1;
-                return {
-                  title: c.place,
-                  amount: c.amount,
-                  sub: c.memo || c.user_name || "-",
-                  meta: c.user_name || "",
-                  date: `${c.date || ""}-${String(seq).padStart(2, "0")}`,
-                  imageUrl: c.image_url,
-                  onImageClick: c.image_url ? () => setReceiptPreviewUrl(c.image_url || "") : undefined,
-                  onEdit: isAdmin ? () => editCardUse(c) : undefined,
-                  onDelete: isAdmin ? () => deleteCardUse(c.id) : undefined,
-                };
-              })} />
-            </div><ScrollTable>
+            <ScrollTable>
               <table>
                 <thead>
                   <tr><th>관리번호</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
@@ -1558,14 +1523,7 @@ export default function App() {
                         <td>{c.place}</td>
                         <td className="right bold">{money(c.amount)}</td>
                         <td>{c.memo || "-"}</td>
-                        <td>
-                          {c.image_url ? (
-                            <button className="receipt-thumb-btn" onClick={() => setReceiptPreviewUrl(c.image_url || "")}>
-                              <img src={c.image_url} alt="영수증" />
-                              <span>확대</span>
-                            </button>
-                          ) : "-"}
-                        </td>
+                        <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
                         <td>{isAdmin ? <><button className="icon" onClick={() => editCardUse(c)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button></> : "-"}</td>
                       </tr>
                     )})
@@ -1683,27 +1641,6 @@ export default function App() {
               </div>
             </div>
 
-            <div className="between maint-photo-box">
-              <label className="upload">
-                <Upload size={16} /> 작업사진 업로드
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    await uploadMaintImage(file);
-                  }}
-                />
-              </label>
-              <div className="receipt-preview">
-                {maintForm.image_url ? (
-                  <a href={maintForm.image_url} target="_blank" rel="noreferrer">작업사진 보기</a>
-                ) : <span>작업사진 미첨부</span>}
-              </div>
-            </div>
-
             <div className="actions right-actions">
               <button className="primary" onClick={saveMaint}>정비 저장</button>
               <button onClick={resetMaintForm}>초기화</button>
@@ -1740,21 +1677,7 @@ export default function App() {
             </div>
           </div>
         )}
-        
-        {receiptPreviewUrl && (
-          <div className="receipt-modal" onClick={() => setReceiptPreviewUrl("")}>
-            <div className="receipt-modal-box" onClick={(e) => e.stopPropagation()}>
-              <div className="receipt-modal-head">
-                <b>영수증 미리보기</b>
-                <button onClick={() => setReceiptPreviewUrl("")}>닫기</button>
-              </div>
-              <img src={receiptPreviewUrl} alt="영수증 확대보기" />
-              <a href={receiptPreviewUrl} target="_blank" rel="noreferrer">새 창으로 열기</a>
-            </div>
-          </div>
-        )}
-
-<div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
+        <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
           {mobileSheet === "buy" && (
             <>
               <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
@@ -1812,24 +1735,10 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-only-list">{/* 구매 모바일 카드 */}
-      <MobileCardList rows={purchases.map((p: Purchase, index: number) => {
-        const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
-        const seq = sameDateBeforeCount + 1;
-        return {
-          title: p.vendor,
-          amount: p.total,
-          sub: p.itemSummary,
-          meta: p.warehouse,
-          date: `${p.date || ""}-${String(seq).padStart(2, "0")}`,
-          onEdit: () => editPurchase(p),
-          onDelete: isAdmin ? () => deletePurchase(p.id) : undefined,
-        };
-      })} />
-    </div><div className="desktop-table"><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+))}>엑셀 다운로드</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></div></section>;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -2013,22 +1922,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         </Field>
       </div>
 
-      <div className="mobile-only-list">{/* 정비 모바일 카드 */}
-      <MobileCardList rows={maints.map((m: Maint, index: number) => {
-        const sameDateBeforeCount = maints.slice(0, index).filter((x: Maint) => x.date === m.date).length;
-        const seq = sameDateBeforeCount + 1;
-        return {
-          title: m.title || m.warehouse,
-          amount: Number(m.total || m.cost || 0),
-          sub: m.detail || m.manager || "-",
-          meta: m.warehouse,
-          date: `${m.date || ""}-${String(seq).padStart(2, "0")}`,
-          imageUrl: m.image_url,
-          onEdit: () => editMaint(m),
-          onDelete: isAdmin ? () => deleteMaint(m.id) : undefined,
-        };
-      })} />
-    </div><ScrollTable>
+      <ScrollTable>
         <table>
           <thead>
             <tr>
@@ -2039,6 +1933,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               <th>공급가액</th>
               <th>부가세</th>
               <th>합계</th>
+              <th>첨부</th>
               <th>관리</th>
             </tr>
           </thead>
@@ -2059,6 +1954,18 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     <td className="right">{money(supply)}</td>
                     <td className="right">{money(vat)}</td>
                     <td className="right bold">{money(total)}</td>
+                    <td>
+                      {m.image_url ? (
+                        <a
+                          href={m.image_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="file-view-btn"
+                        >
+                          첨부보기
+                        </a>
+                      ) : "-"}
+                    </td>
                     <td>
                       {isAdmin ? <>
                         <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
@@ -2111,52 +2018,6 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 
-
-
-function MobileCardList({
-  rows,
-}: {
-  rows: Array<{
-    title: string;
-    amount?: number | string;
-    sub?: string;
-    meta?: string;
-    date?: string;
-    imageUrl?: string;
-    onEdit?: () => void;
-    onDelete?: () => void;
-    onImageClick?: () => void;
-  }>;
-}) {
-  return (
-    <div className="mobile-card-list">
-      {!rows.length ? (
-        <div className="mobile-list-card empty">조회된 내역 없음</div>
-      ) : rows.map((row, idx) => (
-        <div className="mobile-list-card" key={idx}>
-          <div className="mobile-list-top">
-            <b>{row.title}</b>
-            {row.amount !== undefined && <span>{money(row.amount)}원</span>}
-          </div>
-          {row.sub && <div className="mobile-list-sub">{row.sub}</div>}
-          {row.meta && <div className="mobile-list-meta">{row.meta}</div>}
-          {row.imageUrl && (
-            <button className="mobile-image-link" onClick={row.onImageClick || (() => window.open(row.imageUrl, "_blank"))}>
-              작업사진 보기
-            </button>
-          )}
-          <div className="mobile-list-bottom">
-            <em>{row.date}</em>
-            <div>
-              {row.onEdit && <button onClick={row.onEdit}>수정</button>}
-              {row.onDelete && <button onClick={row.onDelete}>삭제</button>}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
   return (
@@ -3661,231 +3522,6 @@ td .icon{
 @media (max-width: 520px){
   .mobile-bottom-nav button{
     font-size:12px !important;
-  }
-}
-
-/* ===== Receipt Preview Modal ===== */
-.receipt-thumb-btn{
-  border:0;
-  background:transparent;
-  padding:0;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  cursor:pointer;
-  color:#2563eb;
-  font-weight:900;
-}
-
-.receipt-thumb-btn img{
-  width:52px;
-  height:52px;
-  object-fit:cover;
-  border-radius:10px;
-  border:1px solid #e5e7eb;
-  background:#f8fafc;
-}
-
-.receipt-thumb-btn span{
-  white-space:nowrap;
-}
-
-.receipt-modal{
-  position:fixed;
-  inset:0;
-  background:rgba(15,23,42,.72);
-  z-index:100000;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-}
-
-.receipt-modal-box{
-  width:min(760px, 94vw);
-  max-height:90vh;
-  background:#ffffff;
-  border-radius:20px;
-  padding:14px;
-  box-shadow:0 24px 80px rgba(0,0,0,.35);
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
-
-.receipt-modal-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-
-.receipt-modal-head b{
-  font-size:18px;
-}
-
-.receipt-modal-head button{
-  border:0;
-  background:#f1f5f9;
-  border-radius:12px;
-  padding:8px 12px;
-  font-weight:900;
-  cursor:pointer;
-}
-
-.receipt-modal-box img{
-  width:100%;
-  max-height:70vh;
-  object-fit:contain;
-  background:#f8fafc;
-  border-radius:14px;
-}
-
-.receipt-modal-box a{
-  text-align:center;
-  color:#2563eb;
-  font-weight:900;
-  text-decoration:none;
-}
-
-@media (max-width: 900px){
-  .receipt-thumb-btn img{
-    width:44px;
-    height:44px;
-  }
-
-  .receipt-modal{
-    padding:10px;
-  }
-
-  .receipt-modal-box{
-    width:96vw;
-    max-height:88vh;
-    border-radius:18px;
-  }
-
-  .receipt-modal-box img{
-    max-height:68vh;
-  }
-}
-
-/* ===== Mobile Card List View ===== */
-.mobile-only-list{
-  display:none;
-}
-
-@media (max-width:900px){
-  .desktop-table{
-    display:none !important;
-  }
-
-  .mobile-only-list{
-    display:block;
-  }
-
-  .mobile-card-list{
-    display:grid;
-    gap:12px;
-  }
-
-  .mobile-list-card{
-    background:#ffffff;
-    border:1px solid #e5e7eb;
-    border-radius:18px;
-    padding:14px;
-    box-shadow:0 4px 14px rgba(15,23,42,.06);
-  }
-
-  .mobile-list-card.empty{
-    color:#64748b;
-    text-align:center;
-    font-weight:800;
-  }
-
-  .mobile-list-top{
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    align-items:flex-start;
-    margin-bottom:8px;
-  }
-
-  .mobile-list-top b{
-    font-size:15px;
-    color:#0f172a;
-    line-height:1.35;
-  }
-
-  .mobile-list-top span{
-    color:#2563eb;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .mobile-list-sub{
-    color:#475569;
-    font-size:13px;
-    margin-bottom:6px;
-    line-height:1.4;
-  }
-
-  .mobile-list-meta{
-    color:#64748b;
-    font-size:12px;
-    margin-bottom:8px;
-  }
-
-  .mobile-image-link{
-    width:100%;
-    border:1px solid #dbeafe;
-    background:#eff6ff;
-    color:#2563eb;
-    border-radius:12px;
-    font-weight:900;
-    margin:6px 0 8px;
-  }
-
-  .mobile-list-bottom{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:8px;
-    border-top:1px solid #f1f5f9;
-    padding-top:8px;
-  }
-
-  .mobile-list-bottom em{
-    font-style:normal;
-    color:#94a3b8;
-    font-size:12px;
-    font-weight:800;
-  }
-
-  .mobile-list-bottom div{
-    display:flex;
-    gap:6px;
-  }
-
-  .mobile-list-bottom button{
-    min-height:32px !important;
-    height:32px;
-    border:0;
-    border-radius:10px;
-    padding:4px 10px !important;
-    font-size:12px !important;
-    font-weight:900;
-    background:#f1f5f9;
-    color:#334155;
-  }
-
-  .maint-photo-box{
-    margin-top:10px;
-  }
-}
-
-@media (min-width:901px){
-  .desktop-table{
-    display:block;
   }
 }
 
