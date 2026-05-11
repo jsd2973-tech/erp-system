@@ -2336,7 +2336,8 @@ function Home({
   warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
-  const hotspotStorageKey = "erp_layout_hotspots_v2";
+  const desktopStorageKey = "erp_layout_hotspots_desktop_v1";
+  const mobileStorageKey = "erp_layout_hotspots_mobile_v1";
 
   const crusherWarehouses = (warehouses || [])
     .filter((w) => w.group === "크라샤")
@@ -2351,6 +2352,19 @@ function Home({
     { name: "2차탈수스크린", left: 68.4, top: 59.0, width: 9.8, height: 6.8 },
     { name: "1차탈수스크린", left: 68.4, top: 68.8, width: 9.8, height: 6.8 },
   ];
+
+  const isMobileScreen = () => window.innerWidth <= 900;
+  const [layoutMode, setLayoutMode] = useState<"desktop" | "mobile">(() =>
+    typeof window !== "undefined" && window.innerWidth <= 900 ? "mobile" : "desktop"
+  );
+
+  useEffect(() => {
+    const onResize = () => setLayoutMode(window.innerWidth <= 900 ? "mobile" : "desktop");
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const getStorageKey = () => (layoutMode === "mobile" ? mobileStorageKey : desktopStorageKey);
 
   const makeDefaultHotspots = (items: Warehouse[]) => {
     const known = new Map(baseHotspotLinks.map((x) => [x.name, x]));
@@ -2372,16 +2386,24 @@ function Home({
     });
   };
 
+  const readHotspots = (mode: "desktop" | "mobile", items: Warehouse[]) => {
+    try {
+      const key = mode === "mobile" ? mobileStorageKey : desktopStorageKey;
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : makeDefaultHotspots(items);
+    } catch {
+      return makeDefaultHotspots(items);
+    }
+  };
+
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem(hotspotStorageKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => readHotspots(layoutMode, crusherWarehouses));
+
+  useEffect(() => {
+    setHotspotLinks(readHotspots(layoutMode, crusherWarehouses));
+    setSelectedHotspot("");
+  }, [layoutMode]);
 
   useEffect(() => {
     if (!crusherWarehouses.length) return;
@@ -2397,7 +2419,7 @@ function Home({
 
       return [...kept, ...missing];
     });
-  }, [warehouses.length]);
+  }, [warehouses.length, layoutMode]);
 
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
@@ -2452,15 +2474,23 @@ function Home({
   };
 
   const saveHotspotLayout = () => {
-    localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspotLinks));
-    alert("생산라인 클릭영역 위치와 크기를 저장했습니다.");
+    localStorage.setItem(getStorageKey(), JSON.stringify(hotspotLinks));
+    alert(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 저장했습니다.`);
   };
 
   const resetHotspotLayout = () => {
-    if (!confirm("생산라인 클릭영역 위치와 크기를 초기화할까요?")) return;
-    localStorage.removeItem(hotspotStorageKey);
+    if (!confirm(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 초기화할까요?`)) return;
+    localStorage.removeItem(getStorageKey());
     setHotspotLinks(makeDefaultHotspots(crusherWarehouses));
     setSelectedHotspot("");
+  };
+
+  const copyDesktopToMobile = () => {
+    const desktop = localStorage.getItem(desktopStorageKey);
+    if (!desktop) return alert("저장된 PC용 위치가 없습니다.");
+    localStorage.setItem(mobileStorageKey, desktop);
+    if (layoutMode === "mobile") setHotspotLinks(JSON.parse(desktop));
+    alert("PC용 위치를 모바일용으로 복사했습니다.");
   };
 
   return (
@@ -2479,6 +2509,7 @@ function Home({
                 <button onClick={() => resizeSelectedHotspot("width", -0.8)}>가로 -</button>
                 <button onClick={() => resizeSelectedHotspot("height", 0.8)}>세로 +</button>
                 <button onClick={() => resizeSelectedHotspot("height", -0.8)}>세로 -</button>
+                <button onClick={copyDesktopToMobile}>PC→모바일 복사</button>
                 <button className="primary" onClick={saveHotspotLayout}>저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
@@ -2489,7 +2520,8 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          크라샤 세부창고 전체가 네모로 표시됩니다. 네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
+          현재 <b>{layoutMode === "mobile" ? "모바일용" : "PC용"}</b> 좌표를 조정 중입니다.
+          PC와 모바일 좌표는 따로 저장됩니다. 네모를 드래그하고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
           {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
         </div>
       )}
@@ -4707,6 +4739,24 @@ td .icon{
   border-color:#2563eb !important;
   background:rgba(37,99,235,.22) !important;
   box-shadow:0 0 0 4px rgba(37,99,235,.18) !important;
+}
+
+/* ===== Separate PC/Mobile Hotspot Coordinates ===== */
+.layout-edit-guide b{
+  color:#1d4ed8;
+}
+
+@media (max-width:900px){
+  .layout-edit-actions{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+  }
+
+  .layout-edit-actions button{
+    width:100%;
+    font-size:12px;
+    padding:7px 6px;
+  }
 }
 
 `;
