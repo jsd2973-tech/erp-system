@@ -321,19 +321,33 @@ const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000
 
 
 
-const UPDATE_NOTICE_VERSION = "2026-05-11-erp-update-01";
+const UPDATE_NOTICE_VERSION = "2026-05-11-erp-update-02";
 const UPDATE_NOTICE_HIDE_KEY = "erp_update_notice_hide_until";
 
 const updateNoticeItems = [
-  "모바일 하단 메뉴 및 화면 최적화",
-  "카드사용 수정 및 영수증 첨부 기능 개선",
-  "정비 사진/PDF 여러 장 업로드 기능 추가",
-  "정비조회 첨부보기 및 모바일 카드형 조회 개선",
-  "구매/카드/정비 PDF 출력 기능 추가",
-  "생산라인 구성도에서 크라샤 세부창고 정비이력 바로가기 추가",
+  { date: "2026-05-11", text: "업데이트 안내 팝업 및 오늘 열지 않음 기능 추가" },
+  { date: "2026-05-11", text: "생산라인 구성도에서 크라샤 세부창고 정비이력 바로가기 추가" },
+  { date: "2026-05-11", text: "구매/카드/정비 PDF 출력 기능 추가" },
+  { date: "2026-05-11", text: "정비 사진/PDF 여러 장 업로드 기능 추가" },
+  { date: "2026-05-11", text: "정비조회 첨부보기 및 모바일 카드형 조회 개선" },
+  { date: "2026-05-10", text: "모바일 하단 메뉴 및 화면 최적화" },
+  { date: "2026-05-10", text: "카드사용 수정 및 영수증 첨부 기능 개선" },
 ];
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+const getYesterdayKey = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+};
+
+const getRecentUpdateItems = () => {
+  const today = getTodayKey();
+  const yesterday = getYesterdayKey();
+
+  return updateNoticeItems.filter((item) => item.date === today || item.date === yesterday);
+};
 
 
 function SearchSelect({
@@ -635,9 +649,10 @@ export default function App() {
   const [menuTab, setMenuTab] = useState("home");
   const [showUpdateNotice, setShowUpdateNotice] = useState(() => {
     const hiddenUntil = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
-    return hiddenUntil !== `${UPDATE_NOTICE_VERSION}:${getTodayKey()}`;
+    return hiddenUntil !== `${UPDATE_NOTICE_VERSION}:${getTodayKey()}` && getRecentUpdateItems().length > 0;
   });
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
+  const recentUpdateItems = getRecentUpdateItems();
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
@@ -1477,8 +1492,11 @@ export default function App() {
               </div>
 
               <ul>
-                {updateNoticeItems.map((item) => (
-                  <li key={item}>{item}</li>
+                {recentUpdateItems.map((item) => (
+                  <li key={`${item.date}-${item.text}`}>
+                    <strong>{item.date}</strong>
+                    <span>{item.text}</span>
+                  </li>
                 ))}
               </ul>
 
@@ -4151,6 +4169,21 @@ td .icon{
   font-size:24px;
   font-weight:800;
   cursor:pointer;
+}
+
+
+.update-popup li{
+  display:grid;
+  gap:3px;
+}
+
+.update-popup li strong{
+  color:#1d4ed8;
+  font-size:12px;
+}
+
+.update-popup li span{
+  color:#334155;
 }
 
 .update-popup ul{
