@@ -2517,23 +2517,7 @@ function Home({
             <span>{spot.name}</span>
           </button>
         ))}
-      </div>
-
-      <div className="equipment-link-box">
-        <h3>크라샤 생산라인 정비이력 바로가기</h3>
-        <div className="equipment-link-grid">
-          {!crusherWarehouses.length ? (
-            <div className="empty">크라샤 세부창고가 없습니다.</div>
-          ) : (
-            crusherWarehouses.map((w) => (
-              <button key={w.id} onClick={() => openMaintHistory(w.name)}>
-                {w.name}
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-    </section>
+      </div>    </section>
   );
 }
 
