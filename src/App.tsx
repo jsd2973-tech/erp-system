@@ -4657,8 +4657,8 @@ td .icon{
 .layout-hotspot{
   position:absolute;
   transform:translate(-50%, -50%);
-  border:2px solid rgba(245,158,11,.72);
-  background:rgba(245,158,11,.17);
+  border:2px solid transparent;
+  background:transparent;
   color:#111827;
   border-radius:10px;
   cursor:pointer;
@@ -4687,8 +4687,8 @@ td .icon{
 }
 
 .layout-hotspot:hover{
-  background:rgba(245,158,11,.28);
-  box-shadow:0 0 0 4px rgba(245,158,11,.12);
+  background:rgba(245,158,11,.10);
+  box-shadow:0 0 0 4px rgba(245,158,11,.08);
 }
 
 .layout-hotspot.selected{
@@ -4746,6 +4746,8 @@ td .icon{
 .layout-map.editing .layout-hotspot{
   cursor:grab;
   transition:none;
+  border-color:rgba(245,158,11,.82);
+  background:rgba(245,158,11,.14);
 }
 
 @media (max-width:900px){
