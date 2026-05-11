@@ -2353,7 +2353,6 @@ function Home({
     { name: "1차탈수스크린", left: 68.4, top: 68.8, width: 9.8, height: 6.8 },
   ];
 
-  const isMobileScreen = () => window.innerWidth <= 900;
   const [layoutMode, setLayoutMode] = useState<"desktop" | "mobile">(() =>
     typeof window !== "undefined" && window.innerWidth <= 900 ? "mobile" : "desktop"
   );
