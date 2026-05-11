@@ -4541,9 +4541,23 @@ td .icon{
 }
 
 .layout-map.editing .layout-hotspot{
+  border:2px solid rgba(245,158,11,.9);
   background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.9);
   cursor:grab;
+}
+
+.layout-map.editing .layout-hotspot::after{
+  display:block;
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:8px;
+  height:8px;
+  transform:translate(-50%, -50%);
+  border-radius:999px;
+  background:#f59e0b;
+  box-shadow:0 0 0 4px rgba(245,158,11,.18);
 }
 
 .layout-map.editing .layout-hotspot.selected{
