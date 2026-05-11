@@ -2339,16 +2339,8 @@ function Home({
   const desktopStorageKey = "erp_layout_hotspots_desktop_v1";
   const mobileStorageKey = "erp_layout_hotspots_mobile_v1";
   const legacyStorageKey = "erp_layout_hotspots_v2";
-
-  useEffect(() => {
-    const legacy = localStorage.getItem(legacyStorageKey);
-    const desktop = localStorage.getItem(desktopStorageKey);
-
-    if (legacy && !desktop) {
-      localStorage.setItem(desktopStorageKey, legacy);
-      setHotspotLinks(JSON.parse(legacy));
-    }
-  }, []);
+  const desktopDbKey = "production_line_hotspots_desktop";
+  const mobileDbKey = "production_line_hotspots_mobile";
 
   const crusherWarehouses = (warehouses || [])
     .filter((w) => w.group === "크라샤")
@@ -2375,6 +2367,7 @@ function Home({
   }, []);
 
   const getStorageKey = () => (layoutMode === "mobile" ? mobileStorageKey : desktopStorageKey);
+  const getDbKey = () => (layoutMode === "mobile" ? mobileDbKey : desktopDbKey);
 
   const makeDefaultHotspots = (items: Warehouse[]) => {
     const known = new Map(baseHotspotLinks.map((x) => [x.name, x]));
@@ -2396,7 +2389,7 @@ function Home({
     });
   };
 
-  const readHotspots = (mode: "desktop" | "mobile", items: Warehouse[]) => {
+  const readLocalHotspots = (mode: "desktop" | "mobile", items: Warehouse[]) => {
     try {
       const key = mode === "mobile" ? mobileStorageKey : desktopStorageKey;
       const saved = localStorage.getItem(key);
@@ -2408,28 +2401,60 @@ function Home({
 
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => readHotspots(layoutMode, crusherWarehouses));
+  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => readLocalHotspots(layoutMode, crusherWarehouses));
+  const [layoutLoadMessage, setLayoutLoadMessage] = useState("");
 
-  useEffect(() => {
-    setHotspotLinks(readHotspots(layoutMode, crusherWarehouses));
-    setSelectedHotspot("");
-  }, [layoutMode]);
+  const mergeHotspotsWithWarehouses = (current: any[]) => {
+    const defaults = makeDefaultHotspots(crusherWarehouses);
+    const currentNames = new Set((current || []).map((x: any) => x.name));
+    const validNames = new Set(crusherWarehouses.map((w) => w.name));
 
-  useEffect(() => {
+    const kept = (current || []).filter((x: any) => validNames.has(x.name));
+    const missing = defaults.filter((x) => !currentNames.has(x.name));
+
+    return [...kept, ...missing];
+  };
+
+  const loadHotspotLayoutFromDb = async (mode = layoutMode) => {
     if (!crusherWarehouses.length) return;
 
-    setHotspotLinks((prev) => {
-      const current = Array.isArray(prev) ? prev : [];
-      const defaults = makeDefaultHotspots(crusherWarehouses);
-      const currentNames = new Set(current.map((x: any) => x.name));
+    const dbKey = mode === "mobile" ? mobileDbKey : desktopDbKey;
+    const localKey = mode === "mobile" ? mobileStorageKey : desktopStorageKey;
 
-      const missing = defaults.filter((x) => !currentNames.has(x.name));
-      const validNames = new Set(crusherWarehouses.map((w) => w.name));
-      const kept = current.filter((x: any) => validNames.has(x.name));
+    const { data, error } = await supabase
+      .from("layout_settings")
+      .select("value")
+      .eq("id", dbKey)
+      .maybeSingle();
 
-      return [...kept, ...missing];
-    });
-  }, [warehouses.length, layoutMode]);
+    if (error) {
+      const local = readLocalHotspots(mode, crusherWarehouses);
+      setHotspotLinks(mergeHotspotsWithWarehouses(local));
+      setLayoutLoadMessage("좌표 DB 불러오기 실패 · 임시 저장값 사용");
+      return;
+    }
+
+    if (data?.value) {
+      const next = mergeHotspotsWithWarehouses(data.value as any[]);
+      setHotspotLinks(next);
+      localStorage.setItem(localKey, JSON.stringify(next));
+      setLayoutLoadMessage(`${mode === "mobile" ? "모바일" : "PC"} 좌표 불러오기 완료`);
+      return;
+    }
+
+    const legacy = mode === "desktop" ? localStorage.getItem(legacyStorageKey) : "";
+    const local = legacy ? JSON.parse(legacy) : readLocalHotspots(mode, crusherWarehouses);
+    const next = mergeHotspotsWithWarehouses(local);
+
+    setHotspotLinks(next);
+    localStorage.setItem(localKey, JSON.stringify(next));
+    setLayoutLoadMessage(`${mode === "mobile" ? "모바일" : "PC"} 좌표 기본값 사용`);
+  };
+
+  useEffect(() => {
+    loadHotspotLayoutFromDb(layoutMode);
+    setSelectedHotspot("");
+  }, [layoutMode, warehouses.length]);
 
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
@@ -2483,23 +2508,77 @@ function Home({
     );
   };
 
-  const saveHotspotLayout = () => {
-    localStorage.setItem(getStorageKey(), JSON.stringify(hotspotLinks));
-    alert(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 저장했습니다.`);
+  const saveHotspotLayout = async () => {
+    const localKey = getStorageKey();
+    const dbKey = getDbKey();
+
+    localStorage.setItem(localKey, JSON.stringify(hotspotLinks));
+
+    const { error } = await supabase
+      .from("layout_settings")
+      .upsert({
+        id: dbKey,
+        value: hotspotLinks,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      alert(`좌표 DB 저장 실패: ${error.message}
+브라우저에는 임시 저장했습니다.`);
+      return;
+    }
+
+    alert(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 DB에 저장했습니다.`);
   };
 
-  const resetHotspotLayout = () => {
+  const resetHotspotLayout = async () => {
     if (!confirm(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 초기화할까요?`)) return;
+
+    const defaults = makeDefaultHotspots(crusherWarehouses);
     localStorage.removeItem(getStorageKey());
-    setHotspotLinks(makeDefaultHotspots(crusherWarehouses));
+    setHotspotLinks(defaults);
     setSelectedHotspot("");
+
+    await supabase
+      .from("layout_settings")
+      .upsert({
+        id: getDbKey(),
+        value: defaults,
+        updated_at: new Date().toISOString(),
+      });
   };
 
-  const copyDesktopToMobile = () => {
-    const desktop = localStorage.getItem(desktopStorageKey);
-    if (!desktop) return alert("저장된 PC용 위치가 없습니다.");
-    localStorage.setItem(mobileStorageKey, desktop);
-    if (layoutMode === "mobile") setHotspotLinks(JSON.parse(desktop));
+  const copyDesktopToMobile = async () => {
+    const { data, error } = await supabase
+      .from("layout_settings")
+      .select("value")
+      .eq("id", desktopDbKey)
+      .maybeSingle();
+
+    if (error || !data?.value) {
+      const desktopLocal = localStorage.getItem(desktopStorageKey) || localStorage.getItem(legacyStorageKey);
+      if (!desktopLocal) return alert("저장된 PC용 위치가 없습니다.");
+
+      localStorage.setItem(mobileStorageKey, desktopLocal);
+      await supabase.from("layout_settings").upsert({
+        id: mobileDbKey,
+        value: JSON.parse(desktopLocal),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (layoutMode === "mobile") setHotspotLinks(JSON.parse(desktopLocal));
+      alert("PC용 위치를 모바일용으로 복사했습니다.");
+      return;
+    }
+
+    localStorage.setItem(mobileStorageKey, JSON.stringify(data.value));
+    await supabase.from("layout_settings").upsert({
+      id: mobileDbKey,
+      value: data.value,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (layoutMode === "mobile") setHotspotLinks(data.value as any[]);
     alert("PC용 위치를 모바일용으로 복사했습니다.");
   };
 
@@ -2520,7 +2599,7 @@ function Home({
                 <button onClick={() => resizeSelectedHotspot("height", 0.8)}>세로 +</button>
                 <button onClick={() => resizeSelectedHotspot("height", -0.8)}>세로 -</button>
                 <button onClick={copyDesktopToMobile}>PC→모바일 복사</button>
-                <button className="primary" onClick={saveHotspotLayout}>저장</button>
+                <button className="primary" onClick={saveHotspotLayout}>DB 저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
             )}
@@ -2531,8 +2610,9 @@ function Home({
       {editLayout && (
         <div className="layout-edit-guide">
           현재 <b>{layoutMode === "mobile" ? "모바일용" : "PC용"}</b> 좌표를 조정 중입니다.
-          PC와 모바일 좌표는 따로 저장됩니다. 네모를 드래그하고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
+          PC와 모바일 좌표는 Supabase DB에 따로 저장됩니다.
           {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
+          {layoutLoadMessage ? <b> {layoutLoadMessage}</b> : null}
         </div>
       )}
 
