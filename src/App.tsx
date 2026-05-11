@@ -2385,10 +2385,6 @@ function Home({
     }
   });
 
-  const crusherWarehouses = (warehouses || [])
-    .filter((w) => w.group === "크라샤")
-    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
-
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
       ...prev,
