@@ -15,7 +15,8 @@ type Maint = { id: string; date: string; warehouse: string; manager: string; tit
   image_url?: string;
   image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
-  image_url?: string; created_at?: string };
+  image_url?: string;
+  image_urls?: string[]; created_at?: string };
 
 
 const supabase = createClient(
@@ -676,7 +677,7 @@ export default function App() {
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
-  const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+  const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
@@ -869,6 +870,35 @@ export default function App() {
     });
   };
 
+
+  const uploadCardReceipts = async (files: FileList | File[]) => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressReceiptImage(file) : file;
+      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const fileName = `card-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      });
+
+      if (error) {
+        alert(`영수증 여러 장 업로드 실패: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
+
   const uploadReceipt = async (file: File) => {
     const compressedFile = await compressReceiptImage(file);
     const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
@@ -918,7 +948,7 @@ export default function App() {
 
 
   const resetCardForm = () => {
-    setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
+    setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
     setEditingCardUseId("");
   };
 
@@ -934,7 +964,8 @@ export default function App() {
       place: cardForm.place,
       amount: Number(cardForm.amount || 0),
       memo: cardForm.memo,
-      image_url: cardForm.image_url,
+      image_url: (cardForm.image_urls || [])[0] || cardForm.image_url,
+      image_urls: cardForm.image_urls || (cardForm.image_url ? [cardForm.image_url] : []),
     };
 
     const { error } = await supabase.from("card_uses").upsert(payload);
@@ -959,6 +990,7 @@ export default function App() {
       amount: String(c.amount || ""),
       memo: c.memo || "",
       image_url: c.image_url || "",
+      image_urls: c.image_urls || (c.image_url ? [c.image_url] : []),
     });
     setMenuTab("card_use");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1617,20 +1649,33 @@ export default function App() {
 
             <div className="between">
               <label className="upload">
-                <Upload size={16} /> 영수증 이미지 업로드
+                <Upload size={16} /> 영수증 여러 장 업로드
                 <input
                   type="file"
-                  accept="image/*,application/pdf" capture="environment"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  multiple
                   onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const url = await uploadReceipt(file);
-                    if (url) setCardForm({ ...cardForm, image_url: url });
+                    const files = e.target.files;
+                    if (!files?.length) return;
+                    const urls = await uploadCardReceipts(files);
+                    setCardForm((prev) => {
+                      const nextUrls = [...(prev.image_urls || []), ...urls];
+                      return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
+                    });
                   }}
                 />
               </label>
               <div className="receipt-preview">
-                {cardForm.image_url ? <a href={cardForm.image_url} target="_blank">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>}
+                {(cardForm.image_urls || []).length ? (
+                  <div className="attachment-chips">
+                    {(cardForm.image_urls || []).map((url, idx) => (
+                      <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">영수증{idx + 1}</a>
+                    ))}
+                  </div>
+                ) : (
+                  cardForm.image_url ? <a href={cardForm.image_url} target="_blank" rel="noreferrer">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>
+                )}
               </div>
             </div>
 
@@ -1681,7 +1726,7 @@ export default function App() {
                         <td>{c.place}</td>
                         <td className="right bold">{money(c.amount)}</td>
                         <td>{c.memo || "-"}</td>
-                        <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
+                        <td><AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} /></td>
                         <td>{isAdmin ? <><button className="icon" onClick={() => editCardUse(c)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button></> : "-"}</td>
                       </tr>
                     )})
@@ -1710,7 +1755,7 @@ export default function App() {
                     </div>
 
                     <div className="mobile-list-attachment">
-                      <AttachmentPreview url={c.image_url} />
+                      <AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} />
                     </div>
 
                     <div className="mobile-card-actions">
@@ -2336,17 +2381,7 @@ function Home({
   warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
-  const desktopStorageKey = "erp_layout_hotspots_desktop_v1";
-  const mobileStorageKey = "erp_layout_hotspots_mobile_v1";
-  const legacyStorageKey = "erp_layout_hotspots_v2";
-  const desktopDbKey = "production_line_hotspots_desktop";
-  const mobileDbKey = "production_line_hotspots_mobile";
-
-  const crusherWarehouses = (warehouses || [])
-    .filter((w) => w.group === "크라샤")
-    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
-
-  const baseHotspotLinks = [
+  const defaultHotspotLinks = [
     { name: "1680콘", left: 18.5, top: 25.5, width: 6.6, height: 9.8 },
     { name: "1300콘", left: 29.7, top: 25.8, width: 6.4, height: 9.4 },
     { name: "2470 2차스크린(광산)", left: 45.0, top: 82.0, width: 9.4, height: 9.6 },
@@ -2356,105 +2391,22 @@ function Home({
     { name: "1차탈수스크린", left: 68.4, top: 68.8, width: 9.8, height: 6.8 },
   ];
 
-  const [layoutMode, setLayoutMode] = useState<"desktop" | "mobile">(() =>
-    typeof window !== "undefined" && window.innerWidth <= 900 ? "mobile" : "desktop"
-  );
-
-  useEffect(() => {
-    const onResize = () => setLayoutMode(window.innerWidth <= 900 ? "mobile" : "desktop");
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const getStorageKey = () => (layoutMode === "mobile" ? mobileStorageKey : desktopStorageKey);
-  const getDbKey = () => (layoutMode === "mobile" ? mobileDbKey : desktopDbKey);
-
-  const makeDefaultHotspots = (items: Warehouse[]) => {
-    const known = new Map(baseHotspotLinks.map((x) => [x.name, x]));
-
-    return items.map((w, index) => {
-      const exact = known.get(w.name);
-      if (exact) return exact;
-
-      const col = index % 6;
-      const row = Math.floor(index / 6);
-
-      return {
-        name: w.name,
-        left: Number((10 + col * 14).toFixed(2)),
-        top: Number((12 + row * 10).toFixed(2)),
-        width: 8,
-        height: 6,
-      };
-    });
-  };
-
-  const readLocalHotspots = (mode: "desktop" | "mobile", items: Warehouse[]) => {
-    try {
-      const key = mode === "mobile" ? mobileStorageKey : desktopStorageKey;
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : makeDefaultHotspots(items);
-    } catch {
-      return makeDefaultHotspots(items);
-    }
-  };
+  const hotspotStorageKey = "erp_layout_hotspots_v1";
 
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => readLocalHotspots(layoutMode, crusherWarehouses));
-  const [layoutLoadMessage, setLayoutLoadMessage] = useState("");
-
-  const mergeHotspotsWithWarehouses = (current: any[]) => {
-    const defaults = makeDefaultHotspots(crusherWarehouses);
-    const currentNames = new Set((current || []).map((x: any) => x.name));
-    const validNames = new Set(crusherWarehouses.map((w) => w.name));
-
-    const kept = (current || []).filter((x: any) => validNames.has(x.name));
-    const missing = defaults.filter((x) => !currentNames.has(x.name));
-
-    return [...kept, ...missing];
-  };
-
-  const loadHotspotLayoutFromDb = async (mode = layoutMode) => {
-    if (!crusherWarehouses.length) return;
-
-    const dbKey = mode === "mobile" ? mobileDbKey : desktopDbKey;
-    const localKey = mode === "mobile" ? mobileStorageKey : desktopStorageKey;
-
-    const { data, error } = await supabase
-      .from("layout_settings")
-      .select("value")
-      .eq("id", dbKey)
-      .maybeSingle();
-
-    if (error) {
-      const local = readLocalHotspots(mode, crusherWarehouses);
-      setHotspotLinks(mergeHotspotsWithWarehouses(local));
-      setLayoutLoadMessage("좌표 DB 불러오기 실패 · 임시 저장값 사용");
-      return;
+  const [hotspotLinks, setHotspotLinks] = useState(() => {
+    try {
+      const saved = localStorage.getItem(hotspotStorageKey);
+      return saved ? JSON.parse(saved) : defaultHotspotLinks;
+    } catch {
+      return defaultHotspotLinks;
     }
+  });
 
-    if (data?.value) {
-      const next = mergeHotspotsWithWarehouses(data.value as any[]);
-      setHotspotLinks(next);
-      localStorage.setItem(localKey, JSON.stringify(next));
-      setLayoutLoadMessage(`${mode === "mobile" ? "모바일" : "PC"} 좌표 불러오기 완료`);
-      return;
-    }
-
-    const legacy = mode === "desktop" ? localStorage.getItem(legacyStorageKey) : "";
-    const local = legacy ? JSON.parse(legacy) : readLocalHotspots(mode, crusherWarehouses);
-    const next = mergeHotspotsWithWarehouses(local);
-
-    setHotspotLinks(next);
-    localStorage.setItem(localKey, JSON.stringify(next));
-    setLayoutLoadMessage(`${mode === "mobile" ? "모바일" : "PC"} 좌표 기본값 사용`);
-  };
-
-  useEffect(() => {
-    loadHotspotLayoutFromDb(layoutMode);
-    setSelectedHotspot("");
-  }, [layoutMode, warehouses.length]);
+  const crusherWarehouses = (warehouses || [])
+    .filter((w) => w.group === "크라샤")
+    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
 
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
@@ -2490,96 +2442,32 @@ function Home({
     );
   };
 
-  const resizeSelectedHotspot = (field: "width" | "height", delta: number) => {
-    if (!selectedHotspot) {
-      alert("먼저 조정할 네모를 선택하세요.");
-      return;
-    }
+  const resizeSelectedHotspot = (delta: number) => {
+    if (!selectedHotspot) return;
 
     setHotspotLinks((prev: any[]) =>
       prev.map((spot) =>
         spot.name === selectedHotspot
           ? {
               ...spot,
-              [field]: Number(Math.min(24, Math.max(3, Number(spot[field] || 6) + delta)).toFixed(2)),
+              width: Number(Math.min(20, Math.max(3, spot.width + delta)).toFixed(2)),
+              height: Number(Math.min(20, Math.max(3, spot.height + delta)).toFixed(2)),
             }
           : spot
       )
     );
   };
 
-  const saveHotspotLayout = async () => {
-    const localKey = getStorageKey();
-    const dbKey = getDbKey();
-
-    localStorage.setItem(localKey, JSON.stringify(hotspotLinks));
-
-    const { error } = await supabase
-      .from("layout_settings")
-      .upsert({
-        id: dbKey,
-        value: hotspotLinks,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      alert(`좌표 DB 저장 실패: ${error.message}
-브라우저에는 임시 저장했습니다.`);
-      return;
-    }
-
-    alert(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 DB에 저장했습니다.`);
+  const saveHotspotLayout = () => {
+    localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspotLinks));
+    alert("생산라인 클릭영역 위치를 저장했습니다.");
   };
 
-  const resetHotspotLayout = async () => {
-    if (!confirm(`${layoutMode === "mobile" ? "모바일" : "PC"}용 생산라인 클릭영역 위치와 크기를 초기화할까요?`)) return;
-
-    const defaults = makeDefaultHotspots(crusherWarehouses);
-    localStorage.removeItem(getStorageKey());
-    setHotspotLinks(defaults);
+  const resetHotspotLayout = () => {
+    if (!confirm("생산라인 클릭영역 위치를 초기화할까요?")) return;
+    localStorage.removeItem(hotspotStorageKey);
+    setHotspotLinks(defaultHotspotLinks);
     setSelectedHotspot("");
-
-    await supabase
-      .from("layout_settings")
-      .upsert({
-        id: getDbKey(),
-        value: defaults,
-        updated_at: new Date().toISOString(),
-      });
-  };
-
-  const copyDesktopToMobile = async () => {
-    const { data, error } = await supabase
-      .from("layout_settings")
-      .select("value")
-      .eq("id", desktopDbKey)
-      .maybeSingle();
-
-    if (error || !data?.value) {
-      const desktopLocal = localStorage.getItem(desktopStorageKey) || localStorage.getItem(legacyStorageKey);
-      if (!desktopLocal) return alert("저장된 PC용 위치가 없습니다.");
-
-      localStorage.setItem(mobileStorageKey, desktopLocal);
-      await supabase.from("layout_settings").upsert({
-        id: mobileDbKey,
-        value: JSON.parse(desktopLocal),
-        updated_at: new Date().toISOString(),
-      });
-
-      if (layoutMode === "mobile") setHotspotLinks(JSON.parse(desktopLocal));
-      alert("PC용 위치를 모바일용으로 복사했습니다.");
-      return;
-    }
-
-    localStorage.setItem(mobileStorageKey, JSON.stringify(data.value));
-    await supabase.from("layout_settings").upsert({
-      id: mobileDbKey,
-      value: data.value,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (layoutMode === "mobile") setHotspotLinks(data.value as any[]);
-    alert("PC용 위치를 모바일용으로 복사했습니다.");
   };
 
   return (
@@ -2594,12 +2482,9 @@ function Home({
             </button>
             {editLayout && (
               <>
-                <button onClick={() => resizeSelectedHotspot("width", 0.8)}>가로 +</button>
-                <button onClick={() => resizeSelectedHotspot("width", -0.8)}>가로 -</button>
-                <button onClick={() => resizeSelectedHotspot("height", 0.8)}>세로 +</button>
-                <button onClick={() => resizeSelectedHotspot("height", -0.8)}>세로 -</button>
-                <button onClick={copyDesktopToMobile}>PC→모바일 복사</button>
-                <button className="primary" onClick={saveHotspotLayout}>DB 저장</button>
+                <button onClick={() => resizeSelectedHotspot(0.7)}>크게</button>
+                <button onClick={() => resizeSelectedHotspot(-0.7)}>작게</button>
+                <button className="primary" onClick={saveHotspotLayout}>저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
             )}
@@ -2609,10 +2494,7 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          현재 <b>{layoutMode === "mobile" ? "모바일용" : "PC용"}</b> 좌표를 조정 중입니다.
-          PC와 모바일 좌표는 Supabase DB에 따로 저장됩니다.
-          {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
-          {layoutLoadMessage ? <b> {layoutLoadMessage}</b> : null}
+          박스를 마우스로 끌어서 위치를 맞춘 뒤 저장하세요. 박스를 선택하고 크게/작게로 크기를 조정할 수 있습니다.
         </div>
       )}
 
@@ -2654,6 +2536,21 @@ function Home({
             <span>{spot.name}</span>
           </button>
         ))}
+      </div>
+
+      <div className="equipment-link-box">
+        <h3>크라샤 생산라인 정비이력 바로가기</h3>
+        <div className="equipment-link-grid">
+          {!crusherWarehouses.length ? (
+            <div className="empty">크라샤 세부창고가 없습니다.</div>
+          ) : (
+            crusherWarehouses.map((w) => (
+              <button key={w.id} onClick={() => openMaintHistory(w.name)}>
+                {w.name}
+              </button>
+            ))
+          )}
+        </div>
       </div>
     </section>
   );
@@ -2897,7 +2794,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
                 <td>{c.user_name || "-"}</td>
                 <td>{c.place || "-"}</td>
                 <td className="right bold">{money(c.amount)}</td>
-                <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
+                <td><AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} /></td>
               </tr>
             ))}
           </tbody>
@@ -4530,22 +4427,17 @@ td .icon{
 /* ===== Production Line Image Hotspots ===== */
 .layout-map{
   position:relative;
-  width:100%;
-  max-width:none;
-  margin:0;
+  width:min(100%, 1120px);
+  margin:0 auto;
   background:#ffffff;
   border-radius:16px;
   overflow:hidden;
-
-  max-height:calc(100vh - 255px);
 }
 
 .layout-map img{
   display:block;
   width:100%;
   height:auto;
-  max-height:calc(100vh - 255px);
-  object-fit:contain;
 }
 
 .layout-hotspot{
@@ -4605,11 +4497,6 @@ td .icon{
 @media (max-width:900px){
   .layout-map{
     border-radius:12px;
-    max-height:calc(100vh - 185px);
-  }
-
-  .layout-map img{
-    max-height:calc(100vh - 185px);
   }
 
   .layout-hotspot{
@@ -4627,6 +4514,82 @@ td .icon{
     display:none;
   }
 }
+/* ===== Multiple Card Receipt Attachments ===== */
+.attachment-chips{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.attachment-chips a{
+  display:inline-flex;
+  min-height:34px;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-weight:900;
+  font-size:13px;
+  text-decoration:none;
+}
+
+.attachment-preview{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:74px;
+  height:74px;
+  border-radius:16px;
+  overflow:hidden;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  text-decoration:none;
+}
+
+.attachment-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.pdf-thumb{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#dc2626;
+  color:#ffffff;
+  font-size:14px;
+  font-weight:900;
+}
+
+.attachment-group{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.attachment-group .attachment-preview{
+  width:56px;
+  height:56px;
+}
+
+@media (max-width:900px){
+  .attachment-group{
+    justify-content:flex-end;
+  }
+
+  .attachment-group .attachment-preview{
+    width:64px;
+    height:64px;
+  }
+}
+
 /* ===== Draggable Layout Hotspot Editor ===== */
 .layout-edit-actions{
   display:flex;
@@ -4663,23 +4626,9 @@ td .icon{
 }
 
 .layout-map.editing .layout-hotspot{
-  border:2px solid rgba(245,158,11,.9);
   background:rgba(245,158,11,.18);
+  border-color:rgba(245,158,11,.9);
   cursor:grab;
-}
-
-.layout-map.editing .layout-hotspot::after{
-  display:block;
-  content:"";
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:8px;
-  height:8px;
-  transform:translate(-50%, -50%);
-  border-radius:999px;
-  background:#f59e0b;
-  box-shadow:0 0 0 4px rgba(245,158,11,.18);
 }
 
 .layout-map.editing .layout-hotspot.selected{
@@ -4709,143 +4658,6 @@ td .icon{
 
   .layout-edit-guide{
     font-size:13px;
-  }
-}
-
-/* ===== All Crusher Hotspots + Separate Size Controls ===== */
-.layout-edit-actions button{
-  white-space:nowrap;
-}
-
-.layout-edit-guide b{
-  display:inline-flex;
-  margin-left:8px;
-  color:#1d4ed8;
-}
-
-.layout-map.editing .layout-hotspot::after{
-  display:none;
-}
-
-.layout-map.editing .layout-hotspot span{
-  font-size:11px;
-  padding:3px 6px;
-  max-width:120px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-@media (max-width:900px){
-  .layout-edit-actions{
-    display:grid;
-    grid-template-columns:repeat(3, 1fr);
-  }
-
-  .layout-edit-actions button{
-    width:100%;
-  }
-}
-
-/* ===== Full Width Production Layout ===== */
-.card:has(.layout-map){
-  padding:12px;
-}
-
-@media (max-width:900px){
-  .card:has(.layout-map){
-    padding:8px;
-  }
-}
-
-/* ===== No Scroll Production Layout Fit ===== */
-.card:has(.layout-map){
-  padding:10px 14px;
-}
-
-.card:has(.layout-map) h2{
-  margin:0 0 8px;
-  font-size:20px;
-}
-
-.card:has(.layout-map) .between{
-  margin-bottom:8px;
-}
-
-.card:has(.layout-map) .layout-edit-guide{
-  margin:6px 0 8px;
-  padding:8px 10px;
-}
-
-@media (min-width:901px){
-  .card:has(.layout-map){
-    max-height:calc(100vh - 115px);
-    overflow:hidden;
-  }
-}
-
-@media (max-width:900px){
-  .card:has(.layout-map){
-    padding:8px;
-    max-height:calc(100vh - 96px);
-    overflow:hidden;
-  }
-
-  .card:has(.layout-map) h2{
-    font-size:18px;
-  }
-}
-
-/* ===== Force Hide Hotspots When Not Editing ===== */
-.layout-map:not(.editing) .layout-hotspot,
-.layout-map:not(.editing) .layout-hotspot:hover,
-.layout-map:not(.editing) .layout-hotspot:focus,
-.layout-map:not(.editing) .layout-hotspot:active{
-  border:0 !important;
-  outline:0 !important;
-  background:transparent !important;
-  box-shadow:none !important;
-}
-
-.layout-map:not(.editing) .layout-hotspot::before,
-.layout-map:not(.editing) .layout-hotspot::after{
-  display:none !important;
-  content:none !important;
-  background:transparent !important;
-  box-shadow:none !important;
-}
-
-.layout-map:not(.editing) .layout-hotspot span{
-  display:none !important;
-  opacity:0 !important;
-}
-
-.layout-map.editing .layout-hotspot{
-  border:2px solid rgba(245,158,11,.9) !important;
-  background:rgba(245,158,11,.18) !important;
-  box-shadow:none !important;
-}
-
-.layout-map.editing .layout-hotspot.selected{
-  border-color:#2563eb !important;
-  background:rgba(37,99,235,.22) !important;
-  box-shadow:0 0 0 4px rgba(37,99,235,.18) !important;
-}
-
-/* ===== Separate PC/Mobile Hotspot Coordinates ===== */
-.layout-edit-guide b{
-  color:#1d4ed8;
-}
-
-@media (max-width:900px){
-  .layout-edit-actions{
-    display:grid;
-    grid-template-columns:repeat(3, 1fr);
-  }
-
-  .layout-edit-actions button{
-    width:100%;
-    font-size:12px;
-    padding:7px 6px;
   }
 }
 
