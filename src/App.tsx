@@ -2336,7 +2336,13 @@ function Home({
   warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
-  const defaultHotspotLinks = [
+  const hotspotStorageKey = "erp_layout_hotspots_v2";
+
+  const crusherWarehouses = (warehouses || [])
+    .filter((w) => w.group === "크라샤")
+    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
+
+  const baseHotspotLinks = [
     { name: "1680콘", left: 18.5, top: 25.5, width: 6.6, height: 9.8 },
     { name: "1300콘", left: 29.7, top: 25.8, width: 6.4, height: 9.4 },
     { name: "2470 2차스크린(광산)", left: 45.0, top: 82.0, width: 9.4, height: 9.6 },
@@ -2346,22 +2352,52 @@ function Home({
     { name: "1차탈수스크린", left: 68.4, top: 68.8, width: 9.8, height: 6.8 },
   ];
 
-  const hotspotStorageKey = "erp_layout_hotspots_v1";
+  const makeDefaultHotspots = (items: Warehouse[]) => {
+    const known = new Map(baseHotspotLinks.map((x) => [x.name, x]));
+
+    return items.map((w, index) => {
+      const exact = known.get(w.name);
+      if (exact) return exact;
+
+      const col = index % 6;
+      const row = Math.floor(index / 6);
+
+      return {
+        name: w.name,
+        left: Number((10 + col * 14).toFixed(2)),
+        top: Number((12 + row * 10).toFixed(2)),
+        width: 8,
+        height: 6,
+      };
+    });
+  };
 
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState(() => {
+  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem(hotspotStorageKey);
-      return saved ? JSON.parse(saved) : defaultHotspotLinks;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return defaultHotspotLinks;
+      return [];
     }
   });
 
-  const crusherWarehouses = (warehouses || [])
-    .filter((w) => w.group === "크라샤")
-    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
+  useEffect(() => {
+    if (!crusherWarehouses.length) return;
+
+    setHotspotLinks((prev) => {
+      const current = Array.isArray(prev) ? prev : [];
+      const defaults = makeDefaultHotspots(crusherWarehouses);
+      const currentNames = new Set(current.map((x: any) => x.name));
+
+      const missing = defaults.filter((x) => !currentNames.has(x.name));
+      const validNames = new Set(crusherWarehouses.map((w) => w.name));
+      const kept = current.filter((x: any) => validNames.has(x.name));
+
+      return [...kept, ...missing];
+    });
+  }, [warehouses.length]);
 
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
@@ -2397,16 +2433,18 @@ function Home({
     );
   };
 
-  const resizeSelectedHotspot = (delta: number) => {
-    if (!selectedHotspot) return;
+  const resizeSelectedHotspot = (field: "width" | "height", delta: number) => {
+    if (!selectedHotspot) {
+      alert("먼저 조정할 네모를 선택하세요.");
+      return;
+    }
 
     setHotspotLinks((prev: any[]) =>
       prev.map((spot) =>
         spot.name === selectedHotspot
           ? {
               ...spot,
-              width: Number(Math.min(20, Math.max(3, spot.width + delta)).toFixed(2)),
-              height: Number(Math.min(20, Math.max(3, spot.height + delta)).toFixed(2)),
+              [field]: Number(Math.min(24, Math.max(3, Number(spot[field] || 6) + delta)).toFixed(2)),
             }
           : spot
       )
@@ -2415,13 +2453,13 @@ function Home({
 
   const saveHotspotLayout = () => {
     localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspotLinks));
-    alert("생산라인 클릭영역 위치를 저장했습니다.");
+    alert("생산라인 클릭영역 위치와 크기를 저장했습니다.");
   };
 
   const resetHotspotLayout = () => {
-    if (!confirm("생산라인 클릭영역 위치를 초기화할까요?")) return;
+    if (!confirm("생산라인 클릭영역 위치와 크기를 초기화할까요?")) return;
     localStorage.removeItem(hotspotStorageKey);
-    setHotspotLinks(defaultHotspotLinks);
+    setHotspotLinks(makeDefaultHotspots(crusherWarehouses));
     setSelectedHotspot("");
   };
 
@@ -2437,8 +2475,10 @@ function Home({
             </button>
             {editLayout && (
               <>
-                <button onClick={() => resizeSelectedHotspot(0.7)}>크게</button>
-                <button onClick={() => resizeSelectedHotspot(-0.7)}>작게</button>
+                <button onClick={() => resizeSelectedHotspot("width", 0.8)}>가로 +</button>
+                <button onClick={() => resizeSelectedHotspot("width", -0.8)}>가로 -</button>
+                <button onClick={() => resizeSelectedHotspot("height", 0.8)}>세로 +</button>
+                <button onClick={() => resizeSelectedHotspot("height", -0.8)}>세로 -</button>
                 <button className="primary" onClick={saveHotspotLayout}>저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
@@ -2449,7 +2489,8 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          박스를 마우스로 끌어서 위치를 맞춘 뒤 저장하세요. 박스를 선택하고 크게/작게로 크기를 조정할 수 있습니다.
+          크라샤 세부창고 전체가 네모로 표시됩니다. 네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
+          {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
         </div>
       )}
 
@@ -4537,6 +4578,40 @@ td .icon{
 
   .layout-edit-guide{
     font-size:13px;
+  }
+}
+
+/* ===== All Crusher Hotspots + Separate Size Controls ===== */
+.layout-edit-actions button{
+  white-space:nowrap;
+}
+
+.layout-edit-guide b{
+  display:inline-flex;
+  margin-left:8px;
+  color:#1d4ed8;
+}
+
+.layout-map.editing .layout-hotspot::after{
+  display:none;
+}
+
+.layout-map.editing .layout-hotspot span{
+  font-size:11px;
+  padding:3px 6px;
+  max-width:120px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media (max-width:900px){
+  .layout-edit-actions{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+  }
+
+  .layout-edit-actions button{
+    width:100%;
   }
 }
 
