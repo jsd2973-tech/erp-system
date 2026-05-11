@@ -320,6 +320,22 @@ const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000
 };
 
 
+
+const UPDATE_NOTICE_VERSION = "2026-05-11-erp-update-01";
+const UPDATE_NOTICE_HIDE_KEY = "erp_update_notice_hide_until";
+
+const updateNoticeItems = [
+  "모바일 하단 메뉴 및 화면 최적화",
+  "카드사용 수정 및 영수증 첨부 기능 개선",
+  "정비 사진/PDF 여러 장 업로드 기능 추가",
+  "정비조회 첨부보기 및 모바일 카드형 조회 개선",
+  "구매/카드/정비 PDF 출력 기능 추가",
+  "생산라인 구성도에서 크라샤 세부창고 정비이력 바로가기 추가",
+];
+
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+
 function SearchSelect({
   label,
   value,
@@ -617,6 +633,11 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
+  const [showUpdateNotice, setShowUpdateNotice] = useState(() => {
+    const hiddenUntil = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
+    return hiddenUntil !== `${UPDATE_NOTICE_VERSION}:${getTodayKey()}`;
+  });
+  const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
@@ -1331,6 +1352,13 @@ export default function App() {
     writeAuthPrefs(nextPrefs);
   };
 
+  const closeUpdateNotice = () => {
+    if (hideUpdateToday) {
+      localStorage.setItem(UPDATE_NOTICE_HIDE_KEY, `${UPDATE_NOTICE_VERSION}:${getTodayKey()}`);
+    }
+    setShowUpdateNotice(false);
+  };
+
   if (authLoading) {
     return (
       <>
@@ -1435,6 +1463,39 @@ export default function App() {
         </header>
 
         {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
+
+
+        {showUpdateNotice && (
+          <div className="update-popup-backdrop">
+            <div className="update-popup">
+              <div className="update-popup-head">
+                <div>
+                  <span>UPDATE</span>
+                  <h2>ERP 업데이트 안내</h2>
+                </div>
+                <button onClick={closeUpdateNotice}>×</button>
+              </div>
+
+              <ul>
+                {updateNoticeItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+
+              <div className="update-popup-bottom">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={hideUpdateToday}
+                    onChange={(e) => setHideUpdateToday(e.target.checked)}
+                  />
+                  오늘 열지 않음
+                </label>
+                <button className="primary" onClick={closeUpdateNotice}>확인</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
@@ -4033,6 +4094,125 @@ td .icon{
     min-height:40px;
     font-size:13px;
     padding:7px 8px;
+  }
+}
+
+/* ===== Update Notice Popup ===== */
+.update-popup-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.48);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  z-index:100000;
+}
+
+.update-popup{
+  width:min(520px, 94vw);
+  background:#ffffff;
+  border-radius:24px;
+  box-shadow:0 30px 90px rgba(0,0,0,.35);
+  padding:22px;
+  color:#111827;
+}
+
+.update-popup-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+
+.update-popup-head span{
+  display:inline-flex;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.8px;
+}
+
+.update-popup-head h2{
+  margin:8px 0 0;
+  font-size:24px;
+}
+
+.update-popup-head button{
+  width:36px;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  background:#f1f5f9;
+  font-size:24px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.update-popup ul{
+  margin:0;
+  padding:0 0 0 20px;
+  display:grid;
+  gap:9px;
+  color:#334155;
+  font-size:15px;
+  font-weight:700;
+}
+
+.update-popup-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-top:20px;
+}
+
+.update-popup-bottom label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#475569;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.update-popup-bottom input{
+  width:17px;
+  height:17px;
+  accent-color:#2563eb;
+}
+
+.update-popup-bottom button{
+  min-width:96px;
+}
+
+@media (max-width: 900px){
+  .update-popup-backdrop{
+    align-items:flex-end;
+    padding:12px;
+  }
+
+  .update-popup{
+    width:100%;
+    border-radius:24px 24px 18px 18px;
+    padding:20px;
+  }
+
+  .update-popup-head h2{
+    font-size:22px;
+  }
+
+  .update-popup ul{
+    font-size:14px;
+  }
+
+  .update-popup-bottom{
+    flex-direction:row;
   }
 }
 
