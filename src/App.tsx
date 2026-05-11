@@ -1540,7 +1540,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} isAdmin={isAdmin} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -2354,12 +2354,10 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
 function Home({
   setMenuTab,
   setMaintSearch,
-  warehouses,
   isAdmin,
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
-  warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
   const defaultHotspotLinks = [
