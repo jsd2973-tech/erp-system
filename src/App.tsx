@@ -1572,7 +1572,7 @@ export default function App() {
                   )}
                 </tbody>
               </table>
-            </ScrollTable></div>
+            </ScrollTable>
           </section>
         )}
 
