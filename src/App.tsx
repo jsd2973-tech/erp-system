@@ -1448,7 +1448,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -2249,29 +2249,23 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
 function Home({
   setMenuTab,
   setMaintSearch,
+  warehouses,
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
+  warehouses: Warehouse[];
 }) {
-  const equipmentLinks = [
-    "죠크라샤",
-    "1300콘",
-    "2470스크린",
-    "16번 컨베이어벨트",
-    "로더",
-    "암프",
-    "세륜기",
-    "필터프레스",
-    "폐목장",
-  ];
+  const crusherWarehouses = (warehouses || [])
+    .filter((w) => w.group === "크라샤")
+    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
 
-  const openMaintHistory = (keyword: string) => {
+  const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
       ...prev,
       from: "",
       to: "",
-      warehouse: "",
-      keyword,
+      warehouse: warehouseName,
+      keyword: "",
     }));
     setMenuTab("maint_list");
   };
@@ -2285,13 +2279,17 @@ function Home({
       </div>
 
       <div className="equipment-link-box">
-        <h3>설비별 정비이력 바로가기</h3>
+        <h3>크라샤 생산라인 정비이력 바로가기</h3>
         <div className="equipment-link-grid">
-          {equipmentLinks.map((name) => (
-            <button key={name} onClick={() => openMaintHistory(name)}>
-              {name}
-            </button>
-          ))}
+          {!crusherWarehouses.length ? (
+            <div className="empty">크라샤 세부창고가 없습니다.</div>
+          ) : (
+            crusherWarehouses.map((w) => (
+              <button key={w.id} onClick={() => openMaintHistory(w.name)}>
+                {w.name}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
