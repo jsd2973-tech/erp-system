@@ -1448,7 +1448,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -2246,13 +2246,55 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
 }
 
 
-function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
+function Home({
+  setMenuTab,
+  setMaintSearch,
+}: {
+  setMenuTab: (tab: string) => void;
+  setMaintSearch: (value: any) => void;
+}) {
+  const equipmentLinks = [
+    "죠크라샤",
+    "1300콘",
+    "2470스크린",
+    "16번 컨베이어벨트",
+    "로더",
+    "암프",
+    "세륜기",
+    "필터프레스",
+    "폐목장",
+  ];
+
+  const openMaintHistory = (keyword: string) => {
+    setMaintSearch((prev: any) => ({
+      ...prev,
+      from: "",
+      to: "",
+      warehouse: "",
+      keyword,
+    }));
+    setMenuTab("maint_list");
+  };
+
   return (
     <section className="card">
       <h2>생산라인 구성도</h2>
+
       <div className="home-img">
         <img src="/line-layout.png" alt="생산라인 구성도" />
       </div>
+
+      <div className="equipment-link-box">
+        <h3>설비별 정비이력 바로가기</h3>
+        <div className="equipment-link-grid">
+          {equipmentLinks.map((name) => (
+            <button key={name} onClick={() => openMaintHistory(name)}>
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="home-buttons">
         <button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button>
         <button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button>
@@ -3941,6 +3983,58 @@ td .icon{
   .attachment-group .attachment-preview{
     width:64px;
     height:64px;
+  }
+}
+
+/* ===== Production Line Equipment Links ===== */
+.equipment-link-box{
+  margin-top:18px;
+  padding:16px;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  background:#f8fafc;
+}
+
+.equipment-link-box h3{
+  margin:0 0 12px;
+  font-size:18px;
+}
+
+.equipment-link-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:10px;
+}
+
+.equipment-link-grid button{
+  min-height:42px;
+  border:1px solid #dbeafe;
+  border-radius:12px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.equipment-link-grid button:hover{
+  background:#dbeafe;
+}
+
+@media (max-width: 900px){
+  .equipment-link-box{
+    padding:13px;
+    border-radius:16px;
+  }
+
+  .equipment-link-grid{
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+
+  .equipment-link-grid button{
+    min-height:40px;
+    font-size:13px;
+    padding:7px 8px;
   }
 }
 
