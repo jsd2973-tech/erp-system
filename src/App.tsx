@@ -2436,10 +2436,9 @@ function Home({
   };
 
   useEffect(() => {
-    if (menuTab !== "layout") return;
     loadHotspotLayout(layoutDevice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menuTab, layoutDevice, warehouses.length]);
+  }, [layoutDevice, warehouses.length]);
 
   const openMaintHistory = (warehouseName: string) => {
     if (editLayout) return;
