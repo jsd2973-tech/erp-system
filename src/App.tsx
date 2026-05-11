@@ -4415,14 +4415,14 @@ td .icon{
   border-radius:16px;
   overflow:hidden;
 
-  max-height:calc(100vh - 170px);
+  max-height:calc(100vh - 255px);
 }
 
 .layout-map img{
   display:block;
   width:100%;
   height:auto;
-  max-height:calc(100vh - 170px);
+  max-height:calc(100vh - 255px);
   object-fit:contain;
 }
 
@@ -4483,11 +4483,11 @@ td .icon{
 @media (max-width:900px){
   .layout-map{
     border-radius:12px;
-    max-height:calc(100vh - 120px);
+    max-height:calc(100vh - 185px);
   }
 
   .layout-map img{
-    max-height:calc(100vh - 120px);
+    max-height:calc(100vh - 185px);
   }
 
   .layout-hotspot{
@@ -4618,6 +4618,44 @@ td .icon{
 @media (max-width:900px){
   .card:has(.layout-map){
     padding:8px;
+  }
+}
+
+/* ===== No Scroll Production Layout Fit ===== */
+.card:has(.layout-map){
+  padding:10px 14px;
+}
+
+.card:has(.layout-map) h2{
+  margin:0 0 8px;
+  font-size:20px;
+}
+
+.card:has(.layout-map) .between{
+  margin-bottom:8px;
+}
+
+.card:has(.layout-map) .layout-edit-guide{
+  margin:6px 0 8px;
+  padding:8px 10px;
+}
+
+@media (min-width:901px){
+  .card:has(.layout-map){
+    max-height:calc(100vh - 115px);
+    overflow:hidden;
+  }
+}
+
+@media (max-width:900px){
+  .card:has(.layout-map){
+    padding:8px;
+    max-height:calc(100vh - 96px);
+    overflow:hidden;
+  }
+
+  .card:has(.layout-map) h2{
+    font-size:18px;
   }
 }
 
