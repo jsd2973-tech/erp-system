@@ -4414,12 +4414,16 @@ td .icon{
   background:#ffffff;
   border-radius:16px;
   overflow:hidden;
+
+  max-height:calc(100vh - 170px);
 }
 
 .layout-map img{
   display:block;
   width:100%;
   height:auto;
+  max-height:calc(100vh - 170px);
+  object-fit:contain;
 }
 
 .layout-hotspot{
@@ -4479,6 +4483,11 @@ td .icon{
 @media (max-width:900px){
   .layout-map{
     border-radius:12px;
+    max-height:calc(100vh - 120px);
+  }
+
+  .layout-map img{
+    max-height:calc(100vh - 120px);
   }
 
   .layout-hotspot{
