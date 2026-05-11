@@ -2338,6 +2338,17 @@ function Home({
 }) {
   const desktopStorageKey = "erp_layout_hotspots_desktop_v1";
   const mobileStorageKey = "erp_layout_hotspots_mobile_v1";
+  const legacyStorageKey = "erp_layout_hotspots_v2";
+
+  useEffect(() => {
+    const legacy = localStorage.getItem(legacyStorageKey);
+    const desktop = localStorage.getItem(desktopStorageKey);
+
+    if (legacy && !desktop) {
+      localStorage.setItem(desktopStorageKey, legacy);
+      setHotspotLinks(JSON.parse(legacy));
+    }
+  }, []);
 
   const crusherWarehouses = (warehouses || [])
     .filter((w) => w.group === "크라샤")
