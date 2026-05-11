@@ -10,8 +10,10 @@ type Item = { id: string; code: string; name: string; spec?: string; unit?: stri
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
-type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string; image_url?: string; created_at?: string };
+type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
+  image_url?: string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
+type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
+  image_url?: string; created_at?: string };
 
 
 const supabase = createClient(
@@ -566,7 +568,6 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
-  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
