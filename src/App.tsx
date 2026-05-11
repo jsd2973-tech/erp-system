@@ -592,6 +592,7 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
 
   const loadAll = async () => {
     setLoading(true);
@@ -1522,7 +1523,14 @@ export default function App() {
                         <td>{c.place}</td>
                         <td className="right bold">{money(c.amount)}</td>
                         <td>{c.memo || "-"}</td>
-                        <td>{c.image_url ? <a href={c.image_url} target="_blank">보기</a> : "-"}</td>
+                        <td>
+                          {c.image_url ? (
+                            <button className="receipt-thumb-btn" onClick={() => setReceiptPreviewUrl(c.image_url || "")}>
+                              <img src={c.image_url} alt="영수증" />
+                              <span>확대</span>
+                            </button>
+                          ) : "-"}
+                        </td>
                         <td>{isAdmin ? <><button className="icon" onClick={() => editCardUse(c)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button></> : "-"}</td>
                       </tr>
                     )})
@@ -1676,7 +1684,21 @@ export default function App() {
             </div>
           </div>
         )}
-        <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
+        
+        {receiptPreviewUrl && (
+          <div className="receipt-modal" onClick={() => setReceiptPreviewUrl("")}>
+            <div className="receipt-modal-box" onClick={(e) => e.stopPropagation()}>
+              <div className="receipt-modal-head">
+                <b>영수증 미리보기</b>
+                <button onClick={() => setReceiptPreviewUrl("")}>닫기</button>
+              </div>
+              <img src={receiptPreviewUrl} alt="영수증 확대보기" />
+              <a href={receiptPreviewUrl} target="_blank" rel="noreferrer">새 창으로 열기</a>
+            </div>
+          </div>
+        )}
+
+<div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
           {mobileSheet === "buy" && (
             <>
               <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
@@ -3508,6 +3530,111 @@ td .icon{
 @media (max-width: 520px){
   .mobile-bottom-nav button{
     font-size:12px !important;
+  }
+}
+
+/* ===== Receipt Preview Modal ===== */
+.receipt-thumb-btn{
+  border:0;
+  background:transparent;
+  padding:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  color:#2563eb;
+  font-weight:900;
+}
+
+.receipt-thumb-btn img{
+  width:52px;
+  height:52px;
+  object-fit:cover;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#f8fafc;
+}
+
+.receipt-thumb-btn span{
+  white-space:nowrap;
+}
+
+.receipt-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.72);
+  z-index:100000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+
+.receipt-modal-box{
+  width:min(760px, 94vw);
+  max-height:90vh;
+  background:#ffffff;
+  border-radius:20px;
+  padding:14px;
+  box-shadow:0 24px 80px rgba(0,0,0,.35);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.receipt-modal-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.receipt-modal-head b{
+  font-size:18px;
+}
+
+.receipt-modal-head button{
+  border:0;
+  background:#f1f5f9;
+  border-radius:12px;
+  padding:8px 12px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.receipt-modal-box img{
+  width:100%;
+  max-height:70vh;
+  object-fit:contain;
+  background:#f8fafc;
+  border-radius:14px;
+}
+
+.receipt-modal-box a{
+  text-align:center;
+  color:#2563eb;
+  font-weight:900;
+  text-decoration:none;
+}
+
+@media (max-width: 900px){
+  .receipt-thumb-btn img{
+    width:44px;
+    height:44px;
+  }
+
+  .receipt-modal{
+    padding:10px;
+  }
+
+  .receipt-modal-box{
+    width:96vw;
+    max-height:88vh;
+    border-radius:18px;
+  }
+
+  .receipt-modal-box img{
+    max-height:68vh;
   }
 }
 
