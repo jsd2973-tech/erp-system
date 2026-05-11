@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx-js-style";
+import jsPDF from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
 
@@ -11,7 +12,8 @@ type PurchaseRow = { id: string; item: string; spec: string; qty: string | numbe
 type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
-  image_url?: string; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
+  image_url?: string;
+  image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string; created_at?: string };
 
@@ -226,6 +228,53 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
   XLSX.utils.book_append_sheet(workbook, worksheet, "자료");
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
+
+
+const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[]) => {
+  if (!rows.length) {
+    alert("출력할 데이터가 없습니다.");
+    return;
+  }
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const headers = Object.keys(rows[0] || {});
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  const usableWidth = pageWidth - margin * 2;
+  const colWidth = usableWidth / Math.max(headers.length, 1);
+  let y = 16;
+
+  doc.setFontSize(16);
+  doc.text(title, margin, y);
+  y += 9;
+
+  doc.setFontSize(8);
+  doc.text(`출력일: ${todayText()}`, margin, y);
+  y += 8;
+
+  doc.setFontSize(7);
+  headers.forEach((h, i) => {
+    doc.text(String(h).slice(0, 18), margin + i * colWidth, y);
+  });
+  y += 6;
+
+  rows.forEach((row) => {
+    if (y > 190) {
+      doc.addPage();
+      y = 14;
+    }
+
+    headers.forEach((h, i) => {
+      const value = row[h] == null ? "" : String(row[h]);
+      doc.text(value.slice(0, 22), margin + i * colWidth, y);
+    });
+
+    y += 6;
+  });
+
+  doc.save(`${fileName}.pdf`);
+};
+
 
 const todayText = () => new Date().toISOString().slice(0, 10);
 
@@ -585,7 +634,7 @@ export default function App() {
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
-  const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
+  const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
@@ -802,6 +851,35 @@ export default function App() {
     const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
     return data.publicUrl;
   };
+
+
+  const uploadMaintFiles = async (files: FileList | File[]) => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressReceiptImage(file) : file;
+      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const fileName = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      });
+
+      if (error) {
+        alert(`정비 첨부 업로드 실패: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
 
   const resetCardForm = () => {
     setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "" });
@@ -1115,14 +1193,14 @@ export default function App() {
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   const resetMaintForm = () => {
-    setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "" });
+    setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
   };
   const saveMaint = async () => {
     if (!maintForm.warehouse || !maintForm.title) return;
     const validItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
-    const payload = { id: editingMaintId || uid(), ...maintForm, items: validItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal, cost: Number(maintGrandTotal || maintForm.cost || 0) };
+    const payload = { id: editingMaintId || uid(), ...maintForm, image_url: (maintForm.image_urls || [])[0] || "", image_urls: maintForm.image_urls || [], items: validItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal, cost: Number(maintGrandTotal || maintForm.cost || 0) };
     const { error } = await supabase.from("maints").upsert(payload);
     if (error) return alert(`정비 저장 실패: ${error.message}`);
     setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
@@ -1131,7 +1209,7 @@ export default function App() {
   const editMaint = (m: Maint) => {
     setMenuTab("maint_new");
     setEditingMaintId(m.id);
-    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || "") });
+    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
     setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
   };
 
@@ -1487,7 +1565,7 @@ export default function App() {
               <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
   filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
   { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button>
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`정비조회_${todayText()}`, "정비조회", maints.map((m: Maint) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 합계: m.total || m.cost || 0 })))}>PDF 출력</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
             </div>
             <div className="grid5">
               <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
@@ -1679,6 +1757,35 @@ export default function App() {
               </div>
             </div>
 
+            <div className="between">
+              <label className="upload">
+                <Upload size={16} /> 정비 사진/PDF 여러 장 업로드
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files?.length) return;
+                    const urls = await uploadMaintFiles(files);
+                    setMaintForm((prev) => ({
+                      ...prev,
+                      image_urls: [...(prev.image_urls || []), ...urls],
+                    }));
+                  }}
+                />
+              </label>
+              <div className="attachment-chips">
+                {(maintForm.image_urls || []).length ? (
+                  (maintForm.image_urls || []).map((url, idx) => (
+                    <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">첨부{idx + 1}</a>
+                  ))
+                ) : (
+                  <span>첨부파일 없음</span>
+                )}
+              </div>
+            </div>
+
             <div className="actions right-actions">
               <button className="primary" onClick={saveMaint}>정비 저장</button>
               <button onClick={resetMaintForm}>초기화</button>
@@ -1773,7 +1880,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
   return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
@@ -2043,7 +2150,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               </div>
 
               <div className="mobile-list-attachment">
-                <AttachmentPreview url={m.image_url} />
+                <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
               </div>
 
               <div className="mobile-card-actions">
@@ -2121,6 +2228,23 @@ function AttachmentPreview({ url }: { url?: string }) {
     </a>
   );
 }
+
+
+function AttachmentGroup({ urls }: { urls?: string[] }) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return <span>-</span>;
+
+  return (
+    <div className="attachment-group">
+      {list.map((url, idx) => (
+        <div className="attachment-group-item" key={`${url}-${idx}`}>
+          <AttachmentPreview url={url} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
   return (
@@ -3766,6 +3890,57 @@ td .icon{
   .mobile-card-actions button:last-child{
     background:#fee2e2;
     color:#991b1b;
+  }
+}
+
+/* ===== PDF Output + Multiple Maintenance Attachments ===== */
+.attachment-chips{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.attachment-chips a{
+  display:inline-flex;
+  min-height:34px;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-weight:900;
+  font-size:13px;
+  text-decoration:none;
+}
+
+.attachment-chips span{
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.attachment-group{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.attachment-group .attachment-preview{
+  width:56px;
+  height:56px;
+}
+
+@media (max-width: 900px){
+  .attachment-group{
+    justify-content:flex-end;
+  }
+
+  .attachment-group .attachment-preview{
+    width:64px;
+    height:64px;
   }
 }
 
