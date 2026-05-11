@@ -2365,6 +2365,7 @@ function Home({
   const hotspotTableName = "layout_hotspots";
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
+  const [resizingHotspot, setResizingHotspot] = useState("");
   const [layoutDevice, setLayoutDevice] = useState<"pc" | "mobile">(() =>
     window.innerWidth <= 900 ? "mobile" : "pc"
   );
@@ -2496,6 +2497,33 @@ function Home({
     updateHotspot(name, {
       left: Number(nextLeft.toFixed(2)),
       top: Number(nextTop.toFixed(2)),
+    });
+  };
+
+  const resizeHotspotByPointer = (name: string, e: React.PointerEvent<HTMLSpanElement>) => {
+    if (!editLayout) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const map = e.currentTarget.closest(".layout-map") as HTMLElement | null;
+    if (!map) return;
+
+    const rect = map.getBoundingClientRect();
+    const spot = activeHotspots.find((x: any) => x.name === name);
+    if (!spot) return;
+
+    const leftPx = (Number(spot.left || 0) / 100) * rect.width;
+    const topPx = (Number(spot.top || 0) / 100) * rect.height;
+    const pointerX = e.clientX - rect.left;
+    const pointerY = e.clientY - rect.top;
+
+    const nextWidth = Math.min(28, Math.max(2.5, (Math.abs(pointerX - leftPx) * 2 / rect.width) * 100));
+    const nextHeight = Math.min(24, Math.max(2.5, (Math.abs(pointerY - topPx) * 2 / rect.height) * 100));
+
+    updateHotspot(name, {
+      width: Number(nextWidth.toFixed(2)),
+      height: Number(nextHeight.toFixed(2)),
     });
   };
 
@@ -2684,6 +2712,33 @@ function Home({
             }}
           >
             <span>{spot.name}</span>
+            {editLayout && selectedHotspot === spot.name && (
+              <i
+                className="layout-resize-handle"
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setResizingHotspot(spot.name);
+                  resizeHotspotByPointer(spot.name, e);
+                }}
+                onPointerMove={(e) => {
+                  if (resizingHotspot === spot.name && e.currentTarget.hasPointerCapture(e.pointerId)) {
+                    resizeHotspotByPointer(spot.name, e);
+                  }
+                }}
+                onPointerUp={(e) => {
+                  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                  }
+                  setResizingHotspot("");
+                }}
+                onPointerCancel={(e) => {
+                  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                  }
+                  setResizingHotspot("");
+                }}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -4715,6 +4770,34 @@ td .icon{
     font-size:8px;
     padding:2px 4px;
   }
+}
+
+/* ===== Hotspot Side Resize Handle ===== */
+.layout-resize-handle{
+  position:absolute;
+  right:-8px;
+  bottom:-8px;
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  background:#2563eb;
+  border:3px solid #ffffff;
+  box-shadow:0 2px 10px rgba(15,23,42,.35);
+  cursor:nwse-resize;
+  touch-action:none;
+  z-index:10;
+}
+
+.layout-resize-handle::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:6px;
+  height:6px;
+  transform:translate(-50%, -50%);
+  border-right:2px solid #fff;
+  border-bottom:2px solid #fff;
 }
 
 `;
