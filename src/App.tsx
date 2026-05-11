@@ -2652,13 +2652,24 @@ function Home({
             title={`${spot.name} 정비이력 보기`}
             onPointerDown={(e) => {
               if (editLayout) {
+                e.currentTarget.setPointerCapture(e.pointerId);
                 setSelectedHotspot(spot.name);
                 moveHotspot(spot.name, e);
               }
             }}
             onPointerMove={(e) => {
-              if (editLayout && selectedHotspot === spot.name && e.buttons === 1) {
+              if (editLayout && e.currentTarget.hasPointerCapture(e.pointerId)) {
                 moveHotspot(spot.name, e);
+              }
+            }}
+            onPointerUp={(e) => {
+              if (editLayout && e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              }
+            }}
+            onPointerCancel={(e) => {
+              if (editLayout && e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
               }
             }}
             onClick={(e) => {
@@ -4598,6 +4609,8 @@ td .icon{
   cursor:pointer;
   padding:0;
   transition:.15s ease;
+  touch-action:none;
+  user-select:none;
 }
 
 .layout-hotspot span{
@@ -4677,6 +4690,7 @@ td .icon{
 
 .layout-map.editing .layout-hotspot{
   cursor:grab;
+  transition:none;
 }
 
 @media (max-width:900px){
