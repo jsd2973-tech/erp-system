@@ -1532,6 +1532,43 @@ export default function App() {
                 </tbody>
               </table>
             </ScrollTable>
+            <div className="mobile-card-list mobile-card-list-carduses">
+              {filteredCardUses.map((c, index) => {
+                const sameDateBeforeCount = filteredCardUses
+                  .slice(0, index)
+                  .filter((x) => x.date === c.date).length;
+                const seq = sameDateBeforeCount + 1;
+
+                return (
+                  <div className="mobile-list-card" key={c.id}>
+                    <div className="mobile-list-top">
+                      <b>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</b>
+                      <span>{money(c.amount)}원</span>
+                    </div>
+
+                    <div className="mobile-list-body">
+                      <div><label>사용처</label><p>{c.place}</p></div>
+                      <div><label>담당자</label><p>{c.user_name || "-"}</p></div>
+                      <div><label>메모</label><p>{c.memo || "-"}</p></div>
+                    </div>
+
+                    <div className="mobile-list-attachment">
+                      <AttachmentPreview url={c.image_url} />
+                    </div>
+
+                    <div className="mobile-card-actions">
+                      {isAdmin ? (
+                        <>
+                          <button onClick={() => editCardUse(c)}>수정</button>
+                          <button onClick={() => deleteCardUse(c.id)}>삭제</button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
           </section>
         )}
 
@@ -1980,6 +2017,48 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           </tbody>
         </table>
       </ScrollTable>
+      <div className="mobile-card-list mobile-card-list-maints">
+        {maints.map((m: Maint, index: number) => {
+          const sameDateBeforeCount = maints
+            .slice(0, index)
+            .filter((x: Maint) => x.date === m.date).length;
+          const seq = sameDateBeforeCount + 1;
+
+          const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
+          const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
+          const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+
+          return (
+            <div className="mobile-list-card" key={m.id}>
+              <div className="mobile-list-top">
+                <b>{`${m.date || ""}-${String(seq).padStart(2, "0")}`}</b>
+                <span>{money(total)}원</span>
+              </div>
+
+              <div className="mobile-list-body">
+                <div><label>창고</label><p>{m.warehouse}</p></div>
+                <div><label>제목</label><p>{m.title}</p></div>
+                <div><label>내용</label><p>{m.detail || "-"}</p></div>
+                <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
+              </div>
+
+              <div className="mobile-list-attachment">
+                <AttachmentPreview url={m.image_url} />
+              </div>
+
+              <div className="mobile-card-actions">
+                {isAdmin ? (
+                  <>
+                    <button onClick={() => editMaint(m)}>수정</button>
+                    <button onClick={() => deleteMaint(m.id)}>삭제</button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
 
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
@@ -2019,6 +2098,29 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 
+
+
+function AttachmentPreview({ url }: { url?: string }) {
+  if (!url) return <span>-</span>;
+
+  const cleanUrl = String(url || "");
+  const isPdf = cleanUrl.toLowerCase().includes(".pdf");
+
+  return (
+    <a
+      href={cleanUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="attachment-preview"
+    >
+      {isPdf ? (
+        <div className="pdf-thumb">PDF</div>
+      ) : (
+        <img src={cleanUrl} alt="첨부파일" />
+      )}
+    </a>
+  );
+}
 
 function Home({ setMenuTab }: { setMenuTab: (tab: string) => void }) {
   return (
@@ -3523,6 +3625,147 @@ td .icon{
 @media (max-width: 520px){
   .mobile-bottom-nav button{
     font-size:12px !important;
+  }
+}
+
+/* ===== Mobile Card List + Attachment Preview ===== */
+.mobile-card-list{
+  display:none;
+}
+
+.attachment-preview{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:74px;
+  height:74px;
+  border-radius:16px;
+  overflow:hidden;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  text-decoration:none;
+}
+
+.attachment-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.pdf-thumb{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#dc2626;
+  color:#ffffff;
+  font-size:14px;
+  font-weight:900;
+}
+
+.file-view-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:32px;
+  padding:6px 10px;
+  border-radius:10px;
+  background:#2563eb;
+  color:#ffffff;
+  font-size:12px;
+  font-weight:800;
+  text-decoration:none;
+}
+
+@media (max-width: 900px){
+  .card .scroll-table{
+    display:none;
+  }
+
+  .mobile-card-list{
+    display:grid;
+    gap:12px;
+    margin-top:12px;
+  }
+
+  .mobile-list-card{
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-radius:20px;
+    padding:15px;
+    display:grid;
+    gap:13px;
+    box-shadow:0 6px 24px rgba(15,23,42,.07);
+  }
+
+  .mobile-list-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+
+  .mobile-list-top b{
+    font-size:15px;
+    color:#111827;
+  }
+
+  .mobile-list-top span{
+    font-size:15px;
+    font-weight:900;
+    color:#2563eb;
+    white-space:nowrap;
+  }
+
+  .mobile-list-body{
+    display:grid;
+    gap:9px;
+    font-size:14px;
+    color:#111827;
+  }
+
+  .mobile-list-body div{
+    display:grid;
+    gap:4px;
+  }
+
+  .mobile-list-body label{
+    font-size:12px;
+    font-weight:900;
+    color:#64748b;
+  }
+
+  .mobile-list-body p{
+    margin:0;
+    word-break:break-word;
+  }
+
+  .mobile-list-attachment{
+    display:flex;
+    justify-content:flex-end;
+  }
+
+  .mobile-card-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+  }
+
+  .mobile-card-actions button{
+    min-height:36px;
+    padding:7px 12px;
+    border-radius:12px;
+    border:0;
+    background:#f1f5f9;
+    color:#111827;
+    font-size:13px;
+    font-weight:900;
+  }
+
+  .mobile-card-actions button:last-child{
+    background:#fee2e2;
+    color:#991b1b;
   }
 }
 
