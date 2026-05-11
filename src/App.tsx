@@ -2362,7 +2362,14 @@ function Home({
   warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
-  const hotspotStorageKey = "erp_layout_hotspots_restore_v1";
+  const hotspotTableName = "layout_hotspots";
+  const [editLayout, setEditLayout] = useState(false);
+  const [selectedHotspot, setSelectedHotspot] = useState("");
+  const [layoutDevice, setLayoutDevice] = useState<"pc" | "mobile">(() =>
+    window.innerWidth <= 900 ? "mobile" : "pc"
+  );
+  const [hotspotLinks, setHotspotLinks] = useState<any[]>([]);
+  const [layoutMessage, setLayoutMessage] = useState("");
 
   const crusherWarehouses = (warehouses || [])
     .filter((w) => w.group === "크라샤")
@@ -2374,33 +2381,65 @@ function Home({
 
     return {
       name: w.name,
-      left: 12 + col * 10.5,
-      top: 22 + row * 10,
+      left: Number((12 + col * 10.5).toFixed(2)),
+      top: Number((22 + row * 10).toFixed(2)),
       width: 8.5,
       height: 5.8,
+      device: layoutDevice,
     };
-  });
-
-  const [editLayout, setEditLayout] = useState(false);
-  const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem(hotspotStorageKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
   });
 
   const activeHotspots = (() => {
     const savedList = Array.isArray(hotspotLinks) ? hotspotLinks : [];
-    const savedMap = new Map(savedList.map((x: any) => [x.name, x]));
+    const savedMap = new Map(
+      savedList
+        .filter((x: any) => x.device === layoutDevice)
+        .map((x: any) => [x.name, x])
+    );
 
     return defaultHotspots.map((spot) => ({
       ...spot,
       ...(savedMap.get(spot.name) || {}),
+      device: layoutDevice,
     }));
   })();
+
+  const loadHotspotLayout = async (device = layoutDevice) => {
+    const { data, error } = await supabase
+      .from(hotspotTableName)
+      .select("*")
+      .eq("page", "crusher")
+      .eq("device", device)
+      .order("name", { ascending: true });
+
+    if (error) {
+      setLayoutMessage(`좌표 불러오기 실패: ${error.message}`);
+      return;
+    }
+
+    const loaded = (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      left: Number(row.left || 0),
+      top: Number(row.top || 0),
+      width: Number(row.width || 8),
+      height: Number(row.height || 5),
+      device: row.device || device,
+    }));
+
+    setHotspotLinks((prev: any[]) => {
+      const otherDevice = (prev || []).filter((x: any) => x.device !== device);
+      return [...otherDevice, ...loaded];
+    });
+
+    setLayoutMessage(`${device === "mobile" ? "모바일" : "PC"} 좌표 불러오기 완료`);
+  };
+
+  useEffect(() => {
+    if (menuTab !== "layout") return;
+    loadHotspotLayout(layoutDevice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuTab, layoutDevice, warehouses.length]);
 
   const openMaintHistory = (warehouseName: string) => {
     if (editLayout) return;
@@ -2417,18 +2456,28 @@ function Home({
 
   const updateHotspot = (name: string, patch: any) => {
     setSelectedHotspot(name);
+
     setHotspotLinks((prev: any[]) => {
       const base = activeHotspots;
       const current = base.find((x: any) => x.name === name);
-      const prevMap = new Map((prev || []).map((x: any) => [x.name, x]));
-      const next = { ...(current || {}), ...(prevMap.get(name) || {}), ...patch };
+      const nextMap = new Map((prev || []).map((x: any) => [`${x.device}:${x.name}`, x]));
+      const key = `${layoutDevice}:${name}`;
 
-      prevMap.set(name, next);
+      nextMap.set(key, {
+        ...(current || {}),
+        ...(nextMap.get(key) || {}),
+        ...patch,
+        device: layoutDevice,
+      });
 
-      return base.map((x: any) => ({
+      const currentDeviceRows = base.map((x: any) => ({
         ...x,
-        ...(prevMap.get(x.name) || {}),
+        ...(nextMap.get(`${layoutDevice}:${x.name}`) || {}),
+        device: layoutDevice,
       }));
+
+      const otherRows = (prev || []).filter((x: any) => x.device !== layoutDevice);
+      return [...otherRows, ...currentDeviceRows];
     });
   };
 
@@ -2470,16 +2519,85 @@ function Home({
     updateHotspot(selectedHotspot, next);
   };
 
-  const saveHotspotLayout = () => {
-    localStorage.setItem(hotspotStorageKey, JSON.stringify(activeHotspots));
-    alert("생산라인 클릭영역 위치를 저장했습니다.");
+  const saveHotspotLayout = async () => {
+    const rows = activeHotspots.map((spot: any) => ({
+      page: "crusher",
+      device: layoutDevice,
+      name: spot.name,
+      left: Number(spot.left || 0),
+      top: Number(spot.top || 0),
+      width: Number(spot.width || 0),
+      height: Number(spot.height || 0),
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from(hotspotTableName)
+      .upsert(rows, { onConflict: "page,device,name" });
+
+    if (error) {
+      alert(`좌표 저장 실패: ${error.message}`);
+      return;
+    }
+
+    setLayoutMessage(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표 DB 저장 완료`);
+    alert("생산라인 클릭영역 좌표를 DB에 저장했습니다.");
   };
 
-  const resetHotspotLayout = () => {
-    if (!confirm("생산라인 클릭영역을 초기화할까요?")) return;
-    localStorage.removeItem(hotspotStorageKey);
-    setHotspotLinks([]);
+  const copyPcToMobile = async () => {
+    const { data, error } = await supabase
+      .from(hotspotTableName)
+      .select("*")
+      .eq("page", "crusher")
+      .eq("device", "pc");
+
+    if (error) {
+      alert(`PC 좌표 불러오기 실패: ${error.message}`);
+      return;
+    }
+
+    const rows = (data || []).map((row: any) => ({
+      page: "crusher",
+      device: "mobile",
+      name: row.name,
+      left: Number(row.left || 0),
+      top: Number(row.top || 0),
+      width: Number(row.width || 0),
+      height: Number(row.height || 0),
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error: saveError } = await supabase
+      .from(hotspotTableName)
+      .upsert(rows, { onConflict: "page,device,name" });
+
+    if (saveError) {
+      alert(`모바일 좌표 저장 실패: ${saveError.message}`);
+      return;
+    }
+
+    setLayoutDevice("mobile");
+    await loadHotspotLayout("mobile");
+    setLayoutMessage("PC 좌표를 모바일 좌표로 복사했습니다.");
+  };
+
+  const resetHotspotLayout = async () => {
+    if (!confirm(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표를 초기화할까요?`)) return;
+
+    const { error } = await supabase
+      .from(hotspotTableName)
+      .delete()
+      .eq("page", "crusher")
+      .eq("device", layoutDevice);
+
+    if (error) {
+      alert(`좌표 초기화 실패: ${error.message}`);
+      return;
+    }
+
+    setHotspotLinks((prev: any[]) => (prev || []).filter((x: any) => x.device !== layoutDevice));
     setSelectedHotspot("");
+    setLayoutMessage(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표 초기화 완료`);
   };
 
   return (
@@ -2495,11 +2613,14 @@ function Home({
 
             {editLayout && (
               <>
+                <button onClick={() => setLayoutDevice("pc")}>PC</button>
+                <button onClick={() => setLayoutDevice("mobile")}>모바일</button>
                 <button onClick={() => resizeSelectedHotspot("w+")}>가로 +</button>
                 <button onClick={() => resizeSelectedHotspot("w-")}>가로 -</button>
                 <button onClick={() => resizeSelectedHotspot("h+")}>세로 +</button>
                 <button onClick={() => resizeSelectedHotspot("h-")}>세로 -</button>
-                <button className="primary" onClick={saveHotspotLayout}>저장</button>
+                <button onClick={copyPcToMobile}>PC→모바일 복사</button>
+                <button className="primary" onClick={saveHotspotLayout}>DB 저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
             )}
@@ -2509,8 +2630,10 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          크라샤 세부창고 전체가 네모로 표시됩니다. 네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
+          현재 <b>{layoutDevice === "mobile" ? "모바일용" : "PC용"}</b> 좌표를 조정 중입니다.
+          네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
           {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
+          {layoutMessage ? <strong>{layoutMessage}</strong> : null}
         </div>
       )}
 
@@ -4450,7 +4573,7 @@ td .icon{
   }
 }
 
-/* ===== Restored Production Line Hotspot Editor ===== */
+/* ===== Supabase Production Line Hotspot Editor ===== */
 .layout-map{
   position:relative;
   width:100%;
@@ -4539,7 +4662,13 @@ td .icon{
 
 .layout-edit-guide b{
   color:#1d4ed8;
-  margin-left:8px;
+  margin:0 4px;
+}
+
+.layout-edit-guide strong{
+  display:block;
+  margin-top:6px;
+  color:#2563eb;
 }
 
 .layout-map.editing{
