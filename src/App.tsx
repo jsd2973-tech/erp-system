@@ -2371,12 +2371,6 @@ function Home({
           )}
         </div>
       </div>
-
-      <div className="home-buttons">
-        <button className="primary" onClick={() => setMenuTab("new")}>구매 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("vendors")}>기초등록 바로가기</button>
-        <button className="primary" onClick={() => setMenuTab("maint_new")}>정비 바로가기</button>
-      </div>
     </section>
   );
 }
