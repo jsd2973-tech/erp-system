@@ -899,25 +899,6 @@ export default function App() {
   };
 
 
-  const uploadReceipt = async (file: File) => {
-    const compressedFile = await compressReceiptImage(file);
-    const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-
-    const { error } = await supabase.storage.from("receipts").upload(fileName, compressedFile, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: "image/jpeg",
-    });
-
-    if (error) {
-      alert(`영수증 업로드 실패: ${error.message}`);
-      return "";
-    }
-
-    const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-    return data.publicUrl;
-  };
-
 
   const uploadMaintFiles = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
