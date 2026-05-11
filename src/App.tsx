@@ -2338,6 +2338,16 @@ function Home({
     .filter((w) => w.group === "크라샤")
     .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
 
+  const hotspotLinks = [
+    { name: "1680콘", left: "16.5%", top: "23.5%", width: "9%", height: "13%" },
+    { name: "1300콘", left: "28.5%", top: "24%", width: "8.5%", height: "12%" },
+    { name: "2470 2차스크린(광산)", left: "39.5%", top: "76%", width: "12%", height: "11%" },
+    { name: "2470 1차스크린(세현)", left: "51%", top: "76%", width: "12%", height: "11%" },
+    { name: "1536 3차스크린", left: "72%", top: "25%", width: "11%", height: "9%" },
+    { name: "2차 탈수스크린", left: "65%", top: "57%", width: "13%", height: "8%" },
+    { name: "1차 탈수스크린", left: "65%", top: "67%", width: "13%", height: "8%" },
+  ];
+
   const openMaintHistory = (warehouseName: string) => {
     setMaintSearch((prev: any) => ({
       ...prev,
@@ -2353,8 +2363,25 @@ function Home({
     <section className="card">
       <h2>생산라인 구성도</h2>
 
-      <div className="home-img">
+      <div className="layout-map">
         <img src="/line-layout.png" alt="생산라인 구성도" />
+
+        {hotspotLinks.map((spot) => (
+          <button
+            key={spot.name}
+            className="layout-hotspot"
+            style={{
+              left: spot.left,
+              top: spot.top,
+              width: spot.width,
+              height: spot.height,
+            }}
+            title={`${spot.name} 정비이력 보기`}
+            onClick={() => openMaintHistory(spot.name)}
+          >
+            <span>{spot.name}</span>
+          </button>
+        ))}
       </div>
 
       <div className="equipment-link-box">
@@ -4240,6 +4267,77 @@ td .icon{
 
   .update-popup-bottom{
     flex-direction:row;
+  }
+}
+
+/* ===== Production Line Image Hotspots ===== */
+.layout-map{
+  position:relative;
+  width:min(100%, 1120px);
+  margin:0 auto;
+  background:#ffffff;
+  border-radius:16px;
+  overflow:hidden;
+}
+
+.layout-map img{
+  display:block;
+  width:100%;
+  height:auto;
+}
+
+.layout-hotspot{
+  position:absolute;
+  transform:translate(-50%, -50%);
+  border:2px solid rgba(37,99,235,.78);
+  background:rgba(37,99,235,.12);
+  color:#1d4ed8;
+  border-radius:14px;
+  cursor:pointer;
+  padding:0;
+  font-size:0;
+  transition:.15s ease;
+}
+
+.layout-hotspot:hover{
+  background:rgba(37,99,235,.25);
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+.layout-hotspot span{
+  position:absolute;
+  left:50%;
+  top:100%;
+  transform:translate(-50%, 6px);
+  min-width:max-content;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#1d4ed8;
+  color:#ffffff;
+  font-size:12px;
+  font-weight:900;
+  opacity:0;
+  pointer-events:none;
+  white-space:nowrap;
+}
+
+.layout-hotspot:hover span{
+  opacity:1;
+}
+
+@media (max-width:900px){
+  .layout-map{
+    border-radius:12px;
+  }
+
+  .layout-hotspot{
+    border-width:2px;
+    border-radius:10px;
+    background:rgba(37,99,235,.18);
+  }
+
+  .layout-hotspot span{
+    display:none;
   }
 }
 
