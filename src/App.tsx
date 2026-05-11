@@ -1540,7 +1540,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} isAdmin={isAdmin} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -2354,36 +2354,57 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
 function Home({
   setMenuTab,
   setMaintSearch,
+  warehouses,
   isAdmin,
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
+  warehouses: Warehouse[];
   isAdmin: boolean;
 }) {
-  const defaultHotspotLinks = [
-    { name: "1680콘", left: 18.5, top: 25.5, width: 6.6, height: 9.8 },
-    { name: "1300콘", left: 29.7, top: 25.8, width: 6.4, height: 9.4 },
-    { name: "2470 2차스크린(광산)", left: 45.0, top: 82.0, width: 9.4, height: 9.6 },
-    { name: "2470 1차스크린(세현)", left: 55.0, top: 82.0, width: 9.4, height: 9.6 },
-    { name: "1536 3차스크린", left: 75.0, top: 31.5, width: 7.0, height: 6.8 },
-    { name: "2차탈수스크린", left: 68.4, top: 59.0, width: 9.8, height: 6.8 },
-    { name: "1차탈수스크린", left: 68.4, top: 68.8, width: 9.8, height: 6.8 },
-  ];
+  const hotspotStorageKey = "erp_layout_hotspots_restore_v1";
 
-  const hotspotStorageKey = "erp_layout_hotspots_v1";
+  const crusherWarehouses = (warehouses || [])
+    .filter((w) => w.group === "크라샤")
+    .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
+
+  const defaultHotspots = crusherWarehouses.map((w, index) => {
+    const col = index % 8;
+    const row = Math.floor(index / 8);
+
+    return {
+      name: w.name,
+      left: 12 + col * 10.5,
+      top: 22 + row * 10,
+      width: 8.5,
+      height: 5.8,
+    };
+  });
 
   const [editLayout, setEditLayout] = useState(false);
   const [selectedHotspot, setSelectedHotspot] = useState("");
-  const [hotspotLinks, setHotspotLinks] = useState(() => {
+  const [hotspotLinks, setHotspotLinks] = useState<any[]>(() => {
     try {
       const saved = localStorage.getItem(hotspotStorageKey);
-      return saved ? JSON.parse(saved) : defaultHotspotLinks;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return defaultHotspotLinks;
+      return [];
     }
   });
 
+  const activeHotspots = (() => {
+    const savedList = Array.isArray(hotspotLinks) ? hotspotLinks : [];
+    const savedMap = new Map(savedList.map((x: any) => [x.name, x]));
+
+    return defaultHotspots.map((spot) => ({
+      ...spot,
+      ...(savedMap.get(spot.name) || {}),
+    }));
+  })();
+
   const openMaintHistory = (warehouseName: string) => {
+    if (editLayout) return;
+
     setMaintSearch((prev: any) => ({
       ...prev,
       from: "",
@@ -2392,6 +2413,23 @@ function Home({
       keyword: "",
     }));
     setMenuTab("maint_list");
+  };
+
+  const updateHotspot = (name: string, patch: any) => {
+    setSelectedHotspot(name);
+    setHotspotLinks((prev: any[]) => {
+      const base = activeHotspots;
+      const current = base.find((x: any) => x.name === name);
+      const prevMap = new Map((prev || []).map((x: any) => [x.name, x]));
+      const next = { ...(current || {}), ...(prevMap.get(name) || {}), ...patch };
+
+      prevMap.set(name, next);
+
+      return base.map((x: any) => ({
+        ...x,
+        ...(prevMap.get(x.name) || {}),
+      }));
+    });
   };
 
   const moveHotspot = (name: string, e: React.PointerEvent<HTMLButtonElement>) => {
@@ -2407,41 +2445,40 @@ function Home({
     const nextLeft = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
     const nextTop = Math.min(98, Math.max(2, ((e.clientY - rect.top) / rect.height) * 100));
 
-    setSelectedHotspot(name);
-    setHotspotLinks((prev: any[]) =>
-      prev.map((spot) =>
-        spot.name === name
-          ? { ...spot, left: Number(nextLeft.toFixed(2)), top: Number(nextTop.toFixed(2)) }
-          : spot
-      )
-    );
+    updateHotspot(name, {
+      left: Number(nextLeft.toFixed(2)),
+      top: Number(nextTop.toFixed(2)),
+    });
   };
 
-  const resizeSelectedHotspot = (delta: number) => {
-    if (!selectedHotspot) return;
+  const resizeSelectedHotspot = (mode: "w+" | "w-" | "h+" | "h-") => {
+    if (!selectedHotspot) {
+      alert("먼저 조정할 칸을 선택하세요.");
+      return;
+    }
 
-    setHotspotLinks((prev: any[]) =>
-      prev.map((spot) =>
-        spot.name === selectedHotspot
-          ? {
-              ...spot,
-              width: Number(Math.min(20, Math.max(3, spot.width + delta)).toFixed(2)),
-              height: Number(Math.min(20, Math.max(3, spot.height + delta)).toFixed(2)),
-            }
-          : spot
-      )
-    );
+    const current = activeHotspots.find((x: any) => x.name === selectedHotspot);
+    if (!current) return;
+
+    const next = { ...current };
+
+    if (mode === "w+") next.width = Math.min(24, Number((next.width + 0.8).toFixed(2)));
+    if (mode === "w-") next.width = Math.max(2.5, Number((next.width - 0.8).toFixed(2)));
+    if (mode === "h+") next.height = Math.min(20, Number((next.height + 0.8).toFixed(2)));
+    if (mode === "h-") next.height = Math.max(2.5, Number((next.height - 0.8).toFixed(2)));
+
+    updateHotspot(selectedHotspot, next);
   };
 
   const saveHotspotLayout = () => {
-    localStorage.setItem(hotspotStorageKey, JSON.stringify(hotspotLinks));
+    localStorage.setItem(hotspotStorageKey, JSON.stringify(activeHotspots));
     alert("생산라인 클릭영역 위치를 저장했습니다.");
   };
 
   const resetHotspotLayout = () => {
-    if (!confirm("생산라인 클릭영역 위치를 초기화할까요?")) return;
+    if (!confirm("생산라인 클릭영역을 초기화할까요?")) return;
     localStorage.removeItem(hotspotStorageKey);
-    setHotspotLinks(defaultHotspotLinks);
+    setHotspotLinks([]);
     setSelectedHotspot("");
   };
 
@@ -2455,10 +2492,13 @@ function Home({
             <button onClick={() => setEditLayout((v) => !v)}>
               {editLayout ? "위치조정 끄기" : "위치조정"}
             </button>
+
             {editLayout && (
               <>
-                <button onClick={() => resizeSelectedHotspot(0.7)}>크게</button>
-                <button onClick={() => resizeSelectedHotspot(-0.7)}>작게</button>
+                <button onClick={() => resizeSelectedHotspot("w+")}>가로 +</button>
+                <button onClick={() => resizeSelectedHotspot("w-")}>가로 -</button>
+                <button onClick={() => resizeSelectedHotspot("h+")}>세로 +</button>
+                <button onClick={() => resizeSelectedHotspot("h-")}>세로 -</button>
                 <button className="primary" onClick={saveHotspotLayout}>저장</button>
                 <button onClick={resetHotspotLayout}>초기화</button>
               </>
@@ -2469,14 +2509,15 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          박스를 마우스로 끌어서 위치를 맞춘 뒤 저장하세요. 박스를 선택하고 크게/작게로 크기를 조정할 수 있습니다.
+          크라샤 세부창고 전체가 네모로 표시됩니다. 네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
+          {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
         </div>
       )}
 
       <div className={editLayout ? "layout-map editing" : "layout-map"}>
         <img src="/line-layout.png" alt="생산라인 구성도" />
 
-        {hotspotLinks.map((spot: any) => (
+        {activeHotspots.map((spot: any) => (
           <button
             key={spot.name}
             className={selectedHotspot === spot.name ? "layout-hotspot selected" : "layout-hotspot"}
@@ -2505,13 +2546,15 @@ function Home({
                 setSelectedHotspot(spot.name);
                 return;
               }
+
               openMaintHistory(spot.name);
             }}
           >
             <span>{spot.name}</span>
           </button>
         ))}
-      </div>    </section>
+      </div>
+    </section>
   );
 }
 
@@ -4197,58 +4240,6 @@ td .icon{
   }
 }
 
-/* ===== Production Line Equipment Links ===== */
-.equipment-link-box{
-  margin-top:18px;
-  padding:16px;
-  border:1px solid #e5e7eb;
-  border-radius:18px;
-  background:#f8fafc;
-}
-
-.equipment-link-box h3{
-  margin:0 0 12px;
-  font-size:18px;
-}
-
-.equipment-link-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
-  gap:10px;
-}
-
-.equipment-link-grid button{
-  min-height:42px;
-  border:1px solid #dbeafe;
-  border-radius:12px;
-  background:#eff6ff;
-  color:#1d4ed8;
-  font-weight:900;
-  cursor:pointer;
-}
-
-.equipment-link-grid button:hover{
-  background:#dbeafe;
-}
-
-@media (max-width: 900px){
-  .equipment-link-box{
-    padding:13px;
-    border-radius:16px;
-  }
-
-  .equipment-link-grid{
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-  }
-
-  .equipment-link-grid button{
-    min-height:40px;
-    font-size:13px;
-    padding:7px 8px;
-  }
-}
-
 /* ===== Update Notice Popup ===== */
 .update-popup-backdrop{
   position:fixed;
@@ -4383,96 +4374,6 @@ td .icon{
   }
 }
 
-/* ===== Production Line Image Hotspots ===== */
-.layout-map{
-  position:relative;
-  width:min(100%, 1120px);
-  margin:0 auto;
-  background:#ffffff;
-  border-radius:16px;
-  overflow:hidden;
-}
-
-.layout-map img{
-  display:block;
-  width:100%;
-  height:auto;
-}
-
-.layout-hotspot{
-  position:absolute;
-  transform:translate(-50%, -50%);
-  border:2px solid rgba(37,99,235,.35);
-  background:rgba(37,99,235,.055);
-  color:#1d4ed8;
-  border-radius:10px;
-  cursor:pointer;
-  padding:0;
-  font-size:0;
-  transition:.15s ease;
-}
-
-.layout-hotspot::after{
-  content:"";
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:8px;
-  height:8px;
-  transform:translate(-50%, -50%);
-  border-radius:999px;
-  background:#2563eb;
-  box-shadow:0 0 0 4px rgba(37,99,235,.14);
-}
-
-.layout-hotspot:hover{
-  border-color:rgba(37,99,235,.95);
-  background:rgba(37,99,235,.18);
-  box-shadow:0 0 0 4px rgba(37,99,235,.10);
-}
-
-.layout-hotspot span{
-  position:absolute;
-  left:50%;
-  top:100%;
-  transform:translate(-50%, 6px);
-  min-width:max-content;
-  padding:4px 8px;
-  border-radius:999px;
-  background:#1d4ed8;
-  color:#ffffff;
-  font-size:12px;
-  font-weight:900;
-  opacity:0;
-  pointer-events:none;
-  white-space:nowrap;
-  z-index:5;
-}
-
-.layout-hotspot:hover span{
-  opacity:1;
-}
-
-@media (max-width:900px){
-  .layout-map{
-    border-radius:12px;
-  }
-
-  .layout-hotspot{
-    border-width:1.5px;
-    border-radius:8px;
-    background:rgba(37,99,235,.08);
-  }
-
-  .layout-hotspot::after{
-    width:7px;
-    height:7px;
-  }
-
-  .layout-hotspot span{
-    display:none;
-  }
-}
 /* ===== Multiple Card Receipt Attachments ===== */
 .attachment-chips{
   display:flex;
@@ -4549,7 +4450,63 @@ td .icon{
   }
 }
 
-/* ===== Draggable Layout Hotspot Editor ===== */
+/* ===== Restored Production Line Hotspot Editor ===== */
+.layout-map{
+  position:relative;
+  width:100%;
+  margin:0 auto;
+  background:#ffffff;
+  border-radius:16px;
+  overflow:hidden;
+}
+
+.layout-map img{
+  display:block;
+  width:100%;
+  height:auto;
+}
+
+.layout-hotspot{
+  position:absolute;
+  transform:translate(-50%, -50%);
+  border:2px solid rgba(245,158,11,.72);
+  background:rgba(245,158,11,.17);
+  color:#111827;
+  border-radius:10px;
+  cursor:pointer;
+  padding:0;
+  transition:.15s ease;
+}
+
+.layout-hotspot span{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  max-width:96%;
+  padding:3px 7px;
+  border-radius:999px;
+  background:#0f172a;
+  color:#ffffff;
+  font-size:11px;
+  font-weight:900;
+  line-height:1.15;
+  white-space:normal;
+  text-align:center;
+  pointer-events:none;
+}
+
+.layout-hotspot:hover{
+  background:rgba(245,158,11,.28);
+  box-shadow:0 0 0 4px rgba(245,158,11,.12);
+}
+
+.layout-hotspot.selected{
+  border-color:#2563eb;
+  background:rgba(37,99,235,.18);
+  box-shadow:0 0 0 4px rgba(37,99,235,.16);
+}
+
 .layout-edit-actions{
   display:flex;
   gap:8px;
@@ -4577,6 +4534,12 @@ td .icon{
   color:#92400e;
   font-size:14px;
   font-weight:800;
+  text-align:center;
+}
+
+.layout-edit-guide b{
+  color:#1d4ed8;
+  margin-left:8px;
 }
 
 .layout-map.editing{
@@ -4585,38 +4548,30 @@ td .icon{
 }
 
 .layout-map.editing .layout-hotspot{
-  background:rgba(245,158,11,.18);
-  border-color:rgba(245,158,11,.9);
   cursor:grab;
-}
-
-.layout-map.editing .layout-hotspot.selected{
-  background:rgba(37,99,235,.22);
-  border-color:#2563eb;
-  box-shadow:0 0 0 4px rgba(37,99,235,.18);
-}
-
-.layout-map.editing .layout-hotspot span{
-  opacity:1;
-  top:50%;
-  transform:translate(-50%, -50%);
-  background:#111827;
 }
 
 @media (max-width:900px){
   .layout-edit-actions{
     width:100%;
-    justify-content:stretch;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
   }
 
   .layout-edit-actions button{
-    flex:1 1 auto;
     font-size:12px;
     padding:7px 8px;
   }
 
   .layout-edit-guide{
     font-size:13px;
+    text-align:left;
+  }
+
+  .layout-hotspot span{
+    font-size:8px;
+    padding:2px 4px;
   }
 }
 
