@@ -17,6 +17,21 @@ type Maint = { id: string; date: string; warehouse: string; manager: string; tit
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string;
   image_urls?: string[]; created_at?: string };
+type PermitRenewal = {
+  id: string;
+  company: string;
+  title: string;
+  agency?: string;
+  contact?: string;
+  expiry_date?: string;
+  check_note?: string;
+  memo?: string;
+  cycle?: string;
+  status?: string;
+  document_urls?: string[];
+  created_at?: string;
+};
+
 
 
 const supabase = createClient(
@@ -100,6 +115,42 @@ const formatInputDate = (value: string) => {
 };
 
 const money = (v: number | string | undefined) => Number(v || 0).toLocaleString("ko-KR");
+
+
+const parseExcelLikeDate = (value: any) => {
+  if (!value && value !== 0) return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+
+  if (typeof value === "number") {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    excelEpoch.setUTCDate(excelEpoch.getUTCDate() + value);
+    return excelEpoch.toISOString().slice(0, 10);
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return "";
+
+  const formatted = formatInputDate(raw);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(formatted)) return formatted;
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+
+  return "";
+};
+
+const getDday = (date?: string) => {
+  if (!date) return null;
+  const today = new Date(getTodayKey());
+  const target = new Date(date);
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const permitStableId = (company: string, title: string) => {
+  return `permit-${company}-${title}`.replace(/\s+/g, "-").slice(0, 180);
+};
+
 
 const pick = (obj: Record<string, any>, keys: string[]) => {
   const found = Object.keys(obj).find((k) => keys.some((x) => k.includes(x)));
@@ -355,6 +406,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-004", notice_date: "2026-05-12", content: "생산라인 클릭영역 투명화 및 위치조정 기능 개선" },
   { id: "auto-20260512-005", notice_date: "2026-05-12", content: "카드사용 영수증 여러 장 업로드 기능 추가" },
   { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
+  { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -704,6 +756,150 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+  const [permits, setPermits] = useState<PermitRenewal[]>([]);
+  const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
+  const [permitForm, setPermitForm] = useState({
+    company: "태명",
+    title: "",
+    agency: "",
+    contact: "",
+    expiry_date: "",
+    check_note: "",
+    memo: "",
+    cycle: "",
+    status: "진행",
+  });
+  const [editingPermitId, setEditingPermitId] = useState("");
+
+
+  const loadPermits = async () => {
+    const { data, error } = await supabase
+      .from("permit_renewals")
+      .select("*")
+      .order("expiry_date", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setPermits(((data || []) as any[]).map((p) => ({
+      ...p,
+      id: String(p.id),
+      expiry_date: p.expiry_date ? String(p.expiry_date).slice(0, 10) : "",
+      document_urls: p.document_urls || [],
+    })) as PermitRenewal[]);
+  };
+
+  const resetPermitForm = () => {
+    setEditingPermitId("");
+    setPermitForm({
+      company: "태명",
+      title: "",
+      agency: "",
+      contact: "",
+      expiry_date: "",
+      check_note: "",
+      memo: "",
+      cycle: "",
+      status: "진행",
+    });
+  };
+
+  const savePermit = async () => {
+    if (!permitForm.title.trim()) return alert("허가/신고명을 입력하세요.");
+
+    const id = editingPermitId || permitStableId(permitForm.company, permitForm.title.trim());
+    const payload = {
+      id,
+      company: permitForm.company,
+      title: permitForm.title.trim(),
+      agency: permitForm.agency,
+      contact: permitForm.contact,
+      expiry_date: permitForm.expiry_date || null,
+      check_note: permitForm.check_note,
+      memo: permitForm.memo,
+      cycle: permitForm.cycle,
+      status: permitForm.status || "진행",
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("permit_renewals").upsert(payload);
+
+    if (error) return alert(`허가/갱신 저장 실패: ${error.message}`);
+
+    await loadPermits();
+    resetPermitForm();
+  };
+
+  const editPermit = (permit: PermitRenewal) => {
+    setEditingPermitId(permit.id);
+    setPermitForm({
+      company: permit.company || "태명",
+      title: permit.title || "",
+      agency: permit.agency || "",
+      contact: permit.contact || "",
+      expiry_date: permit.expiry_date || "",
+      check_note: permit.check_note || "",
+      memo: permit.memo || "",
+      cycle: permit.cycle || "",
+      status: permit.status || "진행",
+    });
+    setMenuTab("permits");
+  };
+
+  const deletePermit = async (id: string) => {
+    if (!confirm("허가/갱신 항목을 삭제할까요?")) return;
+
+    const { error } = await supabase.from("permit_renewals").delete().eq("id", id);
+    if (error) return alert(`허가/갱신 삭제 실패: ${error.message}`);
+
+    await loadPermits();
+  };
+
+  const importPermitExcel = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+    const rows: any[] = [];
+
+    workbook.SheetNames.forEach((sheetName) => {
+      const ws = workbook.Sheets[sheetName];
+      const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true }) as any[][];
+      const headerIndex = matrix.findIndex((row) => row.some((cell) => String(cell || "").trim() === "내용"));
+      if (headerIndex < 0) return;
+
+      matrix.slice(headerIndex + 1).forEach((row) => {
+        const title = String(row[0] || "").trim();
+        if (!title) return;
+
+        const permit = {
+          id: permitStableId(sheetName, title),
+          company: sheetName,
+          title,
+          agency: String(row[1] || "").trim(),
+          contact: String(row[2] || "").trim(),
+          expiry_date: parseExcelLikeDate(row[3]) || null,
+          check_note: String(row[5] || "").trim(),
+          memo: String(row[5] || "").trim(),
+          cycle: String(row[6] || "").trim(),
+          status: "진행",
+          updated_at: new Date().toISOString(),
+        };
+
+        rows.push(permit);
+      });
+    });
+
+    if (!rows.length) return alert("엑셀에서 등록할 허가/갱신 항목을 찾지 못했습니다.");
+
+    const { error } = await supabase.from("permit_renewals").upsert(rows, { onConflict: "id" });
+
+    if (error) return alert(`허가/갱신 엑셀 업로드 실패: ${error.message}`);
+
+    await loadPermits();
+    alert(`허가/갱신 항목 ${rows.length}건을 인터넷 DB에 저장했습니다.`);
+  };
+
 
   const loadAll = async () => {
     setLoading(true);
@@ -761,7 +957,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session) loadAll();
+    if (session) {
+      loadAll();
+      loadPermits();
+    }
   }, [session]);
 
   const vendorOptions = useMemo(
@@ -1709,6 +1908,7 @@ export default function App() {
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
+          <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
@@ -2270,6 +2470,7 @@ export default function App() {
           {mobileSheet === "more" && (
             <>
               <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
+              <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
@@ -5721,6 +5922,192 @@ td .icon{
 
   .notice-pro-wrap.notice-only .notice-pro-body h3{
     font-size:14px !important;
+  }
+}
+
+/* ===== Permit Renewal Management ===== */
+.permit-page h2{
+  margin-bottom:4px;
+}
+
+.permit-head p{
+  margin:4px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+
+.permit-summary{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:10px;
+  margin:16px 0;
+}
+
+.permit-summary div{
+  padding:16px;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  display:grid;
+  gap:6px;
+}
+
+.permit-summary span{
+  color:#64748b;
+  font-size:13px;
+  font-weight:900;
+}
+
+.permit-summary b{
+  font-size:26px;
+  color:#111827;
+}
+
+.permit-summary .danger{ background:#fee2e2; border-color:#fecaca; }
+.permit-summary .warn{ background:#fef3c7; border-color:#fde68a; }
+.permit-summary .info{ background:#dbeafe; border-color:#bfdbfe; }
+
+.permit-form{
+  margin-top:14px;
+  padding:16px;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+}
+
+.permit-form h3{
+  margin:0 0 12px;
+}
+
+.permit-list{
+  display:grid;
+  gap:10px;
+  margin-top:16px;
+}
+
+.permit-card{
+  display:grid;
+  grid-template-columns:82px 1fr auto;
+  gap:14px;
+  align-items:center;
+  padding:14px;
+  border-radius:18px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 5px 16px rgba(15,23,42,.05);
+}
+
+.permit-dday{
+  min-height:70px;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  padding:8px;
+  background:#f1f5f9;
+  color:#334155;
+}
+
+.permit-dday span{
+  font-size:11px;
+  font-weight:900;
+}
+
+.permit-dday b{
+  font-size:22px;
+  font-weight:1000;
+}
+
+.permit-dday.danger{ background:#fee2e2; color:#b91c1c; }
+.permit-dday.warn{ background:#fef3c7; color:#92400e; }
+.permit-dday.info{ background:#dbeafe; color:#1d4ed8; }
+.permit-dday.safe{ background:#dcfce7; color:#166534; }
+
+.permit-title-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin-bottom:7px;
+}
+
+.permit-title-row strong{
+  color:#111827;
+  font-size:16px;
+  font-weight:1000;
+}
+
+.permit-title-row em,
+.permit-title-row small{
+  font-style:normal;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:900;
+}
+
+.permit-title-row em{
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+
+.permit-title-row small{
+  background:#f1f5f9;
+  color:#475569;
+}
+
+.permit-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 14px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.permit-main p{
+  margin:6px 0 0;
+  color:#334155;
+  white-space:pre-line;
+  font-size:13px;
+  font-weight:700;
+}
+
+.permit-note{
+  color:#92400e !important;
+}
+
+.permit-actions{
+  display:flex;
+  gap:7px;
+}
+
+.permit-actions button{
+  min-width:54px;
+  min-height:34px;
+  border:0;
+  border-radius:10px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:900;
+}
+
+.permit-actions button.danger{
+  background:#ef4444;
+}
+
+@media (max-width:900px){
+  .permit-summary{
+    grid-template-columns:repeat(2, minmax(0,1fr));
+  }
+
+  .permit-card{
+    grid-template-columns:70px 1fr;
+  }
+
+  .permit-actions{
+    grid-column:1 / -1;
+    justify-content:flex-end;
   }
 }
 
