@@ -457,6 +457,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-014", notice_date: "2026-05-12", content: "대량이체 엑셀 스타일 적용을 위해 xlsx 저장 방식으로 개선" },
   { id: "auto-20260513-001", notice_date: "2026-05-13", content: "대량이체 메뉴 이동 및 선택 다운로드 기능 추가" },
   { id: "auto-20260513-002", notice_date: "2026-05-13", content: "대량이체 메뉴 순서 및 계좌번호 앞자리 보존 개선" },
+  { id: "auto-20260513-003", notice_date: "2026-05-13", content: "대량이체 화면 안내문 제거 및 엑셀 입금통장표시내용 복구" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -1001,7 +1002,7 @@ export default function App() {
       `="${cleanAccountNumber(row.account_number)}"`,
       Number(row.amount || 0),
       row.account_name || row.vendor,
-      "",
+      "(주)태명산업개발",
       row.memo,
       "",
       "",
@@ -2786,7 +2787,6 @@ export default function App() {
                       </Field>
                     </div>
 
-                    <div className="bulk-card-memo">입금통장표시내용·입금인코드·비고·업체사용key 공란</div>
                   </div>
                 ))
               )}
