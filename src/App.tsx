@@ -2098,6 +2098,27 @@ export default function App() {
                   return d !== null && d >= 0 && d <= 30;
                 }).length}</b></span>
               </div>
+              <div className="permit-company-tabs">
+                <button
+                  className={!permitSearch.company ? "active" : ""}
+                  onClick={() => setPermitSearch({ ...permitSearch, company: "" })}
+                >
+                  전체
+                </button>
+                <button
+                  className={permitSearch.company === "태명" ? "active" : ""}
+                  onClick={() => setPermitSearch({ ...permitSearch, company: "태명" })}
+                >
+                  태명
+                </button>
+                <button
+                  className={permitSearch.company === "유강" ? "active" : ""}
+                  onClick={() => setPermitSearch({ ...permitSearch, company: "유강" })}
+                >
+                  유강
+                </button>
+              </div>
+
               <div className="actions">
                 <label className="upload">
                   <Upload size={16} /> 엑셀 업로드
@@ -6441,6 +6462,50 @@ td .icon{
 
   .permit-info-grid{
     grid-template-columns:1fr;
+  }
+}
+
+/* ===== Permit Company Filter Tabs ===== */
+.permit-company-tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.permit-company-tabs button{
+  min-width:64px;
+  min-height:38px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#ffffff;
+  color:#334155;
+  font-size:13px;
+  font-weight:1000;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(15,23,42,.04);
+}
+
+.permit-company-tabs button.active{
+  background:#facc15;
+  border-color:#facc15;
+  color:#111827;
+}
+
+@media (max-width:1100px){
+  .permit-company-tabs{
+    justify-content:flex-start;
+  }
+}
+
+@media (max-width:900px){
+  .permit-company-tabs{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+  }
+
+  .permit-company-tabs button{
+    width:100%;
   }
 }
 
