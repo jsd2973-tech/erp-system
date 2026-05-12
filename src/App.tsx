@@ -1605,6 +1605,79 @@ export default function App() {
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
+
+        {menuTab === "update_notices" && isAdmin && (
+          <section className="card">
+            <div className="between">
+              <h2>업데이트 공지 관리</h2>
+              <button onClick={loadUpdateNotices}>새로고침</button>
+            </div>
+
+            <div className="grid3">
+              <Field label="공지 날짜">
+                <input
+                  type="text"
+                  placeholder="20260512 또는 260512"
+                  value={updateNoticeForm.notice_date}
+                  onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, notice_date: formatInputDate(e.target.value) })}
+                />
+              </Field>
+
+              <Field label="업데이트 내용">
+                <input
+                  value={updateNoticeForm.content}
+                  onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, content: e.target.value })}
+                  placeholder="예: 카드사용 영수증 여러 장 업로드 기능 추가"
+                />
+              </Field>
+
+              <Field label="관리">
+                <div className="actions">
+                  <button className="primary" onClick={saveUpdateNotice}>
+                    {editingUpdateNoticeId ? "수정저장" : "공지등록"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingUpdateNoticeId("");
+                      setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
+                    }}
+                  >
+                    초기화
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            <ScrollTable>
+              <table>
+                <thead>
+                  <tr>
+                    <th>날짜</th>
+                    <th>내용</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!updateNotices.length ? (
+                    <tr><td colSpan={3} className="empty">등록된 업데이트 공지가 없습니다.</td></tr>
+                  ) : (
+                    updateNotices.map((notice) => (
+                      <tr key={notice.id}>
+                        <td>{notice.notice_date}</td>
+                        <td>{notice.content}</td>
+                        <td>
+                          <button className="icon" onClick={() => editUpdateNotice(notice)}><Pencil size={16} /></button>
+                          <button className="icon" onClick={() => deleteUpdateNotice(notice.id)}><Trash2 size={16} /></button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </section>
+        )}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
