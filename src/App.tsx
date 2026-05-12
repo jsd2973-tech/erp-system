@@ -1625,7 +1625,7 @@ export default function App() {
               </div>
 
               <div className="notice-pro-list">
-                {!updateNotices.length ? (
+                {(updateNotices || []).length === 0 ? (
                   <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
                 ) : (
                   updateNotices.map((notice) => (
@@ -5444,6 +5444,59 @@ td .icon{
 
   .notice-pro-wrap.notice-only .notice-pro-body h3{
     font-size:14px;
+  }
+}
+
+/* ===== Notice alignment hotfix ===== */
+.notice-pro-list{
+  margin-top:14px;
+}
+
+.notice-pro-item{
+  align-items:center !important;
+}
+
+.notice-pro-body{
+  display:flex !important;
+  align-items:center !important;
+  gap:14px !important;
+}
+
+.notice-pro-badge-row{
+  margin:0 !important;
+  flex:0 0 auto;
+}
+
+.notice-pro-body h3{
+  margin:0 !important;
+  flex:1;
+  text-align:left !important;
+  color:#111827 !important;
+  font-size:17px !important;
+  font-weight:900 !important;
+  line-height:1.45 !important;
+  letter-spacing:-0.02em;
+}
+
+.notice-pro-date{
+  flex-shrink:0;
+}
+
+.notice-pro-empty{
+  min-height:160px;
+  display:grid;
+  place-items:center;
+}
+
+@media (max-width:900px){
+  .notice-pro-body{
+    display:grid !important;
+    align-items:start !important;
+    gap:7px !important;
+  }
+
+  .notice-pro-body h3{
+    font-size:14px !important;
   }
 }
 
