@@ -1605,9 +1605,8 @@ export default function App() {
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
-
         {menuTab === "update_history" && (
-          <section className="notice-pro-wrap">
+          <section className="notice-pro-wrap notice-only">
             <div className="notice-pro-left">
               <div className="notice-pro-head">
                 <div>
@@ -1642,7 +1641,6 @@ export default function App() {
                           <span className={isRecentNotice(notice) ? "hot" : ""}>업데이트</span>
                         </div>
                         <h3>{notice.content}</h3>
-                        <p>{notice.content}</p>
                       </div>
                     </article>
                   ))
@@ -1651,55 +1649,6 @@ export default function App() {
 
               <div className="notice-pro-bottom">더 이상 공지가 없습니다.</div>
             </div>
-
-            {isAdmin && (
-              <aside className="notice-pro-right">
-                <div className="notice-pro-admin-head">
-                  <h2>공지 관리 <small>(관리자 전용)</small></h2>
-                  <button
-                    className="primary"
-                    onClick={() => {
-                      setEditingUpdateNoticeId("");
-                      setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
-                      setMenuTab("update_notices");
-                    }}
-                  >
-                    + 새 공지 등록
-                  </button>
-                </div>
-
-                <div className="notice-pro-table">
-                  <div className="notice-pro-table-head">
-                    <span>날짜</span>
-                    <span>종류</span>
-                    <span>제목</span>
-                    <span>관리</span>
-                  </div>
-
-                  {!updateNotices.length ? (
-                    <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
-                  ) : (
-                    updateNotices.map((notice) => (
-                      <div className="notice-pro-table-row" key={notice.id}>
-                        <span>{notice.notice_date}</span>
-                        <span><b className={isRecentNotice(notice) ? "red" : "gray"}>업데이트</b></span>
-                        <span>{notice.content}</span>
-                        <span className="notice-pro-actions">
-                          <button onClick={() => editUpdateNotice(notice)}>수정</button>
-                          <button className="danger" onClick={() => deleteUpdateNotice(notice.id)}>삭제</button>
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="notice-pro-tip">
-                  <b>💡 TIP</b>
-                  <p>공지 팝업은 오늘 또는 어제 등록된 공지만 표시됩니다.</p>
-                  <p>전체 공지는 이 화면에서 계속 확인할 수 있습니다.</p>
-                </div>
-              </aside>
-            )}
           </section>
         )}
 
@@ -5449,6 +5398,52 @@ td .icon{
 
   .notice-form-grid{
     grid-template-columns:1fr;
+  }
+}
+
+/* ===== Notice Page Fix: view-only and readable ===== */
+.notice-pro-wrap.notice-only{
+  grid-template-columns:1fr;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-left{
+  max-width:none;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-body{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-height:72px;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-badge-row{
+  margin:0;
+  flex:0 0 auto;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-body h3{
+  display:block;
+  margin:0;
+  color:#111827 !important;
+  font-size:16px;
+  font-weight:1000;
+  line-height:1.45;
+  text-align:left;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-item{
+  grid-template-columns:86px 1fr;
+}
+
+@media (max-width:900px){
+  .notice-pro-wrap.notice-only .notice-pro-body{
+    display:grid;
+    gap:7px;
+  }
+
+  .notice-pro-wrap.notice-only .notice-pro-body h3{
+    font-size:14px;
   }
 }
 
