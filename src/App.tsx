@@ -1485,9 +1485,15 @@ export default function App() {
     .filter((permit: PermitRenewal) =>
       !permitSearch.status || String(permit.status || "") === permitSearch.status
     )
-    .sort((a: PermitRenewal, b: PermitRenewal) =>
-      String(a.expiry_date || "9999-12-31").localeCompare(String(b.expiry_date || "9999-12-31"))
-    );
+    .sort((a: PermitRenewal, b: PermitRenewal) => {
+      const aDday = getDday(a.expiry_date);
+      const bDday = getDday(b.expiry_date);
+
+      const aValue = aDday === null ? 999999 : aDday;
+      const bValue = bDday === null ? 999999 : bDday;
+
+      return aValue - bValue;
+    });
 
   const maintSupplyTotal = maintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
   const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
