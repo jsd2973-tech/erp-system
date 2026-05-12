@@ -1460,6 +1460,35 @@ export default function App() {
     setMaintForm((prev) => ({ ...prev, cost: String(total) }));
   };
 
+
+  const filteredPermits = permits
+    .filter((permit: PermitRenewal) =>
+      !permitSearch.company || String(permit.company || "").includes(permitSearch.company)
+    )
+    .filter((permit: PermitRenewal) => {
+      const keyword = permitSearch.keyword.trim();
+      if (!keyword) return true;
+
+      const target = [
+        permit.company,
+        permit.title,
+        permit.agency,
+        permit.contact,
+        permit.check_note,
+        permit.memo,
+        permit.cycle,
+        permit.status,
+      ].join(" ");
+
+      return target.includes(keyword);
+    })
+    .filter((permit: PermitRenewal) =>
+      !permitSearch.status || String(permit.status || "") === permitSearch.status
+    )
+    .sort((a: PermitRenewal, b: PermitRenewal) =>
+      String(a.expiry_date || "9999-12-31").localeCompare(String(b.expiry_date || "9999-12-31"))
+    );
+
   const maintSupplyTotal = maintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
   const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
@@ -2184,8 +2213,8 @@ export default function App() {
                   {!filteredPermits.length ? (
                     <tr><td colSpan={8} className="empty">등록된 허가/갱신 업무가 없습니다.</td></tr>
                   ) : (
-                    filteredPermits.map((permit) => {
-                      const dday = getDday(permit.expiry_date);
+                    filteredPermits.map((permit: PermitRenewal) => {
+                      const dday = getDday(permit.expiry_date) ?? 999999;
                       return (
                         <tr key={permit.id}>
                           <td>{permit.company}</td>
@@ -2213,8 +2242,8 @@ export default function App() {
               {!filteredPermits.length ? (
                 <div className="empty">등록된 허가/갱신 업무가 없습니다.</div>
               ) : (
-                filteredPermits.map((permit) => {
-                  const dday = getDday(permit.expiry_date);
+                filteredPermits.map((permit: PermitRenewal) => {
+                  const dday = getDday(permit.expiry_date) ?? 999999;
                   return (
                     <div className="permit-card" key={permit.id}>
                       <div className="permit-card-top">
