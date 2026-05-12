@@ -1596,8 +1596,8 @@ export default function App() {
 
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
+          <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지내역</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
@@ -1605,23 +1605,31 @@ export default function App() {
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
-
         {menuTab === "update_history" && (
-          <section className="card">
-            <div className="between">
-              <h2>업데이트 공지내역</h2>
+          <section className="card notice-page">
+            <div className="notice-page-head">
+              <div>
+                <h2>공지</h2>
+                <p>시스템 업데이트 및 안내사항을 확인하세요.</p>
+              </div>
               <button onClick={loadUpdateNotices}>새로고침</button>
             </div>
 
-            <div className="notice-history-list">
+            <div className="notice-board">
               {!updateNotices.length ? (
-                <div className="empty">등록된 업데이트 공지가 없습니다.</div>
+                <div className="empty">등록된 공지가 없습니다.</div>
               ) : (
                 updateNotices.map((notice) => (
-                  <div className="notice-history-card" key={notice.id}>
-                    <b>{notice.notice_date}</b>
-                    <p>{notice.content}</p>
-                  </div>
+                  <article className="notice-item" key={notice.id}>
+                    <div className="notice-date">
+                      <strong>{notice.notice_date.slice(0, 4)}</strong>
+                      <b>{notice.notice_date.slice(5)}</b>
+                    </div>
+                    <div className="notice-content">
+                      <span>업데이트</span>
+                      <p>{notice.content}</p>
+                    </div>
+                  </article>
                 ))
               )}
             </div>
@@ -2106,8 +2114,8 @@ export default function App() {
 
           {mobileSheet === "more" && (
             <>
+              <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
-              <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지내역</button>
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
               <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
@@ -4962,47 +4970,132 @@ td .icon{
   border-bottom:2px solid #fff;
 }
 
-/* ===== Update Notice History Visible List ===== */
-.notice-history-list{
-  display:grid;
-  gap:10px;
-  margin-top:14px;
+/* ===== Clean Notice Page ===== */
+.notice-page{
+  padding:24px;
 }
 
-.notice-history-card{
+.notice-page-head{
   display:flex;
   justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.notice-page-head h2{
+  margin:0;
+  font-size:24px;
+  color:#111827;
+}
+
+.notice-page-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:700;
+}
+
+.notice-page-head button{
+  min-height:36px;
+  padding:8px 14px;
+  border:0;
+  border-radius:12px;
+  background:#f1f5f9;
+  color:#334155;
+  font-weight:900;
+}
+
+.notice-board{
+  display:grid;
+  gap:10px;
+}
+
+.notice-item{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:14px;
   align-items:center;
-  gap:12px;
   padding:14px;
-  border-radius:16px;
-  background:#f8fafc;
   border:1px solid #e5e7eb;
+  border-radius:16px;
+  background:#ffffff;
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
 }
 
-.notice-history-card b{
-  display:block;
+.notice-date{
+  display:grid;
+  place-items:center;
+  min-height:62px;
+  border-radius:14px;
+  background:#eff6ff;
   color:#1d4ed8;
-  font-size:13px;
-  margin-bottom:6px;
+  font-weight:900;
 }
 
-.notice-history-card p{
+.notice-date strong{
+  font-size:12px;
+  line-height:1;
+}
+
+.notice-date b{
+  font-size:17px;
+  line-height:1.1;
+}
+
+.notice-content{
+  display:grid;
+  gap:6px;
+}
+
+.notice-content span{
+  width:max-content;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#fee2e2;
+  color:#dc2626;
+  font-size:11px;
+  font-weight:900;
+}
+
+.notice-content p{
   margin:0;
   color:#111827;
-  font-size:14px;
-  font-weight:800;
+  font-size:15px;
+  font-weight:900;
   line-height:1.45;
 }
 
-.notice-admin-card{
-  align-items:flex-start;
-}
-
 @media (max-width:900px){
-  .notice-history-card{
-    align-items:flex-start;
+  .notice-page{
+    padding:18px;
+  }
+
+  .notice-page-head{
+    align-items:stretch;
     flex-direction:column;
+  }
+
+  .notice-page-head h2{
+    font-size:22px;
+  }
+
+  .notice-item{
+    grid-template-columns:74px 1fr;
+    gap:10px;
+    padding:12px;
+  }
+
+  .notice-date{
+    min-height:56px;
+  }
+
+  .notice-date b{
+    font-size:15px;
+  }
+
+  .notice-content p{
+    font-size:14px;
   }
 }
 
