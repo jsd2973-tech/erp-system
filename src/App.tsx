@@ -2054,6 +2054,189 @@ export default function App() {
           </section>
         )}
 
+
+        {menuTab === "permits" && (
+          <section className="card permit-page">
+            <div className="between">
+              <h2>허가/갱신관리</h2>
+              <div className="actions">
+                <label className="upload">
+                  <Upload size={16} /> 엑셀 업로드
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await importPermitExcel(file);
+                    }}
+                  />
+                </label>
+                <button onClick={loadPermits}>새로고침</button>
+              </div>
+            </div>
+
+            <div className="grid5">
+              <Field label="회사/구분">
+                <input
+                  value={permitForm.company}
+                  onChange={(e) => setPermitForm({ ...permitForm, company: e.target.value })}
+                  placeholder="예: 태명산업개발"
+                />
+              </Field>
+              <Field label="허가/신고명">
+                <input
+                  value={permitForm.title}
+                  onChange={(e) => setPermitForm({ ...permitForm, title: e.target.value })}
+                />
+              </Field>
+              <Field label="허가관청">
+                <input
+                  value={permitForm.agency}
+                  onChange={(e) => setPermitForm({ ...permitForm, agency: e.target.value })}
+                />
+              </Field>
+              <Field label="담당/연락처">
+                <input
+                  value={permitForm.contact}
+                  onChange={(e) => setPermitForm({ ...permitForm, contact: e.target.value })}
+                />
+              </Field>
+              <Field label="만료일">
+                <input
+                  value={permitForm.expiry_date}
+                  onChange={(e) => setPermitForm({ ...permitForm, expiry_date: formatInputDate(e.target.value) })}
+                  placeholder="20260512 또는 260512"
+                />
+              </Field>
+            </div>
+
+            <div className="grid3">
+              <Field label="확인사항">
+                <input
+                  value={permitForm.check_note}
+                  onChange={(e) => setPermitForm({ ...permitForm, check_note: e.target.value })}
+                />
+              </Field>
+              <Field label="주기">
+                <input
+                  value={permitForm.cycle}
+                  onChange={(e) => setPermitForm({ ...permitForm, cycle: e.target.value })}
+                />
+              </Field>
+              <Field label="상태">
+                <select
+                  value={permitForm.status}
+                  onChange={(e) => setPermitForm({ ...permitForm, status: e.target.value })}
+                >
+                  <option value="진행">진행</option>
+                  <option value="완료">완료</option>
+                  <option value="보류">보류</option>
+                </select>
+              </Field>
+            </div>
+
+            <Field label="비고">
+              <input
+                value={permitForm.memo}
+                onChange={(e) => setPermitForm({ ...permitForm, memo: e.target.value })}
+              />
+            </Field>
+
+            <div className="actions right-actions">
+              <button className="primary" onClick={savePermit}>
+                {editingPermitId ? "수정저장" : "허가 등록"}
+              </button>
+              <button onClick={resetPermitForm}>초기화</button>
+            </div>
+
+            <div className="grid3">
+              <Field label="회사 검색">
+                <input value={permitSearch.company} onChange={(e) => setPermitSearch({ ...permitSearch, company: e.target.value })} />
+              </Field>
+              <Field label="키워드 검색">
+                <input value={permitSearch.keyword} onChange={(e) => setPermitSearch({ ...permitSearch, keyword: e.target.value })} />
+              </Field>
+              <Field label="상태 검색">
+                <select value={permitSearch.status} onChange={(e) => setPermitSearch({ ...permitSearch, status: e.target.value })}>
+                  <option value="">전체</option>
+                  <option value="진행">진행</option>
+                  <option value="완료">완료</option>
+                  <option value="보류">보류</option>
+                </select>
+              </Field>
+            </div>
+
+            <ScrollTable>
+              <table>
+                <thead>
+                  <tr>
+                    <th>회사</th>
+                    <th>허가/신고명</th>
+                    <th>허가관청</th>
+                    <th>담당/연락처</th>
+                    <th>만료일</th>
+                    <th>D-day</th>
+                    <th>상태</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!filteredPermits.length ? (
+                    <tr><td colSpan={8} className="empty">등록된 허가/갱신 업무가 없습니다.</td></tr>
+                  ) : (
+                    filteredPermits.map((permit) => {
+                      const dday = getDday(permit.expiry_date);
+                      return (
+                        <tr key={permit.id}>
+                          <td>{permit.company}</td>
+                          <td>{permit.title}</td>
+                          <td>{permit.agency || "-"}</td>
+                          <td>{permit.contact || "-"}</td>
+                          <td>{permit.expiry_date || "-"}</td>
+                          <td className={dday <= 7 ? "danger-text" : dday <= 30 ? "warn-text" : ""}>
+                            {permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "-"}
+                          </td>
+                          <td>{permit.status || "진행"}</td>
+                          <td>
+                            <button className="icon" onClick={() => editPermit(permit)}><Pencil size={16} /></button>
+                            <button className="icon" onClick={() => deletePermit(permit.id)}><Trash2 size={16} /></button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+
+            <div className="permit-card-list">
+              {!filteredPermits.length ? (
+                <div className="empty">등록된 허가/갱신 업무가 없습니다.</div>
+              ) : (
+                filteredPermits.map((permit) => {
+                  const dday = getDday(permit.expiry_date);
+                  return (
+                    <div className="permit-card" key={permit.id}>
+                      <div className="permit-card-top">
+                        <b>{permit.title}</b>
+                        <span className={dday <= 7 ? "danger" : dday <= 30 ? "warn" : ""}>
+                          {permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "미정"}
+                        </span>
+                      </div>
+                      <p>{permit.company} · {permit.agency || "관청 미입력"}</p>
+                      <p>{permit.expiry_date || "만료일 미입력"} · {permit.status || "진행"}</p>
+                      <div className="actions">
+                        <button onClick={() => editPermit(permit)}>수정</button>
+                        <button onClick={() => deletePermit(permit.id)}>삭제</button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        )}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
