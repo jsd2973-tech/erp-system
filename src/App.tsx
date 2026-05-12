@@ -348,6 +348,19 @@ const isRecentNotice = (notice: UpdateNotice) => {
 
 const updateNoticeHideValue = () => getTodayKey();
 
+const BUNDLED_UPDATE_NOTICES = [
+  { id: "auto-20260512-001", notice_date: "2026-05-12", content: "공지 화면 디자인 및 자동 불러오기 기능 개선" },
+  { id: "auto-20260512-002", notice_date: "2026-05-12", content: "업데이트 공지 인터넷 저장 및 관리 기능 추가" },
+  { id: "auto-20260512-003", notice_date: "2026-05-12", content: "공지내역 화면 추가 및 공지 메뉴 정리" },
+  { id: "auto-20260512-004", notice_date: "2026-05-12", content: "생산라인 클릭영역 투명화 및 위치조정 기능 개선" },
+  { id: "auto-20260512-005", notice_date: "2026-05-12", content: "카드사용 영수증 여러 장 업로드 기능 추가" },
+  { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
+  { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
+  { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
+];
+
+
+
 
 function SearchSelect({
   label,
@@ -1386,8 +1399,26 @@ export default function App() {
     setShowUpdateNotice(false);
   };
 
+  const syncBundledUpdateNotices = async () => {
+    const rows = BUNDLED_UPDATE_NOTICES.map((notice) => ({
+      ...notice,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from("update_notices")
+      .upsert(rows, { onConflict: "id" });
+
+    if (error) {
+      console.error("자동 업데이트 공지 등록 실패:", error);
+    }
+  };
+
   const loadUpdateNotices = async () => {
     setUpdateNoticeError("");
+
+    await syncBundledUpdateNotices();
 
     const { data, error } = await supabase
       .from("update_notices")
@@ -5534,6 +5565,94 @@ td .icon{
   color:#991b1b;
   font-weight:900;
   border:1px solid #fecaca;
+}
+
+/* ===== Notice Auto Sync + Alignment Polish ===== */
+.notice-pro-wrap.notice-only .notice-pro-left{
+  padding:24px 28px;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-list{
+  display:grid;
+  gap:10px;
+  margin-top:16px;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-item{
+  display:grid;
+  grid-template-columns:82px 1fr;
+  gap:12px;
+  align-items:center !important;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-date{
+  min-height:64px;
+  border-radius:14px;
+  background:#ffffff;
+  box-shadow:0 4px 12px rgba(15,23,42,.06);
+}
+
+.notice-pro-wrap.notice-only .notice-pro-body{
+  min-height:64px;
+  display:flex !important;
+  align-items:center !important;
+  gap:14px !important;
+  padding:12px 16px !important;
+  border-radius:14px;
+  background:#ffffff;
+  box-shadow:0 4px 12px rgba(15,23,42,.04);
+}
+
+.notice-pro-wrap.notice-only .notice-pro-badge-row{
+  margin:0 !important;
+  flex:0 0 auto;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-body h3{
+  margin:0 !important;
+  flex:1;
+  text-align:left !important;
+  color:#111827 !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+  line-height:1.45 !important;
+  letter-spacing:-0.02em;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-body p{
+  display:none !important;
+}
+
+.notice-pro-wrap.notice-only .notice-pro-empty{
+  min-height:150px;
+  display:grid;
+  place-items:center;
+  border-radius:16px;
+  background:#ffffff;
+  border:1px dashed #cbd5e1;
+  color:#64748b;
+  font-weight:900;
+}
+
+@media (max-width:900px){
+  .notice-pro-wrap.notice-only .notice-pro-left{
+    padding:18px;
+  }
+
+  .notice-pro-wrap.notice-only .notice-pro-item{
+    grid-template-columns:70px 1fr;
+    gap:9px;
+  }
+
+  .notice-pro-wrap.notice-only .notice-pro-body{
+    display:grid !important;
+    gap:7px !important;
+    align-items:start !important;
+  }
+
+  .notice-pro-wrap.notice-only .notice-pro-body h3{
+    font-size:14px !important;
+  }
 }
 
 `;
