@@ -2086,8 +2086,18 @@ export default function App() {
 
         {menuTab === "permits" && (
           <section className="card permit-page">
-            <div className="between">
-              <h2>허가/갱신관리</h2>
+            <div className="permit-head">
+              <div>
+                <h2>허가/갱신관리</h2>
+                <p>만료일과 갱신 업무를 한눈에 관리합니다.</p>
+              </div>
+              <div className="permit-summary">
+                <span>전체 <b>{filteredPermits.length}</b></span>
+                <span>30일 이내 <b>{filteredPermits.filter((p: PermitRenewal) => {
+                  const d = getDday(p.expiry_date);
+                  return d !== null && d >= 0 && d <= 30;
+                }).length}</b></span>
+              </div>
               <div className="actions">
                 <label className="upload">
                   <Upload size={16} /> 엑셀 업로드
@@ -2244,19 +2254,48 @@ export default function App() {
               ) : (
                 filteredPermits.map((permit: PermitRenewal) => {
                   const dday = getDday(permit.expiry_date) ?? 999999;
+                  const ddayText = permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "미정";
+                  const ddayClass = dday <= 7 ? "danger" : dday <= 30 ? "warn" : "";
+
                   return (
                     <div className="permit-card" key={permit.id}>
-                      <div className="permit-card-top">
-                        <b>{permit.title}</b>
-                        <span className={dday <= 7 ? "danger" : dday <= 30 ? "warn" : ""}>
-                          {permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "미정"}
-                        </span>
+                      <div className="permit-card-main">
+                        <div className="permit-title-area">
+                          <span className="permit-company">{permit.company || "회사 미입력"}</span>
+                          <b>{permit.title || "허가/신고명 미입력"}</b>
+                          <p>{permit.agency || "허가관청 미입력"}</p>
+                        </div>
+
+                        <div className="permit-dday-box">
+                          <span className={ddayClass}>{ddayText}</span>
+                          <small>{permit.expiry_date || "만료일 없음"}</small>
+                        </div>
                       </div>
-                      <p>{permit.company} · {permit.agency || "관청 미입력"}</p>
-                      <p>{permit.expiry_date || "만료일 미입력"} · {permit.status || "진행"}</p>
-                      <div className="actions">
+
+                      <div className="permit-info-grid">
+                        <div>
+                          <label>담당/연락처</label>
+                          <p>{permit.contact || "-"}</p>
+                        </div>
+                        <div>
+                          <label>확인사항</label>
+                          <p>{permit.check_note || "-"}</p>
+                        </div>
+                        <div>
+                          <label>주기</label>
+                          <p>{permit.cycle || "-"}</p>
+                        </div>
+                        <div>
+                          <label>상태</label>
+                          <p>{permit.status || "진행"}</p>
+                        </div>
+                      </div>
+
+                      {permit.memo && <div className="permit-memo">{permit.memo}</div>}
+
+                      <div className="permit-card-actions">
                         <button onClick={() => editPermit(permit)}>수정</button>
-                        <button onClick={() => deletePermit(permit.id)}>삭제</button>
+                        <button className="danger-btn" onClick={() => deletePermit(permit.id)}>삭제</button>
                       </div>
                     </div>
                   );
@@ -6137,189 +6176,271 @@ td .icon{
   }
 }
 
-/* ===== Permit Renewal Management ===== */
-.permit-page h2{
-  margin-bottom:4px;
+/* ===== Permit Renewal Management Clean UI ===== */
+.permit-page{
+  padding:26px;
+}
+
+.permit-head{
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:14px;
+  align-items:start;
+  margin-bottom:18px;
+}
+
+.permit-head h2{
+  margin:0;
+  color:#111827;
+  font-size:24px;
+  font-weight:1000;
 }
 
 .permit-head p{
-  margin:4px 0 0;
+  margin:6px 0 0;
   color:#64748b;
   font-size:14px;
   font-weight:800;
 }
 
 .permit-summary{
-  display:grid;
-  grid-template-columns:repeat(4, minmax(0,1fr));
-  gap:10px;
-  margin:16px 0;
-}
-
-.permit-summary div{
-  padding:16px;
-  border-radius:18px;
-  background:#f8fafc;
-  border:1px solid #e5e7eb;
-  display:grid;
-  gap:6px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
 .permit-summary span{
-  color:#64748b;
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 12px;
+  border-radius:12px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  color:#475569;
   font-size:13px;
   font-weight:900;
 }
 
 .permit-summary b{
-  font-size:26px;
-  color:#111827;
+  color:#2563eb;
+  font-size:16px;
 }
 
-.permit-summary .danger{ background:#fee2e2; border-color:#fecaca; }
-.permit-summary .warn{ background:#fef3c7; border-color:#fde68a; }
-.permit-summary .info{ background:#dbeafe; border-color:#bfdbfe; }
-
-.permit-form{
-  margin-top:14px;
-  padding:16px;
-  border-radius:18px;
-  background:#f8fafc;
-  border:1px solid #e5e7eb;
+.permit-page .grid5,
+.permit-page .grid3{
+  gap:12px;
+  margin-bottom:12px;
 }
 
-.permit-form h3{
-  margin:0 0 12px;
+.permit-page .right-actions{
+  margin:14px 0 18px;
 }
 
-.permit-list{
+.danger-text{
+  color:#dc2626;
+  font-weight:1000;
+}
+
+.warn-text{
+  color:#d97706;
+  font-weight:1000;
+}
+
+.permit-page .scroll-table{
+  display:none;
+}
+
+.permit-card-list{
   display:grid;
-  gap:10px;
-  margin-top:16px;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+  margin-top:14px;
 }
 
 .permit-card{
-  display:grid;
-  grid-template-columns:82px 1fr auto;
-  gap:14px;
-  align-items:center;
-  padding:14px;
+  padding:16px;
   border-radius:18px;
   background:#ffffff;
   border:1px solid #e5e7eb;
-  box-shadow:0 5px 16px rgba(15,23,42,.05);
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
 }
 
-.permit-dday{
-  min-height:70px;
-  border-radius:15px;
-  display:grid;
-  place-items:center;
-  padding:8px;
-  background:#f1f5f9;
-  color:#334155;
-}
-
-.permit-dday span{
-  font-size:11px;
-  font-weight:900;
-}
-
-.permit-dday b{
-  font-size:22px;
-  font-weight:1000;
-}
-
-.permit-dday.danger{ background:#fee2e2; color:#b91c1c; }
-.permit-dday.warn{ background:#fef3c7; color:#92400e; }
-.permit-dday.info{ background:#dbeafe; color:#1d4ed8; }
-.permit-dday.safe{ background:#dcfce7; color:#166534; }
-
-.permit-title-row{
+.permit-card-main{
   display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  gap:8px;
-  margin-bottom:7px;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:14px;
 }
 
-.permit-title-row strong{
-  color:#111827;
-  font-size:16px;
-  font-weight:1000;
+.permit-title-area{
+  min-width:0;
 }
 
-.permit-title-row em,
-.permit-title-row small{
-  font-style:normal;
-  padding:4px 8px;
+.permit-company{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  padding:4px 9px;
   border-radius:999px;
-  font-size:11px;
-  font-weight:900;
-}
-
-.permit-title-row em{
   background:#eff6ff;
   color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+  margin-bottom:8px;
 }
 
-.permit-title-row small{
-  background:#f1f5f9;
-  color:#475569;
+.permit-title-area b{
+  display:block;
+  color:#111827;
+  font-size:17px;
+  font-weight:1000;
+  line-height:1.35;
+  word-break:keep-all;
 }
 
-.permit-meta{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px 14px;
+.permit-title-area p{
+  margin:5px 0 0;
   color:#64748b;
   font-size:13px;
   font-weight:800;
 }
 
-.permit-main p{
-  margin:6px 0 0;
-  color:#334155;
-  white-space:pre-line;
+.permit-dday-box{
+  min-width:94px;
+  display:grid;
+  justify-items:end;
+  gap:5px;
+}
+
+.permit-dday-box span{
+  display:inline-flex;
+  justify-content:center;
+  min-width:68px;
+  padding:7px 10px;
+  border-radius:999px;
+  background:#dcfce7;
+  color:#166534;
   font-size:13px;
-  font-weight:700;
+  font-weight:1000;
 }
 
-.permit-note{
-  color:#92400e !important;
+.permit-dday-box span.warn{
+  background:#fef3c7;
+  color:#92400e;
 }
 
-.permit-actions{
-  display:flex;
-  gap:7px;
+.permit-dday-box span.danger{
+  background:#fee2e2;
+  color:#991b1b;
 }
 
-.permit-actions button{
-  min-width:54px;
-  min-height:34px;
-  border:0;
-  border-radius:10px;
-  background:#2563eb;
-  color:#fff;
+.permit-dday-box small{
+  color:#64748b;
+  font-size:12px;
   font-weight:900;
 }
 
-.permit-actions button.danger{
+.permit-info-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+  padding:12px;
+  border-radius:14px;
+  background:#f8fafc;
+  border:1px solid #eef2f7;
+}
+
+.permit-info-grid label{
+  display:block;
+  margin-bottom:4px;
+  color:#64748b;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.permit-info-grid p{
+  margin:0;
+  color:#111827;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.35;
+  word-break:break-word;
+}
+
+.permit-memo{
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#fffbeb;
+  color:#92400e;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.permit-card-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
+.permit-card-actions button{
+  min-height:34px;
+  border:0;
+  border-radius:10px;
+  padding:7px 12px;
+  background:#2563eb;
+  color:#ffffff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.permit-card-actions .danger-btn{
   background:#ef4444;
 }
 
-@media (max-width:900px){
+@media (max-width:1100px){
+  .permit-head{
+    grid-template-columns:1fr;
+  }
+
   .permit-summary{
-    grid-template-columns:repeat(2, minmax(0,1fr));
+    justify-content:flex-start;
+  }
+
+  .permit-card-list{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:900px){
+  .permit-page{
+    padding:18px;
   }
 
   .permit-card{
-    grid-template-columns:70px 1fr;
+    padding:14px;
+    border-radius:16px;
   }
 
-  .permit-actions{
-    grid-column:1 / -1;
-    justify-content:flex-end;
+  .permit-card-main{
+    flex-direction:column;
+  }
+
+  .permit-dday-box{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  .permit-info-grid{
+    grid-template-columns:1fr;
   }
 }
 
