@@ -408,6 +408,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
   { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
   { id: "auto-20260512-008", notice_date: "2026-05-12", content: "모바일 더보기 메뉴에 로그아웃 추가 및 기초등록 묶음 정리" },
+  { id: "auto-20260512-009", notice_date: "2026-05-12", content: "공지 화면 날짜 필터 버튼 제거" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -1963,16 +1964,7 @@ export default function App() {
                 </div>
                 <div className="notice-pin">꼭<br />확인!</div>
               </div>
-
-              <div className="notice-pro-tabs">
-                <button className="active">전체</button>
-                <button>오늘</button>
-                <button>어제</button>
-                <button>이번주</button>
-                <button>이전</button>
-              </div>
-
-              {updateNoticeError && (
+{updateNoticeError && (
                 <div className="notice-pro-error">
                   공지 불러오기 실패: {updateNoticeError}
                 </div>
@@ -5673,31 +5665,6 @@ td .icon{
   box-shadow:0 10px 24px rgba(15,23,42,.18);
   font-size:13px;
   font-weight:1000;
-}
-
-.notice-pro-tabs{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:17px;
-}
-
-.notice-pro-tabs button{
-  min-width:76px;
-  min-height:38px;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  background:#ffffff;
-  color:#334155;
-  font-size:14px;
-  font-weight:1000;
-  box-shadow:0 4px 10px rgba(15,23,42,.05);
-}
-
-.notice-pro-tabs button.active{
-  background:#2563eb;
-  border-color:#2563eb;
-  color:#ffffff;
 }
 
 .notice-pro-list{
