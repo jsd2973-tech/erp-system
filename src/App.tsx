@@ -322,18 +322,15 @@ const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000
 
 
 
-const UPDATE_NOTICE_VERSION = "2026-05-11-erp-update-02";
 const UPDATE_NOTICE_HIDE_KEY = "erp_update_notice_hide_until";
 
-const updateNoticeItems = [
-  { date: "2026-05-11", text: "업데이트 안내 팝업 및 오늘 열지 않음 기능 추가" },
-  { date: "2026-05-11", text: "생산라인 구성도에서 크라샤 세부창고 정비이력 바로가기 추가" },
-  { date: "2026-05-11", text: "구매/카드/정비 PDF 출력 기능 추가" },
-  { date: "2026-05-11", text: "정비 사진/PDF 여러 장 업로드 기능 추가" },
-  { date: "2026-05-11", text: "정비조회 첨부보기 및 모바일 카드형 조회 개선" },
-  { date: "2026-05-10", text: "모바일 하단 메뉴 및 화면 최적화" },
-  { date: "2026-05-10", text: "카드사용 수정 및 영수증 첨부 기능 개선" },
-];
+type UpdateNotice = {
+  id: string;
+  notice_date: string;
+  content: string;
+  is_active?: boolean;
+  created_at?: string;
+};
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -343,12 +340,13 @@ const getYesterdayKey = () => {
   return d.toISOString().slice(0, 10);
 };
 
-const getRecentUpdateItems = () => {
+const isRecentNotice = (notice: UpdateNotice) => {
   const today = getTodayKey();
   const yesterday = getYesterdayKey();
-
-  return updateNoticeItems.filter((item) => item.date === today || item.date === yesterday);
+  return notice.notice_date === today || notice.notice_date === yesterday;
 };
+
+const updateNoticeHideValue = () => getTodayKey();
 
 
 function SearchSelect({
@@ -648,12 +646,12 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
-  const [showUpdateNotice, setShowUpdateNotice] = useState(() => {
-    const hiddenUntil = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
-    return hiddenUntil !== `${UPDATE_NOTICE_VERSION}:${getTodayKey()}` && getRecentUpdateItems().length > 0;
-  });
+  const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
-  const recentUpdateItems = getRecentUpdateItems();
+  const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
+  const recentUpdateItems = updateNotices.filter(isRecentNotice);
+  const [updateNoticeForm, setUpdateNoticeForm] = useState({ notice_date: getTodayKey(), content: "" });
+  const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
@@ -1382,9 +1380,77 @@ export default function App() {
 
   const closeUpdateNotice = () => {
     if (hideUpdateToday) {
-      localStorage.setItem(UPDATE_NOTICE_HIDE_KEY, `${UPDATE_NOTICE_VERSION}:${getTodayKey()}`);
+      localStorage.setItem(UPDATE_NOTICE_HIDE_KEY, updateNoticeHideValue());
     }
     setShowUpdateNotice(false);
+  };
+
+  const loadUpdateNotices = async () => {
+    const { data, error } = await supabase
+      .from("update_notices")
+      .select("*")
+      .eq("is_active", true)
+      .order("notice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const notices = ((data || []) as any[]).map((n) => ({
+      ...n,
+      id: String(n.id),
+    })) as UpdateNotice[];
+
+    setUpdateNotices(notices);
+
+    const hiddenValue = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
+    const hasRecentNotice = notices.some(isRecentNotice);
+
+    setShowUpdateNotice(hasRecentNotice && hiddenValue !== updateNoticeHideValue());
+  };
+
+  const saveUpdateNotice = async () => {
+    if (!isAdmin) return alert("관리자만 업데이트 공지를 저장할 수 있습니다.");
+    if (!updateNoticeForm.notice_date || !updateNoticeForm.content.trim()) {
+      return alert("날짜와 업데이트 내용을 입력하세요.");
+    }
+
+    const payload = {
+      id: editingUpdateNoticeId || uid(),
+      notice_date: updateNoticeForm.notice_date,
+      content: updateNoticeForm.content.trim(),
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("update_notices").upsert(payload);
+    if (error) return alert(`업데이트 공지 저장 실패: ${error.message}`);
+
+    setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
+    setEditingUpdateNoticeId("");
+    await loadUpdateNotices();
+    alert(editingUpdateNoticeId ? "업데이트 공지 수정 완료" : "업데이트 공지 등록 완료");
+  };
+
+  const editUpdateNotice = (notice: UpdateNotice) => {
+    setEditingUpdateNoticeId(notice.id);
+    setUpdateNoticeForm({
+      notice_date: notice.notice_date || getTodayKey(),
+      content: notice.content || "",
+    });
+    setMenuTab("update_notices");
+  };
+
+  const deleteUpdateNotice = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!confirm("업데이트 공지를 삭제할까요?")) return;
+
+    const { error } = await supabase.from("update_notices").delete().eq("id", id);
+    if (error) return alert(`업데이트 공지 삭제 실패: ${error.message}`);
+
+    await loadUpdateNotices();
   };
 
   if (authLoading) {
@@ -1506,9 +1572,9 @@ export default function App() {
 
               <ul>
                 {recentUpdateItems.map((item) => (
-                  <li key={`${item.date}-${item.text}`}>
-                    <strong>{item.date}</strong>
-                    <span>{item.text}</span>
+                  <li key={item.id}>
+                    <strong>{item.notice_date}</strong>
+                    <span>{item.content}</span>
                   </li>
                 ))}
               </ul>
@@ -1535,6 +1601,7 @@ export default function App() {
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
+          {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
@@ -1957,6 +2024,7 @@ export default function App() {
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
               <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
+              {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
             </>
           )}
         </div>
