@@ -454,6 +454,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-011", notice_date: "2026-05-12", content: "거래처 계좌 업로드 중복 오류 수정" },
   { id: "auto-20260512-012", notice_date: "2026-05-12", content: "대량이체 엑셀 양식 및 수정 기능 개선" },
   { id: "auto-20260512-013", notice_date: "2026-05-12", content: "대량이체 엑셀 서식 원본 양식에 맞게 개선" },
+  { id: "auto-20260512-014", notice_date: "2026-05-12", content: "대량이체 엑셀 스타일 적용을 위해 xlsx 저장 방식으로 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -1006,20 +1007,20 @@ export default function App() {
     const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
 
     worksheet["!cols"] = [
-      { wch: 10 },
-      { wch: 22 },
-      { wch: 14 },
-      { wch: 28 },
-      { wch: 24 },
-      { wch: 32 },
       { wch: 12 },
+      { wch: 24 },
+      { wch: 15 },
+      { wch: 30 },
+      { wch: 24 },
+      { wch: 34 },
+      { wch: 14 },
       { wch: 16 },
-      { wch: 22 },
+      { wch: 24 },
     ];
 
     worksheet["!rows"] = [
-      { hpt: 18 },
-      ...dataRows.map(() => ({ hpt: 18 })),
+      { hpt: 22 },
+      ...dataRows.map(() => ({ hpt: 22 })),
     ];
 
     worksheet["!autofilter"] = { ref: `A1:I${dataRows.length + 1}` };
@@ -1047,9 +1048,9 @@ export default function App() {
             fgColor: { rgb: isHeader ? "B8CCE4" : "D9D9D9" },
           },
           font: {
-            name: "맑은 고딕",
-            sz: 8,
-            bold: isHeader,
+            name: "Arial",
+            sz: 12,
+            bold: false,
             color: { rgb: "000000" },
           },
           alignment: {
@@ -1081,7 +1082,7 @@ export default function App() {
     };
 
     XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
-    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xls`, { bookType: "xls", cellStyles: true });
+    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xlsx`, { bookType: "xlsx", cellStyles: true });
   };
 
 
