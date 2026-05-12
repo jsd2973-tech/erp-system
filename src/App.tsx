@@ -455,6 +455,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-012", notice_date: "2026-05-12", content: "대량이체 엑셀 양식 및 수정 기능 개선" },
   { id: "auto-20260512-013", notice_date: "2026-05-12", content: "대량이체 엑셀 서식 원본 양식에 맞게 개선" },
   { id: "auto-20260512-014", notice_date: "2026-05-12", content: "대량이체 엑셀 스타일 적용을 위해 xlsx 저장 방식으로 개선" },
+  { id: "auto-20260513-001", notice_date: "2026-05-13", content: "대량이체 메뉴 이동 및 선택 다운로드 기능 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -808,6 +809,8 @@ export default function App() {
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
+  const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
+  const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
   const [permitForm, setPermitForm] = useState({
@@ -981,8 +984,8 @@ export default function App() {
       });
   };
 
-  const downloadBulkTransferExcel = () => {
-    const rows = applyBulkTransferEdits(getBulkTransferRows());
+  const createBulkTransferExcel = (targetRows?: BulkTransferRow[]) => {
+    const rows = targetRows || applyBulkTransferEdits(getBulkTransferRows());
     if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
 
     const missing = rows.filter((row) => !row.matched);
@@ -1083,6 +1086,25 @@ export default function App() {
 
     XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
     XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xlsx`, { bookType: "xlsx", cellStyles: true });
+  };
+
+  const openBulkTransferDownloadPopup = () => {
+    const rows = applyBulkTransferEdits(getBulkTransferRows());
+    if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
+    setSelectedBulkTransferIds(rows.map((row) => row.id));
+    setBulkTransferSelectOpen(true);
+  };
+
+  const downloadSelectedBulkTransferExcel = () => {
+    const rows = bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id));
+    createBulkTransferExcel(rows);
+    setBulkTransferSelectOpen(false);
+  };
+
+  const toggleBulkTransferSelection = (id: string) => {
+    setSelectedBulkTransferIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
 
@@ -2257,13 +2279,46 @@ export default function App() {
           </div>
         )}
 
+
+        {bulkTransferSelectOpen && (
+          <div className="bulk-select-overlay">
+            <div className="bulk-select-modal">
+              <div className="bulk-select-head">
+                <div>
+                  <h2>대량이체 항목 선택</h2>
+                  <p>체크한 거래처만 엑셀로 다운로드됩니다.</p>
+                </div>
+                <button onClick={() => setBulkTransferSelectOpen(false)}>닫기</button>
+              </div>
+              <div className="bulk-select-actions">
+                <button onClick={() => setSelectedBulkTransferIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
+                <button onClick={() => setSelectedBulkTransferIds([])}>전체해제</button>
+                <strong>선택 {selectedBulkTransferIds.length}건 / {money(bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
+              </div>
+              <div className="bulk-select-list">
+                {bulkTransferRows.map((row) => (
+                  <label className={row.matched ? "bulk-select-row" : "bulk-select-row missing"} key={row.id}>
+                    <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
+                    <span>{row.vendor}</span>
+                    <em>{row.matched ? "계좌매칭" : "계좌확인필요"}</em>
+                    <b>{money(row.amount)}원</b>
+                  </label>
+                ))}
+              </div>
+              <div className="bulk-select-bottom">
+                <button onClick={() => setBulkTransferSelectOpen(false)}>취소</button>
+                <button className="primary" onClick={downloadSelectedBulkTransferExcel}>선택 항목 다운로드</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
-          <button className={menuTab === "bulk_transfer" ? "active" : ""} onClick={() => setMenuTab("bulk_transfer")}>대량이체</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -2671,7 +2726,7 @@ export default function App() {
                   />
                 </label>
                 <button onClick={loadVendorAccounts}>계좌 새로고침</button>
-                <button className="primary" onClick={downloadBulkTransferExcel}>대량이체 엑셀 다운로드</button>
+                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
               </div>
             </div>
 
@@ -3131,6 +3186,7 @@ export default function App() {
             <>
               <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
               <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>
+              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
             </>
           )}
@@ -3154,7 +3210,6 @@ export default function App() {
             <>
               <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
               <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
-              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
@@ -7120,5 +7175,26 @@ td .icon{
     grid-template-columns:1fr;
   }
 }
+
+/* ===== Bulk Transfer Selection Popup ===== */
+.bulk-select-overlay{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:rgba(15,23,42,.58);padding:18px}
+.bulk-select-modal{width:min(860px,96vw);max-height:86vh;overflow:hidden;display:grid;grid-template-rows:auto auto 1fr auto;background:#fff;border-radius:24px;box-shadow:0 30px 90px rgba(0,0,0,.35)}
+.bulk-select-head{display:flex;justify-content:space-between;gap:14px;padding:22px 24px 14px;border-bottom:1px solid #e5e7eb}
+.bulk-select-head h2{margin:0;color:#111827;font-size:22px;font-weight:1000}
+.bulk-select-head p{margin:6px 0 0;color:#64748b;font-size:14px;font-weight:800}
+.bulk-select-head button,.bulk-select-actions button,.bulk-select-bottom button{border:0;border-radius:12px;padding:9px 14px;background:#f1f5f9;color:#334155;font-weight:1000;cursor:pointer}
+.bulk-select-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 24px;background:#f8fafc;border-bottom:1px solid #e5e7eb}
+.bulk-select-actions strong{margin-left:auto;color:#111827;font-size:15px;font-weight:1000}
+.bulk-select-list{overflow:auto;padding:12px 24px;display:grid;gap:8px}
+.bulk-select-row{display:grid;grid-template-columns:28px 1fr 100px 130px;gap:10px;align-items:center;min-height:48px;padding:10px 12px;border-radius:14px;border:1px solid #e5e7eb;background:#fff}
+.bulk-select-row.missing{background:#fff7f7;border-color:#fecaca}
+.bulk-select-row input{width:18px;height:18px;accent-color:#2563eb}
+.bulk-select-row span{color:#111827;font-weight:1000}
+.bulk-select-row em{width:max-content;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-style:normal;font-size:12px;font-weight:1000}
+.bulk-select-row.missing em{background:#fee2e2;color:#991b1b}
+.bulk-select-row b{text-align:right;color:#111827;font-weight:1000}
+.bulk-select-bottom{display:flex;justify-content:flex-end;gap:8px;padding:16px 24px 22px;border-top:1px solid #e5e7eb}
+.bulk-select-bottom .primary{background:#16a34a;color:#fff}
+@media (max-width:700px){.bulk-select-row{grid-template-columns:28px 1fr}.bulk-select-row em,.bulk-select-row b{grid-column:2;text-align:left}.bulk-select-actions strong{margin-left:0;width:100%}}
 
 `;
