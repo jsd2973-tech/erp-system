@@ -359,6 +359,18 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
 
+const dedupeUpdateNotices = (notices: UpdateNotice[]) => {
+  const seen = new Set<string>();
+
+  return notices.filter((notice) => {
+    const key = `${notice.notice_date}|${String(notice.content || "").trim()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+
 
 
 
@@ -1400,11 +1412,29 @@ export default function App() {
   };
 
   const syncBundledUpdateNotices = async () => {
-    const rows = BUNDLED_UPDATE_NOTICES.map((notice) => ({
-      ...notice,
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    }));
+    const { data: existing, error: readError } = await supabase
+      .from("update_notices")
+      .select("id, notice_date, content")
+      .eq("is_active", true);
+
+    if (readError) {
+      console.error("기존 업데이트 공지 확인 실패:", readError);
+      return;
+    }
+
+    const existingKeys = new Set(
+      ((existing || []) as any[]).map((notice) => `${String(notice.notice_date || "").slice(0, 10)}|${String(notice.content || "").trim()}`)
+    );
+
+    const rows = BUNDLED_UPDATE_NOTICES
+      .filter((notice) => !existingKeys.has(`${notice.notice_date}|${notice.content.trim()}`))
+      .map((notice) => ({
+        ...notice,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }));
+
+    if (!rows.length) return;
 
     const { error } = await supabase
       .from("update_notices")
@@ -1441,10 +1471,11 @@ export default function App() {
       notice_date: String(n.notice_date || "").slice(0, 10),
     })) as UpdateNotice[];
 
-    setUpdateNotices(notices);
+    const dedupedNotices = dedupeUpdateNotices(notices);
+    setUpdateNotices(dedupedNotices);
 
     const hiddenValue = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
-    const hasRecentNotice = notices.some(isRecentNotice);
+    const hasRecentNotice = dedupedNotices.some(isRecentNotice);
 
     setShowUpdateNotice(hasRecentNotice && hiddenValue !== updateNoticeHideValue());
   };
@@ -1489,6 +1520,43 @@ export default function App() {
     if (error) return alert(`업데이트 공지 삭제 실패: ${error.message}`);
 
     await loadUpdateNotices();
+  };
+
+  const cleanupDuplicateUpdateNotices = async () => {
+    if (!isAdmin) return alert("관리자만 중복 공지를 정리할 수 있습니다.");
+
+    const { data, error } = await supabase
+      .from("update_notices")
+      .select("*")
+      .eq("is_active", true)
+      .order("notice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) return alert(`중복 공지 조회 실패: ${error.message}`);
+
+    const seen = new Set<string>();
+    const duplicateIds: string[] = [];
+
+    ((data || []) as any[]).forEach((notice) => {
+      const key = `${String(notice.notice_date || "").slice(0, 10)}|${String(notice.content || "").trim()}`;
+      if (seen.has(key)) duplicateIds.push(String(notice.id));
+      else seen.add(key);
+    });
+
+    if (!duplicateIds.length) {
+      alert("중복 공지가 없습니다.");
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("update_notices")
+      .delete()
+      .in("id", duplicateIds);
+
+    if (deleteError) return alert(`중복 공지 삭제 실패: ${deleteError.message}`);
+
+    await loadUpdateNotices();
+    alert(`중복 공지 ${duplicateIds.length}건을 정리했습니다.`);
   };
 
   useEffect(() => {
@@ -1757,6 +1825,7 @@ export default function App() {
               <div className="notice-pro-admin-head">
                 <h2>등록된 공지</h2>
                 <button onClick={loadUpdateNotices}>새로고침</button>
+                <button onClick={cleanupDuplicateUpdateNotices}>중복정리</button>
               </div>
 
               <div className="notice-pro-table compact">
