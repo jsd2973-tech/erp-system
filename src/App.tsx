@@ -32,6 +32,28 @@ type PermitRenewal = {
   created_at?: string;
 };
 
+type VendorAccount = {
+  id: string;
+  vendor_name: string;
+  bank_code?: string;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  memo?: string;
+};
+
+type BulkTransferRow = {
+  id: string;
+  vendor: string;
+  amount: number;
+  bank_code: string;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  memo: string;
+  matched: boolean;
+};
+
 
 
 const supabase = createClient(
@@ -151,6 +173,27 @@ const permitStableId = (company: string, title: string) => {
   return `permit-${company}-${title}`.replace(/\s+/g, "-").slice(0, 180);
 };
 
+
+const normalizeVendorName = (value: string) =>
+  String(value || "")
+    .replace(/[\s㈜\(\)\[\]주식회사]/g, "")
+    .toLowerCase();
+
+const bankCodeByName = (name: string) => {
+  const raw = String(name || "").replace(/\s/g, "");
+  if (raw.includes("농협") || raw.includes("NH")) return "11";
+  if (raw.includes("국민")) return "04";
+  if (raw.includes("기업") || raw.includes("IBK") || raw.includes("중소기업")) return "03";
+  if (raw.includes("하나")) return "81";
+  if (raw.includes("우리")) return "20";
+  if (raw.includes("신한")) return "88";
+  if (raw.includes("신협")) return "48";
+  if (raw.includes("SC") || raw.includes("제일")) return "23";
+  if (raw.includes("카카오")) return "090";
+  return "";
+};
+
+const cleanAccountNumber = (value: string) => String(value || "").replace(/[^0-9]/g, "");
 
 const pick = (obj: Record<string, any>, keys: string[]) => {
   const found = Object.keys(obj).find((k) => keys.some((x) => k.includes(x)));
@@ -407,8 +450,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-005", notice_date: "2026-05-12", content: "카드사용 영수증 여러 장 업로드 기능 추가" },
   { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
   { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
-  { id: "auto-20260512-008", notice_date: "2026-05-12", content: "모바일 더보기 메뉴에 로그아웃 추가 및 기초등록 묶음 정리" },
-  { id: "auto-20260512-009", notice_date: "2026-05-12", content: "공지 화면 날짜 필터 버튼 제거" },
+  { id: "auto-20260512-010", notice_date: "2026-05-12", content: "대량이체 자동 생성 기능 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -758,6 +800,9 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+  const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
+  const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
+  const [transferVendorSearch, setTransferVendorSearch] = useState("");
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
   const [permitForm, setPermitForm] = useState({
@@ -772,6 +817,163 @@ export default function App() {
     status: "진행",
   });
   const [editingPermitId, setEditingPermitId] = useState("");
+
+
+  const loadVendorAccounts = async () => {
+    const { data, error } = await supabase
+      .from("vendor_accounts")
+      .select("*")
+      .order("vendor_name", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setVendorAccounts(((data || []) as any[]).map((row) => ({
+      ...row,
+      id: String(row.id),
+      vendor_name: row.vendor_name || "",
+      bank_code: row.bank_code || bankCodeByName(row.bank_name || ""),
+      bank_name: row.bank_name || "",
+      account_name: row.account_name || "",
+      account_number: row.account_number || "",
+      memo: row.memo || "",
+    })) as VendorAccount[]);
+  };
+
+  const importVendorAccountsExcel = async (file: File) => {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+    const rows: VendorAccount[] = [];
+
+    workbook.SheetNames.forEach((sheetName) => {
+      const ws = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+
+      json.forEach((r) => {
+        const vendorName = String(pick(r, ["거래처명", "업체명", "상호"]) || "").trim();
+        if (!vendorName) return;
+
+        const bankName = String(pick(r, ["은행명", "은행"]) || "").trim();
+        const bankCode = String(pick(r, ["코드명", "은행코드", "코드"]) || bankCodeByName(bankName)).trim();
+        const accountName = String(pick(r, ["이름", "예금주", "입금자명"]) || "").trim();
+        const accountNumber = String(pick(r, ["계좌번호", "계좌"]) || "").trim();
+
+        rows.push({
+          id: `account-${normalizeVendorName(vendorName)}`,
+          vendor_name: vendorName,
+          bank_code: bankCode,
+          bank_name: bankName,
+          account_name: accountName,
+          account_number: accountNumber,
+          memo: sheetName,
+        });
+      });
+    });
+
+    if (!rows.length) return alert("계좌 엑셀에서 거래처 계좌 정보를 찾지 못했습니다.");
+
+    const { error } = await supabase.from("vendor_accounts").upsert(rows, { onConflict: "id" });
+    if (error) return alert(`거래처 계좌 업로드 실패: ${error.message}`);
+
+    await loadVendorAccounts();
+    alert(`거래처 계좌 ${rows.length}건을 인터넷 DB에 저장했습니다.`);
+  };
+
+  const findVendorAccount = (vendorName: string) => {
+    const key = normalizeVendorName(vendorName);
+    if (!key) return undefined;
+
+    return vendorAccounts.find((a) => normalizeVendorName(a.vendor_name) === key)
+      || vendorAccounts.find((a) => key.includes(normalizeVendorName(a.vendor_name)) || normalizeVendorName(a.vendor_name).includes(key));
+  };
+
+  const getBulkTransferRows = (): BulkTransferRow[] => {
+    const month = transferMonth;
+    const vendorFilter = transferVendorSearch.trim();
+
+    const grouped = new Map<string, { vendor: string; amount: number; memoItems: string[] }>();
+
+    purchases
+      .filter((p) => !month || String(p.date || "").startsWith(month))
+      .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
+      .forEach((p) => {
+        const vendor = p.vendor || "거래처 미입력";
+        const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
+        prev.amount += Number(p.total || 0);
+        if (p.itemSummary) prev.memoItems.push(p.itemSummary);
+        grouped.set(vendor, prev);
+      });
+
+    return Array.from(grouped.values())
+      .map((row) => {
+        const account = findVendorAccount(row.vendor);
+        const bankName = account?.bank_name || "";
+        const bankCode = account?.bank_code || bankCodeByName(bankName);
+        const memoItem = row.memoItems[0] || "구매";
+        const monthLabel = transferMonth ? transferMonth.slice(5) : "";
+
+        return {
+          id: row.vendor,
+          vendor: row.vendor,
+          amount: row.amount,
+          bank_code: bankCode,
+          bank_name: bankName,
+          account_name: account?.account_name || "",
+          account_number: account?.account_number || "",
+          memo: `${memoItem}/${row.vendor}${monthLabel}`,
+          matched: !!(account?.account_number && bankCode),
+        };
+      })
+      .sort((a, b) => {
+        if (a.matched !== b.matched) return a.matched ? 1 : -1;
+        return a.vendor.localeCompare(b.vendor);
+      });
+  };
+
+  const downloadBulkTransferExcel = () => {
+    const rows = getBulkTransferRows();
+    if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
+
+    const missing = rows.filter((row) => !row.matched);
+    if (missing.length) {
+      const ok = confirm(`계좌 매칭 안 된 거래처가 ${missing.length}건 있습니다. 그래도 다운로드할까요?`);
+      if (!ok) return;
+    }
+
+    const sheetRows = rows.map((row) => ({
+      입금은행: row.bank_code,
+      입금계좌: cleanAccountNumber(row.account_number),
+      입금액: row.amount,
+      고객관리성명: row.account_name || row.vendor,
+      입금통장표시내용: row.memo,
+      출금통장표시내용: row.vendor,
+      입금인코드: "",
+      비고: row.matched ? "" : "계좌확인필요",
+      업체사용key: row.vendor,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(sheetRows, {
+      header: ["입금은행", "입금계좌", "입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"],
+    });
+
+    worksheet["!cols"] = [
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 14 },
+      { wch: 26 },
+      { wch: 26 },
+      { wch: 22 },
+      { wch: 12 },
+      { wch: 16 },
+      { wch: 22 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
+    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xls`);
+  };
 
 
   const loadPermits = async () => {
@@ -962,6 +1164,7 @@ export default function App() {
     if (session) {
       loadAll();
       loadPermits();
+      loadVendorAccounts();
     }
   }, [session]);
 
@@ -1463,6 +1666,8 @@ export default function App() {
   };
 
 
+  const bulkTransferRows = getBulkTransferRows();
+
   const filteredPermits = permits
     .filter((permit: PermitRenewal) =>
       !permitSearch.company || String(permit.company || "").includes(permitSearch.company)
@@ -1946,6 +2151,7 @@ export default function App() {
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
+          <button className={menuTab === "bulk_transfer" ? "active" : ""} onClick={() => setMenuTab("bulk_transfer")}>대량이체</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
@@ -1964,7 +2170,16 @@ export default function App() {
                 </div>
                 <div className="notice-pin">꼭<br />확인!</div>
               </div>
-{updateNoticeError && (
+
+              <div className="notice-pro-tabs">
+                <button className="active">전체</button>
+                <button>오늘</button>
+                <button>어제</button>
+                <button>이번주</button>
+                <button>이전</button>
+              </div>
+
+              {updateNoticeError && (
                 <div className="notice-pro-error">
                   공지 불러오기 실패: {updateNoticeError}
                 </div>
@@ -2320,6 +2535,76 @@ export default function App() {
                     </div>
                   );
                 })
+              )}
+            </div>
+          </section>
+        )}
+
+
+        {menuTab === "bulk_transfer" && (
+          <section className="card bulk-transfer-page">
+            <div className="bulk-transfer-head">
+              <div>
+                <h2>대량이체 생성</h2>
+                <p>구매내역을 거래처별로 합산하고 계좌정보를 매칭해 은행 업로드용 엑셀을 만듭니다.</p>
+              </div>
+              <div className="actions">
+                <label className="upload">
+                  <Upload size={16} /> 업체 계좌 업로드
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await importVendorAccountsExcel(file);
+                    }}
+                  />
+                </label>
+                <button onClick={loadVendorAccounts}>계좌 새로고침</button>
+                <button className="primary" onClick={downloadBulkTransferExcel}>대량이체 엑셀 다운로드</button>
+              </div>
+            </div>
+
+            <div className="bulk-transfer-filter">
+              <Field label="지급월">
+                <input
+                  value={transferMonth}
+                  onChange={(e) => setTransferMonth(e.target.value)}
+                  placeholder="2026-04"
+                />
+              </Field>
+              <Field label="거래처 검색">
+                <input
+                  value={transferVendorSearch}
+                  onChange={(e) => setTransferVendorSearch(e.target.value)}
+                  placeholder="거래처명"
+                />
+              </Field>
+              <div className="bulk-summary">
+                <span>대상 거래처 <b>{bulkTransferRows.length}</b></span>
+                <span>계좌 미매칭 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
+                <span>합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
+              </div>
+            </div>
+
+            <div className="bulk-transfer-list">
+              {!bulkTransferRows.length ? (
+                <div className="empty">대량이체로 만들 구매내역이 없습니다.</div>
+              ) : (
+                bulkTransferRows.map((row) => (
+                  <div className={row.matched ? "bulk-transfer-card" : "bulk-transfer-card missing"} key={row.id}>
+                    <div className="bulk-card-main">
+                      <div>
+                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
+                        <b>{row.vendor}</b>
+                        <p>{row.bank_name || "은행 미입력"} · {row.account_name || "예금주 미입력"}</p>
+                        <p>{row.account_number || "계좌번호 미입력"}</p>
+                      </div>
+                      <strong>{money(row.amount)}원</strong>
+                    </div>
+                    <div className="bulk-card-memo">{row.memo}</div>
+                  </div>
+                ))
               )}
             </div>
           </section>
@@ -2742,23 +3027,12 @@ export default function App() {
             <>
               <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
               <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
+              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
-              <div className="mobile-more-group">
-                <div className="mobile-more-group-title">기초등록</div>
-                <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
-                <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
-                <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
-              </div>
-              {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}              <button
-                className="mobile-more-logout"
-                onClick={() => {
-                  setMobileSheet("");
-                  logout();
-                }}
-              >
-                로그아웃
-              </button>
-
+              <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
+              <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
+              <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
+              {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
             </>
           )}
         </div>
@@ -5667,6 +5941,31 @@ td .icon{
   font-weight:1000;
 }
 
+.notice-pro-tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:17px;
+}
+
+.notice-pro-tabs button{
+  min-width:76px;
+  min-height:38px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#ffffff;
+  color:#334155;
+  font-size:14px;
+  font-weight:1000;
+  box-shadow:0 4px 10px rgba(15,23,42,.05);
+}
+
+.notice-pro-tabs button.active{
+  background:#2563eb;
+  border-color:#2563eb;
+  color:#ffffff;
+}
+
 .notice-pro-list{
   display:grid;
   gap:10px;
@@ -6495,34 +6794,169 @@ td .icon{
   }
 }
 
-/* ===== Mobile More Menu Group / Logout ===== */
-.mobile-more-group{
-  display:grid;
-  gap:8px;
-  padding:10px;
-  border-radius:18px;
-  background:rgba(15,23,42,.04);
+/* ===== Bulk Transfer Page ===== */
+.bulk-transfer-page{
+  padding:26px;
 }
 
-.mobile-more-group-title{
-  padding:2px 4px 4px;
+.bulk-transfer-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.bulk-transfer-head h2{
+  margin:0;
+  color:#111827;
+  font-size:24px;
+  font-weight:1000;
+}
+
+.bulk-transfer-head p{
+  margin:6px 0 0;
   color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+
+.bulk-transfer-filter{
+  display:grid;
+  grid-template-columns:180px 1fr auto;
+  gap:12px;
+  align-items:end;
+  margin-bottom:16px;
+}
+
+.bulk-summary{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.bulk-summary span{
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 12px;
+  border-radius:12px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  color:#475569;
+  font-size:13px;
+  font-weight:900;
+}
+
+.bulk-summary b{
+  color:#2563eb;
+  font-size:16px;
+}
+
+.bulk-transfer-list{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+
+.bulk-transfer-card{
+  padding:16px;
+  border-radius:18px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+}
+
+.bulk-transfer-card.missing{
+  border-color:#fecaca;
+  background:#fff7f7;
+}
+
+.bulk-card-main{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+}
+
+.bulk-card-main b{
+  display:block;
+  margin-top:7px;
+  color:#111827;
+  font-size:17px;
+  font-weight:1000;
+}
+
+.bulk-card-main p{
+  margin:5px 0 0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.bulk-card-main strong{
+  min-width:max-content;
+  color:#111827;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.bulk-status{
+  display:inline-flex;
+  padding:4px 9px;
+  border-radius:999px;
   font-size:12px;
   font-weight:1000;
-  text-align:left;
 }
 
-.mobile-more-logout{
-  width:100%;
-  min-height:48px;
-  margin-top:8px;
-  border:0;
-  border-radius:18px;
-  background:#ef4444;
-  color:#ffffff;
-  font-size:15px;
-  font-weight:1000;
-  box-shadow:0 8px 18px rgba(239,68,68,.22);
+.bulk-status.ok{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.bulk-status.missing{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
+.bulk-card-memo{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#f8fafc;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+}
+
+@media (max-width:1100px){
+  .bulk-transfer-head{
+    flex-direction:column;
+  }
+
+  .bulk-transfer-filter{
+    grid-template-columns:1fr;
+  }
+
+  .bulk-summary{
+    justify-content:flex-start;
+  }
+
+  .bulk-transfer-list{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:900px){
+  .bulk-transfer-page{
+    padding:18px;
+  }
+
+  .bulk-card-main{
+    flex-direction:column;
+  }
 }
 
 `;
