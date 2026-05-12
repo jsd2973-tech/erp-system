@@ -1606,6 +1606,27 @@ export default function App() {
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
 
+        {menuTab === "update_history" && (
+          <section className="card">
+            <div className="between">
+              <h2>업데이트 공지내역</h2>
+              <button onClick={loadUpdateNotices}>새로고침</button>
+            </div>
+
+            <div className="notice-history-list">
+              {!updateNotices.length ? (
+                <div className="empty">등록된 업데이트 공지가 없습니다.</div>
+              ) : (
+                updateNotices.map((notice) => (
+                  <div className="notice-history-card" key={notice.id}>
+                    <b>{notice.notice_date}</b>
+                    <p>{notice.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
 
         {menuTab === "update_notices" && isAdmin && (
           <section className="card">
@@ -1649,33 +1670,24 @@ export default function App() {
               </Field>
             </div>
 
-            <ScrollTable>
-              <table>
-                <thead>
-                  <tr>
-                    <th>날짜</th>
-                    <th>내용</th>
-                    <th>관리</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!updateNotices.length ? (
-                    <tr><td colSpan={3} className="empty">등록된 업데이트 공지가 없습니다.</td></tr>
-                  ) : (
-                    updateNotices.map((notice) => (
-                      <tr key={notice.id}>
-                        <td>{notice.notice_date}</td>
-                        <td>{notice.content}</td>
-                        <td>
-                          <button className="icon" onClick={() => editUpdateNotice(notice)}><Pencil size={16} /></button>
-                          <button className="icon" onClick={() => deleteUpdateNotice(notice.id)}><Trash2 size={16} /></button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </ScrollTable>
+            <div className="notice-history-list">
+              {!updateNotices.length ? (
+                <div className="empty">등록된 업데이트 공지가 없습니다.</div>
+              ) : (
+                updateNotices.map((notice) => (
+                  <div className="notice-history-card notice-admin-card" key={notice.id}>
+                    <div>
+                      <b>{notice.notice_date}</b>
+                      <p>{notice.content}</p>
+                    </div>
+                    <div className="actions">
+                      <button className="icon" onClick={() => editUpdateNotice(notice)}><Pencil size={16} /></button>
+                      <button className="icon" onClick={() => deleteUpdateNotice(notice.id)}><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </section>
         )}
 
@@ -4950,38 +4962,47 @@ td .icon{
   border-bottom:2px solid #fff;
 }
 
-/* ===== Update Notice History ===== */
-.notice-history-cards{
-  display:none;
+/* ===== Update Notice History Visible List ===== */
+.notice-history-list{
+  display:grid;
+  gap:10px;
+  margin-top:14px;
+}
+
+.notice-history-card{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border-radius:16px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+}
+
+.notice-history-card b{
+  display:block;
+  color:#1d4ed8;
+  font-size:13px;
+  margin-bottom:6px;
+}
+
+.notice-history-card p{
+  margin:0;
+  color:#111827;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.notice-admin-card{
+  align-items:flex-start;
 }
 
 @media (max-width:900px){
-  .notice-history-cards{
-    display:grid;
-    gap:10px;
-    margin-top:12px;
-  }
-
   .notice-history-card{
-    padding:14px;
-    border-radius:16px;
-    background:#f8fafc;
-    border:1px solid #e5e7eb;
-  }
-
-  .notice-history-card b{
-    display:block;
-    color:#1d4ed8;
-    font-size:13px;
-    margin-bottom:6px;
-  }
-
-  .notice-history-card p{
-    margin:0;
-    color:#111827;
-    font-size:14px;
-    font-weight:800;
-    line-height:1.45;
+    align-items:flex-start;
+    flex-direction:column;
   }
 }
 
