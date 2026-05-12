@@ -1605,97 +1605,178 @@ export default function App() {
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
+
         {menuTab === "update_history" && (
-          <section className="card notice-page">
-            <div className="notice-page-head">
-              <div>
-                <h2>공지</h2>
-                <p>시스템 업데이트 및 안내사항을 확인하세요.</p>
+          <section className="notice-pro-wrap">
+            <div className="notice-pro-left">
+              <div className="notice-pro-head">
+                <div>
+                  <h2>📢 공지</h2>
+                  <p>시스템 업데이트 및 중요 안내사항을 확인하세요.</p>
+                </div>
+                <div className="notice-pin">꼭<br />확인!</div>
               </div>
-              <button onClick={loadUpdateNotices}>새로고침</button>
+
+              <div className="notice-pro-tabs">
+                <button className="active">전체</button>
+                <button>오늘</button>
+                <button>어제</button>
+                <button>이번주</button>
+                <button>이전</button>
+              </div>
+
+              <div className="notice-pro-list">
+                {!updateNotices.length ? (
+                  <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
+                ) : (
+                  updateNotices.map((notice) => (
+                    <article className="notice-pro-item" key={notice.id}>
+                      <div className="notice-pro-date">
+                        <strong>{notice.notice_date.slice(0, 4)}</strong>
+                        <b>{notice.notice_date.slice(5)}</b>
+                        {isRecentNotice(notice) && <em>NEW</em>}
+                      </div>
+
+                      <div className="notice-pro-body">
+                        <div className="notice-pro-badge-row">
+                          <span className={isRecentNotice(notice) ? "hot" : ""}>업데이트</span>
+                        </div>
+                        <h3>{notice.content}</h3>
+                        <p>{notice.content}</p>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+
+              <div className="notice-pro-bottom">더 이상 공지가 없습니다.</div>
             </div>
 
-            <div className="notice-board">
-              {!updateNotices.length ? (
-                <div className="empty">등록된 공지가 없습니다.</div>
-              ) : (
-                updateNotices.map((notice) => (
-                  <article className="notice-item" key={notice.id}>
-                    <div className="notice-date">
-                      <strong>{notice.notice_date.slice(0, 4)}</strong>
-                      <b>{notice.notice_date.slice(5)}</b>
-                    </div>
-                    <div className="notice-content">
-                      <span>업데이트</span>
-                      <p>{notice.content}</p>
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
+            {isAdmin && (
+              <aside className="notice-pro-right">
+                <div className="notice-pro-admin-head">
+                  <h2>공지 관리 <small>(관리자 전용)</small></h2>
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      setEditingUpdateNoticeId("");
+                      setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
+                      setMenuTab("update_notices");
+                    }}
+                  >
+                    + 새 공지 등록
+                  </button>
+                </div>
+
+                <div className="notice-pro-table">
+                  <div className="notice-pro-table-head">
+                    <span>날짜</span>
+                    <span>종류</span>
+                    <span>제목</span>
+                    <span>관리</span>
+                  </div>
+
+                  {!updateNotices.length ? (
+                    <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
+                  ) : (
+                    updateNotices.map((notice) => (
+                      <div className="notice-pro-table-row" key={notice.id}>
+                        <span>{notice.notice_date}</span>
+                        <span><b className={isRecentNotice(notice) ? "red" : "gray"}>업데이트</b></span>
+                        <span>{notice.content}</span>
+                        <span className="notice-pro-actions">
+                          <button onClick={() => editUpdateNotice(notice)}>수정</button>
+                          <button className="danger" onClick={() => deleteUpdateNotice(notice.id)}>삭제</button>
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="notice-pro-tip">
+                  <b>💡 TIP</b>
+                  <p>공지 팝업은 오늘 또는 어제 등록된 공지만 표시됩니다.</p>
+                  <p>전체 공지는 이 화면에서 계속 확인할 수 있습니다.</p>
+                </div>
+              </aside>
+            )}
           </section>
         )}
 
         {menuTab === "update_notices" && isAdmin && (
-          <section className="card">
-            <div className="between">
-              <h2>업데이트 공지 관리</h2>
-              <button onClick={loadUpdateNotices}>새로고침</button>
-            </div>
-
-            <div className="grid3">
-              <Field label="공지 날짜">
-                <input
-                  type="text"
-                  placeholder="20260512 또는 260512"
-                  value={updateNoticeForm.notice_date}
-                  onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, notice_date: formatInputDate(e.target.value) })}
-                />
-              </Field>
-
-              <Field label="업데이트 내용">
-                <input
-                  value={updateNoticeForm.content}
-                  onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, content: e.target.value })}
-                  placeholder="예: 카드사용 영수증 여러 장 업로드 기능 추가"
-                />
-              </Field>
-
-              <Field label="관리">
-                <div className="actions">
-                  <button className="primary" onClick={saveUpdateNotice}>
-                    {editingUpdateNoticeId ? "수정저장" : "공지등록"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingUpdateNoticeId("");
-                      setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
-                    }}
-                  >
-                    초기화
-                  </button>
+          <section className="notice-pro-wrap">
+            <div className="notice-pro-left">
+              <div className="notice-pro-head">
+                <div>
+                  <h2>{editingUpdateNoticeId ? "공지 수정" : "새 공지 등록"}</h2>
+                  <p>저장하면 모든 사용자에게 인터넷으로 공지가 공유됩니다.</p>
                 </div>
-              </Field>
+              </div>
+
+              <div className="notice-form-grid">
+                <Field label="공지 날짜">
+                  <input
+                    type="text"
+                    placeholder="20260512 또는 260512"
+                    value={updateNoticeForm.notice_date}
+                    onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, notice_date: formatInputDate(e.target.value) })}
+                  />
+                </Field>
+
+                <Field label="업데이트 내용">
+                  <input
+                    value={updateNoticeForm.content}
+                    onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, content: e.target.value })}
+                    placeholder="예: 카드사용 영수증 여러 장 업로드 기능 추가"
+                  />
+                </Field>
+              </div>
+
+              <div className="actions right-actions">
+                <button className="primary" onClick={saveUpdateNotice}>
+                  {editingUpdateNoticeId ? "수정저장" : "공지등록"}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingUpdateNoticeId("");
+                    setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
+                  }}
+                >
+                  초기화
+                </button>
+                <button onClick={() => setMenuTab("update_history")}>공지 목록</button>
+              </div>
             </div>
 
-            <div className="notice-history-list">
-              {!updateNotices.length ? (
-                <div className="empty">등록된 업데이트 공지가 없습니다.</div>
-              ) : (
-                updateNotices.map((notice) => (
-                  <div className="notice-history-card notice-admin-card" key={notice.id}>
-                    <div>
-                      <b>{notice.notice_date}</b>
-                      <p>{notice.content}</p>
+            <aside className="notice-pro-right">
+              <div className="notice-pro-admin-head">
+                <h2>등록된 공지</h2>
+                <button onClick={loadUpdateNotices}>새로고침</button>
+              </div>
+
+              <div className="notice-pro-table compact">
+                <div className="notice-pro-table-head">
+                  <span>날짜</span>
+                  <span>제목</span>
+                  <span>관리</span>
+                </div>
+
+                {!updateNotices.length ? (
+                  <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
+                ) : (
+                  updateNotices.map((notice) => (
+                    <div className="notice-pro-table-row" key={notice.id}>
+                      <span>{notice.notice_date}</span>
+                      <span>{notice.content}</span>
+                      <span className="notice-pro-actions">
+                        <button onClick={() => editUpdateNotice(notice)}>수정</button>
+                        <button className="danger" onClick={() => deleteUpdateNotice(notice.id)}>삭제</button>
+                      </span>
                     </div>
-                    <div className="actions">
-                      <button className="icon" onClick={() => editUpdateNotice(notice)}><Pencil size={16} /></button>
-                      <button className="icon" onClick={() => deleteUpdateNotice(notice.id)}><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            </aside>
           </section>
         )}
 
@@ -4970,132 +5051,404 @@ td .icon{
   border-bottom:2px solid #fff;
 }
 
-/* ===== Clean Notice Page ===== */
-.notice-page{
-  padding:24px;
+/* ===== PRO Notice Board Design ===== */
+.notice-pro-wrap{
+  display:grid;
+  grid-template-columns:minmax(0, 1.22fr) minmax(430px, .9fr);
+  gap:18px;
+  align-items:start;
 }
 
-.notice-page-head{
+.notice-pro-left{
+  position:relative;
+  padding:28px;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 98% 6%, rgba(250,204,21,.18), transparent 20%),
+    linear-gradient(135deg, #fffaf0 0%, #ffffff 72%);
+  border:1px solid rgba(226,232,240,.9);
+  box-shadow:0 18px 42px rgba(15,23,42,.16);
+  overflow:hidden;
+}
+
+.notice-pro-head{
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
+  gap:18px;
+  margin-bottom:20px;
+}
+
+.notice-pro-head h2{
+  margin:0;
+  color:#111827;
+  font-size:32px;
+  font-weight:1000;
+  letter-spacing:-.05em;
+}
+
+.notice-pro-head p{
+  margin:7px 0 0;
+  color:#475569;
+  font-size:15px;
+  font-weight:800;
+}
+
+.notice-pin{
+  width:92px;
+  min-height:74px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  transform:rotate(5deg);
+  background:#fde68a;
+  color:#713f12;
+  border-radius:7px;
+  box-shadow:0 10px 24px rgba(15,23,42,.18);
+  font-size:13px;
+  font-weight:1000;
+}
+
+.notice-pro-tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:17px;
+}
+
+.notice-pro-tabs button{
+  min-width:76px;
+  min-height:38px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#ffffff;
+  color:#334155;
+  font-size:14px;
+  font-weight:1000;
+  box-shadow:0 4px 10px rgba(15,23,42,.05);
+}
+
+.notice-pro-tabs button.active{
+  background:#2563eb;
+  border-color:#2563eb;
+  color:#ffffff;
+}
+
+.notice-pro-list{
+  display:grid;
+  gap:10px;
+}
+
+.notice-pro-item{
+  display:grid;
+  grid-template-columns:84px 1fr;
+  gap:12px;
+  align-items:stretch;
+}
+
+.notice-pro-date{
+  min-height:72px;
+  border-radius:14px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 6px 14px rgba(15,23,42,.08);
+  display:grid;
+  place-items:center;
+  padding:8px 6px;
+  position:relative;
+}
+
+.notice-pro-date strong{
+  color:#ef4444;
+  font-size:13px;
+  line-height:1;
+}
+
+.notice-pro-date b{
+  color:#111827;
+  font-size:18px;
+  line-height:1.1;
+}
+
+.notice-pro-date em{
+  position:absolute;
+  right:7px;
+  bottom:5px;
+  color:#ef4444;
+  font-size:9px;
+  font-style:normal;
+  font-weight:1000;
+}
+
+.notice-pro-body{
+  min-height:72px;
+  border-radius:14px;
+  background:rgba(255,255,255,.94);
+  border:1px solid #e5e7eb;
+  padding:13px 15px;
+  box-shadow:0 5px 14px rgba(15,23,42,.05);
+}
+
+.notice-pro-badge-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:7px;
+}
+
+.notice-pro-badge-row span,
+.notice-pro-table-row b{
+  display:inline-flex;
+  width:max-content;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#e5e7eb;
+  color:#475569;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.notice-pro-badge-row span.hot,
+.notice-pro-table-row b.red{
+  background:#fee2e2;
+  color:#dc2626;
+}
+
+.notice-pro-table-row b.gray{
+  background:#e5e7eb;
+  color:#475569;
+}
+
+.notice-pro-body h3{
+  margin:0 0 5px;
+  color:#111827;
+  font-size:16px;
+  font-weight:1000;
+  line-height:1.25;
+}
+
+.notice-pro-body p{
+  margin:0;
+  color:#334155;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.notice-pro-bottom{
+  margin-top:14px;
+  min-height:52px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:rgba(255,255,255,.72);
+  border:1px dashed #cbd5e1;
+  color:#64748b;
+  font-weight:1000;
+}
+
+.notice-pro-right{
+  padding:24px;
+  border-radius:24px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 18px 42px rgba(15,23,42,.16);
+}
+
+.notice-pro-admin-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
   gap:14px;
   margin-bottom:18px;
 }
 
-.notice-page-head h2{
+.notice-pro-admin-head h2{
   margin:0;
-  font-size:24px;
   color:#111827;
+  font-size:24px;
+  font-weight:1000;
 }
 
-.notice-page-head p{
-  margin:6px 0 0;
+.notice-pro-admin-head small{
   color:#64748b;
-  font-size:14px;
-  font-weight:700;
+  font-size:13px;
+  font-weight:800;
 }
 
-.notice-page-head button{
-  min-height:36px;
+.notice-pro-admin-head button{
+  min-height:38px;
   padding:8px 14px;
   border:0;
   border-radius:12px;
   background:#f1f5f9;
   color:#334155;
-  font-weight:900;
+  font-weight:1000;
 }
 
-.notice-board{
-  display:grid;
-  gap:10px;
+.notice-pro-admin-head button.primary{
+  background:#2563eb;
+  color:#ffffff;
 }
 
-.notice-item{
+.notice-pro-table{
   display:grid;
-  grid-template-columns:92px 1fr;
-  gap:14px;
-  align-items:center;
-  padding:14px;
   border:1px solid #e5e7eb;
-  border-radius:16px;
-  background:#ffffff;
-  box-shadow:0 4px 14px rgba(15,23,42,.04);
-}
-
-.notice-date{
-  display:grid;
-  place-items:center;
-  min-height:62px;
   border-radius:14px;
-  background:#eff6ff;
-  color:#1d4ed8;
-  font-weight:900;
+  overflow:hidden;
 }
 
-.notice-date strong{
-  font-size:12px;
-  line-height:1;
-}
-
-.notice-date b{
-  font-size:17px;
-  line-height:1.1;
-}
-
-.notice-content{
+.notice-pro-table-head,
+.notice-pro-table-row{
   display:grid;
-  gap:6px;
+  grid-template-columns:120px 110px 1fr 150px;
+  align-items:center;
 }
 
-.notice-content span{
-  width:max-content;
-  padding:4px 8px;
-  border-radius:999px;
-  background:#fee2e2;
-  color:#dc2626;
-  font-size:11px;
-  font-weight:900;
+.notice-pro-table.compact .notice-pro-table-head,
+.notice-pro-table.compact .notice-pro-table-row{
+  grid-template-columns:120px 1fr 150px;
 }
 
-.notice-content p{
-  margin:0;
+.notice-pro-table-head{
+  min-height:44px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:13px;
+  font-weight:1000;
+}
+
+.notice-pro-table-head span,
+.notice-pro-table-row span{
+  padding:10px 12px;
+}
+
+.notice-pro-table-row{
+  min-height:54px;
+  border-top:1px solid #e5e7eb;
   color:#111827;
-  font-size:15px;
+  font-size:13px;
   font-weight:900;
-  line-height:1.45;
+}
+
+.notice-pro-actions{
+  display:flex;
+  gap:7px;
+  justify-content:flex-end;
+}
+
+.notice-pro-actions button{
+  min-width:54px;
+  min-height:32px;
+  border:0;
+  border-radius:9px;
+  background:#2563eb;
+  color:#ffffff;
+  font-weight:1000;
+}
+
+.notice-pro-actions button.danger{
+  background:#ef4444;
+}
+
+.notice-pro-tip{
+  margin-top:18px;
+  padding:16px;
+  border-radius:16px;
+  background:linear-gradient(135deg, #fef3c7, #fde68a);
+  color:#78350f;
+  font-size:13px;
+  font-weight:800;
+  box-shadow:0 8px 18px rgba(245,158,11,.15);
+}
+
+.notice-pro-tip b{
+  display:block;
+  margin-bottom:8px;
+}
+
+.notice-pro-tip p{
+  margin:5px 0;
+  line-height:1.5;
+}
+
+.notice-form-grid{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:12px;
+}
+
+.notice-pro-empty{
+  padding:24px;
+  text-align:center;
+  color:#64748b;
+  font-weight:1000;
+}
+
+@media (max-width:1180px){
+  .notice-pro-wrap{
+    grid-template-columns:1fr;
+  }
 }
 
 @media (max-width:900px){
-  .notice-page{
+  .notice-pro-wrap{
+    gap:12px;
+  }
+
+  .notice-pro-left,
+  .notice-pro-right{
     padding:18px;
+    border-radius:20px;
   }
 
-  .notice-page-head{
-    align-items:stretch;
+  .notice-pro-head,
+  .notice-pro-admin-head{
     flex-direction:column;
+    align-items:stretch;
   }
 
-  .notice-page-head h2{
-    font-size:22px;
+  .notice-pin{
+    display:none;
   }
 
-  .notice-item{
-    grid-template-columns:74px 1fr;
-    gap:10px;
-    padding:12px;
+  .notice-pro-head h2{
+    font-size:24px;
   }
 
-  .notice-date{
-    min-height:56px;
+  .notice-pro-item{
+    grid-template-columns:70px 1fr;
+    gap:9px;
   }
 
-  .notice-date b{
-    font-size:15px;
+  .notice-pro-body p{
+    display:none;
   }
 
-  .notice-content p{
-    font-size:14px;
+  .notice-pro-table{
+    border:0;
+    gap:8px;
+  }
+
+  .notice-pro-table-head{
+    display:none;
+  }
+
+  .notice-pro-table-row,
+  .notice-pro-table.compact .notice-pro-table-row{
+    grid-template-columns:1fr;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    overflow:hidden;
+  }
+
+  .notice-pro-actions{
+    justify-content:flex-start;
+    padding:0 12px 12px;
+  }
+
+  .notice-form-grid{
+    grid-template-columns:1fr;
   }
 }
 
