@@ -453,6 +453,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-010", notice_date: "2026-05-12", content: "대량이체 자동 생성 기능 추가" },
   { id: "auto-20260512-011", notice_date: "2026-05-12", content: "거래처 계좌 업로드 중복 오류 수정" },
   { id: "auto-20260512-012", notice_date: "2026-05-12", content: "대량이체 엑셀 양식 및 수정 기능 개선" },
+  { id: "auto-20260512-013", notice_date: "2026-05-12", content: "대량이체 엑셀 서식 원본 양식에 맞게 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -991,7 +992,7 @@ export default function App() {
 
     const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
     const dataRows = rows.map((row) => [
-      row.bank_code,
+      String(row.bank_code || ""),
       cleanAccountNumber(row.account_number),
       Number(row.amount || 0),
       row.account_name || row.vendor,
@@ -1009,42 +1010,78 @@ export default function App() {
       { wch: 22 },
       { wch: 14 },
       { wch: 28 },
-      { wch: 22 },
-      { wch: 30 },
+      { wch: 24 },
+      { wch: 32 },
       { wch: 12 },
       { wch: 16 },
       { wch: 22 },
     ];
 
+    worksheet["!rows"] = [
+      { hpt: 18 },
+      ...dataRows.map(() => ({ hpt: 18 })),
+    ];
+
+    worksheet["!autofilter"] = { ref: `A1:I${dataRows.length + 1}` };
+
     const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:I1");
+
+    const border = {
+      top: { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left: { style: "thin", color: { rgb: "000000" } },
+      right: { style: "thin", color: { rgb: "000000" } },
+    };
+
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         const addr = XLSX.utils.encode_cell({ r, c });
-        const cell = worksheet[addr];
-        if (!cell) continue;
+        const cell = worksheet[addr] || { v: "", t: "s" };
+        worksheet[addr] = cell;
+
+        const isHeader = r === 0;
 
         cell.s = {
-          fill: { patternType: "solid", fgColor: { rgb: r === 0 ? "B7D0EA" : "D9D9D9" } },
-          font: { bold: r === 0, color: { rgb: "000000" } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } },
+          fill: {
+            patternType: "solid",
+            fgColor: { rgb: isHeader ? "B8CCE4" : "D9D9D9" },
           },
+          font: {
+            name: "맑은 고딕",
+            sz: 8,
+            bold: isHeader,
+            color: { rgb: "000000" },
+          },
+          alignment: {
+            horizontal: "center",
+            vertical: "center",
+            wrapText: false,
+          },
+          border,
         };
 
         if (c === 2 && r > 0) {
           cell.t = "n";
           cell.z = "#,##0";
         }
+
+        if ((c === 0 || c === 1) && r > 0) {
+          cell.t = "s";
+          cell.v = String(cell.v || "");
+        }
       }
     }
 
     const workbook = XLSX.utils.book_new();
+    workbook.Props = {
+      Title: `${transferMonth || getTodayKey().slice(0, 7)} 대량이체`,
+      Subject: "태명산업개발 대량이체",
+      Author: "태명산업개발",
+      CreatedDate: new Date(),
+    };
+
     XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
-    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xls`);
+    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xls`, { bookType: "xls", cellStyles: true });
   };
 
 
