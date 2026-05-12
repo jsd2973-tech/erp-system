@@ -452,6 +452,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
   { id: "auto-20260512-010", notice_date: "2026-05-12", content: "대량이체 자동 생성 기능 추가" },
   { id: "auto-20260512-011", notice_date: "2026-05-12", content: "거래처 계좌 업로드 중복 오류 수정" },
+  { id: "auto-20260512-012", notice_date: "2026-05-12", content: "대량이체 엑셀 양식 및 수정 기능 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -804,6 +805,7 @@ export default function App() {
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
+  const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
   const [permitForm, setPermitForm] = useState({
@@ -908,6 +910,32 @@ export default function App() {
       || vendorAccounts.find((a) => key.includes(normalizeVendorName(a.vendor_name)) || normalizeVendorName(a.vendor_name).includes(key));
   };
 
+  const applyBulkTransferEdits = (rows: BulkTransferRow[]) =>
+    rows.map((row) => {
+      const edit = bulkTransferEdits[row.id] || {};
+      const merged = { ...row, ...edit };
+      return {
+        ...merged,
+        amount: Number(merged.amount || 0),
+        bank_code: String(merged.bank_code || ""),
+        bank_name: String(merged.bank_name || ""),
+        account_name: String(merged.account_name || ""),
+        account_number: String(merged.account_number || ""),
+        memo: String(merged.memo || ""),
+        matched: !!(merged.bank_code && merged.account_number),
+      };
+    });
+
+  const updateBulkTransferEdit = (id: string, key: keyof BulkTransferRow, value: any) => {
+    setBulkTransferEdits((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        [key]: key === "amount" ? Number(String(value).replace(/,/g, "") || 0) : value,
+      },
+    }));
+  };
+
   const getBulkTransferRows = (): BulkTransferRow[] => {
     const month = transferMonth;
     const vendorFilter = transferVendorSearch.trim();
@@ -952,7 +980,7 @@ export default function App() {
   };
 
   const downloadBulkTransferExcel = () => {
-    const rows = getBulkTransferRows();
+    const rows = applyBulkTransferEdits(getBulkTransferRows());
     if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
 
     const missing = rows.filter((row) => !row.matched);
@@ -961,33 +989,58 @@ export default function App() {
       if (!ok) return;
     }
 
-    const sheetRows = rows.map((row) => ({
-      입금은행: row.bank_code,
-      입금계좌: cleanAccountNumber(row.account_number),
-      입금액: row.amount,
-      고객관리성명: row.account_name || row.vendor,
-      입금통장표시내용: row.memo,
-      출금통장표시내용: row.vendor,
-      입금인코드: "",
-      비고: row.matched ? "" : "계좌확인필요",
-      업체사용key: row.vendor,
-    }));
+    const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
+    const dataRows = rows.map((row) => [
+      row.bank_code,
+      cleanAccountNumber(row.account_number),
+      Number(row.amount || 0),
+      row.account_name || row.vendor,
+      "(주)태명산업개발",
+      row.memo,
+      "",
+      "",
+      "",
+    ]);
 
-    const worksheet = XLSX.utils.json_to_sheet(sheetRows, {
-      header: ["입금은행", "입금계좌", "입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"],
-    });
+    const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
 
     worksheet["!cols"] = [
       { wch: 10 },
-      { wch: 24 },
-      { wch: 14 },
-      { wch: 26 },
-      { wch: 26 },
       { wch: 22 },
+      { wch: 14 },
+      { wch: 28 },
+      { wch: 22 },
+      { wch: 30 },
       { wch: 12 },
       { wch: 16 },
       { wch: 22 },
     ];
+
+    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:I1");
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        const cell = worksheet[addr];
+        if (!cell) continue;
+
+        cell.s = {
+          fill: { patternType: "solid", fgColor: { rgb: r === 0 ? "B7D0EA" : "D9D9D9" } },
+          font: { bold: r === 0, color: { rgb: "000000" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } },
+          },
+        };
+
+        if (c === 2 && r > 0) {
+          cell.t = "n";
+          cell.z = "#,##0";
+        }
+      }
+    }
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
@@ -1685,7 +1738,7 @@ export default function App() {
   };
 
 
-  const bulkTransferRows = getBulkTransferRows();
+  const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
 
   const filteredPermits = permits
     .filter((permit: PermitRenewal) =>
@@ -2616,12 +2669,29 @@ export default function App() {
                       <div>
                         <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
                         <b>{row.vendor}</b>
-                        <p>{row.bank_name || "은행 미입력"} · {row.account_name || "예금주 미입력"}</p>
-                        <p>{row.account_number || "계좌번호 미입력"}</p>
                       </div>
                       <strong>{money(row.amount)}원</strong>
                     </div>
-                    <div className="bulk-card-memo">{row.memo}</div>
+
+                    <div className="bulk-edit-grid">
+                      <Field label="입금은행">
+                        <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} />
+                      </Field>
+                      <Field label="입금계좌">
+                        <input value={row.account_number} onChange={(e) => updateBulkTransferEdit(row.id, "account_number", e.target.value)} />
+                      </Field>
+                      <Field label="입금액">
+                        <input value={String(row.amount || "")} onChange={(e) => updateBulkTransferEdit(row.id, "amount", e.target.value)} />
+                      </Field>
+                      <Field label="고객관리성명">
+                        <input value={row.account_name || row.vendor} onChange={(e) => updateBulkTransferEdit(row.id, "account_name", e.target.value)} />
+                      </Field>
+                      <Field label="출금통장표시내용">
+                        <input value={row.memo} onChange={(e) => updateBulkTransferEdit(row.id, "memo", e.target.value)} />
+                      </Field>
+                    </div>
+
+                    <div className="bulk-card-memo">입금통장표시내용: (주)태명산업개발 / 입금인코드·비고·업체사용key 공란</div>
                   </div>
                 ))
               )}
@@ -6975,6 +7045,41 @@ td .icon{
 
   .bulk-card-main{
     flex-direction:column;
+  }
+}
+
+/* ===== Bulk Transfer Edit Fields ===== */
+.bulk-edit-grid{
+  display:grid;
+  grid-template-columns:90px 1fr 120px 1fr 1fr;
+  gap:8px;
+  margin-top:12px;
+}
+
+.bulk-edit-grid .field{
+  margin:0;
+}
+
+.bulk-edit-grid label{
+  font-size:11px;
+  color:#64748b;
+  font-weight:1000;
+}
+
+.bulk-edit-grid input{
+  height:36px;
+  font-size:13px;
+}
+
+@media (max-width:1100px){
+  .bulk-edit-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media (max-width:900px){
+  .bulk-edit-grid{
+    grid-template-columns:1fr;
   }
 }
 
