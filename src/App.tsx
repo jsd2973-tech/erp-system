@@ -451,6 +451,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
   { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
   { id: "auto-20260512-010", notice_date: "2026-05-12", content: "대량이체 자동 생성 기능 추가" },
+  { id: "auto-20260512-011", notice_date: "2026-05-12", content: "거래처 계좌 업로드 중복 오류 수정" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -874,11 +875,29 @@ export default function App() {
 
     if (!rows.length) return alert("계좌 엑셀에서 거래처 계좌 정보를 찾지 못했습니다.");
 
-    const { error } = await supabase.from("vendor_accounts").upsert(rows, { onConflict: "id" });
+    const dedupedMap = new Map<string, VendorAccount>();
+    rows.forEach((row) => {
+      const key = row.id || `account-${normalizeVendorName(row.vendor_name)}`;
+      const prev = dedupedMap.get(key);
+
+      dedupedMap.set(key, {
+        ...(prev || {}),
+        ...row,
+        id: key,
+        bank_code: row.bank_code || prev?.bank_code || bankCodeByName(row.bank_name || prev?.bank_name || ""),
+        bank_name: row.bank_name || prev?.bank_name || "",
+        account_name: row.account_name || prev?.account_name || "",
+        account_number: row.account_number || prev?.account_number || "",
+      });
+    });
+
+    const dedupedRows = Array.from(dedupedMap.values());
+
+    const { error } = await supabase.from("vendor_accounts").upsert(dedupedRows, { onConflict: "id" });
     if (error) return alert(`거래처 계좌 업로드 실패: ${error.message}`);
 
     await loadVendorAccounts();
-    alert(`거래처 계좌 ${rows.length}건을 인터넷 DB에 저장했습니다.`);
+    alert(`거래처 계좌 ${dedupedRows.length}건을 인터넷 DB에 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
   };
 
   const findVendorAccount = (vendorName: string) => {
