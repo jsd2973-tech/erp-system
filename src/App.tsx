@@ -456,6 +456,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260512-013", notice_date: "2026-05-12", content: "대량이체 엑셀 서식 원본 양식에 맞게 개선" },
   { id: "auto-20260512-014", notice_date: "2026-05-12", content: "대량이체 엑셀 스타일 적용을 위해 xlsx 저장 방식으로 개선" },
   { id: "auto-20260513-001", notice_date: "2026-05-13", content: "대량이체 메뉴 이동 및 선택 다운로드 기능 추가" },
+  { id: "auto-20260513-002", notice_date: "2026-05-13", content: "대량이체 메뉴 순서 및 계좌번호 앞자리 보존 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -997,10 +998,10 @@ export default function App() {
     const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
     const dataRows = rows.map((row) => [
       String(row.bank_code || ""),
-      cleanAccountNumber(row.account_number),
+      `="${cleanAccountNumber(row.account_number)}"`,
       Number(row.amount || 0),
       row.account_name || row.vendor,
-      "(주)태명산업개발",
+      "",
       row.memo,
       "",
       "",
@@ -1071,6 +1072,7 @@ export default function App() {
 
         if ((c === 0 || c === 1) && r > 0) {
           cell.t = "s";
+          cell.z = "@";
           cell.v = String(cell.v || "");
         }
       }
@@ -2318,7 +2320,7 @@ export default function App() {
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -2784,7 +2786,7 @@ export default function App() {
                       </Field>
                     </div>
 
-                    <div className="bulk-card-memo">입금통장표시내용: (주)태명산업개발 / 입금인코드·비고·업체사용key 공란</div>
+                    <div className="bulk-card-memo">입금통장표시내용·입금인코드·비고·업체사용key 공란</div>
                   </div>
                 ))
               )}
@@ -3186,8 +3188,8 @@ export default function App() {
             <>
               <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
               <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>
-              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
+              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
             </>
           )}
 
