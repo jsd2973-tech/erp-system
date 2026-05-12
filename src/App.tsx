@@ -1597,6 +1597,7 @@ export default function App() {
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
+          <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지내역</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
@@ -2094,6 +2095,7 @@ export default function App() {
           {mobileSheet === "more" && (
             <>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
+              <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지내역</button>
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
               <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
@@ -4946,6 +4948,41 @@ td .icon{
   transform:translate(-50%, -50%);
   border-right:2px solid #fff;
   border-bottom:2px solid #fff;
+}
+
+/* ===== Update Notice History ===== */
+.notice-history-cards{
+  display:none;
+}
+
+@media (max-width:900px){
+  .notice-history-cards{
+    display:grid;
+    gap:10px;
+    margin-top:12px;
+  }
+
+  .notice-history-card{
+    padding:14px;
+    border-radius:16px;
+    background:#f8fafc;
+    border:1px solid #e5e7eb;
+  }
+
+  .notice-history-card b{
+    display:block;
+    color:#1d4ed8;
+    font-size:13px;
+    margin-bottom:6px;
+  }
+
+  .notice-history-card p{
+    margin:0;
+    color:#111827;
+    font-size:14px;
+    font-weight:800;
+    line-height:1.45;
+  }
 }
 
 `;
