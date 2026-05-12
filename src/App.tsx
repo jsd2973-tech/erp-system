@@ -38,6 +38,7 @@ type VendorAccount = {
   bank_code?: string;
   bank_name?: string;
   account_name?: string;
+  customer_display_name?: string;
   account_number?: string;
   memo?: string;
 };
@@ -49,6 +50,7 @@ type BulkTransferRow = {
   bank_code: string;
   bank_name: string;
   account_name: string;
+  customer_display_name: string;
   account_number: string;
   memo: string;
   matched: boolean;
@@ -458,6 +460,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-001", notice_date: "2026-05-13", content: "대량이체 메뉴 이동 및 선택 다운로드 기능 추가" },
   { id: "auto-20260513-002", notice_date: "2026-05-13", content: "대량이체 메뉴 순서 및 계좌번호 앞자리 보존 개선" },
   { id: "auto-20260513-003", notice_date: "2026-05-13", content: "대량이체 화면 안내문 제거 및 엑셀 입금통장표시내용 복구" },
+  { id: "auto-20260513-004", notice_date: "2026-05-13", content: "고객관리성명 고정 기능 및 계좌번호 앞자리 보존 수정" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -868,6 +871,7 @@ export default function App() {
         const bankName = String(pick(r, ["은행명", "은행"]) || "").trim();
         const bankCode = String(pick(r, ["코드명", "은행코드", "코드"]) || bankCodeByName(bankName)).trim();
         const accountName = String(pick(r, ["이름", "예금주", "입금자명"]) || "").trim();
+        const customerDisplayName = String(pick(r, ["고객관리성명", "고객관리명"]) || accountName || vendorName).trim();
         const accountNumber = String(pick(r, ["계좌번호", "계좌"]) || "").trim();
 
         rows.push({
@@ -876,6 +880,7 @@ export default function App() {
           bank_code: bankCode,
           bank_name: bankName,
           account_name: accountName,
+          customer_display_name: customerDisplayName,
           account_number: accountNumber,
           memo: sheetName,
         });
@@ -896,6 +901,7 @@ export default function App() {
         bank_code: row.bank_code || prev?.bank_code || bankCodeByName(row.bank_name || prev?.bank_name || ""),
         bank_name: row.bank_name || prev?.bank_name || "",
         account_name: row.account_name || prev?.account_name || "",
+        customer_display_name: row.customer_display_name || prev?.customer_display_name || row.account_name || prev?.account_name || row.vendor_name,
         account_number: row.account_number || prev?.account_number || "",
       });
     });
@@ -927,6 +933,7 @@ export default function App() {
         bank_code: String(merged.bank_code || ""),
         bank_name: String(merged.bank_name || ""),
         account_name: String(merged.account_name || ""),
+        customer_display_name: String(merged.customer_display_name || merged.account_name || merged.vendor || ""),
         account_number: String(merged.account_number || ""),
         memo: String(merged.memo || ""),
         matched: !!(merged.bank_code && merged.account_number),
@@ -975,6 +982,7 @@ export default function App() {
           bank_code: bankCode,
           bank_name: bankName,
           account_name: account?.account_name || "",
+          customer_display_name: account?.customer_display_name || account?.account_name || row.vendor,
           account_number: account?.account_number || "",
           memo: `${memoItem}/${row.vendor}${monthLabel}`,
           matched: !!(account?.account_number && bankCode),
@@ -999,9 +1007,9 @@ export default function App() {
     const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
     const dataRows = rows.map((row) => [
       String(row.bank_code || ""),
-      `="${cleanAccountNumber(row.account_number)}"`,
+      cleanAccountNumber(row.account_number),
       Number(row.amount || 0),
-      row.account_name || row.vendor,
+      row.customer_display_name || row.account_name || row.vendor,
       "(주)태명산업개발",
       row.memo,
       "",
@@ -1075,6 +1083,11 @@ export default function App() {
           cell.t = "s";
           cell.z = "@";
           cell.v = String(cell.v || "");
+        }
+
+        if (c === 1 && r > 0) {
+          cell.t = "s";
+          cell.z = "@";
         }
       }
     }
@@ -2780,7 +2793,7 @@ export default function App() {
                         <input value={String(row.amount || "")} onChange={(e) => updateBulkTransferEdit(row.id, "amount", e.target.value)} />
                       </Field>
                       <Field label="고객관리성명">
-                        <input value={row.account_name || row.vendor} onChange={(e) => updateBulkTransferEdit(row.id, "account_name", e.target.value)} />
+                        <input value={row.customer_display_name || row.account_name || row.vendor} onChange={(e) => updateBulkTransferEdit(row.id, "customer_display_name", e.target.value)} />
                       </Field>
                       <Field label="출금통장표시내용">
                         <input value={row.memo} onChange={(e) => updateBulkTransferEdit(row.id, "memo", e.target.value)} />
