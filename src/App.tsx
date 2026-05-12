@@ -652,6 +652,7 @@ export default function App() {
   const recentUpdateItems = updateNotices.filter(isRecentNotice);
   const [updateNoticeForm, setUpdateNoticeForm] = useState({ notice_date: getTodayKey(), content: "" });
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
+  const [updateNoticeError, setUpdateNoticeError] = useState("");
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
@@ -1386,6 +1387,8 @@ export default function App() {
   };
 
   const loadUpdateNotices = async () => {
+    setUpdateNoticeError("");
+
     const { data, error } = await supabase
       .from("update_notices")
       .select("*")
@@ -1395,12 +1398,16 @@ export default function App() {
 
     if (error) {
       console.error(error);
+      setUpdateNoticeError(error.message);
+      setUpdateNotices([]);
+      setShowUpdateNotice(false);
       return;
     }
 
     const notices = ((data || []) as any[]).map((n) => ({
       ...n,
       id: String(n.id),
+      notice_date: String(n.notice_date || "").slice(0, 10),
     })) as UpdateNotice[];
 
     setUpdateNotices(notices);
@@ -1452,6 +1459,12 @@ export default function App() {
 
     await loadUpdateNotices();
   };
+
+  useEffect(() => {
+    if (!session) return;
+    loadUpdateNotices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, menuTab]);
 
   if (authLoading) {
     return (
@@ -1624,6 +1637,12 @@ export default function App() {
                 <button>이전</button>
               </div>
 
+              {updateNoticeError && (
+                <div className="notice-pro-error">
+                  공지 불러오기 실패: {updateNoticeError}
+                </div>
+              )}
+
               <div className="notice-pro-list">
                 {(updateNotices || []).length === 0 ? (
                   <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
@@ -1661,6 +1680,12 @@ export default function App() {
                   <p>저장하면 모든 사용자에게 인터넷으로 공지가 공유됩니다.</p>
                 </div>
               </div>
+
+              {updateNoticeError && (
+                <div className="notice-pro-error notice-pro-manage-error">
+                  공지 불러오기 실패: {updateNoticeError}
+                </div>
+              )}
 
               <div className="notice-form-grid">
                 <Field label="공지 날짜">
@@ -5498,6 +5523,17 @@ td .icon{
   .notice-pro-body h3{
     font-size:14px !important;
   }
+}
+
+/* ===== Notice Error Message ===== */
+.notice-pro-error{
+  margin:0 0 12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#fee2e2;
+  color:#991b1b;
+  font-weight:900;
+  border:1px solid #fecaca;
 }
 
 `;
