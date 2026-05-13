@@ -503,6 +503,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-020", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 최종 수정" },
   { id: "auto-20260513-021", notice_date: "2026-05-13", content: "정비 드롭다운 글씨 두께 통일" },
   { id: "auto-20260513-022", notice_date: "2026-05-13", content: "모바일 로그아웃 및 메뉴별 인터넷 새로고침 개선" },
+  { id: "auto-20260514-001", notice_date: "2026-05-14", content: "모바일 전체 메뉴 표시 및 통계 화면 보강" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -4050,10 +4051,10 @@ export default function App() {
 
         <div className="mobile-bottom-nav">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
-          <button className={mobileSheet === "buy" || ["new", "list", "status"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
+          <button className={mobileSheet === "buy" || ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
           <button className={mobileSheet === "card" || ["card_use", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-          <button className={mobileSheet === "more" || ["layout", "vendors", "warehouse_groups", "items"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+          <button className={mobileSheet === "more" || ["update_history", "permits", "layout", "vendors", "warehouse_groups", "items", "update_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
         </div>
 
       </div>
@@ -5297,10 +5298,18 @@ function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) 
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
 }
 
+/*
+MOBILE_MENU_AUDIT
+menu_values=['bulk_transfer', 'card_stats', 'card_use', 'home', 'items', 'layout', 'list', 'maint_list', 'maint_new', 'maint_stats', 'maintenance_photos', 'new', 'permits', 'receipt_photos', 'status', 'update_history', 'update_notices', 'vendor_accounts', 'vendors', 'warehouse_groups']
+render_values=['bulk_transfer', 'card_stats', 'card_use', 'home', 'items', 'layout', 'list', 'maint_list', 'maint_new', 'maint_stats', 'maintenance_photos', 'new', 'permits', 'receipt_photos', 'status', 'update_history', 'update_notices', 'vendor_accounts', 'vendors', 'warehouse_groups']
+missing_render=[]
+missing_menu=[]
+*/
+
 const css = `
 *{box-sizing:border-box}
 html,body,#root{width:100%;min-height:100%;margin:0;padding:0}
-body{font-family:Arial,'Malgun Gothic',sans-serif;background:#0f172a;color:#0f172a;overflow-x:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',Arial,sans-serif;background:#0f172a;color:#0f172a;overflow-x:hidden}
 button{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:#e2e8f0}
 button:hover{filter:brightness(.96)}
 input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;background:#fff}
@@ -9508,6 +9517,246 @@ td .icon{
     color:#111827;
     font-size:14px;
     font-weight:1000;
+  }
+}
+
+/* ===== Mobile All Menu Audit Fix ===== */
+@media (max-width:900px){
+  html,
+  body,
+  #root{
+    width:100% !important;
+    min-height:100% !important;
+    height:auto !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",Arial,sans-serif !important;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .app{
+    width:100% !important;
+    min-height:100dvh !important;
+    height:auto !important;
+    overflow-x:hidden !important;
+    overflow-y:visible !important;
+    padding:14px 10px 104px !important;
+  }
+
+  .hero{
+    border-radius:28px !important;
+    padding:34px 18px !important;
+    margin-bottom:14px !important;
+  }
+
+  .main-title{
+    font-size:34px !important;
+    letter-spacing:-1px !important;
+    line-height:1.16 !important;
+  }
+
+  .hero p{
+    font-size:17px !important;
+    letter-spacing:1px !important;
+  }
+
+  .card{
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+    padding:18px !important;
+    border-radius:24px !important;
+  }
+
+  .card h2{
+    font-size:26px !important;
+    line-height:1.25 !important;
+    margin:0 0 18px !important;
+    text-align:center !important;
+    color:#111827 !important;
+  }
+
+  .card h3{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    margin:22px 0 10px !important;
+    color:#111827 !important;
+    font-size:19px !important;
+    font-weight:1000 !important;
+  }
+
+  .between{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:stretch !important;
+    gap:10px !important;
+  }
+
+  .between button{
+    width:100% !important;
+    justify-content:center !important;
+    min-height:50px !important;
+    font-size:16px !important;
+  }
+
+  .grid2,
+  .grid3,
+  .grid5,
+  .two{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    width:100% !important;
+  }
+
+  .field,
+  .item-search,
+  .status-cards,
+  .dashboard-wrap,
+  .dashboard-panel,
+  .dashboard-card,
+  .notice-pro-wrap,
+  .receipt-clean-list,
+  .receipt-photo-list,
+  .vendor-account-list{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  input,
+  textarea,
+  select{
+    width:100% !important;
+    min-height:52px !important;
+    font-size:16px !important;
+    font-weight:700 !important;
+    border-radius:16px !important;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",Arial,sans-serif !important;
+  }
+
+  textarea{
+    min-height:120px !important;
+  }
+
+  button{
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",Arial,sans-serif !important;
+    font-weight:900 !important;
+  }
+
+  .status-cards{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    margin:18px 0 !important;
+  }
+
+  .status-cards > div{
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:center !important;
+    min-height:92px !important;
+    padding:18px !important;
+    border-radius:20px !important;
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    box-shadow:0 8px 20px rgba(15,23,42,.06) !important;
+  }
+
+  .status-cards span{
+    display:block !important;
+    color:#64748b !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    margin-bottom:8px !important;
+  }
+
+  .status-cards b{
+    display:block !important;
+    color:#111827 !important;
+    font-size:22px !important;
+    font-weight:1000 !important;
+    line-height:1.35 !important;
+    word-break:break-word !important;
+  }
+
+  .scroll-table,
+  .table-wrap,
+  .table-container{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow-x:auto !important;
+    overflow-y:visible !important;
+    -webkit-overflow-scrolling:touch !important;
+    margin:10px 0 20px !important;
+    border-radius:18px !important;
+  }
+
+  .scroll-table table,
+  .table-wrap table,
+  table{
+    display:table !important;
+    width:100% !important;
+    min-width:680px !important;
+    table-layout:auto !important;
+  }
+
+  th,
+  td{
+    font-size:13px !important;
+    line-height:1.35 !important;
+    white-space:nowrap !important;
+  }
+
+  .empty{
+    display:table-cell !important;
+    height:86px !important;
+    text-align:center !important;
+    color:#64748b !important;
+    font-weight:900 !important;
+  }
+
+  .maint-detail-text{
+    display:inline-block !important;
+    max-width:260px !important;
+    white-space:normal !important;
+    word-break:break-word !important;
+  }
+
+  .mobile-purchase-cards{
+    display:grid !important;
+  }
+
+  .mobile-bottom-nav{
+    display:grid !important;
+    z-index:100000 !important;
+  }
+
+  .mobile-more-sheet{
+    z-index:100001 !important;
+    max-height:78dvh !important;
+    overflow-y:auto !important;
+  }
+}
+
+/* PC에서는 구매조회 모바일 카드 숨김 유지 */
+@media (min-width:901px){
+  .mobile-purchase-cards{
+    display:none !important;
   }
 }
 
