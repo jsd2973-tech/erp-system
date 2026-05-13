@@ -56,6 +56,17 @@ type BulkTransferRow = {
   matched: boolean;
 };
 
+type ReceiptPhoto = {
+  id: string;
+  receipt_date: string;
+  vendor_name: string;
+  memo?: string;
+  image_urls?: string[];
+  created_by?: string;
+  is_processed?: boolean;
+  created_at?: string;
+};
+
 
 
 const supabase = createClient(
@@ -463,6 +474,8 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-004", notice_date: "2026-05-13", content: "고객관리성명 고정 기능 및 계좌번호 앞자리 보존 수정" },
   { id: "auto-20260513-005", notice_date: "2026-05-13", content: "업체계좌관리 메뉴 추가" },
   { id: "auto-20260513-006", notice_date: "2026-05-13", content: "구매입력 일자 달력 버튼 디자인 개선" },
+  { id: "auto-20260513-007", notice_date: "2026-05-13", content: "입고사진등록 기능 추가" },
+  { id: "auto-20260513-008", notice_date: "2026-05-13", content: "입고사진 전용 버킷 적용" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -812,6 +825,10 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+  const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
+  const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
+  const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
+  const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
@@ -1315,6 +1332,7 @@ export default function App() {
       loadAll();
       loadPermits();
       loadVendorAccounts();
+      loadReceiptPhotos();
     }
   }, [session]);
 
@@ -1503,6 +1521,103 @@ export default function App() {
     }
 
     return uploadedUrls;
+  };
+
+
+  const loadReceiptPhotos = async () => {
+    const { data, error } = await supabase
+      .from("receipt_photos")
+      .select("*")
+      .order("receipt_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setReceiptPhotos(((data || []) as any[]).map((item) => ({
+      ...item,
+      id: String(item.id),
+      receipt_date: item.receipt_date ? String(item.receipt_date).slice(0, 10) : "",
+      image_urls: item.image_urls || [],
+    })) as ReceiptPhoto[]);
+  };
+
+  const uploadReceiptPhotoFiles = async (files: File[]) => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of files) {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressReceiptImage(file) : file;
+      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const fileName = `purchase-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage.from("purchase-photos").upload(fileName, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      });
+
+      if (error) {
+        alert(`입고사진 업로드 실패: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from("purchase-photos").getPublicUrl(fileName);
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
+  const saveReceiptPhoto = async () => {
+    if (!receiptPhotoForm.receipt_date) return alert("일자를 입력하세요.");
+    if (!receiptPhotoForm.vendor_name.trim()) return alert("거래처를 입력하세요.");
+    if (!receiptPhotoForm.memo.trim() && !receiptPhotoFiles.length) return alert("내용 또는 사진을 입력하세요.");
+
+    const imageUrls = receiptPhotoFiles.length ? await uploadReceiptPhotoFiles(receiptPhotoFiles) : [];
+
+    const payload: ReceiptPhoto = {
+      id: uid(),
+      receipt_date: receiptPhotoForm.receipt_date,
+      vendor_name: receiptPhotoForm.vendor_name.trim(),
+      memo: receiptPhotoForm.memo.trim(),
+      image_urls: imageUrls,
+      created_by: userEmail || "직원",
+      is_processed: false,
+    };
+
+    const { error } = await supabase.from("receipt_photos").insert(payload);
+    if (error) return alert(`입고사진 저장 실패: ${error.message}`);
+
+    setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
+    setReceiptPhotoFiles([]);
+    await loadReceiptPhotos();
+    alert("입고사진이 등록되었습니다.");
+  };
+
+  const toggleReceiptPhotoProcessed = async (item: ReceiptPhoto) => {
+    if (!isAdmin) return alert("관리자만 처리상태를 변경할 수 있습니다.");
+
+    const { error } = await supabase
+      .from("receipt_photos")
+      .update({ is_processed: !item.is_processed })
+      .eq("id", item.id);
+
+    if (error) return alert(`처리상태 변경 실패: ${error.message}`);
+
+    await loadReceiptPhotos();
+  };
+
+  const deleteReceiptPhoto = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!confirm("입고사진 등록건을 삭제할까요?")) return;
+
+    const { error } = await supabase.from("receipt_photos").delete().eq("id", id);
+    if (error) return alert(`입고사진 삭제 실패: ${error.message}`);
+
+    await loadReceiptPhotos();
   };
 
 
@@ -2336,7 +2451,7 @@ export default function App() {
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -2723,6 +2838,135 @@ export default function App() {
           </section>
         )}
 
+
+
+
+        {menuTab === "receipt_photos" && (
+          <section className="card receipt-photo-page">
+            <div className="receipt-photo-head">
+              <div>
+                <h2>입고사진등록</h2>
+                <p>직원은 자재 입고 사진과 내용만 등록하고, 관리자는 확인 후 처리완료로 변경합니다.</p>
+              </div>
+              <button onClick={loadReceiptPhotos}>새로고침</button>
+            </div>
+
+            <div className="receipt-photo-form">
+              <Field label="일자">
+                <div className="date-input-wrap">
+                  <input
+                    className="date-text-input"
+                    value={receiptPhotoForm.receipt_date}
+                    onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: formatInputDate(e.target.value) })}
+                    placeholder="20260513 또는 260513"
+                  />
+                  <input
+                    className="date-picker-input"
+                    type="date"
+                    value={receiptPhotoForm.receipt_date}
+                    onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: e.target.value })}
+                    aria-label="입고일자 선택"
+                  />
+                  <span className="date-picker-icon">📅</span>
+                </div>
+              </Field>
+
+              <Field label="거래처">
+                <SearchSelect
+                  value={receiptPhotoForm.vendor_name}
+                  options={vendorOptions}
+                  onChange={(value) => setReceiptPhotoForm({ ...receiptPhotoForm, vendor_name: value })}
+                  placeholder="거래처 검색"
+                />
+              </Field>
+
+              <Field label="내용">
+                <textarea
+                  value={receiptPhotoForm.memo}
+                  onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, memo: e.target.value })}
+                  placeholder="예: 베어링 입고 / 로더 부품 도착 / 납품사진"
+                  rows={4}
+                />
+              </Field>
+
+              <Field label="사진첨부">
+                <label className="receipt-photo-upload">
+                  <Upload size={18} />
+                  사진 여러 장 선택
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setReceiptPhotoFiles(Array.from(e.target.files || []))}
+                  />
+                </label>
+                {!!receiptPhotoFiles.length && (
+                  <div className="receipt-photo-selected">{receiptPhotoFiles.length}장 선택됨</div>
+                )}
+              </Field>
+
+              <div className="actions right-actions">
+                <button className="primary" onClick={saveReceiptPhoto}>입고사진 등록</button>
+              </div>
+            </div>
+
+            <div className="receipt-photo-list">
+              {!receiptPhotos.length ? (
+                <div className="empty">등록된 입고사진이 없습니다.</div>
+              ) : (
+                receiptPhotos.map((item) => (
+                  <div className={item.is_processed ? "receipt-photo-card processed" : "receipt-photo-card"} key={item.id}>
+                    <div className="receipt-photo-card-head">
+                      <div>
+                        <span className={item.is_processed ? "processed" : "pending"}>
+                          {item.is_processed ? "처리완료" : "미처리"}
+                        </span>
+                        <b>{item.vendor_name}</b>
+                        <p>{item.receipt_date} · {item.created_by || "등록자 미입력"}</p>
+                      </div>
+                      <div className="actions">
+                        <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
+                        <button onClick={() => toggleReceiptPhotoProcessed(item)}>
+                          {item.is_processed ? "미처리로 변경" : "처리완료"}
+                        </button>
+                        {isAdmin && <button onClick={() => deleteReceiptPhoto(item.id)}>삭제</button>}
+                      </div>
+                    </div>
+
+                    {item.memo && <div className="receipt-photo-memo">{item.memo}</div>}
+
+                    <div className="receipt-photo-thumbs">
+                      {(item.image_urls || []).slice(0, 4).map((url, idx) => (
+                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => setReceiptPhotoPreviewOpen(item)} />
+                      ))}
+                      {(item.image_urls || []).length > 4 && <div className="receipt-photo-more">+{(item.image_urls || []).length - 4}</div>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {receiptPhotoPreviewOpen && (
+          <div className="receipt-photo-preview-backdrop">
+            <div className="receipt-photo-preview">
+              <div className="receipt-photo-preview-head">
+                <div>
+                  <h2>{receiptPhotoPreviewOpen.vendor_name}</h2>
+                  <p>{receiptPhotoPreviewOpen.receipt_date}</p>
+                </div>
+                <button onClick={() => setReceiptPhotoPreviewOpen(null)}>닫기</button>
+              </div>
+              {receiptPhotoPreviewOpen.memo && <div className="receipt-photo-memo">{receiptPhotoPreviewOpen.memo}</div>}
+              <div className="receipt-photo-preview-images">
+                {(receiptPhotoPreviewOpen.image_urls || []).map((url, idx) => (
+                  <img key={idx} src={url} alt="입고사진 확대" />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
 
         {menuTab === "vendor_accounts" && (
@@ -3349,6 +3593,7 @@ export default function App() {
               <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>
               <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
               <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
+              <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>
             </>
           )}
 
@@ -7475,6 +7720,261 @@ td .icon{
 
 .date-input-wrap:focus-within .date-picker-icon{
   opacity:1;
+}
+
+/* ===== Receipt Photo Register ===== */
+.receipt-photo-page{
+  padding:26px;
+}
+
+.receipt-photo-head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:18px;
+}
+
+.receipt-photo-head h2{
+  margin:0;
+  color:#111827;
+  font-size:24px;
+  font-weight:1000;
+}
+
+.receipt-photo-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+
+.receipt-photo-form{
+  display:grid;
+  grid-template-columns:180px minmax(220px, 1fr) minmax(280px, 1.4fr) 220px;
+  gap:12px;
+  align-items:start;
+  padding:16px;
+  border-radius:20px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  margin-bottom:18px;
+}
+
+.receipt-photo-form textarea{
+  width:100%;
+  resize:vertical;
+  min-height:88px;
+  border-radius:14px;
+  border:1px solid #cbd5e1;
+  padding:12px 14px;
+  font-family:inherit;
+  font-weight:800;
+  box-sizing:border-box;
+}
+
+.receipt-photo-upload{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:14px;
+  background:#2563eb;
+  color:#ffffff;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.receipt-photo-upload input{
+  display:none;
+}
+
+.receipt-photo-selected{
+  margin-top:8px;
+  color:#2563eb;
+  font-size:13px;
+  font-weight:900;
+}
+
+.receipt-photo-list{
+  display:grid;
+  gap:12px;
+}
+
+.receipt-photo-card{
+  padding:16px;
+  border-radius:20px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+}
+
+.receipt-photo-card.processed{
+  background:#f8fafc;
+  opacity:.82;
+}
+
+.receipt-photo-card-head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+}
+
+.receipt-photo-card-head span{
+  display:inline-flex;
+  padding:4px 9px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:1000;
+  margin-bottom:8px;
+}
+
+.receipt-photo-card-head span.pending{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
+.receipt-photo-card-head span.processed{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.receipt-photo-card-head b{
+  display:block;
+  color:#111827;
+  font-size:17px;
+  font-weight:1000;
+}
+
+.receipt-photo-card-head p{
+  margin:5px 0 0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.receipt-photo-memo{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#fffbeb;
+  color:#92400e;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.receipt-photo-thumbs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+.receipt-photo-thumbs img{
+  width:92px;
+  height:92px;
+  object-fit:cover;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  cursor:pointer;
+}
+
+.receipt-photo-more{
+  width:92px;
+  height:92px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:#f1f5f9;
+  color:#475569;
+  font-weight:1000;
+}
+
+.receipt-photo-preview-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:grid;
+  place-items:center;
+  background:rgba(15,23,42,.62);
+  padding:18px;
+}
+
+.receipt-photo-preview{
+  width:min(960px, 96vw);
+  max-height:88vh;
+  overflow:auto;
+  background:#ffffff;
+  border-radius:24px;
+  padding:22px;
+  box-shadow:0 30px 90px rgba(0,0,0,.35);
+}
+
+.receipt-photo-preview-head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:14px;
+}
+
+.receipt-photo-preview-head h2{
+  margin:0;
+  color:#111827;
+  font-size:22px;
+  font-weight:1000;
+}
+
+.receipt-photo-preview-head p{
+  margin:5px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.receipt-photo-preview-images{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:12px;
+}
+
+.receipt-photo-preview-images img{
+  width:100%;
+  max-height:520px;
+  object-fit:contain;
+  border-radius:16px;
+  border:1px solid #e5e7eb;
+  background:#f8fafc;
+}
+
+@media (max-width:1100px){
+  .receipt-photo-form{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media (max-width:900px){
+  .receipt-photo-page{
+    padding:18px;
+  }
+
+  .receipt-photo-head,
+  .receipt-photo-card-head{
+    flex-direction:column;
+  }
+
+  .receipt-photo-form{
+    grid-template-columns:1fr;
+    padding:14px;
+  }
+
+  .receipt-photo-thumbs img,
+  .receipt-photo-more{
+    width:74px;
+    height:74px;
+  }
 }
 
 `;
