@@ -476,6 +476,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-006", notice_date: "2026-05-13", content: "구매입력 일자 달력 버튼 디자인 개선" },
   { id: "auto-20260513-007", notice_date: "2026-05-13", content: "입고사진등록 기능 추가" },
   { id: "auto-20260513-008", notice_date: "2026-05-13", content: "입고사진 전용 버킷 적용" },
+  { id: "auto-20260513-009", notice_date: "2026-05-13", content: "입고사진 보기 모바일 화면 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -2949,21 +2950,30 @@ export default function App() {
         )}
 
         {receiptPhotoPreviewOpen && (
-          <div className="receipt-photo-preview-backdrop">
-            <div className="receipt-photo-preview">
+          <div className="receipt-photo-preview-backdrop" onClick={() => setReceiptPhotoPreviewOpen(null)}>
+            <div className="receipt-photo-preview" onClick={(e) => e.stopPropagation()}>
               <div className="receipt-photo-preview-head">
                 <div>
                   <h2>{receiptPhotoPreviewOpen.vendor_name}</h2>
                   <p>{receiptPhotoPreviewOpen.receipt_date}</p>
+                  {receiptPhotoPreviewOpen.memo && <span>{receiptPhotoPreviewOpen.memo}</span>}
                 </div>
                 <button onClick={() => setReceiptPhotoPreviewOpen(null)}>닫기</button>
               </div>
-              {receiptPhotoPreviewOpen.memo && <div className="receipt-photo-memo">{receiptPhotoPreviewOpen.memo}</div>}
-              <div className="receipt-photo-preview-images">
-                {(receiptPhotoPreviewOpen.image_urls || []).map((url, idx) => (
-                  <img key={idx} src={url} alt="입고사진 확대" />
-                ))}
-              </div>
+
+              {(receiptPhotoPreviewOpen.image_urls || []).length ? (
+                <div className="receipt-photo-preview-images">
+                  {(receiptPhotoPreviewOpen.image_urls || []).map((url, idx) => (
+                    <a key={idx} href={url} target="_blank" rel="noreferrer">
+                      <img src={url} alt="입고사진 확대" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="receipt-photo-no-image">
+                  등록된 사진이 없습니다.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -7974,6 +7984,128 @@ td .icon{
   .receipt-photo-more{
     width:74px;
     height:74px;
+  }
+}
+
+/* ===== Receipt Photo Preview Mobile Fix ===== */
+.receipt-photo-preview-backdrop{
+  align-items:start !important;
+  place-items:start center !important;
+  padding:18px !important;
+  overflow:auto !important;
+}
+
+.receipt-photo-preview{
+  width:min(980px, 96vw) !important;
+  max-height:none !important;
+  overflow:visible !important;
+  margin:24px auto 90px !important;
+  padding:16px !important;
+}
+
+.receipt-photo-preview-head{
+  position:sticky;
+  top:0;
+  z-index:2;
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:flex-start !important;
+  gap:12px !important;
+  padding:6px 4px 14px !important;
+  margin-bottom:12px !important;
+  background:#ffffff;
+  border-bottom:1px solid #e5e7eb;
+}
+
+.receipt-photo-preview-head h2{
+  margin:0 !important;
+  color:#111827 !important;
+  font-size:22px !important;
+  font-weight:1000 !important;
+  line-height:1.25 !important;
+}
+
+.receipt-photo-preview-head p{
+  margin:6px 0 0 !important;
+  color:#64748b !important;
+  font-size:15px !important;
+  font-weight:900 !important;
+}
+
+.receipt-photo-preview-head span{
+  display:block;
+  margin-top:8px;
+  color:#334155;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.receipt-photo-preview-head button{
+  min-width:72px;
+  min-height:46px;
+  border:0;
+  border-radius:16px;
+  background:#e2e8f0;
+  color:#111827;
+  font-size:15px;
+  font-weight:1000;
+}
+
+.receipt-photo-preview-images{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)) !important;
+  gap:12px !important;
+}
+
+.receipt-photo-preview-images a{
+  display:block;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  overflow:hidden;
+}
+
+.receipt-photo-preview-images img{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  max-height:none !important;
+  object-fit:contain !important;
+  border:0 !important;
+  border-radius:0 !important;
+}
+
+.receipt-photo-no-image{
+  min-height:180px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px dashed #cbd5e1;
+  color:#64748b;
+  font-size:16px;
+  font-weight:1000;
+}
+
+@media (max-width:700px){
+  .receipt-photo-preview-backdrop{
+    padding:10px !important;
+  }
+
+  .receipt-photo-preview{
+    width:calc(100vw - 20px) !important;
+    margin:10px auto 90px !important;
+    padding:14px !important;
+    border-radius:22px !important;
+  }
+
+  .receipt-photo-preview-head h2{
+    font-size:20px !important;
+  }
+
+  .receipt-photo-preview-images{
+    grid-template-columns:1fr !important;
   }
 }
 
