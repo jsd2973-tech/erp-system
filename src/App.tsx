@@ -462,6 +462,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-003", notice_date: "2026-05-13", content: "대량이체 화면 안내문 제거 및 엑셀 입금통장표시내용 복구" },
   { id: "auto-20260513-004", notice_date: "2026-05-13", content: "고객관리성명 고정 기능 및 계좌번호 앞자리 보존 수정" },
   { id: "auto-20260513-005", notice_date: "2026-05-13", content: "업체계좌관리 메뉴 추가" },
+  { id: "auto-20260513-006", notice_date: "2026-05-13", content: "구매입력 일자 달력 버튼 디자인 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -2958,18 +2959,21 @@ export default function App() {
             <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
             <div className="grid3">
               <Field label="일자">
-                <div className="date-combo">
+                                <div className="date-input-wrap">
                   <input
-                    type="text"
-                    placeholder="240107 또는 20240107"
+                    className="date-text-input"
                     value={purchaseHeader.date}
                     onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })}
+                    placeholder="20260501 또는 260501"
                   />
                   <input
+                    className="date-picker-input"
                     type="date"
                     value={purchaseHeader.date}
                     onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })}
+                    aria-label="일자 선택"
                   />
+                  <span className="date-picker-icon">📅</span>
                 </div>
               </Field>
               <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
@@ -7433,6 +7437,44 @@ td .icon{
   .vendor-account-grid{
     grid-template-columns:1fr;
   }
+}
+
+/* ===== Inline Date Picker ===== */
+.date-input-wrap{
+  position:relative;
+  width:100%;
+}
+
+.date-input-wrap .date-text-input{
+  width:100%;
+  padding-right:46px;
+}
+
+.date-picker-input{
+  position:absolute;
+  right:0;
+  top:0;
+  width:44px;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+  z-index:3;
+}
+
+.date-picker-icon{
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  pointer-events:none;
+  font-size:17px;
+  line-height:1;
+  opacity:.72;
+  z-index:2;
+}
+
+.date-input-wrap:focus-within .date-picker-icon{
+  opacity:1;
 }
 
 `;
