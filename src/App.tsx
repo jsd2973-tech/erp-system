@@ -8688,3 +8688,5 @@ td .icon{
 }
 
 `;
+
+/* maintenance photo module added */
