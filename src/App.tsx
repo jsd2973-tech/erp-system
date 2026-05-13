@@ -502,6 +502,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-019", notice_date: "2026-05-13", content: "정비사진등록을 정비 드롭다운 안으로 정리" },
   { id: "auto-20260513-020", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 최종 수정" },
   { id: "auto-20260513-021", notice_date: "2026-05-13", content: "정비 드롭다운 글씨 두께 통일" },
+  { id: "auto-20260513-022", notice_date: "2026-05-13", content: "모바일 로그아웃 및 메뉴별 인터넷 새로고침 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -1377,8 +1378,33 @@ export default function App() {
       loadPermits();
       loadVendorAccounts();
       loadReceiptPhotos();
+      loadMaintenancePhotos();
     }
   }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    if (["new", "list", "status", "bulk_transfer", "card_use", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
+      loadAll();
+    }
+
+    if (menuTab === "permits") {
+      loadPermits();
+    }
+
+    if (menuTab === "vendor_accounts" || menuTab === "bulk_transfer") {
+      loadVendorAccounts();
+    }
+
+    if (menuTab === "receipt_photos") {
+      loadReceiptPhotos();
+    }
+
+    if (menuTab === "maintenance_photos") {
+      loadMaintenancePhotos();
+    }
+  }, [menuTab, session]);
 
   const vendorOptions = useMemo(
     () =>
@@ -2555,6 +2581,10 @@ export default function App() {
                   <b>홈으로 가기</b>
                   <small>전체 ERP 메뉴 보기</small>
                 </div>
+              </button>
+
+              <button className="mobile-quick-logout" onClick={logout}>
+                로그아웃
               </button>
             </div>
           </div>
@@ -4012,6 +4042,8 @@ export default function App() {
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
               <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
               {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
+            
+              <button className="mobile-sheet-logout" onClick={logout}>로그아웃</button>
             </>
           )}
         </div>
@@ -9312,6 +9344,25 @@ td .icon{
   font-size: 12px !important;
   font-weight: 500 !important;
   letter-spacing: 0 !important;
+}
+
+/* ===== Mobile Logout Button ===== */
+.mobile-quick-logout{
+  width:100%;
+  min-height:54px;
+  border:0;
+  border-radius:20px;
+  background:#ef4444;
+  color:#ffffff;
+  font-size:17px;
+  font-weight:1000;
+  box-shadow:0 12px 26px rgba(239,68,68,.25);
+}
+
+.mobile-sheet-logout{
+  background:#ef4444 !important;
+  color:#ffffff !important;
+  font-weight:1000 !important;
 }
 
 `;
