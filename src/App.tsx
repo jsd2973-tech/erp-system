@@ -478,6 +478,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-008", notice_date: "2026-05-13", content: "입고사진 전용 버킷 적용" },
   { id: "auto-20260513-009", notice_date: "2026-05-13", content: "입고사진 보기 모바일 화면 개선" },
   { id: "auto-20260513-010", notice_date: "2026-05-13", content: "입고사진등록 화면 디자인 개선" },
+  { id: "auto-20260513-011", notice_date: "2026-05-13", content: "모바일 로그인 후 빠른 업무 선택 화면 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -514,7 +515,13 @@ function SearchSelect({
   const [open, setOpen] = useState(false);
 
   const normalized = useMemo(() => {
-    return (options || [])
+    const openMobileQuickMenu = (target: MenuTab) => {
+    setMenuTab(target);
+    setMobileSheet("");
+    setShowMobileQuickStart(false);
+  };
+
+  return (options || [])
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
@@ -802,6 +809,9 @@ export default function App() {
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [updateNoticeError, setUpdateNoticeError] = useState("");
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
+  const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 900 : false
+  );
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
@@ -2378,6 +2388,47 @@ export default function App() {
 
         {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
 
+
+
+        {showMobileQuickStart && (
+          <div className="mobile-quick-start">
+            <div className="mobile-quick-card">
+              <div className="mobile-quick-logo">
+                <strong>태명산업개발</strong>
+                <span>통합 관리 시스템</span>
+              </div>
+
+              <div className="mobile-quick-title">
+                <h2>업무 선택</h2>
+                <p>사용할 메뉴를 선택하세요.</p>
+              </div>
+
+              <button className="mobile-quick-btn photo" onClick={() => openMobileQuickMenu("receipt_photos")}>
+                <span>📷</span>
+                <div>
+                  <b>입고사진등록</b>
+                  <small>자재 입고 사진과 내용 등록</small>
+                </div>
+              </button>
+
+              <button className="mobile-quick-btn maint" onClick={() => openMobileQuickMenu("maint")}>
+                <span>🛠️</span>
+                <div>
+                  <b>정비사진등록</b>
+                  <small>정비 사진과 내용 등록</small>
+                </div>
+              </button>
+
+              <button className="mobile-quick-btn home" onClick={() => openMobileQuickMenu("home")}>
+                <span>🏠</span>
+                <div>
+                  <b>홈으로 가기</b>
+                  <small>전체 ERP 메뉴 보기</small>
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {showUpdateNotice && (
           <div className="update-popup-backdrop">
@@ -8512,6 +8563,127 @@ td .icon{
 
   .receipt-clean-actions{
     grid-template-columns:1fr;
+  }
+}
+
+/* ===== Mobile Quick Start Menu ===== */
+.mobile-quick-start{
+  display:none;
+}
+
+@media (max-width:900px){
+  .mobile-quick-start{
+    position:fixed;
+    inset:0;
+    z-index:100000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:#0f172a;
+  }
+
+  .mobile-quick-card{
+    width:100%;
+    max-width:430px;
+    display:grid;
+    gap:16px;
+  }
+
+  .mobile-quick-logo{
+    min-height:132px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    border-radius:30px;
+    background:linear-gradient(135deg,#2563eb,#4f46e5);
+    color:#ffffff;
+    box-shadow:0 18px 42px rgba(37,99,235,.32);
+  }
+
+  .mobile-quick-logo strong{
+    font-size:34px;
+    font-weight:1000;
+    letter-spacing:-1px;
+  }
+
+  .mobile-quick-logo span{
+    margin-top:10px;
+    font-size:18px;
+    font-weight:900;
+    opacity:.9;
+  }
+
+  .mobile-quick-title{
+    padding:4px 4px 0;
+  }
+
+  .mobile-quick-title h2{
+    margin:0;
+    color:#ffffff;
+    font-size:24px;
+    font-weight:1000;
+  }
+
+  .mobile-quick-title p{
+    margin:6px 0 0;
+    color:#cbd5e1;
+    font-size:15px;
+    font-weight:800;
+  }
+
+  .mobile-quick-btn{
+    width:100%;
+    min-height:92px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    border:0;
+    border-radius:26px;
+    padding:18px;
+    background:#ffffff;
+    color:#111827;
+    text-align:left;
+    box-shadow:0 14px 30px rgba(0,0,0,.18);
+  }
+
+  .mobile-quick-btn span{
+    width:54px;
+    height:54px;
+    display:grid;
+    place-items:center;
+    border-radius:18px;
+    font-size:28px;
+    flex:none;
+  }
+
+  .mobile-quick-btn.photo span{
+    background:#dbeafe;
+  }
+
+  .mobile-quick-btn.maint span{
+    background:#fef3c7;
+  }
+
+  .mobile-quick-btn.home span{
+    background:#dcfce7;
+  }
+
+  .mobile-quick-btn b{
+    display:block;
+    color:#111827;
+    font-size:21px;
+    font-weight:1000;
+    line-height:1.25;
+  }
+
+  .mobile-quick-btn small{
+    display:block;
+    margin-top:5px;
+    color:#64748b;
+    font-size:13px;
+    font-weight:800;
   }
 }
 
