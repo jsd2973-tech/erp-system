@@ -461,6 +461,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-002", notice_date: "2026-05-13", content: "대량이체 메뉴 순서 및 계좌번호 앞자리 보존 개선" },
   { id: "auto-20260513-003", notice_date: "2026-05-13", content: "대량이체 화면 안내문 제거 및 엑셀 입금통장표시내용 복구" },
   { id: "auto-20260513-004", notice_date: "2026-05-13", content: "고객관리성명 고정 기능 및 계좌번호 앞자리 보존 수정" },
+  { id: "auto-20260513-005", notice_date: "2026-05-13", content: "업체계좌관리 메뉴 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -2334,7 +2335,7 @@ export default function App() {
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -2716,6 +2717,147 @@ export default function App() {
                     </div>
                   );
                 })
+              )}
+            </div>
+          </section>
+        )}
+
+
+
+        {menuTab === "vendor_accounts" && (
+          <section className="card vendor-account-page">
+            <div className="vendor-account-head">
+              <div>
+                <h2>업체계좌관리</h2>
+                <p>거래처 계좌 및 고객관리성명을 영구 저장합니다.</p>
+              </div>
+
+              <div className="actions">
+                <label className="upload">
+                  <Upload size={16} /> 계좌 엑셀 업로드
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await importVendorAccountsExcel(file);
+                    }}
+                  />
+                </label>
+
+                <button onClick={loadVendorAccounts}>새로고침</button>
+              </div>
+            </div>
+
+            <div className="vendor-account-list">
+              {!vendorAccounts.length ? (
+                <div className="empty">등록된 거래처 계좌가 없습니다.</div>
+              ) : (
+                vendorAccounts.map((account) => (
+                  <div className="vendor-account-card" key={account.id}>
+                    <div className="vendor-account-title">
+                      <strong>{account.vendor_name}</strong>
+                    </div>
+
+                    <div className="vendor-account-grid">
+                      <Field label="은행명">
+                        <input
+                          value={account.bank_name || ""}
+                          onChange={(e) =>
+                            setVendorAccounts((prev) =>
+                              prev.map((row) =>
+                                row.id === account.id
+                                  ? { ...row, bank_name: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </Field>
+
+                      <Field label="은행코드">
+                        <input
+                          value={account.bank_code || ""}
+                          onChange={(e) =>
+                            setVendorAccounts((prev) =>
+                              prev.map((row) =>
+                                row.id === account.id
+                                  ? { ...row, bank_code: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </Field>
+
+                      <Field label="예금주">
+                        <input
+                          value={account.account_name || ""}
+                          onChange={(e) =>
+                            setVendorAccounts((prev) =>
+                              prev.map((row) =>
+                                row.id === account.id
+                                  ? { ...row, account_name: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </Field>
+
+                      <Field label="고객관리성명">
+                        <input
+                          value={account.customer_display_name || ""}
+                          onChange={(e) =>
+                            setVendorAccounts((prev) =>
+                              prev.map((row) =>
+                                row.id === account.id
+                                  ? { ...row, customer_display_name: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </Field>
+
+                      <Field label="계좌번호">
+                        <input
+                          value={account.account_number || ""}
+                          onChange={(e) =>
+                            setVendorAccounts((prev) =>
+                              prev.map((row) =>
+                                row.id === account.id
+                                  ? { ...row, account_number: e.target.value }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="vendor-account-bottom">
+                      <button
+                        className="primary"
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("vendor_accounts")
+                            .upsert(account, { onConflict: "id" });
+
+                          if (error) {
+                            alert(`저장 실패: ${error.message}`);
+                            return;
+                          }
+
+                          alert("저장되었습니다.");
+                          await loadVendorAccounts();
+                        }}
+                      >
+                        저장
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </section>
@@ -7211,5 +7353,86 @@ td .icon{
 .bulk-select-bottom{display:flex;justify-content:flex-end;gap:8px;padding:16px 24px 22px;border-top:1px solid #e5e7eb}
 .bulk-select-bottom .primary{background:#16a34a;color:#fff}
 @media (max-width:700px){.bulk-select-row{grid-template-columns:28px 1fr}.bulk-select-row em,.bulk-select-row b{grid-column:2;text-align:left}.bulk-select-actions strong{margin-left:0;width:100%}}
+
+/* ===== Vendor Account Management ===== */
+.vendor-account-page{
+  padding:26px;
+}
+
+.vendor-account-head{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.vendor-account-head h2{
+  margin:0;
+  color:#111827;
+  font-size:24px;
+  font-weight:1000;
+}
+
+.vendor-account-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+
+.vendor-account-list{
+  display:grid;
+  gap:14px;
+}
+
+.vendor-account-card{
+  padding:18px;
+  border-radius:20px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 6px 18px rgba(15,23,42,.06);
+}
+
+.vendor-account-title{
+  margin-bottom:14px;
+}
+
+.vendor-account-title strong{
+  color:#111827;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.vendor-account-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+}
+
+.vendor-account-bottom{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+
+.vendor-account-bottom .primary{
+  min-width:120px;
+}
+
+@media (max-width:1200px){
+  .vendor-account-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:700px){
+  .vendor-account-head{
+    flex-direction:column;
+  }
+
+  .vendor-account-grid{
+    grid-template-columns:1fr;
+  }
+}
 
 `;
