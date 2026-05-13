@@ -2626,7 +2626,7 @@ export default function App() {
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -3966,7 +3966,7 @@ export default function App() {
               <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
               <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>
-              <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>
+              
             </>
           )}
 
