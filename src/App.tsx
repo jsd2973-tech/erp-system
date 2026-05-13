@@ -4072,7 +4072,31 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
+  {!purchases.length ? (
+    <div className="empty">저장된 구매내역 없음</div>
+  ) : purchases.map((p: Purchase, index: number) => {
+    const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
+    const seq = sameDateBeforeCount + 1;
+    return (
+      <div className="mobile-purchase-card" key={`mobile-${p.id}`}>
+        <div className="mobile-purchase-card-head">
+          <strong>{p.vendor || "거래처 미입력"}</strong>
+          <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
+        </div>
+        <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
+        <div className="mobile-purchase-card-row"><span>품목</span><b>{p.itemSummary || "-"}</b></div>
+        <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
+        {isAdmin && (
+          <div className="mobile-purchase-card-actions">
+            <button onClick={() => editPurchase(p)}>수정</button>
+            <button onClick={() => deletePurchase(p.id)}>삭제</button>
+          </div>
+        )}
+      </div>
+    );
+  })}
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
   return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
@@ -9363,6 +9387,128 @@ td .icon{
   background:#ef4444 !important;
   color:#ffffff !important;
   font-weight:1000 !important;
+}
+
+/* ===== Mobile Full Menu Visibility + Font Normalize ===== */
+@media (max-width:900px){
+  html, body, #root, .app{
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",Arial,sans-serif !important;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .app{
+    min-height:100dvh !important;
+    height:auto !important;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    padding-bottom:96px !important;
+  }
+
+  .card{
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .table-wrap,
+  .scroll-table{
+    width:100% !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow-x:auto !important;
+    overflow-y:visible !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+
+  input, textarea, select{
+    font-size:16px !important;
+    font-weight:700 !important;
+  }
+
+  button{
+    font-weight:900 !important;
+  }
+}
+
+/* ===== Mobile Purchase Lookup Cards ===== */
+.mobile-purchase-cards{
+  display:none;
+}
+
+@media (max-width:900px){
+  .mobile-purchase-cards{
+    display:grid !important;
+    gap:12px;
+    margin-top:18px;
+  }
+
+  .mobile-purchase-card{
+    display:block;
+    padding:16px;
+    border-radius:18px;
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    box-shadow:0 8px 20px rgba(15,23,42,.07);
+  }
+
+  .mobile-purchase-card-head{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:flex-start;
+    margin-bottom:10px;
+  }
+
+  .mobile-purchase-card-head strong{
+    color:#111827;
+    font-size:17px;
+    font-weight:1000;
+    line-height:1.3;
+  }
+
+  .mobile-purchase-card-head span{
+    color:#64748b;
+    font-size:13px;
+    font-weight:800;
+    white-space:nowrap;
+  }
+
+  .mobile-purchase-card-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:7px 0;
+    border-top:1px solid #f1f5f9;
+    color:#334155;
+    font-size:14px;
+    font-weight:800;
+  }
+
+  .mobile-purchase-card-row b{
+    color:#111827;
+    font-weight:1000;
+    text-align:right;
+  }
+
+  .mobile-purchase-card-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:12px;
+  }
+
+  .mobile-purchase-card-actions button{
+    min-height:40px;
+    border:0;
+    border-radius:12px;
+    background:#e2e8f0;
+    color:#111827;
+    font-size:14px;
+    font-weight:1000;
+  }
 }
 
 `;
