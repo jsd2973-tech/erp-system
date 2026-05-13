@@ -477,6 +477,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-007", notice_date: "2026-05-13", content: "입고사진등록 기능 추가" },
   { id: "auto-20260513-008", notice_date: "2026-05-13", content: "입고사진 전용 버킷 적용" },
   { id: "auto-20260513-009", notice_date: "2026-05-13", content: "입고사진 보기 모바일 화면 개선" },
+  { id: "auto-20260513-010", notice_date: "2026-05-13", content: "입고사진등록 화면 디자인 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -2843,104 +2844,125 @@ export default function App() {
 
 
         {menuTab === "receipt_photos" && (
-          <section className="card receipt-photo-page">
-            <div className="receipt-photo-head">
+          <section className="card receipt-photo-page receipt-photo-page-clean">
+            <div className="receipt-clean-title">
+              <div className="receipt-clean-icon">📷</div>
               <div>
                 <h2>입고사진등록</h2>
-                <p>직원은 자재 입고 사진과 내용만 등록하고, 관리자는 확인 후 처리완료로 변경합니다.</p>
+                <p>직원은 자재 입고 사진과 내용을 등록하고, 관리자는 확인 후 처리완료로 변경합니다.</p>
               </div>
-              <button onClick={loadReceiptPhotos}>새로고침</button>
+              <button className="receipt-refresh-btn" onClick={loadReceiptPhotos}>새로고침</button>
             </div>
 
-            <div className="receipt-photo-form">
-              <Field label="일자">
-                <div className="date-input-wrap">
-                  <input
-                    className="date-text-input"
-                    value={receiptPhotoForm.receipt_date}
-                    onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: formatInputDate(e.target.value) })}
-                    placeholder="20260513 또는 260513"
-                  />
-                  <input
-                    className="date-picker-input"
-                    type="date"
-                    value={receiptPhotoForm.receipt_date}
-                    onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: e.target.value })}
-                    aria-label="입고일자 선택"
-                  />
-                  <span className="date-picker-icon">📅</span>
+            <div className="receipt-clean-form-wrap">
+              <div className="receipt-clean-form-card">
+                <div className="receipt-card-section-title">입고 정보</div>
+
+                <div className="receipt-clean-grid">
+                  <Field label="일자">
+                    <div className="date-input-wrap">
+                      <input
+                        className="date-text-input"
+                        value={receiptPhotoForm.receipt_date}
+                        onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: formatInputDate(e.target.value) })}
+                        placeholder="20260513 또는 260513"
+                      />
+                      <input
+                        className="date-picker-input"
+                        type="date"
+                        value={receiptPhotoForm.receipt_date}
+                        onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: e.target.value })}
+                        aria-label="입고일자 선택"
+                      />
+                      <span className="date-picker-icon">📅</span>
+                    </div>
+                  </Field>
+
+                  <Field label="거래처">
+                    <SearchSelect
+                      value={receiptPhotoForm.vendor_name}
+                      options={vendorOptions}
+                      onChange={(value) => setReceiptPhotoForm({ ...receiptPhotoForm, vendor_name: value })}
+                      placeholder="거래처 검색 또는 입력"
+                    />
+                  </Field>
                 </div>
-              </Field>
 
-              <Field label="거래처">
-                <SearchSelect
-                  value={receiptPhotoForm.vendor_name}
-                  options={vendorOptions}
-                  onChange={(value) => setReceiptPhotoForm({ ...receiptPhotoForm, vendor_name: value })}
-                  placeholder="거래처 검색"
-                />
-              </Field>
+                <Field label="내용">
+                  <textarea
+                    className="receipt-clean-textarea"
+                    value={receiptPhotoForm.memo}
+                    onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, memo: e.target.value })}
+                    placeholder="예: 베어링 입고 / 로더 부품 도착 / 납품사진"
+                    rows={5}
+                  />
+                </Field>
 
-              <Field label="내용">
-                <textarea
-                  value={receiptPhotoForm.memo}
-                  onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, memo: e.target.value })}
-                  placeholder="예: 베어링 입고 / 로더 부품 도착 / 납품사진"
-                  rows={4}
-                />
-              </Field>
+                <button className="receipt-submit-clean" onClick={saveReceiptPhoto}>
+                  입고사진 등록
+                </button>
+              </div>
 
-              <Field label="사진첨부">
-                <label className="receipt-photo-upload">
-                  <Upload size={18} />
-                  사진 여러 장 선택
+              <div className="receipt-clean-upload-card">
+                <div className="receipt-card-section-title">사진 첨부</div>
+
+                <label className="receipt-dropzone">
                   <input
                     type="file"
                     accept="image/*"
                     multiple
                     onChange={(e) => setReceiptPhotoFiles(Array.from(e.target.files || []))}
                   />
+                  <div className="receipt-drop-icon">⬆</div>
+                  <strong>사진을 선택하세요</strong>
+                  <span>여러 장 선택 가능 · JPG / PNG / HEIC</span>
                 </label>
-                {!!receiptPhotoFiles.length && (
-                  <div className="receipt-photo-selected">{receiptPhotoFiles.length}장 선택됨</div>
-                )}
-              </Field>
 
-              <div className="actions right-actions">
-                <button className="primary" onClick={saveReceiptPhoto}>입고사진 등록</button>
+                <div className="receipt-file-count">
+                  {receiptPhotoFiles.length ? `${receiptPhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                </div>
               </div>
             </div>
 
-            <div className="receipt-photo-list">
+            <div className="receipt-list-head">
+              <div>
+                <h3>등록된 입고사진</h3>
+                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건</p>
+              </div>
+            </div>
+
+            <div className="receipt-clean-list">
               {!receiptPhotos.length ? (
-                <div className="empty">등록된 입고사진이 없습니다.</div>
+                <div className="receipt-clean-empty">등록된 입고사진이 없습니다.</div>
               ) : (
                 receiptPhotos.map((item) => (
-                  <div className={item.is_processed ? "receipt-photo-card processed" : "receipt-photo-card"} key={item.id}>
-                    <div className="receipt-photo-card-head">
-                      <div>
-                        <span className={item.is_processed ? "processed" : "pending"}>
-                          {item.is_processed ? "처리완료" : "미처리"}
-                        </span>
-                        <b>{item.vendor_name}</b>
-                        <p>{item.receipt_date} · {item.created_by || "등록자 미입력"}</p>
-                      </div>
-                      <div className="actions">
-                        <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
-                        <button onClick={() => toggleReceiptPhotoProcessed(item)}>
-                          {item.is_processed ? "미처리로 변경" : "처리완료"}
-                        </button>
-                        {isAdmin && <button onClick={() => deleteReceiptPhoto(item.id)}>삭제</button>}
-                      </div>
+                  <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
+                    <div className="receipt-clean-card-top">
+                      <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
+                        {item.is_processed ? "처리완료" : "미처리"}
+                      </span>
+                      <small>{item.receipt_date}</small>
                     </div>
 
-                    {item.memo && <div className="receipt-photo-memo">{item.memo}</div>}
+                    <strong className="receipt-vendor-name">{item.vendor_name}</strong>
+                    <p className="receipt-created-by">{item.created_by || "등록자 미입력"}</p>
 
-                    <div className="receipt-photo-thumbs">
-                      {(item.image_urls || []).slice(0, 4).map((url, idx) => (
+                    {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
+
+                    <div className="receipt-clean-thumbs">
+                      {(item.image_urls || []).slice(0, 3).map((url, idx) => (
                         <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => setReceiptPhotoPreviewOpen(item)} />
                       ))}
-                      {(item.image_urls || []).length > 4 && <div className="receipt-photo-more">+{(item.image_urls || []).length - 4}</div>}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
+                    </div>
+
+                    <div className="receipt-clean-actions">
+                      <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
+                      <button className="complete" onClick={() => toggleReceiptPhotoProcessed(item)}>
+                        {item.is_processed ? "미처리로 변경" : "처리완료"}
+                      </button>
+                      {isAdmin && <button className="delete" onClick={() => deleteReceiptPhoto(item.id)}>삭제</button>}
                     </div>
                   </div>
                 ))
@@ -8106,6 +8128,390 @@ td .icon{
 
   .receipt-photo-preview-images{
     grid-template-columns:1fr !important;
+  }
+}
+
+/* ===== Receipt Photo Clean Redesign ===== */
+.receipt-photo-page-clean{
+  padding:28px !important;
+}
+
+.receipt-clean-title{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:14px;
+  margin-bottom:22px;
+}
+
+.receipt-clean-icon{
+  width:52px;
+  height:52px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  background:#eff6ff;
+  color:#2563eb;
+  font-size:26px;
+  box-shadow:0 8px 18px rgba(37,99,235,.14);
+}
+
+.receipt-clean-title h2{
+  margin:0;
+  color:#111827;
+  font-size:26px;
+  font-weight:1000;
+}
+
+.receipt-clean-title p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:800;
+}
+
+.receipt-refresh-btn{
+  min-height:42px;
+  border:0;
+  border-radius:14px;
+  padding:0 16px;
+  background:#f1f5f9;
+  color:#334155;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.receipt-clean-form-wrap{
+  display:grid;
+  grid-template-columns:1fr 0.9fr;
+  gap:16px;
+  margin-bottom:24px;
+}
+
+.receipt-clean-form-card,
+.receipt-clean-upload-card{
+  padding:22px;
+  border-radius:24px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+
+.receipt-card-section-title{
+  margin-bottom:16px;
+  color:#2563eb;
+  font-size:16px;
+  font-weight:1000;
+}
+
+.receipt-clean-grid{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:12px;
+}
+
+.receipt-clean-textarea{
+  width:100%;
+  min-height:128px;
+  resize:vertical;
+  border-radius:16px;
+  border:1px solid #cbd5e1;
+  padding:14px 16px;
+  font-family:inherit;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.5;
+  box-sizing:border-box;
+}
+
+.receipt-submit-clean{
+  width:100%;
+  min-height:52px;
+  margin-top:14px;
+  border:0;
+  border-radius:16px;
+  background:linear-gradient(135deg,#16a34a,#15803d);
+  color:#ffffff;
+  font-size:16px;
+  font-weight:1000;
+  cursor:pointer;
+  box-shadow:0 12px 22px rgba(22,163,74,.18);
+}
+
+.receipt-dropzone{
+  min-height:208px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:22px;
+  border:2px dashed #93c5fd;
+  background:linear-gradient(180deg,#eff6ff,#ffffff);
+  cursor:pointer;
+  transition:.16s ease;
+}
+
+.receipt-dropzone:hover{
+  transform:translateY(-2px);
+  border-color:#2563eb;
+}
+
+.receipt-dropzone input{
+  display:none;
+}
+
+.receipt-drop-icon{
+  width:52px;
+  height:52px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:#2563eb;
+  color:#ffffff;
+  font-size:26px;
+  font-weight:1000;
+}
+
+.receipt-dropzone strong{
+  color:#111827;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.receipt-dropzone span{
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.receipt-file-count{
+  margin-top:12px;
+  text-align:right;
+  color:#2563eb;
+  font-size:14px;
+  font-weight:1000;
+}
+
+.receipt-list-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  margin:4px 0 14px;
+}
+
+.receipt-list-head h3{
+  margin:0;
+  color:#111827;
+  font-size:22px;
+  font-weight:1000;
+}
+
+.receipt-list-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:14px;
+  font-weight:900;
+}
+
+.receipt-clean-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
+  gap:14px;
+}
+
+.receipt-clean-card{
+  padding:18px;
+  border-radius:22px;
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+
+.receipt-clean-card.pending{
+  border-left:6px solid #ef4444;
+}
+
+.receipt-clean-card.processed{
+  border-left:6px solid #16a34a;
+  background:#fbfefc;
+}
+
+.receipt-clean-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.receipt-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:0 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.receipt-badge.pending{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
+.receipt-badge.processed{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.receipt-clean-card-top small{
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+}
+
+.receipt-vendor-name{
+  display:block;
+  color:#111827;
+  font-size:18px;
+  font-weight:1000;
+  line-height:1.3;
+}
+
+.receipt-created-by{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.receipt-clean-memo{
+  margin-top:12px;
+  min-height:46px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#f8fafc;
+  color:#334155;
+  font-size:14px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.receipt-clean-thumbs{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:12px;
+}
+
+.receipt-clean-thumbs img,
+.receipt-no-thumb,
+.receipt-more-thumb{
+  width:100%;
+  aspect-ratio:1/0.72;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  background:#f8fafc;
+  object-fit:cover;
+}
+
+.receipt-clean-thumbs img{
+  cursor:pointer;
+}
+
+.receipt-no-thumb,
+.receipt-more-thumb{
+  display:grid;
+  place-items:center;
+  color:#64748b;
+  font-size:13px;
+  font-weight:1000;
+}
+
+.receipt-clean-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr auto;
+  gap:8px;
+  margin-top:14px;
+}
+
+.receipt-clean-actions button{
+  min-height:40px;
+  border:0;
+  border-radius:12px;
+  background:#e2e8f0;
+  color:#111827;
+  font-size:13px;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.receipt-clean-actions .complete{
+  background:#16a34a;
+  color:#ffffff;
+}
+
+.receipt-clean-actions .delete{
+  background:#ef4444;
+  color:#ffffff;
+  padding:0 14px;
+}
+
+.receipt-clean-empty{
+  grid-column:1/-1;
+  min-height:220px;
+  display:grid;
+  place-items:center;
+  border-radius:22px;
+  background:#ffffff;
+  border:1px dashed #cbd5e1;
+  color:#64748b;
+  font-size:17px;
+  font-weight:1000;
+}
+
+@media (max-width:1100px){
+  .receipt-clean-form-wrap{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:900px){
+  .receipt-photo-page-clean{
+    padding:18px !important;
+  }
+
+  .receipt-clean-title{
+    grid-template-columns:auto 1fr;
+  }
+
+  .receipt-refresh-btn{
+    grid-column:1/-1;
+    width:100%;
+  }
+
+  .receipt-clean-grid{
+    grid-template-columns:1fr;
+  }
+
+  .receipt-clean-form-card,
+  .receipt-clean-upload-card{
+    padding:16px;
+    border-radius:20px;
+  }
+
+  .receipt-dropzone{
+    min-height:150px;
+  }
+
+  .receipt-clean-list{
+    grid-template-columns:1fr;
+  }
+
+  .receipt-clean-actions{
+    grid-template-columns:1fr;
   }
 }
 
