@@ -494,6 +494,13 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-011", notice_date: "2026-05-13", content: "모바일 로그인 후 빠른 업무 선택 화면 추가" },
   { id: "auto-20260513-012", notice_date: "2026-05-13", content: "모바일 빠른 업무 선택 화면 빌드 오류 수정" },
   { id: "auto-20260513-013", notice_date: "2026-05-13", content: "정비사진등록 페이지 추가" },
+  { id: "auto-20260513-014", notice_date: "2026-05-13", content: "정비사진등록 메뉴를 정비통계 아래로 이동" },
+  { id: "auto-20260513-015", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 오류 수정" },
+  { id: "auto-20260513-016", notice_date: "2026-05-13", content: "정비 드롭다운 메뉴 구조 직접 수정" },
+  { id: "auto-20260513-017", notice_date: "2026-05-13", content: "정비 드롭다운 4개 메뉴 강제 표시" },
+  { id: "auto-20260513-018", notice_date: "2026-05-13", content: "정비사진 메뉴 독립 버튼 추가" },
+  { id: "auto-20260513-019", notice_date: "2026-05-13", content: "정비사진등록을 정비 드롭다운 안으로 정리" },
+  { id: "auto-20260513-020", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 최종 수정" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -2629,7 +2636,16 @@ export default function App() {
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
-          <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
+          <div className="menu-group maint-menu-group">
+            <button type="button">정비</button>
+            <div className="sub maint-sub">
+              <button type="button" onMouseDown={() => setMenuTab("maint_new")}>정비등록</button>
+              <button type="button" onMouseDown={() => setMenuTab("maint_list")}>정비조회</button>
+              <button type="button" onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button>
+              <button type="button" onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button>
+            </div>
+          </div>
+          
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
@@ -3982,6 +3998,7 @@ export default function App() {
               <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>
               <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>
               <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>
+              <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>
             </>
           )}
 
@@ -9023,6 +9040,263 @@ td .icon{
 
 .maintenance-photo-page-clean .receipt-clean-card.pending{
   border-left-color:#f59e0b;
+}
+
+/* ===== Ensure Maintenance Photo Menu Visible ===== */
+.menu .dropdown,
+.menu .submenu,
+.nav-dropdown,
+.dropdown-menu{
+  overflow:visible !important;
+  z-index:9999 !important;
+}
+
+/* ===== Fixed Maintenance Dropdown Menu ===== */
+.maint-menu-group .maint-sub{
+  min-width:160px !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  z-index:99999 !important;
+}
+
+.maint-menu-group:hover .maint-sub,
+.maint-menu-group:focus-within .maint-sub{
+  display:block !important;
+}
+
+.maint-menu-group .maint-sub button{
+  display:block !important;
+  width:160px !important;
+  min-height:38px !important;
+  white-space:nowrap !important;
+}
+
+@media (max-width:900px){
+  .maint-menu-group .maint-sub{
+    display:none;
+  }
+
+  .maint-menu-group:hover .maint-sub,
+  .maint-menu-group:focus-within .maint-sub{
+    display:grid !important;
+  }
+
+  .maint-menu-group .maint-sub button{
+    width:100% !important;
+  }
+}
+
+/* ===== Force Maintenance Dropdown 4 Items ===== */
+.maint-menu-group{
+  position:relative !important;
+}
+
+.maint-menu-group .maint-sub{
+  display:none;
+  position:absolute !important;
+  top:100% !important;
+  left:0 !important;
+  z-index:999999 !important;
+  min-width:170px !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  padding-top:6px !important;
+  background:transparent !important;
+}
+
+.maint-menu-group:hover .maint-sub,
+.maint-menu-group:focus-within .maint-sub{
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.maint-menu-group .maint-sub button{
+  display:block !important;
+  width:170px !important;
+  min-height:38px !important;
+  height:38px !important;
+  padding:9px 12px !important;
+  background:#ffffff !important;
+  color:#111827 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  text-align:left !important;
+  white-space:nowrap !important;
+}
+
+.maint-menu-group .maint-sub button:first-child{
+  border-radius:10px 10px 0 0 !important;
+}
+
+.maint-menu-group .maint-sub button:last-child{
+  border-radius:0 0 10px 10px !important;
+}
+
+@media (max-width:900px){
+  .maint-menu-group .maint-sub{
+    position:fixed !important;
+    top:132px !important;
+    left:12px !important;
+    right:12px !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:10px !important;
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:16px !important;
+    box-shadow:0 12px 30px rgba(15,23,42,.18) !important;
+  }
+
+  .maint-menu-group:hover .maint-sub,
+  .maint-menu-group:focus-within .maint-sub{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+
+  .maint-menu-group .maint-sub button{
+    width:100% !important;
+    border-radius:12px !important;
+    background:#f8fafc !important;
+    border:1px solid #e5e7eb !important;
+  }
+}
+
+/* ===== Standalone Maintenance Photo Button ===== */
+.menu > button.maintenance-photo-standalone,
+.menu button[onclick*="maintenance_photos"]{
+  white-space:nowrap;
+}
+
+/* ===== Clean Maintenance Dropdown Fixed ===== */
+.menu .maint-menu-group{
+  position:relative !important;
+}
+
+.menu .maint-menu-group .maint-sub{
+  display:none !important;
+  position:absolute !important;
+  top:100% !important;
+  left:0 !important;
+  z-index:999999 !important;
+  width:170px !important;
+  min-width:170px !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  padding:6px 0 0 0 !important;
+  background:transparent !important;
+}
+
+.menu .maint-menu-group:hover .maint-sub,
+.menu .maint-menu-group:focus-within .maint-sub{
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.menu .maint-menu-group .maint-sub button{
+  display:block !important;
+  width:170px !important;
+  min-width:170px !important;
+  height:40px !important;
+  min-height:40px !important;
+  padding:9px 13px !important;
+  margin:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:#ffffff !important;
+  color:#111827 !important;
+  text-align:left !important;
+  font-size:14px !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+  box-shadow:none !important;
+}
+
+.menu .maint-menu-group .maint-sub button:first-child{
+  border-radius:10px 10px 0 0 !important;
+}
+
+.menu .maint-menu-group .maint-sub button:last-child{
+  border-radius:0 0 10px 10px !important;
+}
+
+.menu .maint-menu-group .maint-sub button:hover{
+  background:#f1f5f9 !important;
+}
+
+@media (max-width:900px){
+  .menu .maint-menu-group .maint-sub{
+    position:fixed !important;
+    top:132px !important;
+    left:12px !important;
+    right:12px !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:10px !important;
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:16px !important;
+    box-shadow:0 12px 30px rgba(15,23,42,.18) !important;
+  }
+
+  .menu .maint-menu-group:hover .maint-sub,
+  .menu .maint-menu-group:focus-within .maint-sub{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+  }
+
+  .menu .maint-menu-group .maint-sub button{
+    width:100% !important;
+    min-width:0 !important;
+    border-radius:12px !important;
+    background:#f8fafc !important;
+    border:1px solid #e5e7eb !important;
+  }
+}
+
+/* ===== Maintenance Photo Menu Visibility Final Fix ===== */
+.menu-group .sub{
+  height:auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+  z-index:999999 !important;
+}
+
+.menu-group:hover .sub,
+.menu-group:focus-within .sub{
+  display:block !important;
+}
+
+.menu-group .sub button{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  width:170px !important;
+  min-height:40px !important;
+  height:40px !important;
+  line-height:1.2 !important;
+}
+
+@media (max-width:900px){
+  .mobile-sheet,
+  .mobile-sheet-panel,
+  .mobile-sheet-content{
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+
+  .mobile-sheet button,
+  .mobile-sheet-panel button,
+  .mobile-sheet-content button{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
 }
 
 `;
