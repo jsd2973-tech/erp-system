@@ -501,6 +501,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-018", notice_date: "2026-05-13", content: "정비사진 메뉴 독립 버튼 추가" },
   { id: "auto-20260513-019", notice_date: "2026-05-13", content: "정비사진등록을 정비 드롭다운 안으로 정리" },
   { id: "auto-20260513-020", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 최종 수정" },
+  { id: "auto-20260513-021", notice_date: "2026-05-13", content: "정비 드롭다운 글씨 두께 통일" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -9210,7 +9211,7 @@ td .icon{
   color:#111827 !important;
   text-align:left !important;
   font-size:14px !important;
-  font-weight:800 !important;
+  font-weight:700 !important;
   white-space:nowrap !important;
   box-shadow:none !important;
 }
@@ -9297,6 +9298,12 @@ td .icon{
     visibility:visible !important;
     opacity:1 !important;
   }
+}
+
+/* ===== Maintenance Dropdown Font Match ===== */
+.menu .maint-menu-group .maint-sub button{
+  font-weight:700 !important;
+  letter-spacing:0 !important;
 }
 
 `;
