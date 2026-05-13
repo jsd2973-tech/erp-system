@@ -9211,7 +9211,7 @@ td .icon{
   color:#111827 !important;
   text-align:left !important;
   font-size:14px !important;
-  font-weight:700 !important;
+  font-weight:500 !important;
   white-space:nowrap !important;
   box-shadow:none !important;
 }
@@ -9302,8 +9302,16 @@ td .icon{
 
 /* ===== Maintenance Dropdown Font Match ===== */
 .menu .maint-menu-group .maint-sub button{
-  font-weight:700 !important;
+  font-weight:500 !important;
   letter-spacing:0 !important;
+}
+
+/* ===== Maintenance Dropdown Same Weight ===== */
+.menu .maint-menu-group .maint-sub button{
+  font-family: inherit !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
 }
 
 `;
