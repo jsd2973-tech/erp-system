@@ -479,6 +479,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-009", notice_date: "2026-05-13", content: "입고사진 보기 모바일 화면 개선" },
   { id: "auto-20260513-010", notice_date: "2026-05-13", content: "입고사진등록 화면 디자인 개선" },
   { id: "auto-20260513-011", notice_date: "2026-05-13", content: "모바일 로그인 후 빠른 업무 선택 화면 추가" },
+  { id: "auto-20260513-012", notice_date: "2026-05-13", content: "모바일 빠른 업무 선택 화면 빌드 오류 수정" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -515,13 +516,7 @@ function SearchSelect({
   const [open, setOpen] = useState(false);
 
   const normalized = useMemo(() => {
-    const openMobileQuickMenu = (target: MenuTab) => {
-    setMenuTab(target);
-    setMobileSheet("");
-    setShowMobileQuickStart(false);
-  };
-
-  return (options || [])
+    return (options || [])
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
@@ -812,6 +807,11 @@ export default function App() {
   const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth <= 900 : false
   );
+  const openMobileQuickMenu = (target: string) => {
+    setMenuTab(target as any);
+    setMobileSheet("");
+    setShowMobileQuickStart(false);
+  };
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
