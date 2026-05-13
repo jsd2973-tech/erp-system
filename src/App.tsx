@@ -68,6 +68,19 @@ type ReceiptPhoto = {
 };
 
 
+type MaintenancePhoto = {
+  id: string;
+  maint_date: string;
+  equipment_name: string;
+  memo?: string;
+  image_urls?: string[];
+  created_by?: string;
+  is_processed?: boolean;
+  is_urgent?: boolean;
+  created_at?: string;
+};
+
+
 
 const supabase = createClient(
   "https://jqdvxmatbmmeubtoogvl.supabase.co",
@@ -480,6 +493,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-010", notice_date: "2026-05-13", content: "입고사진등록 화면 디자인 개선" },
   { id: "auto-20260513-011", notice_date: "2026-05-13", content: "모바일 로그인 후 빠른 업무 선택 화면 추가" },
   { id: "auto-20260513-012", notice_date: "2026-05-13", content: "모바일 빠른 업무 선택 화면 빌드 오류 수정" },
+  { id: "auto-20260513-013", notice_date: "2026-05-13", content: "정비사진등록 페이지 추가" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -841,6 +855,16 @@ export default function App() {
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
   const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
+  const [maintenancePhotos, setMaintenancePhotos] = useState<MaintenancePhoto[]>([]);
+  const [maintenancePhotoForm, setMaintenancePhotoForm] = useState({
+    maint_date: getTodayKey(),
+    equipment_name: "",
+    memo: "",
+    is_urgent: false,
+  });
+  const [maintenancePhotoFiles, setMaintenancePhotoFiles] = useState<File[]>([]);
+  const [maintenancePhotoPreviewOpen, setMaintenancePhotoPreviewOpen] = useState<MaintenancePhoto | null>(null);
+
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
@@ -1533,6 +1557,104 @@ export default function App() {
     }
 
     return uploadedUrls;
+  };
+
+
+  const loadMaintenancePhotos = async () => {
+    const { data, error } = await supabase
+      .from("maintenance_photos")
+      .select("*")
+      .order("maint_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setMaintenancePhotos(((data || []) as any[]).map((item) => ({
+      ...item,
+      id: String(item.id),
+      maint_date: item.maint_date ? String(item.maint_date).slice(0, 10) : "",
+      image_urls: item.image_urls || [],
+    })) as MaintenancePhoto[]);
+  };
+
+  const uploadMaintenancePhotoFiles = async (files: File[]) => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of files) {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressReceiptImage(file) : file;
+      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const fileName = `maintenance-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage.from("maintenance-photos").upload(fileName, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      });
+
+      if (error) {
+        alert(`정비사진 업로드 실패: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from("maintenance-photos").getPublicUrl(fileName);
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
+  };
+
+  const saveMaintenancePhoto = async () => {
+    if (!maintenancePhotoForm.maint_date) return alert("일자를 입력하세요.");
+    if (!maintenancePhotoForm.equipment_name.trim()) return alert("설비명을 입력하세요.");
+    if (!maintenancePhotoForm.memo.trim() && !maintenancePhotoFiles.length) return alert("정비내용 또는 사진을 입력하세요.");
+
+    const imageUrls = maintenancePhotoFiles.length ? await uploadMaintenancePhotoFiles(maintenancePhotoFiles) : [];
+
+    const payload: MaintenancePhoto = {
+      id: uid(),
+      maint_date: maintenancePhotoForm.maint_date,
+      equipment_name: maintenancePhotoForm.equipment_name.trim(),
+      memo: maintenancePhotoForm.memo.trim(),
+      image_urls: imageUrls,
+      created_by: userEmail || "직원",
+      is_processed: false,
+      is_urgent: maintenancePhotoForm.is_urgent,
+    };
+
+    const { error } = await supabase.from("maintenance_photos").insert(payload);
+    if (error) return alert(`정비사진 저장 실패: ${error.message}`);
+
+    setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
+    setMaintenancePhotoFiles([]);
+    await loadMaintenancePhotos();
+    alert("정비사진이 등록되었습니다.");
+  };
+
+  const toggleMaintenancePhotoProcessed = async (item: MaintenancePhoto) => {
+    if (!isAdmin) return alert("관리자만 처리상태를 변경할 수 있습니다.");
+
+    const { error } = await supabase
+      .from("maintenance_photos")
+      .update({ is_processed: !item.is_processed })
+      .eq("id", item.id);
+
+    if (error) return alert(`처리상태 변경 실패: ${error.message}`);
+
+    await loadMaintenancePhotos();
+  };
+
+  const deleteMaintenancePhoto = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!confirm("정비사진 등록건을 삭제할까요?")) return;
+
+    const { error } = await supabase.from("maintenance_photos").delete().eq("id", id);
+    if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
+
+    await loadMaintenancePhotos();
   };
 
 
@@ -2411,7 +2533,7 @@ export default function App() {
                 </div>
               </button>
 
-              <button className="mobile-quick-btn maint" onClick={() => openMobileQuickMenu("maint")}>
+              <button className="mobile-quick-btn maint" onClick={() => openMobileQuickMenu("maintenance_photos")}>
                 <span>🛠️</span>
                 <div>
                   <b>정비사진등록</b>
@@ -2504,7 +2626,7 @@ export default function App() {
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
+          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group"><button>정비</button><div className="sub"><button onMouseDown={() => setMenuTab("maint_new")}>정비등록</button><button onMouseDown={() => setMenuTab("maint_list")}>정비조회</button><button onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button></div></div>
@@ -2892,6 +3014,173 @@ export default function App() {
         )}
 
 
+
+
+
+        {menuTab === "maintenance_photos" && (
+          <section className="card receipt-photo-page receipt-photo-page-clean maintenance-photo-page-clean">
+            <div className="receipt-clean-title">
+              <div className="receipt-clean-icon maint">🛠️</div>
+              <div>
+                <h2>정비사진등록</h2>
+                <p>현장 직원은 정비 사진과 내용을 등록하고, 관리자는 확인 후 정비등록에 반영합니다.</p>
+              </div>
+              <button className="receipt-refresh-btn" onClick={loadMaintenancePhotos}>새로고침</button>
+            </div>
+
+            <div className="receipt-clean-form-wrap">
+              <div className="receipt-clean-form-card">
+                <div className="receipt-card-section-title">정비 정보</div>
+
+                <div className="receipt-clean-grid">
+                  <Field label="일자">
+                    <div className="date-input-wrap">
+                      <input
+                        className="date-text-input"
+                        value={maintenancePhotoForm.maint_date}
+                        onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, maint_date: formatInputDate(e.target.value) })}
+                        placeholder="20260513 또는 260513"
+                      />
+                      <input
+                        className="date-picker-input"
+                        type="date"
+                        value={maintenancePhotoForm.maint_date}
+                        onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, maint_date: e.target.value })}
+                        aria-label="정비일자 선택"
+                      />
+                      <span className="date-picker-icon">📅</span>
+                    </div>
+                  </Field>
+
+                  <Field label="설비명">
+                    <SearchSelect
+                      value={maintenancePhotoForm.equipment_name}
+                      options={warehouseNames}
+                      onChange={(value) => setMaintenancePhotoForm({ ...maintenancePhotoForm, equipment_name: value })}
+                      placeholder="설비/창고 검색 또는 입력"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="정비내용">
+                  <textarea
+                    className="receipt-clean-textarea"
+                    value={maintenancePhotoForm.memo}
+                    onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, memo: e.target.value })}
+                    placeholder="예: 2470 스크린 스프링 교체 / 컨베이어 벨트 찢어짐 / 로더 오일 누유"
+                    rows={5}
+                  />
+                </Field>
+
+                <label className="maintenance-urgent-check">
+                  <input
+                    type="checkbox"
+                    checked={maintenancePhotoForm.is_urgent}
+                    onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, is_urgent: e.target.checked })}
+                  />
+                  긴급 정비로 표시
+                </label>
+
+                <button className="receipt-submit-clean maintenance-submit" onClick={saveMaintenancePhoto}>
+                  정비사진 등록
+                </button>
+              </div>
+
+              <div className="receipt-clean-upload-card">
+                <div className="receipt-card-section-title">정비 사진 첨부</div>
+
+                <label className="receipt-dropzone maintenance-dropzone">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setMaintenancePhotoFiles(Array.from(e.target.files || []))}
+                  />
+                  <div className="receipt-drop-icon">⬆</div>
+                  <strong>정비 사진을 선택하세요</strong>
+                  <span>여러 장 선택 가능 · 현장 사진 그대로 업로드</span>
+                </label>
+
+                <div className="receipt-file-count">
+                  {maintenancePhotoFiles.length ? `${maintenancePhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                </div>
+              </div>
+            </div>
+
+            <div className="receipt-list-head">
+              <div>
+                <h3>등록된 정비사진</h3>
+                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건</p>
+              </div>
+            </div>
+
+            <div className="receipt-clean-list">
+              {!maintenancePhotos.length ? (
+                <div className="receipt-clean-empty">등록된 정비사진이 없습니다.</div>
+              ) : (
+                maintenancePhotos.map((item) => (
+                  <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
+                    <div className="receipt-clean-card-top">
+                      <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
+                        {item.is_processed ? "처리완료" : "미처리"}
+                      </span>
+                      <small>{item.maint_date}</small>
+                    </div>
+
+                    <strong className="receipt-vendor-name">{item.equipment_name}</strong>
+                    <p className="receipt-created-by">{item.created_by || "등록자 미입력"}</p>
+                    {item.is_urgent && <div className="maintenance-urgent-badge">긴급</div>}
+
+                    {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
+
+                    <div className="receipt-clean-thumbs">
+                      {(item.image_urls || []).slice(0, 3).map((url, idx) => (
+                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => setMaintenancePhotoPreviewOpen(item)} />
+                      ))}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
+                    </div>
+
+                    <div className="receipt-clean-actions">
+                      <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
+                      <button className="complete" onClick={() => toggleMaintenancePhotoProcessed(item)}>
+                        {item.is_processed ? "미처리로 변경" : "처리완료"}
+                      </button>
+                      {isAdmin && <button className="delete" onClick={() => deleteMaintenancePhoto(item.id)}>삭제</button>}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {maintenancePhotoPreviewOpen && (
+          <div className="receipt-photo-preview-backdrop" onClick={() => setMaintenancePhotoPreviewOpen(null)}>
+            <div className="receipt-photo-preview" onClick={(e) => e.stopPropagation()}>
+              <div className="receipt-photo-preview-head">
+                <div>
+                  <h2>{maintenancePhotoPreviewOpen.equipment_name}</h2>
+                  <p>{maintenancePhotoPreviewOpen.maint_date}</p>
+                  {maintenancePhotoPreviewOpen.memo && <span>{maintenancePhotoPreviewOpen.memo}</span>}
+                </div>
+                <button onClick={() => setMaintenancePhotoPreviewOpen(null)}>닫기</button>
+              </div>
+
+              {(maintenancePhotoPreviewOpen.image_urls || []).length ? (
+                <div className="receipt-photo-preview-images">
+                  {(maintenancePhotoPreviewOpen.image_urls || []).map((url, idx) => (
+                    <a key={idx} href={url} target="_blank" rel="noreferrer">
+                      <img src={url} alt="정비사진 확대" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="receipt-photo-no-image">등록된 사진이 없습니다.</div>
+              )}
+            </div>
+          </div>
+        )}
 
 
         {menuTab === "receipt_photos" && (
@@ -3677,6 +3966,7 @@ export default function App() {
               <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
               <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
               <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>
+              <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>
             </>
           )}
 
@@ -8687,6 +8977,52 @@ td .icon{
   }
 }
 
-`;
+/* ===== Maintenance Photo Register ===== */
+.receipt-clean-icon.maint{
+  background:#fef3c7;
+  color:#92400e;
+}
 
-/* maintenance photo module added */
+.maintenance-dropzone{
+  border-color:#fbbf24 !important;
+  background:linear-gradient(180deg,#fffbeb,#ffffff) !important;
+}
+
+.maintenance-submit{
+  background:linear-gradient(135deg,#f59e0b,#d97706) !important;
+  box-shadow:0 12px 22px rgba(245,158,11,.18) !important;
+}
+
+.maintenance-urgent-check{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:10px;
+  color:#b91c1c;
+  font-size:14px;
+  font-weight:1000;
+}
+
+.maintenance-urgent-check input{
+  width:18px;
+  height:18px;
+  accent-color:#dc2626;
+}
+
+.maintenance-urgent-badge{
+  display:inline-flex;
+  width:max-content;
+  margin-top:8px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#fee2e2;
+  color:#991b1b;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.maintenance-photo-page-clean .receipt-clean-card.pending{
+  border-left-color:#f59e0b;
+}
+
+`;
