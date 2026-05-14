@@ -476,46 +476,6 @@ const isRecentNotice = (notice: UpdateNotice) => {
 
 const updateNoticeHideValue = () => getTodayKey();
 
-const BUNDLED_UPDATE_NOTICES = [
-  { id: "auto-20260512-001", notice_date: "2026-05-12", content: "공지 화면 디자인 및 자동 불러오기 기능 개선" },
-  { id: "auto-20260512-002", notice_date: "2026-05-12", content: "업데이트 공지 인터넷 저장 및 관리 기능 추가" },
-  { id: "auto-20260512-003", notice_date: "2026-05-12", content: "공지내역 화면 추가 및 공지 메뉴 정리" },
-  { id: "auto-20260512-004", notice_date: "2026-05-12", content: "생산라인 클릭영역 투명화 및 위치조정 기능 개선" },
-  { id: "auto-20260512-005", notice_date: "2026-05-12", content: "카드사용 영수증 여러 장 업로드 기능 추가" },
-  { id: "auto-20260512-006", notice_date: "2026-05-12", content: "정비 사진/PDF 여러 장 업로드 및 첨부파일 보기 기능 개선" },
-  { id: "auto-20260512-007", notice_date: "2026-05-12", content: "허가/갱신관리 기능 및 엑셀 업로드 기능 추가" },
-  { id: "auto-20260512-010", notice_date: "2026-05-12", content: "대량이체 자동 생성 기능 추가" },
-  { id: "auto-20260512-011", notice_date: "2026-05-12", content: "거래처 계좌 업로드 중복 오류 수정" },
-  { id: "auto-20260512-012", notice_date: "2026-05-12", content: "대량이체 엑셀 양식 및 수정 기능 개선" },
-  { id: "auto-20260512-013", notice_date: "2026-05-12", content: "대량이체 엑셀 서식 원본 양식에 맞게 개선" },
-  { id: "auto-20260512-014", notice_date: "2026-05-12", content: "대량이체 엑셀 스타일 적용을 위해 xlsx 저장 방식으로 개선" },
-  { id: "auto-20260513-001", notice_date: "2026-05-13", content: "대량이체 메뉴 이동 및 선택 다운로드 기능 추가" },
-  { id: "auto-20260513-002", notice_date: "2026-05-13", content: "대량이체 메뉴 순서 및 계좌번호 앞자리 보존 개선" },
-  { id: "auto-20260513-003", notice_date: "2026-05-13", content: "대량이체 화면 안내문 제거 및 엑셀 입금통장표시내용 복구" },
-  { id: "auto-20260513-004", notice_date: "2026-05-13", content: "고객관리성명 고정 기능 및 계좌번호 앞자리 보존 수정" },
-  { id: "auto-20260513-005", notice_date: "2026-05-13", content: "업체계좌관리 메뉴 추가" },
-  { id: "auto-20260513-006", notice_date: "2026-05-13", content: "구매입력 일자 달력 버튼 디자인 개선" },
-  { id: "auto-20260513-007", notice_date: "2026-05-13", content: "입고사진등록 기능 추가" },
-  { id: "auto-20260513-008", notice_date: "2026-05-13", content: "입고사진 전용 버킷 적용" },
-  { id: "auto-20260513-009", notice_date: "2026-05-13", content: "입고사진 보기 모바일 화면 개선" },
-  { id: "auto-20260513-010", notice_date: "2026-05-13", content: "입고사진등록 화면 디자인 개선" },
-  { id: "auto-20260513-011", notice_date: "2026-05-13", content: "모바일 로그인 후 빠른 업무 선택 화면 추가" },
-  { id: "auto-20260513-012", notice_date: "2026-05-13", content: "모바일 빠른 업무 선택 화면 빌드 오류 수정" },
-  { id: "auto-20260513-013", notice_date: "2026-05-13", content: "정비사진등록 페이지 추가" },
-  { id: "auto-20260513-014", notice_date: "2026-05-13", content: "정비사진등록 메뉴를 정비통계 아래로 이동" },
-  { id: "auto-20260513-015", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 오류 수정" },
-  { id: "auto-20260513-016", notice_date: "2026-05-13", content: "정비 드롭다운 메뉴 구조 직접 수정" },
-  { id: "auto-20260513-017", notice_date: "2026-05-13", content: "정비 드롭다운 4개 메뉴 강제 표시" },
-  { id: "auto-20260513-018", notice_date: "2026-05-13", content: "정비사진 메뉴 독립 버튼 추가" },
-  { id: "auto-20260513-019", notice_date: "2026-05-13", content: "정비사진등록을 정비 드롭다운 안으로 정리" },
-  { id: "auto-20260513-020", notice_date: "2026-05-13", content: "정비사진등록 메뉴 표시 최종 수정" },
-  { id: "auto-20260513-021", notice_date: "2026-05-13", content: "정비 드롭다운 글씨 두께 통일" },
-  { id: "auto-20260513-022", notice_date: "2026-05-13", content: "모바일 로그아웃 및 메뉴별 인터넷 새로고침 개선" },
-  { id: "auto-20260514-001", notice_date: "2026-05-14", content: "모바일 전체 메뉴 표시 및 통계 화면 보강" },
-  { id: "auto-20260514-002", notice_date: "2026-05-14", content: "로그인 유지 및 공지 팝업/삭제 개선" },
-  { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
-  { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
-];
 
 const dedupeUpdateNotices = (notices: UpdateNotice[]) => {
   const seen = new Set<string>();
