@@ -10378,4 +10378,68 @@ button[class*="download"]{
   }
 }
 
+/* ===== Mobile Receipt/Maintenance Photo Action Buttons Visible ===== */
+@media (max-width:900px){
+  .receipt-clean-list,
+  .receipt-clean-card,
+  .receipt-clean-actions{
+    overflow:visible !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  .receipt-clean-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+    width:100% !important;
+    margin-top:16px !important;
+  }
+
+  .receipt-clean-actions button{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:48px !important;
+    height:auto !important;
+    padding:11px 8px !important;
+    border-radius:14px !important;
+    justify-content:center !important;
+    align-items:center !important;
+    font-size:14px !important;
+    font-weight:1000 !important;
+    line-height:1.25 !important;
+    white-space:normal !important;
+    word-break:keep-all !important;
+  }
+
+  .receipt-clean-actions .link{
+    background:#2563eb !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .secondary{
+    background:#475569 !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .complete{
+    background:#16a34a !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .delete{
+    background:#ef4444 !important;
+    color:#ffffff !important;
+  }
+}
+
+@media (max-width:430px){
+  .receipt-clean-actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
 `;
