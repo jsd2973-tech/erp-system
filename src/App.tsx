@@ -1723,6 +1723,25 @@ export default function App() {
     })) as MaintenancePhoto[]);
   };
 
+  const loadMaintenanceSchedules = async () => {
+    const { data, error } = await supabase
+      .from("maintenance_schedules")
+      .select("*")
+      .order("schedule_date", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setMaintenanceSchedules(((data || []) as any[]).map((item) => ({
+      ...item,
+      id: String(item.id),
+      schedule_date: item.schedule_date ? String(item.schedule_date).slice(0, 10) : "",
+    })) as MaintenanceSchedule[]);
+  };
+
   const uploadMaintenancePhotoFiles = async (files: File[]) => {
     const uploadedUrls: string[] = [];
 
@@ -4370,6 +4389,45 @@ export default function App() {
         {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} onLinkPhoto={openMaintPhotoPicker} />}
 
         {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
+
+        {menuTab === "maintenance_schedule_new" && (
+          <section className="card maintenance-schedule-page">
+            <h2>{editingMaintenanceScheduleId ? "정비일정 수정" : "정비일정등록"}</h2>
+            <div className="grid5">
+              <Field label="예정일"><input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} /></Field>
+              <Field label="장비명"><input value={maintenanceScheduleForm.equipment_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })} placeholder="예: 1200콘 크라샤" /></Field>
+              <Field label="작업내용"><input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="예: 라이너 교체" /></Field>
+              <Field label="작업자"><input value={maintenanceScheduleForm.worker_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, worker_name: e.target.value })} placeholder="작업자" /></Field>
+              <Field label="우선순위">
+                <select value={maintenanceScheduleForm.priority} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, priority: e.target.value })}>
+                  <option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
+                </select>
+              </Field>
+            </div>
+            <div className="grid2">
+              <Field label="상태">
+                <select value={maintenanceScheduleForm.status} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, status: e.target.value })}>
+                  <option>예정</option><option>진행중</option><option>완료</option>
+                </select>
+              </Field>
+              <Field label="메모"><input value={maintenanceScheduleForm.memo} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, memo: e.target.value })} placeholder="특이사항" /></Field>
+            </div>
+            <div className="actions right-actions">
+              <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정저장" : "일정저장"}</button>
+              <button onClick={resetMaintenanceScheduleForm}>초기화</button>
+            </div>
+          </section>
+        )}
+
+        {menuTab === "maintenance_schedules" && (
+          <MaintenanceScheduleList
+            schedules={maintenanceSchedules}
+            isAdmin={isAdmin}
+            editSchedule={editMaintenanceSchedule}
+            deleteSchedule={deleteMaintenanceSchedule}
+            updateStatus={updateMaintenanceScheduleStatus}
+          />
+        )}
 
         {newItemModal.open && (
           <div className="modal-backdrop">
