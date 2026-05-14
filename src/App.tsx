@@ -852,7 +852,7 @@ export default function App() {
   const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
   const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
   const [photoLinkModal, setPhotoLinkModal] = useState<{
-    mode: "" | "purchase" | "maint";
+    mode: "" | "purchase" | "maint" | "recordPurchase" | "recordMaint";
     targetId: string;
     search: string;
   }>({ mode: "", targetId: "", search: "" });
@@ -1883,6 +1883,54 @@ export default function App() {
 
   const openMaintPhotoPicker = (maint: Maint) => {
     setPhotoLinkModal({ mode: "maint", targetId: maint.id, search: `${maint.date || ""} ${maint.warehouse || ""} ${maint.title || ""}`.trim() });
+  };
+
+  const openPurchaseRecordPickerFromReceiptPhoto = (photo: ReceiptPhoto) => {
+    setPhotoLinkModal({ mode: "recordPurchase", targetId: photo.id, search: `${photo.receipt_date || ""} ${photo.vendor_name || ""}`.trim() });
+  };
+
+  const openMaintRecordPickerFromMaintenancePhoto = (photo: MaintenancePhoto) => {
+    setPhotoLinkModal({ mode: "recordMaint", targetId: photo.id, search: `${photo.maint_date || ""} ${photo.equipment_name || ""}`.trim() });
+  };
+
+  const connectPurchaseRecordToReceiptPhoto = async (purchase: Purchase, receiptPhotoId: string) => {
+    const photo = receiptPhotos.find((item) => item.id === receiptPhotoId);
+    if (!photo) return alert("입고사진을 찾지 못했습니다.");
+
+    const nextUrls = mergeUrls(purchase.image_urls || (purchase.image_url ? [purchase.image_url] : []), photo.image_urls || []);
+    const payload = { ...purchase, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("purchases")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", purchase.id);
+
+    if (error) return alert(`기존 구매내역 사진 연결 실패: ${error.message}`);
+
+    setPurchases((prev) => prev.map((p) => (p.id === purchase.id ? payload : p)));
+    await markReceiptPhotoProcessed(photo.id);
+    setPhotoLinkModal({ mode: "", targetId: "", search: "" });
+    alert("기존 구매내역에 사진을 연결했습니다.");
+  };
+
+  const connectMaintRecordToMaintenancePhoto = async (maint: Maint, maintenancePhotoId: string) => {
+    const photo = maintenancePhotos.find((item) => item.id === maintenancePhotoId);
+    if (!photo) return alert("정비사진을 찾지 못했습니다.");
+
+    const nextUrls = mergeUrls(maint.image_urls || (maint.image_url ? [maint.image_url] : []), photo.image_urls || []);
+    const payload = { ...maint, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("maints")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", maint.id);
+
+    if (error) return alert(`기존 정비내역 사진 연결 실패: ${error.message}`);
+
+    setMaints((prev) => prev.map((m) => (m.id === maint.id ? payload : m)));
+    await markMaintenancePhotoProcessed(photo.id);
+    setPhotoLinkModal({ mode: "", targetId: "", search: "" });
+    alert("기존 정비내역에 사진을 연결했습니다.");
   };
 
   const connectReceiptPhotoToPurchase = async (photo: ReceiptPhoto, purchaseId: string) => {
@@ -3431,7 +3479,7 @@ export default function App() {
                     <div className="receipt-clean-actions">
                       <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>정비등록 반영</button>}
-                      {isAdmin && <button className="link secondary" onClick={() => linkMaintenancePhotoToExistingMaint(item)}>기존정비 연결</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => openMaintRecordPickerFromMaintenancePhoto(item)}>기존정비 연결</button>}
                       <button className="complete" onClick={() => toggleMaintenancePhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -3589,7 +3637,7 @@ export default function App() {
                     <div className="receipt-clean-actions">
                       <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>구매입력 반영</button>}
-                      {isAdmin && <button className="link secondary" onClick={() => linkReceiptPhotoToExistingPurchase(item)}>기존구매 연결</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => openPurchaseRecordPickerFromReceiptPhoto(item)}>기존구매 연결</button>}
                       <button className="complete" onClick={() => toggleReceiptPhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -4255,8 +4303,24 @@ export default function App() {
             <div className="photo-link-modal" onClick={(e) => e.stopPropagation()}>
               <div className="photo-link-head">
                 <div>
-                  <h2>{photoLinkModal.mode === "purchase" ? "입고사진 선택" : "정비사진 선택"}</h2>
-                  <p>{photoLinkModal.mode === "purchase" ? "구매조회 내역에 연결할 입고사진을 선택하세요." : "정비조회 내역에 연결할 정비사진을 선택하세요."}</p>
+                  <h2>
+                    {photoLinkModal.mode === "purchase"
+                      ? "입고사진 선택"
+                      : photoLinkModal.mode === "maint"
+                        ? "정비사진 선택"
+                        : photoLinkModal.mode === "recordPurchase"
+                          ? "구매내역 선택"
+                          : "정비내역 선택"}
+                  </h2>
+                  <p>
+                    {photoLinkModal.mode === "purchase"
+                      ? "구매조회 내역에 연결할 입고사진을 선택하세요."
+                      : photoLinkModal.mode === "maint"
+                        ? "정비조회 내역에 연결할 정비사진을 선택하세요."
+                        : photoLinkModal.mode === "recordPurchase"
+                          ? "입고사진을 연결할 기존 구매내역을 선택하세요."
+                          : "정비사진을 연결할 기존 정비내역을 선택하세요."}
+                  </p>
                 </div>
                 <button onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>닫기</button>
               </div>
@@ -4300,6 +4364,40 @@ export default function App() {
                         <p>{photo.memo || "-"}</p>
                       </div>
                       <AttachmentGroup urls={photo.image_urls || []} />
+                    </button>
+                  ))}
+
+                {photoLinkModal.mode === "recordPurchase" && purchases
+                  .filter((purchase) => {
+                    const q = photoLinkModal.search.trim();
+                    if (!q) return true;
+                    return `${purchase.date || ""} ${purchase.vendor || ""} ${purchase.warehouse || ""} ${purchase.itemSummary || ""}`.includes(q);
+                  })
+                  .map((purchase) => (
+                    <button className="photo-link-item" key={purchase.id} onClick={() => connectPurchaseRecordToReceiptPhoto(purchase, photoLinkModal.targetId)}>
+                      <div>
+                        <strong>{purchase.vendor || "거래처 미입력"}</strong>
+                        <span>{purchase.date || "-"} · {purchase.warehouse || "-"}</span>
+                        <p>{purchase.itemSummary || "-"} / {money(purchase.total)}원</p>
+                      </div>
+                      <AttachmentGroup urls={purchase.image_urls || (purchase.image_url ? [purchase.image_url] : [])} />
+                    </button>
+                  ))}
+
+                {photoLinkModal.mode === "recordMaint" && maints
+                  .filter((maint) => {
+                    const q = photoLinkModal.search.trim();
+                    if (!q) return true;
+                    return `${maint.date || ""} ${maint.warehouse || ""} ${maint.title || ""} ${maint.detail || ""}`.includes(q);
+                  })
+                  .map((maint) => (
+                    <button className="photo-link-item" key={maint.id} onClick={() => connectMaintRecordToMaintenancePhoto(maint, photoLinkModal.targetId)}>
+                      <div>
+                        <strong>{maint.title || "제목 미입력"}</strong>
+                        <span>{maint.date || "-"} · {maint.warehouse || "-"}</span>
+                        <p>{maint.detail || "-"}</p>
+                      </div>
+                      <AttachmentGroup urls={maint.image_urls || (maint.image_url ? [maint.image_url] : [])} />
                     </button>
                   ))}
               </div>
