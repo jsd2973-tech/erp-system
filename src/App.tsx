@@ -9,7 +9,7 @@ type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string };
+type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; image_urls?: string[]; image_url?: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
@@ -105,6 +105,8 @@ const toPurchase = (p: any): Purchase => ({
   vatTotal: Number(p.vattotal ?? p.vatTotal ?? 0),
   total: Number(p.total || 0),
   itemSummary: p.itemsummary ?? p.itemSummary ?? "",
+  image_url: p.image_url || "",
+  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
 
 const fromPurchase = (p: Purchase) => ({
@@ -117,6 +119,8 @@ const fromPurchase = (p: Purchase) => ({
   vattotal: p.vatTotal,
   total: p.total,
   itemsummary: p.itemSummary,
+  image_url: (p.image_urls || [])[0] || p.image_url || "",
+  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
 
 const KEY = {
@@ -805,7 +809,7 @@ export default function App() {
     setMobileSheet("");
     setShowMobileQuickStart(false);
   };
-  const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "" });
+  const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "", image_urls: [] as string[] });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
@@ -1456,7 +1460,7 @@ export default function App() {
   const purchaseTotal = rows.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   const resetPurchaseForm = () => {
-    setPurchaseHeader({ date: "", vendor: "", warehouse: "" });
+    setPurchaseHeader({ date: "", vendor: "", warehouse: "", image_urls: [] });
     setRows([emptyRow()]);
     setEditingPurchaseId("");
   };
@@ -1472,6 +1476,8 @@ export default function App() {
       vatTotal: purchaseVatTotal,
       total: purchaseTotal,
       itemSummary: validRows[0].item,
+      image_urls: purchaseHeader.image_urls || [],
+      image_url: (purchaseHeader.image_urls || [])[0] || "",
     };
     const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
     if (error) return alert(`구매 저장 실패: ${error.message}`);
@@ -1750,6 +1756,7 @@ export default function App() {
       date: item.receipt_date || getTodayKey(),
       vendor: item.vendor_name || "",
       warehouse: "",
+      image_urls: item.image_urls || [],
     });
     setRows([emptyRow()]);
     setEditingPurchaseId("");
@@ -1781,6 +1788,87 @@ export default function App() {
 
     setMenuTab("maint_new");
     alert("정비사진을 정비등록에 반영했습니다. 품목/금액을 입력해서 저장하세요.");
+  };
+
+  const mergeUrls = (base?: string[], extra?: string[]) => {
+    return Array.from(new Set([...(base || []), ...(extra || [])].filter(Boolean)));
+  };
+
+  const linkReceiptPhotoToExistingPurchase = async (item: ReceiptPhoto) => {
+    if (!isAdmin) return alert("관리자만 기존 구매내역에 연결할 수 있습니다.");
+
+    const candidates = purchases
+      .filter((p) => {
+        const sameDate = !item.receipt_date || p.date === item.receipt_date;
+        const sameVendor = !item.vendor_name || normalizeVendorName(p.vendor).includes(normalizeVendorName(item.vendor_name)) || normalizeVendorName(item.vendor_name).includes(normalizeVendorName(p.vendor));
+        return sameDate || sameVendor;
+      })
+      .slice(0, 15);
+
+    if (!candidates.length) return alert("연결할 기존 구매내역을 찾지 못했습니다.");
+
+    const message = candidates
+      .map((p, idx) => `${idx + 1}. ${p.date || "-"} / ${p.vendor || "-"} / ${p.itemSummary || "-"} / ${money(p.total)}원`)
+      .join("\n");
+
+    const selected = window.prompt(`연결할 구매내역 번호를 입력하세요.\n\n${message}`);
+    if (!selected) return;
+
+    const target = candidates[Number(selected) - 1];
+    if (!target) return alert("선택 번호가 올바르지 않습니다.");
+
+    const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), item.image_urls || []);
+    const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("purchases")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", target.id);
+
+    if (error) return alert(`기존 구매내역 사진 연결 실패: ${error.message}`);
+
+    setPurchases((prev) => prev.map((p) => (p.id === target.id ? payload : p)));
+    await markReceiptPhotoProcessed(item.id);
+    alert("기존 구매내역에 사진을 연결하고 처리완료로 변경했습니다.");
+  };
+
+  const linkMaintenancePhotoToExistingMaint = async (item: MaintenancePhoto) => {
+    if (!isAdmin) return alert("관리자만 기존 정비내역에 연결할 수 있습니다.");
+
+    const candidates = maints
+      .filter((m) => {
+        const sameDate = !item.maint_date || m.date === item.maint_date;
+        const q = `${m.warehouse || ""} ${m.title || ""} ${m.detail || ""}`;
+        const sameEquipment = !item.equipment_name || q.includes(item.equipment_name) || item.equipment_name.includes(m.warehouse || "");
+        return sameDate || sameEquipment;
+      })
+      .slice(0, 15);
+
+    if (!candidates.length) return alert("연결할 기존 정비내역을 찾지 못했습니다.");
+
+    const message = candidates
+      .map((m, idx) => `${idx + 1}. ${m.date || "-"} / ${m.warehouse || "-"} / ${m.title || "-"} / ${money(Number(m.total || m.cost || 0))}원`)
+      .join("\n");
+
+    const selected = window.prompt(`연결할 정비내역 번호를 입력하세요.\n\n${message}`);
+    if (!selected) return;
+
+    const target = candidates[Number(selected) - 1];
+    if (!target) return alert("선택 번호가 올바르지 않습니다.");
+
+    const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), item.image_urls || []);
+    const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("maints")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", target.id);
+
+    if (error) return alert(`기존 정비내역 사진 연결 실패: ${error.message}`);
+
+    setMaints((prev) => prev.map((m) => (m.id === target.id ? payload : m)));
+    await markMaintenancePhotoProcessed(item.id);
+    alert("기존 정비내역에 사진을 연결하고 처리완료로 변경했습니다.");
   };
 
 
@@ -1967,7 +2055,7 @@ export default function App() {
   const editPurchase = (p: Purchase) => {
     setMenuTab("new");
     setEditingPurchaseId(p.id);
-    setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "" });
+    setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "", image_urls: p.image_urls || (p.image_url ? [p.image_url] : []) });
     setRows((p.rows || []).map((r) => ({ ...r, id: uid() })));
   };
 
@@ -3289,6 +3377,7 @@ export default function App() {
                     <div className="receipt-clean-actions">
                       <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>정비등록 반영</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => linkMaintenancePhotoToExistingMaint(item)}>기존정비 연결</button>}
                       <button className="complete" onClick={() => toggleMaintenancePhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -3446,6 +3535,7 @@ export default function App() {
                     <div className="receipt-clean-actions">
                       <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>구매입력 반영</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => linkReceiptPhotoToExistingPurchase(item)}>기존구매 연결</button>}
                       <button className="complete" onClick={() => toggleReceiptPhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -4187,6 +4277,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>품목</span><b>{p.itemSummary || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
+        <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
           <div className="mobile-purchase-card-actions">
             <button onClick={() => editPurchase(p)}>수정</button>
@@ -4196,10 +4287,10 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={6} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -9952,6 +10043,38 @@ td .icon{
 .receipt-submit-clean:disabled{
   opacity:.62;
   cursor:not-allowed;
+}
+
+/* ===== Unified Excel/PDF Download Buttons ===== */
+.between > button,
+.bulk-download-btn,
+.bulk-transfer-download,
+button[class*="excel"],
+button[class*="download"]{
+  min-height:46px;
+  border-radius:16px !important;
+  padding:0 18px !important;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8) !important;
+  color:#ffffff !important;
+  font-weight:1000 !important;
+  box-shadow:0 10px 22px rgba(37,99,235,.20) !important;
+  justify-content:center !important;
+}
+
+.between{
+  gap:10px !important;
+  align-items:center !important;
+}
+
+.receipt-clean-actions .secondary{
+  background:#475569 !important;
+  color:#ffffff !important;
+}
+
+@media (max-width:900px){
+  .between > button{
+    width:100% !important;
+  }
 }
 
 `;
