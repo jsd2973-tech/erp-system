@@ -4019,7 +4019,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} maintenanceSchedules={maintenanceSchedules} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -4391,30 +4391,95 @@ export default function App() {
         {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
         {menuTab === "maintenance_schedule_new" && (
-          <section className="card maintenance-schedule-page">
-            <h2>{editingMaintenanceScheduleId ? "정비일정 수정" : "정비일정등록"}</h2>
-            <div className="grid5">
-              <Field label="예정일"><input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} /></Field>
-              <Field label="장비명"><input value={maintenanceScheduleForm.equipment_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })} placeholder="예: 1200콘 크라샤" /></Field>
-              <Field label="작업내용"><input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="예: 라이너 교체" /></Field>
-              <Field label="작업자"><input value={maintenanceScheduleForm.worker_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, worker_name: e.target.value })} placeholder="작업자" /></Field>
-              <Field label="우선순위">
-                <select value={maintenanceScheduleForm.priority} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, priority: e.target.value })}>
-                  <option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
-                </select>
-              </Field>
+          <section className="maintenance-schedule-pro-page">
+            <div className="schedule-pro-hero">
+              <div>
+                <span className="schedule-pro-eyebrow">Maintenance Schedule</span>
+                <h2>{editingMaintenanceScheduleId ? "정비일정 수정" : "정비일정등록"}</h2>
+                <p>예정일 기준으로 하루에 여러 작업을 등록하고, 조회 화면과 홈 대시보드에서 한눈에 확인합니다.</p>
+              </div>
+              <button className="schedule-pro-ghost" onClick={() => setMenuTab("maintenance_schedules")}>일정조회로 이동</button>
             </div>
-            <div className="grid2">
-              <Field label="상태">
-                <select value={maintenanceScheduleForm.status} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, status: e.target.value })}>
-                  <option>예정</option><option>진행중</option><option>완료</option>
-                </select>
-              </Field>
-              <Field label="메모"><input value={maintenanceScheduleForm.memo} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, memo: e.target.value })} placeholder="특이사항" /></Field>
-            </div>
-            <div className="actions right-actions">
-              <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정저장" : "일정저장"}</button>
-              <button onClick={resetMaintenanceScheduleForm}>초기화</button>
+
+            <div className="schedule-pro-layout">
+              <div className="schedule-pro-form-card">
+                <div className="schedule-pro-card-title">
+                  <b>일정 정보</b>
+                  <span>{maintenanceScheduleForm.schedule_date || getTodayKey()}</span>
+                </div>
+
+                <div className="schedule-pro-grid">
+                  <Field label="예정일">
+                    <input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} />
+                  </Field>
+                  <Field label="장비명">
+                    <input value={maintenanceScheduleForm.equipment_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })} placeholder="예: 1200콘 크라샤" />
+                  </Field>
+                  <Field label="작업내용">
+                    <input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="예: 라이너 교체" />
+                  </Field>
+                  <Field label="작업자">
+                    <input value={maintenanceScheduleForm.worker_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, worker_name: e.target.value })} placeholder="작업자" />
+                  </Field>
+                  <Field label="우선순위">
+                    <select value={maintenanceScheduleForm.priority} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, priority: e.target.value })}>
+                      <option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
+                    </select>
+                  </Field>
+                  <Field label="상태">
+                    <select value={maintenanceScheduleForm.status} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, status: e.target.value })}>
+                      <option>예정</option><option>진행중</option><option>완료</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <Field label="메모">
+                  <textarea value={maintenanceScheduleForm.memo} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, memo: e.target.value })} placeholder="특이사항 / 준비물 / 참고사항" />
+                </Field>
+
+                <div className="schedule-pro-actions">
+                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정저장" : "일정저장"}</button>
+                  <button onClick={resetMaintenanceScheduleForm}>초기화</button>
+                </div>
+              </div>
+
+              <div className="schedule-pro-side">
+                <div className="schedule-pro-mini-card blue">
+                  <span>오늘 일정</span>
+                  <b>{maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).length}건</b>
+                  <small>오늘 등록된 정비 작업</small>
+                </div>
+                <div className="schedule-pro-mini-card red">
+                  <span>긴급 일정</span>
+                  <b>{maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료").length}건</b>
+                  <small>완료되지 않은 긴급 작업</small>
+                </div>
+                <div className="schedule-pro-mini-card green">
+                  <span>완료 일정</span>
+                  <b>{maintenanceSchedules.filter((x) => x.status === "완료").length}건</b>
+                  <small>누적 완료 작업</small>
+                </div>
+
+                <div className="schedule-pro-preview">
+                  <div className="schedule-pro-card-title">
+                    <b>오늘 작업 미리보기</b>
+                    <span>{getTodayKey()}</span>
+                  </div>
+                  {maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).slice(0, 5).length ? (
+                    maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).slice(0, 5).map((x) => (
+                      <div className="schedule-pro-preview-row" key={x.id}>
+                        <div>
+                          <strong>{x.equipment_name}</strong>
+                          <p>{x.work_detail}</p>
+                        </div>
+                        <span className={`schedule-status ${x.status || "예정"}`}>{x.status || "예정"}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="schedule-pro-empty">오늘 등록된 정비일정이 없습니다.</div>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         )}
@@ -4776,6 +4841,10 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
   const [from, setFrom] = useState(getTodayKey());
   const [to, setTo] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState("");
+  const [priority, setPriority] = useState("");
+
+  const today = getTodayKey();
 
   const filtered = useMemo(() => {
     return (schedules || [])
@@ -4785,19 +4854,30 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
         const okTo = !to || d <= to;
         const q = `${item.equipment_name || ""} ${item.work_detail || ""} ${item.worker_name || ""} ${item.priority || ""} ${item.status || ""} ${item.memo || ""}`;
         const okKeyword = !keyword || q.includes(keyword);
-        return okFrom && okTo && okKeyword;
+        const okStatus = !status || item.status === status;
+        const okPriority = !priority || item.priority === priority;
+        return okFrom && okTo && okKeyword && okStatus && okPriority;
       })
       .sort((a: MaintenanceSchedule, b: MaintenanceSchedule) => {
         const dateCompare = String(a.schedule_date || "").localeCompare(String(b.schedule_date || ""));
         if (dateCompare !== 0) return dateCompare;
         return String(a.created_at || a.id || "").localeCompare(String(b.created_at || b.id || ""));
       });
-  }, [schedules, from, to, keyword]);
+  }, [schedules, from, to, keyword, status, priority]);
+
+  const todayItems = (schedules || []).filter((x: MaintenanceSchedule) => x.schedule_date === today);
+  const progressItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "진행중");
+  const doneItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "완료");
+  const urgentItems = (schedules || []).filter((x: MaintenanceSchedule) => x.priority === "긴급" && x.status !== "완료");
 
   return (
-    <section className="card lookup-page maintenance-schedule-list-page">
-      <div className="between">
-        <h2>정비일정조회</h2>
+    <section className="maintenance-schedule-pro-list">
+      <div className="schedule-list-head">
+        <div>
+          <span className="schedule-pro-eyebrow">Schedule Lookup</span>
+          <h2>정비일정조회</h2>
+          <p>등록한 정비일정을 날짜, 상태, 우선순위별로 확인합니다.</p>
+        </div>
         <button onClick={() => downloadExcel(`정비일정_${todayText()}`, filtered.map((item: MaintenanceSchedule) => ({
           예정일: item.schedule_date,
           장비명: item.equipment_name,
@@ -4809,44 +4889,63 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
         })))}>엑셀 다운로드</button>
       </div>
 
-      <div className="grid5">
+      <div className="schedule-summary-grid">
+        <div className="schedule-summary-card blue"><span>오늘 일정</span><b>{todayItems.length}</b><small>오늘 예정/진행/완료</small></div>
+        <div className="schedule-summary-card purple"><span>진행중</span><b>{progressItems.length}</b><small>현재 진행 작업</small></div>
+        <div className="schedule-summary-card green"><span>완료</span><b>{doneItems.length}</b><small>완료된 작업</small></div>
+        <div className="schedule-summary-card red"><span>긴급</span><b>{urgentItems.length}</b><small>미완료 긴급 작업</small></div>
+      </div>
+
+      <div className="schedule-filter-card">
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
         <Field label="검색"><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="장비/작업내용/작업자 검색" /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setKeyword(""); }}>검색 초기화</button></Field>
+        <Field label="상태">
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">전체</option><option>예정</option><option>진행중</option><option>완료</option>
+          </select>
+        </Field>
+        <Field label="우선순위">
+          <select value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <option value="">전체</option><option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
+          </select>
+        </Field>
+        <button className="schedule-reset-btn" onClick={() => { setFrom(""); setTo(""); setKeyword(""); setStatus(""); setPriority(""); }}>초기화</button>
       </div>
 
-      <ScrollTable>
-        <table>
-          <thead>
-            <tr><th>예정일</th><th>장비명</th><th>작업내용</th><th>작업자</th><th>우선순위</th><th>상태</th><th>메모</th><th>관리</th></tr>
-          </thead>
-          <tbody>
-            {!filtered.length ? (
-              <tr><td colSpan={8} className="empty">등록된 정비일정이 없습니다.</td></tr>
-            ) : filtered.map((item: MaintenanceSchedule) => (
-              <tr key={item.id}>
-                <td>{item.schedule_date || "-"}</td>
-                <td>{item.equipment_name || "-"}</td>
-                <td>{item.work_detail || "-"}</td>
-                <td>{item.worker_name || "-"}</td>
-                <td><span className={`schedule-priority ${item.priority || "보통"}`}>{item.priority || "보통"}</span></td>
-                <td><span className={`schedule-status ${item.status || "예정"}`}>{item.status || "예정"}</span></td>
-                <td>{item.memo || "-"}</td>
-                <td>{isAdmin ? (
-                  <>
-                    <button className="icon" onClick={() => editSchedule(item)}><Pencil size={16} /></button>
-                    <button className="icon" onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
-                    <button className="icon" onClick={() => deleteSchedule(item.id)}><Trash2 size={16} /></button>
-                  </>
-                ) : "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
+      <div className="schedule-table-card">
+        <ScrollTable>
+          <table>
+            <thead>
+              <tr><th>예정일</th><th>장비명</th><th>작업내용</th><th>작업자</th><th>우선순위</th><th>상태</th><th>메모</th><th>관리</th></tr>
+            </thead>
+            <tbody>
+              {!filtered.length ? (
+                <tr><td colSpan={8} className="empty">등록된 정비일정이 없습니다.</td></tr>
+              ) : filtered.map((item: MaintenanceSchedule) => (
+                <tr key={item.id}>
+                  <td className="bold">{item.schedule_date || "-"}</td>
+                  <td>{item.equipment_name || "-"}</td>
+                  <td>{item.work_detail || "-"}</td>
+                  <td>{item.worker_name || "-"}</td>
+                  <td><span className={`schedule-priority ${item.priority || "보통"}`}>{item.priority || "보통"}</span></td>
+                  <td><span className={`schedule-status ${item.status || "예정"}`}>{item.status || "예정"}</span></td>
+                  <td>{item.memo || "-"}</td>
+                  <td>{isAdmin ? (
+                    <div className="schedule-row-actions">
+                      <button onClick={() => editSchedule(item)}>수정</button>
+                      <button onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
+                      <button className="danger" onClick={() => deleteSchedule(item.id)}>삭제</button>
+                    </div>
+                  ) : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollTable>
+      </div>
 
-      <div className="mobile-card-list">
+      <div className="mobile-card-list schedule-mobile-list">
         {filtered.map((item: MaintenanceSchedule) => (
           <div className="mobile-list-card" key={`mobile-${item.id}`}>
             <div className="mobile-list-top">
@@ -4872,6 +4971,7 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
     </section>
   );
 }
+
 
 
 function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
@@ -5132,11 +5232,13 @@ function Home({
   setMaintSearch,
   warehouses,
   isAdmin,
+  maintenanceSchedules = [],
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
   warehouses: Warehouse[];
   isAdmin: boolean;
+  maintenanceSchedules?: MaintenanceSchedule[];
 }) {
   const hotspotTableName = "layout_hotspots";
   const [editLayout, setEditLayout] = useState(false);
@@ -11122,6 +11224,334 @@ button[onclick*="downloadPdf"]{
   .maintenance-schedule-page,
   .maintenance-schedule-list-page{ min-height:auto !important; }
   .maintenance-schedule-list-page .scroll-table{ min-height:0; max-height:none; }
+}
+
+/* ===== Maintenance Schedule Pro Redesign ===== */
+.maintenance-schedule-pro-page,
+.maintenance-schedule-pro-list{
+  min-height:calc(100vh - 210px);
+  background:#f8fafc;
+  border-radius:24px;
+  padding:22px;
+  box-shadow:0 18px 45px rgba(15,23,42,.10);
+}
+
+.schedule-pro-hero,
+.schedule-list-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.schedule-pro-eyebrow{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+  margin-bottom:8px;
+}
+
+.schedule-pro-hero h2,
+.schedule-list-head h2{
+  margin:0;
+  font-size:28px;
+  color:#0f172a;
+  font-weight:1000;
+  letter-spacing:-.5px;
+}
+
+.schedule-pro-hero p,
+.schedule-list-head p{
+  margin:8px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.schedule-pro-ghost,
+.schedule-list-head > button{
+  min-height:44px;
+  border:0;
+  border-radius:14px;
+  padding:0 18px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;
+  font-weight:1000;
+  box-shadow:0 12px 25px rgba(37,99,235,.22);
+}
+
+.schedule-pro-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.6fr) minmax(320px,.8fr);
+  gap:18px;
+}
+
+.schedule-pro-form-card,
+.schedule-pro-preview,
+.schedule-table-card,
+.schedule-filter-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:18px;
+  box-shadow:0 10px 28px rgba(15,23,42,.06);
+}
+
+.schedule-pro-card-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:14px;
+}
+
+.schedule-pro-card-title b{
+  color:#0f172a;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.schedule-pro-card-title span{
+  color:#2563eb;
+  font-weight:1000;
+}
+
+.schedule-pro-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+
+.schedule-pro-form-card textarea{
+  min-height:118px;
+  resize:vertical;
+}
+
+.schedule-pro-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:14px;
+}
+
+.schedule-pro-actions button{
+  min-height:44px;
+  border-radius:14px;
+  padding:0 18px;
+  font-weight:1000;
+}
+
+.schedule-pro-side{
+  display:grid;
+  gap:14px;
+}
+
+.schedule-pro-mini-card,
+.schedule-summary-card{
+  border-radius:22px;
+  padding:18px;
+  border:1px solid rgba(148,163,184,.22);
+  box-shadow:0 10px 28px rgba(15,23,42,.06);
+}
+
+.schedule-pro-mini-card span,
+.schedule-summary-card span{
+  display:block;
+  font-size:13px;
+  font-weight:1000;
+  margin-bottom:8px;
+}
+
+.schedule-pro-mini-card b,
+.schedule-summary-card b{
+  display:block;
+  font-size:30px;
+  color:#0f172a;
+  font-weight:1000;
+  line-height:1;
+}
+
+.schedule-pro-mini-card small,
+.schedule-summary-card small{
+  display:block;
+  margin-top:8px;
+  color:#64748b;
+  font-weight:800;
+}
+
+.schedule-pro-mini-card.blue,
+.schedule-summary-card.blue{background:linear-gradient(135deg,#eff6ff,#dbeafe);}
+.schedule-pro-mini-card.red,
+.schedule-summary-card.red{background:linear-gradient(135deg,#fff1f2,#fee2e2);}
+.schedule-pro-mini-card.green,
+.schedule-summary-card.green{background:linear-gradient(135deg,#f0fdf4,#dcfce7);}
+.schedule-summary-card.purple{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
+
+.schedule-pro-preview-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 0;
+  border-top:1px solid #f1f5f9;
+}
+
+.schedule-pro-preview-row strong{
+  display:block;
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.schedule-pro-preview-row p{
+  margin:4px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.schedule-pro-empty{
+  padding:24px;
+  text-align:center;
+  color:#94a3b8;
+  font-weight:900;
+  background:#f8fafc;
+  border-radius:16px;
+}
+
+.schedule-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.schedule-filter-card{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr)) auto;
+  gap:12px;
+  align-items:end;
+  margin-bottom:16px;
+}
+
+.schedule-reset-btn{
+  min-height:42px;
+  border:0;
+  border-radius:14px;
+  background:#e2e8f0;
+  color:#334155;
+  font-weight:1000;
+  padding:0 16px;
+}
+
+.schedule-table-card{
+  padding:0;
+  overflow:hidden;
+}
+
+.schedule-table-card .scroll-table{
+  margin:0 !important;
+  border-radius:0 !important;
+  max-height:calc(100vh - 480px);
+  min-height:360px;
+}
+
+.schedule-table-card th{
+  background:#eef4fb !important;
+  color:#0f172a !important;
+  font-weight:1000 !important;
+}
+
+.schedule-table-card td{
+  height:46px;
+}
+
+.schedule-row-actions{
+  display:flex;
+  justify-content:center;
+  gap:6px;
+}
+
+.schedule-row-actions button{
+  min-height:30px;
+  border:0;
+  border-radius:9px;
+  padding:0 9px;
+  background:#e2e8f0;
+  color:#0f172a;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.schedule-row-actions .danger{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.schedule-priority,
+.schedule-status{
+  display:inline-flex;
+  min-width:52px;
+  justify-content:center;
+  padding:5px 9px;
+  border-radius:999px;
+  font-weight:1000;
+  font-size:12px;
+}
+
+.schedule-priority.긴급{ background:#fee2e2; color:#b91c1c; }
+.schedule-priority.높음{ background:#ffedd5; color:#c2410c; }
+.schedule-priority.보통{ background:#dbeafe; color:#1d4ed8; }
+.schedule-priority.낮음{ background:#dcfce7; color:#15803d; }
+.schedule-status.예정{ background:#ffedd5; color:#c2410c; }
+.schedule-status.진행중{ background:#dbeafe; color:#1d4ed8; }
+.schedule-status.완료{ background:#dcfce7; color:#15803d; }
+
+@media (max-width:1100px){
+  .schedule-pro-layout{grid-template-columns:1fr;}
+  .schedule-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .schedule-filter-card{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+@media (max-width:900px){
+  .maintenance-schedule-pro-page,
+  .maintenance-schedule-pro-list{
+    padding:16px;
+    border-radius:22px;
+    min-height:auto;
+  }
+
+  .schedule-pro-hero,
+  .schedule-list-head{
+    display:grid;
+  }
+
+  .schedule-pro-hero h2,
+  .schedule-list-head h2{
+    font-size:24px;
+    text-align:left !important;
+  }
+
+  .schedule-pro-grid,
+  .schedule-summary-grid,
+  .schedule-filter-card{
+    grid-template-columns:1fr;
+  }
+
+  .schedule-pro-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  .schedule-table-card{
+    display:none;
+  }
+
+  .schedule-mobile-list{
+    display:grid !important;
+  }
 }
 
 `;
