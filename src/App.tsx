@@ -4392,7 +4392,7 @@ function ScrollTable({ children }: { children: any }) {
 }
 
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto }: any) {
-  return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
+  return <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
@@ -4566,7 +4566,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
   }, [maints]);
 
   return (
-    <section className="card">
+    <section className="card lookup-page maint-lookup-page">
       <div className="between" style={{marginBottom:16}}>
         <h2 style={{margin:0}}>정비조회</h2>
         <div style={{display:"flex", gap:8}}>
@@ -10519,6 +10519,67 @@ button[class*="download"]{
   .receipt-clean-actions button{
     font-size:11px !important;
     padding:5px 6px !important;
+  }
+}
+
+/* ===== Lookup Pages Full Height Layout ===== */
+.lookup-page{
+  min-height:calc(100vh - 230px) !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.lookup-page > .scroll-table,
+.lookup-page .scroll-table{
+  flex:1 1 auto !important;
+  min-height:430px !important;
+  max-height:calc(100vh - 355px) !important;
+  overflow:auto !important;
+}
+
+.lookup-page table{
+  width:100% !important;
+}
+
+.purchase-lookup-page,
+.maint-lookup-page{
+  padding-bottom:20px !important;
+}
+
+/* 정비 드롭다운 글씨를 다른 메뉴와 동일하게 */
+.menu .maint-menu-group .maint-sub button,
+.menu-group .sub button{
+  font-size:12px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+  letter-spacing:0 !important;
+}
+
+.menu .maint-menu-group .maint-sub{
+  min-width:96px !important;
+}
+
+@media (min-width:901px){
+  .lookup-page{
+    min-height:calc(100vh - 215px) !important;
+  }
+
+  .lookup-page > .scroll-table,
+  .lookup-page .scroll-table{
+    min-height:470px !important;
+    max-height:calc(100vh - 340px) !important;
+  }
+}
+
+@media (max-width:900px){
+  .lookup-page{
+    min-height:auto !important;
+    display:block !important;
+  }
+
+  .lookup-page .scroll-table{
+    min-height:0 !important;
+    max-height:none !important;
   }
 }
 
