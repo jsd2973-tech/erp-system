@@ -851,6 +851,12 @@ export default function App() {
   const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
   const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
   const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
+  const [photoLinkModal, setPhotoLinkModal] = useState<{
+    mode: "" | "purchase" | "maint";
+    targetId: string;
+    search: string;
+  }>({ mode: "", targetId: "", search: "" });
+
 
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
@@ -1869,6 +1875,54 @@ export default function App() {
     setMaints((prev) => prev.map((m) => (m.id === target.id ? payload : m)));
     await markMaintenancePhotoProcessed(item.id);
     alert("기존 정비내역에 사진을 연결하고 처리완료로 변경했습니다.");
+  };
+
+  const openPurchasePhotoPicker = (purchase: Purchase) => {
+    setPhotoLinkModal({ mode: "purchase", targetId: purchase.id, search: `${purchase.date || ""} ${purchase.vendor || ""}`.trim() });
+  };
+
+  const openMaintPhotoPicker = (maint: Maint) => {
+    setPhotoLinkModal({ mode: "maint", targetId: maint.id, search: `${maint.date || ""} ${maint.warehouse || ""} ${maint.title || ""}`.trim() });
+  };
+
+  const connectReceiptPhotoToPurchase = async (photo: ReceiptPhoto, purchaseId: string) => {
+    const target = purchases.find((p) => p.id === purchaseId);
+    if (!target) return alert("구매내역을 찾지 못했습니다.");
+
+    const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
+    const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("purchases")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", target.id);
+
+    if (error) return alert(`구매내역 사진 연결 실패: ${error.message}`);
+
+    setPurchases((prev) => prev.map((p) => (p.id === target.id ? payload : p)));
+    await markReceiptPhotoProcessed(photo.id);
+    setPhotoLinkModal({ mode: "", targetId: "", search: "" });
+    alert("구매내역에 사진을 연결했습니다.");
+  };
+
+  const connectMaintenancePhotoToMaint = async (photo: MaintenancePhoto, maintId: string) => {
+    const target = maints.find((m) => m.id === maintId);
+    if (!target) return alert("정비내역을 찾지 못했습니다.");
+
+    const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
+    const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+
+    const { error } = await supabase
+      .from("maints")
+      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
+      .eq("id", target.id);
+
+    if (error) return alert(`정비내역 사진 연결 실패: ${error.message}`);
+
+    setMaints((prev) => prev.map((m) => (m.id === target.id ? payload : m)));
+    await markMaintenancePhotoProcessed(photo.id);
+    setPhotoLinkModal({ mode: "", targetId: "", search: "" });
+    alert("정비내역에 사진을 연결했습니다.");
   };
 
 
@@ -3864,7 +3918,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={isAdmin} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={isAdmin} onLinkPhoto={openPurchasePhotoPicker} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -4166,7 +4220,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} onLinkPhoto={openMaintPhotoPicker} />}
 
         {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
@@ -4195,6 +4249,64 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {photoLinkModal.mode && (
+          <div className="photo-link-modal-backdrop" onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>
+            <div className="photo-link-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="photo-link-head">
+                <div>
+                  <h2>{photoLinkModal.mode === "purchase" ? "입고사진 선택" : "정비사진 선택"}</h2>
+                  <p>{photoLinkModal.mode === "purchase" ? "구매조회 내역에 연결할 입고사진을 선택하세요." : "정비조회 내역에 연결할 정비사진을 선택하세요."}</p>
+                </div>
+                <button onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>닫기</button>
+              </div>
+
+              <input
+                className="photo-link-search"
+                value={photoLinkModal.search}
+                onChange={(e) => setPhotoLinkModal({ ...photoLinkModal, search: e.target.value })}
+                placeholder="날짜 / 거래처 / 설비 / 내용 검색"
+              />
+
+              <div className="photo-link-list">
+                {photoLinkModal.mode === "purchase" && receiptPhotos
+                  .filter((photo) => {
+                    const q = photoLinkModal.search.trim();
+                    if (!q) return true;
+                    return `${photo.receipt_date || ""} ${photo.vendor_name || ""} ${photo.memo || ""}`.includes(q);
+                  })
+                  .map((photo) => (
+                    <button className="photo-link-item" key={photo.id} onClick={() => connectReceiptPhotoToPurchase(photo, photoLinkModal.targetId)}>
+                      <div>
+                        <strong>{photo.vendor_name || "거래처 미입력"}</strong>
+                        <span>{photo.receipt_date} · {photo.is_processed ? "처리완료" : "미처리"}</span>
+                        <p>{photo.memo || "-"}</p>
+                      </div>
+                      <AttachmentGroup urls={photo.image_urls || []} />
+                    </button>
+                  ))}
+
+                {photoLinkModal.mode === "maint" && maintenancePhotos
+                  .filter((photo) => {
+                    const q = photoLinkModal.search.trim();
+                    if (!q) return true;
+                    return `${photo.maint_date || ""} ${photo.equipment_name || ""} ${photo.memo || ""}`.includes(q);
+                  })
+                  .map((photo) => (
+                    <button className="photo-link-item" key={photo.id} onClick={() => connectMaintenancePhotoToMaint(photo, photoLinkModal.targetId)}>
+                      <div>
+                        <strong>{photo.equipment_name || "설비 미입력"}</strong>
+                        <span>{photo.maint_date} · {photo.is_processed ? "처리완료" : "미처리"}</span>
+                        <p>{photo.memo || "-"}</p>
+                      </div>
+                      <AttachmentGroup urls={photo.image_urls || []} />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
           {mobileSheet === "buy" && (
             <>
@@ -4258,7 +4370,7 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin }: any) {
+function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto }: any) {
   return <section className="card"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
@@ -4280,6 +4392,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
           <div className="mobile-purchase-card-actions">
+            <button onClick={() => onLinkPhoto(p)}>사진연결</button>
             <button onClick={() => editPurchase(p)}>수정</button>
             <button onClick={() => deletePurchase(p.id)}>삭제</button>
           </div>
@@ -4290,7 +4403,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
 </div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -4400,7 +4513,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   );
 }
 
-function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin }: any) {
+function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
   const [selected, setSelected] = useState<Maint | null>(null);
 
   const maintNoMap = useMemo(() => {
@@ -4520,6 +4633,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     </td>
                     <td>
                       {isAdmin ? <>
+                        <button className="icon" onClick={() => onLinkPhoto(m)}>사진</button>
                         <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
                         <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
                       </> : "-"}
@@ -4563,6 +4677,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               <div className="mobile-card-actions">
                 {isAdmin ? (
                   <>
+                    <button onClick={() => onLinkPhoto(m)}>사진연결</button>
                     <button onClick={() => editMaint(m)}>수정</button>
                     <button onClick={() => deleteMaint(m.id)}>삭제</button>
                   </>
@@ -10129,6 +10244,117 @@ button[class*="download"]{
 .card > .grid5 + .mobile-purchase-cards,
 .card > .grid5 + .scroll-table{
   margin-top:12px !important;
+}
+
+/* ===== Photo Link Picker Modal ===== */
+.photo-link-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:100002;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(15,23,42,.55);
+}
+
+.photo-link-modal{
+  width:min(760px, 96vw);
+  max-height:82dvh;
+  overflow:auto;
+  border-radius:24px;
+  background:#ffffff;
+  padding:20px;
+  box-shadow:0 24px 80px rgba(15,23,42,.35);
+}
+
+.photo-link-head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:14px;
+}
+
+.photo-link-head h2{
+  margin:0;
+  font-size:24px;
+  font-weight:1000;
+}
+
+.photo-link-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.photo-link-head button{
+  background:#e2e8f0;
+  font-weight:1000;
+}
+
+.photo-link-search{
+  margin-bottom:14px;
+}
+
+.photo-link-list{
+  display:grid;
+  gap:10px;
+}
+
+.photo-link-item{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:12px;
+  align-items:center;
+  text-align:left;
+  padding:14px;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+}
+
+.photo-link-item strong{
+  display:block;
+  font-size:16px;
+  color:#111827;
+  font-weight:1000;
+}
+
+.photo-link-item span{
+  display:block;
+  margin-top:4px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+
+.photo-link-item p{
+  margin:6px 0 0;
+  color:#334155;
+  font-weight:800;
+}
+
+.mobile-purchase-card-actions,
+.mobile-card-actions{
+  grid-template-columns:repeat(auto-fit,minmax(84px,1fr)) !important;
+}
+
+@media (max-width:900px){
+  .photo-link-modal-backdrop{
+    padding:12px;
+    place-items:end center;
+  }
+
+  .photo-link-modal{
+    width:100%;
+    max-height:86dvh;
+    border-radius:24px 24px 0 0;
+  }
+
+  .photo-link-item{
+    grid-template-columns:1fr;
+  }
 }
 
 `;
