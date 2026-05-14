@@ -3977,7 +3977,7 @@ export default function App() {
                 />
               </Field>
               <Field label="담당자">
-                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/담당자" />
+                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/작업자" />
               </Field>
               <Field label="사용처">
                 <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="상호/구매처" />
@@ -4038,12 +4038,12 @@ export default function App() {
               <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
   filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
   { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 작업자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
             </div>
             <div className="grid5">
               <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
               <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
-              <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="담당자 검색" /></Field>
+              <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="작업자 검색" /></Field>
               <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
               <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
             </div>
@@ -4152,7 +4152,7 @@ export default function App() {
                 />
               </Field>
               <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
-              <Field label="담당자">
+              <Field label="작업자">
                 <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
               </Field>
               <Field label="정비제목">
@@ -4651,7 +4651,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
               const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
               const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 담당자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
+              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
             }),
             {
               관리번호: "총합계",
@@ -4676,7 +4676,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <Field label="창고">
           <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
         </Field>
-        <Field label="제목/내용/담당자">
+        <Field label="제목/내용/작업자">
           <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
         </Field>
         <Field label="초기화">
@@ -4690,6 +4690,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
             <tr>
               <th>관리번호</th>
               <th>창고</th>
+              <th>작업자</th>
               <th>제목</th>
               <th>내용</th>
               <th>공급가액</th>
@@ -4701,7 +4702,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           </thead>
           <tbody>
             {!maints.length ? (
-              <tr><td colSpan={9} className="empty">저장된 정비내역 없음</td></tr>
+              <tr><td colSpan={10} className="empty">저장된 정비내역 없음</td></tr>
             ) : (
               maints.map((m: Maint) => {
                 const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
@@ -4711,6 +4712,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                   <tr key={m.id}>
                     <td>{maintNoMap.get(m.id) || "-"}</td>
                     <td>{m.warehouse}</td>
+                    <td>{m.manager || "-"}</td>
                     <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
                     <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
                     <td className="right">{money(supply)}</td>
@@ -4753,6 +4755,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
               <div className="mobile-list-body">
                 <div><label>창고</label><p>{m.warehouse}</p></div>
+                <div><label>작업자</label><p>{m.manager || "-"}</p></div>
                 <div><label>제목</label><p>{m.title}</p></div>
                 <div><label>내용</label><p>{m.detail || "-"}</p></div>
                 <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
@@ -4781,7 +4784,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
           <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{selected.title}</h2>
-            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>담당자:</b> {selected.manager || "-"}</p>
+            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>작업자:</b> {selected.manager || "-"}</p>
             <p><b>내용:</b> {selected.detail || "-"}</p>
             <div className="maint-modal-attachments">
               <b>첨부:</b>
@@ -5451,7 +5454,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
       <h3>담당자별 카드사용</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>순위</th><th>담당자</th><th>건수</th><th>합계</th></tr></thead>
+          <thead><tr><th>순위</th><th>작업자</th><th>건수</th><th>합계</th></tr></thead>
           <tbody>
             {!byUser.length ? <tr><td colSpan={4} className="empty">조회된 담당자별 카드사용 없음</td></tr> : byUser.map((u, i) => (
               <tr key={u.user_name}>
@@ -5596,7 +5599,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
   return (
     <section className="card">
       <div className="between"><h2>정비통계</h2><button onClick={() => downloadExcel(`정비통계_${todayText()}`, withTotalRow(
-  filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 담당자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })),
+  filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })),
   { 일자: "총합계", 공급가액: filtered.reduce((sum, m) => sum + getSupply(m), 0), 부가세: filtered.reduce((sum, m) => sum + getVat(m), 0), 합계: filtered.reduce((sum, m) => sum + getTotal(m), 0) }
 ))}>엑셀 다운로드</button></div>
 
@@ -5604,7 +5607,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
         <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
         <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
         <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
-        <Field label="제목/내용/담당자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
+        <Field label="제목/내용/작업자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
       </div>
 
