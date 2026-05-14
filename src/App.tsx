@@ -4717,16 +4717,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     <td className="right">{money(vat)}</td>
                     <td className="right bold">{money(total)}</td>
                     <td>
-                      {m.image_url ? (
-                        <a
-                          href={m.image_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="file-view-btn"
-                        >
-                          첨부보기
-                        </a>
-                      ) : "-"}
+                      <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
                     </td>
                     <td>
                       {isAdmin ? <>
@@ -4792,6 +4783,10 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
             <h2>{selected.title}</h2>
             <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>담당자:</b> {selected.manager || "-"}</p>
             <p><b>내용:</b> {selected.detail || "-"}</p>
+            <div className="maint-modal-attachments">
+              <b>첨부:</b>
+              <AttachmentGroup urls={selected.image_urls || (selected.image_url ? [selected.image_url] : [])} />
+            </div>
             <ScrollTable>
               <table>
                 <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
@@ -10769,6 +10764,62 @@ button[onclick*="downloadPdf"]{
     display:grid !important;
     grid-template-columns:1fr !important;
     width:100% !important;
+  }
+}
+
+/* ===== Maintenance Lookup Attachment Thumbnail Match ===== */
+.maint-lookup-page .attachment-group,
+.mobile-card-list-maints .attachment-group,
+.maint-modal-attachments .attachment-group{
+  display:flex !important;
+  gap:6px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex-wrap:wrap !important;
+}
+
+.maint-lookup-page .attachment-preview,
+.mobile-card-list-maints .attachment-preview,
+.maint-modal-attachments .attachment-preview{
+  width:42px !important;
+  height:42px !important;
+  border-radius:10px !important;
+  overflow:hidden !important;
+  border:1px solid #e5e7eb !important;
+  background:#f8fafc !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+.maint-lookup-page .attachment-preview img,
+.mobile-card-list-maints .attachment-preview img,
+.maint-modal-attachments .attachment-preview img{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+}
+
+.maint-modal-attachments{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:12px 0;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+}
+
+@media (max-width:900px){
+  .mobile-card-list-maints .attachment-preview{
+    width:56px !important;
+    height:56px !important;
+  }
+
+  .maint-modal-attachments{
+    display:grid;
+    gap:8px;
   }
 }
 
