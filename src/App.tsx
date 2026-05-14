@@ -4019,7 +4019,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} maintenanceSchedules={maintenanceSchedules} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
         {menuTab === "new" && (
           <section className="card">
@@ -5232,13 +5232,11 @@ function Home({
   setMaintSearch,
   warehouses,
   isAdmin,
-  maintenanceSchedules = [],
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
   warehouses: Warehouse[];
   isAdmin: boolean;
-  maintenanceSchedules?: MaintenanceSchedule[];
 }) {
   const hotspotTableName = "layout_hotspots";
   const [editLayout, setEditLayout] = useState(false);
