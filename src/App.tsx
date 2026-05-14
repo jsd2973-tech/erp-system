@@ -3399,7 +3399,7 @@ export default function App() {
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
-                    <div className="receipt-clean-actions">
+                                        <div className="receipt-clean-actions">
                       <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>정비등록 반영</button>}
                       {isAdmin && <button className="link secondary" onClick={() => openMaintRecordPickerFromMaintenancePhoto(item)}>기존정비 연결</button>}
@@ -3557,7 +3557,7 @@ export default function App() {
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
-                    <div className="receipt-clean-actions">
+                                        <div className="receipt-clean-actions">
                       <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
                       {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>구매입력 반영</button>}
                       {isAdmin && <button className="link secondary" onClick={() => openPurchaseRecordPickerFromReceiptPhoto(item)}>기존구매 연결</button>}
@@ -10439,6 +10439,86 @@ button[class*="download"]{
 @media (max-width:430px){
   .receipt-clean-actions{
     grid-template-columns:1fr !important;
+  }
+}
+
+/* ===== Mobile Photo Cards Compact Action Buttons FINAL ===== */
+@media (max-width:900px){
+  .receipt-clean-card{
+    padding:18px !important;
+    border-radius:24px !important;
+    overflow:visible !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  .receipt-clean-thumb,
+  .receipt-clean-card img{
+    max-width:96px !important;
+    max-height:78px !important;
+    border-radius:12px !important;
+    object-fit:cover !important;
+  }
+
+  .receipt-clean-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    width:100% !important;
+    margin-top:12px !important;
+    overflow:visible !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+
+  .receipt-clean-actions button{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:38px !important;
+    height:38px !important;
+    padding:6px 8px !important;
+    border-radius:12px !important;
+    justify-content:center !important;
+    align-items:center !important;
+    font-size:12px !important;
+    font-weight:1000 !important;
+    line-height:1.15 !important;
+    white-space:normal !important;
+    word-break:keep-all !important;
+  }
+
+  .receipt-clean-actions .link{
+    background:#2563eb !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .secondary{
+    background:#475569 !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .complete{
+    background:#16a34a !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions .delete{
+    background:#ef4444 !important;
+    color:#ffffff !important;
+  }
+
+  .receipt-clean-actions button:nth-child(5){
+    grid-column:1 / -1 !important;
+  }
+}
+
+@media (max-width:380px){
+  .receipt-clean-actions button{
+    font-size:11px !important;
+    padding:5px 6px !important;
   }
 }
 
