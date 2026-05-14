@@ -1390,7 +1390,7 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
 
-    if (["new", "list", "status", "bulk_transfer", "card_use", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
+    if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
       loadAll();
     }
 
@@ -2049,6 +2049,7 @@ export default function App() {
 
     resetCardForm();
     alert(editingCardUseId ? "카드사용 수정 완료" : "카드사용 저장 완료");
+    setMenuTab("card_list");
   };
 
   const editCardUse = (c: CardUse) => {
@@ -2876,7 +2877,7 @@ export default function App() {
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
-          <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_stats")}>카드사용 통계</button></div></div>
+          <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_list")}>카드조회</button><button onMouseDown={() => setMenuTab("card_stats")}>카드통계</button></div></div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group maint-menu-group">
             <button type="button">정비</button>
@@ -3958,12 +3959,18 @@ export default function App() {
               <button onClick={resetCardForm}>초기화</button>
             </div>
 
+          </section>
+        )}
+
+
+                {menuTab === "card_list" && (
+          <section className="card lookup-page card-lookup-page">
             <div className="between" style={{marginTop:24}}>
-              <h3>카드사용 조회</h3>
+              <h2>카드조회</h2>
               <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
   filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
   { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`정비조회_${todayText()}`, "정비조회", maints.map((m: Maint) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 합계: m.total || m.cost || 0 })))}>PDF 출력</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
             </div>
             <div className="grid5">
               <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
@@ -4343,6 +4350,7 @@ export default function App() {
           {mobileSheet === "card" && (
             <>
               <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>카드사용</button>
+              <button onClick={() => { setMenuTab("card_list"); setMobileSheet(""); }}>카드조회</button>
               <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>카드통계</button>
             </>
           )}
@@ -4374,7 +4382,7 @@ export default function App() {
         <div className="mobile-bottom-nav">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
           <button className={mobileSheet === "buy" || ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
-          <button className={mobileSheet === "card" || ["card_use", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
+          <button className={mobileSheet === "card" || ["card_use", "card_list", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
           <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
           <button className={mobileSheet === "more" || ["update_history", "permits", "layout", "vendors", "warehouse_groups", "items", "update_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
         </div>
@@ -10578,6 +10586,33 @@ button[class*="download"]{
   }
 
   .lookup-page .scroll-table{
+    min-height:0 !important;
+    max-height:none !important;
+  }
+}
+
+/* ===== Card Lookup Split Menu ===== */
+.card-lookup-page{
+  min-height:calc(100vh - 215px) !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+
+.card-lookup-page > .scroll-table,
+.card-lookup-page .scroll-table{
+  flex:1 1 auto !important;
+  min-height:470px !important;
+  max-height:calc(100vh - 340px) !important;
+  overflow:auto !important;
+}
+
+@media (max-width:900px){
+  .card-lookup-page{
+    min-height:auto !important;
+    display:block !important;
+  }
+
+  .card-lookup-page .scroll-table{
     min-height:0 !important;
     max-height:none !important;
   }
