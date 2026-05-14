@@ -84,7 +84,15 @@ type MaintenancePhoto = {
 
 const supabase = createClient(
   "https://jqdvxmatbmmeubtoogvl.supabase.co",
-  "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7"
+  "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7",
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+    },
+  }
 );
 
 const toPurchase = (p: any): Purchase => ({
@@ -504,6 +512,7 @@ const BUNDLED_UPDATE_NOTICES = [
   { id: "auto-20260513-021", notice_date: "2026-05-13", content: "정비 드롭다운 글씨 두께 통일" },
   { id: "auto-20260513-022", notice_date: "2026-05-13", content: "모바일 로그아웃 및 메뉴별 인터넷 새로고침 개선" },
   { id: "auto-20260514-001", notice_date: "2026-05-14", content: "모바일 전체 메뉴 표시 및 통계 화면 보강" },
+  { id: "auto-20260514-002", notice_date: "2026-05-14", content: "로그인 유지 및 공지 팝업/삭제 개선" },
   { id: "auto-20260511-001", notice_date: "2026-05-11", content: "구매/카드/정비 PDF 출력 기능 추가" },
   { id: "auto-20260511-002", notice_date: "2026-05-11", content: "모바일 하단 메뉴 및 화면 최적화" },
 ];
@@ -823,7 +832,7 @@ export default function App() {
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
-  const recentUpdateItems = updateNotices.filter(isRecentNotice);
+  const recentUpdateItems = updateNotices.filter(isRecentNotice).slice(0, 3);
   const [updateNoticeForm, setUpdateNoticeForm] = useState({ notice_date: getTodayKey(), content: "" });
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [updateNoticeError, setUpdateNoticeError] = useState("");
@@ -1359,16 +1368,37 @@ export default function App() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    let alive = true;
+
+    const restoreSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!alive) return;
       setSession(data.session);
       setAuthLoading(false);
+    };
+
+    restoreSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (nextSession) {
+        setSession(nextSession);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session || null);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
+    const keepAlive = window.setInterval(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+      }
+    }, 10 * 60 * 1000);
 
     return () => {
+      alive = false;
+      window.clearInterval(keepAlive);
       listener.subscription.unsubscribe();
     };
   }, []);
@@ -2323,8 +2353,6 @@ export default function App() {
   const loadUpdateNotices = async () => {
     setUpdateNoticeError("");
 
-    await syncBundledUpdateNotices();
-
     const { data, error } = await supabase
       .from("update_notices")
       .select("*")
@@ -2391,8 +2419,21 @@ export default function App() {
     if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
     if (!confirm("업데이트 공지를 삭제할까요?")) return;
 
+    setUpdateNotices((prev) => prev.filter((notice) => notice.id !== id));
+
     const { error } = await supabase.from("update_notices").delete().eq("id", id);
-    if (error) return alert(`업데이트 공지 삭제 실패: ${error.message}`);
+
+    if (error) {
+      const { error: softError } = await supabase
+        .from("update_notices")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (softError) {
+        await loadUpdateNotices();
+        return alert(`업데이트 공지 삭제 실패: ${softError.message}`);
+      }
+    }
 
     await loadUpdateNotices();
   };
@@ -2597,7 +2638,7 @@ export default function App() {
               <div className="update-popup-head">
                 <div>
                   <span>UPDATE</span>
-                  <h2>ERP 업데이트 안내</h2>
+                  <h2>업데이트 안내</h2>
                 </div>
                 <button onClick={closeUpdateNotice}>×</button>
               </div>
@@ -9757,6 +9798,86 @@ td .icon{
 @media (min-width:901px){
   .mobile-purchase-cards{
     display:none !important;
+  }
+}
+
+/* ===== Update Popup Compact + Closable ===== */
+.update-popup-backdrop{
+  padding:18px !important;
+  align-items:center !important;
+  overflow:auto !important;
+}
+
+.update-popup{
+  width:min(560px, 94vw) !important;
+  max-height:78dvh !important;
+  overflow:auto !important;
+  border-radius:24px !important;
+}
+
+.update-popup-head{
+  position:sticky !important;
+  top:0 !important;
+  z-index:2 !important;
+  background:#ffffff !important;
+  padding-bottom:10px !important;
+}
+
+.update-popup-head button{
+  min-width:42px !important;
+  min-height:42px !important;
+  border-radius:999px !important;
+  background:#ef4444 !important;
+  color:#ffffff !important;
+  font-size:22px !important;
+  font-weight:1000 !important;
+  justify-content:center !important;
+}
+
+.update-popup ul{
+  max-height:32dvh !important;
+  overflow:auto !important;
+  padding-right:4px !important;
+}
+
+.update-popup li{
+  display:grid !important;
+  grid-template-columns:92px 1fr !important;
+  gap:8px !important;
+  align-items:start !important;
+}
+
+.update-popup li span{
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  overflow:hidden !important;
+  line-height:1.4 !important;
+}
+
+.update-popup-bottom{
+  position:sticky !important;
+  bottom:0 !important;
+  background:#ffffff !important;
+  padding-top:12px !important;
+}
+
+.update-popup-bottom .primary{
+  min-height:46px !important;
+  justify-content:center !important;
+}
+
+@media (max-width:900px){
+  .update-popup{
+    max-height:72dvh !important;
+  }
+
+  .update-popup li{
+    grid-template-columns:1fr !important;
+  }
+
+  .update-popup li strong{
+    font-size:12px !important;
   }
 }
 
