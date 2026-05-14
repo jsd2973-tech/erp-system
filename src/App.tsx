@@ -2316,39 +2316,6 @@ export default function App() {
     setShowUpdateNotice(false);
   };
 
-  const syncBundledUpdateNotices = async () => {
-    const { data: existing, error: readError } = await supabase
-      .from("update_notices")
-      .select("id, notice_date, content")
-      .eq("is_active", true);
-
-    if (readError) {
-      console.error("기존 업데이트 공지 확인 실패:", readError);
-      return;
-    }
-
-    const existingKeys = new Set(
-      ((existing || []) as any[]).map((notice) => `${String(notice.notice_date || "").slice(0, 10)}|${String(notice.content || "").trim()}`)
-    );
-
-    const rows = BUNDLED_UPDATE_NOTICES
-      .filter((notice) => !existingKeys.has(`${notice.notice_date}|${notice.content.trim()}`))
-      .map((notice) => ({
-        ...notice,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      }));
-
-    if (!rows.length) return;
-
-    const { error } = await supabase
-      .from("update_notices")
-      .upsert(rows, { onConflict: "id" });
-
-    if (error) {
-      console.error("자동 업데이트 공지 등록 실패:", error);
-    }
-  };
 
   const loadUpdateNotices = async () => {
     setUpdateNoticeError("");
