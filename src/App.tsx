@@ -2943,11 +2943,9 @@ export default function App() {
         <nav className="menu">
           <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
           <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
-          <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
           <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
           <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_list")}>카드조회</button><button onMouseDown={() => setMenuTab("card_stats")}>카드통계</button></div></div>
-          <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <div className="menu-group maint-menu-group">
             <button type="button">정비</button>
             <div className="sub maint-sub">
@@ -2957,7 +2955,8 @@ export default function App() {
               <button type="button" onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button>
             </div>
           </div>
-          
+          <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
+          <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
@@ -4436,13 +4435,13 @@ export default function App() {
           {mobileSheet === "more" && (
             <>
               <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
-              <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
               <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
               <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
               <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
               <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
+              <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
               {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
-            
+
               <button className="mobile-sheet-logout" onClick={logout}>로그아웃</button>
             </>
           )}
