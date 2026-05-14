@@ -843,6 +843,10 @@ export default function App() {
   });
   const [maintenancePhotoFiles, setMaintenancePhotoFiles] = useState<File[]>([]);
   const [maintenancePhotoPreviewOpen, setMaintenancePhotoPreviewOpen] = useState<MaintenancePhoto | null>(null);
+  const [linkingReceiptPhotoId, setLinkingReceiptPhotoId] = useState("");
+  const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
+  const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
+  const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
 
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
@@ -1472,6 +1476,10 @@ export default function App() {
     const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
     if (error) return alert(`구매 저장 실패: ${error.message}`);
     setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
+    if (linkingReceiptPhotoId) {
+      await markReceiptPhotoProcessed(linkingReceiptPhotoId);
+      setLinkingReceiptPhotoId("");
+    }
     resetPurchaseForm();
     setMenuTab("list");
   };
@@ -1633,30 +1641,53 @@ export default function App() {
   };
 
   const saveMaintenancePhoto = async () => {
+    if (maintenancePhotoSaving) return;
     if (!maintenancePhotoForm.maint_date) return alert("일자를 입력하세요.");
     if (!maintenancePhotoForm.equipment_name.trim()) return alert("설비명을 입력하세요.");
     if (!maintenancePhotoForm.memo.trim() && !maintenancePhotoFiles.length) return alert("정비내용 또는 사진을 입력하세요.");
 
-    const imageUrls = maintenancePhotoFiles.length ? await uploadMaintenancePhotoFiles(maintenancePhotoFiles) : [];
+    setMaintenancePhotoSaving(true);
 
-    const payload: MaintenancePhoto = {
-      id: uid(),
-      maint_date: maintenancePhotoForm.maint_date,
-      equipment_name: maintenancePhotoForm.equipment_name.trim(),
-      memo: maintenancePhotoForm.memo.trim(),
-      image_urls: imageUrls,
-      created_by: userEmail || "직원",
-      is_processed: false,
-      is_urgent: maintenancePhotoForm.is_urgent,
-    };
+    try {
+      const equipmentName = maintenancePhotoForm.equipment_name.trim();
+      const memo = maintenancePhotoForm.memo.trim();
 
-    const { error } = await supabase.from("maintenance_photos").insert(payload);
-    if (error) return alert(`정비사진 저장 실패: ${error.message}`);
+      const { data: duplicate } = await supabase
+        .from("maintenance_photos")
+        .select("id")
+        .eq("maint_date", maintenancePhotoForm.maint_date)
+        .eq("equipment_name", equipmentName)
+        .eq("memo", memo)
+        .limit(1);
 
-    setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
-    setMaintenancePhotoFiles([]);
-    await loadMaintenancePhotos();
-    alert("정비사진이 등록되었습니다.");
+      if ((duplicate || []).length) {
+        alert("같은 일자/설비명/내용의 정비사진이 이미 등록되어 있습니다.");
+        return;
+      }
+
+      const imageUrls = maintenancePhotoFiles.length ? await uploadMaintenancePhotoFiles(maintenancePhotoFiles) : [];
+
+      const payload: MaintenancePhoto = {
+        id: uid(),
+        maint_date: maintenancePhotoForm.maint_date,
+        equipment_name: equipmentName,
+        memo,
+        image_urls: imageUrls,
+        created_by: userEmail || "직원",
+        is_processed: false,
+        is_urgent: maintenancePhotoForm.is_urgent,
+      };
+
+      const { error } = await supabase.from("maintenance_photos").insert(payload);
+      if (error) return alert(`정비사진 저장 실패: ${error.message}`);
+
+      setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
+      setMaintenancePhotoFiles([]);
+      await loadMaintenancePhotos();
+      alert("정비사진이 등록되었습니다.");
+    } finally {
+      setMaintenancePhotoSaving(false);
+    }
   };
 
   const toggleMaintenancePhotoProcessed = async (item: MaintenancePhoto) => {
@@ -1680,6 +1711,76 @@ export default function App() {
     if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
 
     await loadMaintenancePhotos();
+  };
+
+  const markReceiptPhotoProcessed = async (id: string) => {
+    const { error } = await supabase
+      .from("receipt_photos")
+      .update({ is_processed: true })
+      .eq("id", id);
+
+    if (error) {
+      alert(`입고사진 처리완료 저장 실패: ${error.message}`);
+      return false;
+    }
+
+    setReceiptPhotos((prev) => prev.map((item) => item.id === id ? { ...item, is_processed: true } : item));
+    return true;
+  };
+
+  const markMaintenancePhotoProcessed = async (id: string) => {
+    const { error } = await supabase
+      .from("maintenance_photos")
+      .update({ is_processed: true })
+      .eq("id", id);
+
+    if (error) {
+      alert(`정비사진 처리완료 저장 실패: ${error.message}`);
+      return false;
+    }
+
+    setMaintenancePhotos((prev) => prev.map((item) => item.id === id ? { ...item, is_processed: true } : item));
+    return true;
+  };
+
+  const applyReceiptPhotoToPurchase = async (item: ReceiptPhoto) => {
+    if (!isAdmin) return alert("관리자만 구매입력에 반영할 수 있습니다.");
+
+    setPurchaseHeader({
+      date: item.receipt_date || getTodayKey(),
+      vendor: item.vendor_name || "",
+      warehouse: "",
+    });
+    setRows([emptyRow()]);
+    setEditingPurchaseId("");
+    setLinkingReceiptPhotoId(item.id);
+
+    await markReceiptPhotoProcessed(item.id);
+
+    setMenuTab("new");
+    alert("입고사진을 구매입력에 반영했습니다. 창고/품목/금액을 입력해서 저장하세요.");
+  };
+
+  const applyMaintenancePhotoToMaint = async (item: MaintenancePhoto) => {
+    if (!isAdmin) return alert("관리자만 정비등록에 반영할 수 있습니다.");
+
+    setMaintForm({
+      date: item.maint_date || getTodayKey(),
+      warehouse: item.equipment_name || "",
+      manager: userEmail || "",
+      title: item.is_urgent ? "긴급 정비" : "정비",
+      detail: item.memo || "",
+      cost: "",
+      image_urls: item.image_urls || [],
+    });
+    setMaintItems([emptyMaintItem()]);
+    setEditingMaintId("");
+    setLinkingMaintenancePhotoId(item.id);
+
+    await markMaintenancePhotoProcessed(item.id);
+
+    setMenuTab("maint_new");
+    alert("정비사진을 정비등록에 반영했습니다. 품목/금액을 입력해서 저장하세요.");
   };
 
 
@@ -1731,29 +1832,52 @@ export default function App() {
   };
 
   const saveReceiptPhoto = async () => {
+    if (receiptPhotoSaving) return;
     if (!receiptPhotoForm.receipt_date) return alert("일자를 입력하세요.");
     if (!receiptPhotoForm.vendor_name.trim()) return alert("거래처를 입력하세요.");
     if (!receiptPhotoForm.memo.trim() && !receiptPhotoFiles.length) return alert("내용 또는 사진을 입력하세요.");
 
-    const imageUrls = receiptPhotoFiles.length ? await uploadReceiptPhotoFiles(receiptPhotoFiles) : [];
+    setReceiptPhotoSaving(true);
 
-    const payload: ReceiptPhoto = {
-      id: uid(),
-      receipt_date: receiptPhotoForm.receipt_date,
-      vendor_name: receiptPhotoForm.vendor_name.trim(),
-      memo: receiptPhotoForm.memo.trim(),
-      image_urls: imageUrls,
-      created_by: userEmail || "직원",
-      is_processed: false,
-    };
+    try {
+      const vendorName = receiptPhotoForm.vendor_name.trim();
+      const memo = receiptPhotoForm.memo.trim();
 
-    const { error } = await supabase.from("receipt_photos").insert(payload);
-    if (error) return alert(`입고사진 저장 실패: ${error.message}`);
+      const { data: duplicate } = await supabase
+        .from("receipt_photos")
+        .select("id")
+        .eq("receipt_date", receiptPhotoForm.receipt_date)
+        .eq("vendor_name", vendorName)
+        .eq("memo", memo)
+        .limit(1);
 
-    setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
-    setReceiptPhotoFiles([]);
-    await loadReceiptPhotos();
-    alert("입고사진이 등록되었습니다.");
+      if ((duplicate || []).length) {
+        alert("같은 일자/거래처/내용의 입고사진이 이미 등록되어 있습니다.");
+        return;
+      }
+
+      const imageUrls = receiptPhotoFiles.length ? await uploadReceiptPhotoFiles(receiptPhotoFiles) : [];
+
+      const payload: ReceiptPhoto = {
+        id: uid(),
+        receipt_date: receiptPhotoForm.receipt_date,
+        vendor_name: vendorName,
+        memo,
+        image_urls: imageUrls,
+        created_by: userEmail || "직원",
+        is_processed: false,
+      };
+
+      const { error } = await supabase.from("receipt_photos").insert(payload);
+      if (error) return alert(`입고사진 저장 실패: ${error.message}`);
+
+      setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
+      setReceiptPhotoFiles([]);
+      await loadReceiptPhotos();
+      alert("입고사진이 등록되었습니다.");
+    } finally {
+      setReceiptPhotoSaving(false);
+    }
   };
 
   const toggleReceiptPhotoProcessed = async (item: ReceiptPhoto) => {
@@ -2142,7 +2266,12 @@ export default function App() {
     const { error } = await supabase.from("maints").upsert(payload);
     if (error) return alert(`정비 저장 실패: ${error.message}`);
     setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
+    if (linkingMaintenancePhotoId) {
+      await markMaintenancePhotoProcessed(linkingMaintenancePhotoId);
+      setLinkingMaintenancePhotoId("");
+    }
     resetMaintForm();
+    setMenuTab("maint_list");
   };
   const editMaint = (m: Maint) => {
     setMenuTab("maint_new");
@@ -3097,8 +3226,8 @@ export default function App() {
                   긴급 정비로 표시
                 </label>
 
-                <button className="receipt-submit-clean maintenance-submit" onClick={saveMaintenancePhoto}>
-                  정비사진 등록
+                <button className="receipt-submit-clean maintenance-submit" onClick={saveMaintenancePhoto} disabled={maintenancePhotoSaving}>
+                  {maintenancePhotoSaving ? "저장 중..." : "정비사진 등록"}
                 </button>
               </div>
 
@@ -3159,6 +3288,7 @@ export default function App() {
 
                     <div className="receipt-clean-actions">
                       <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
+                      {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>정비등록 반영</button>}
                       <button className="complete" onClick={() => toggleMaintenancePhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -3254,8 +3384,8 @@ export default function App() {
                   />
                 </Field>
 
-                <button className="receipt-submit-clean" onClick={saveReceiptPhoto}>
-                  입고사진 등록
+                <button className="receipt-submit-clean" onClick={saveReceiptPhoto} disabled={receiptPhotoSaving}>
+                  {receiptPhotoSaving ? "저장 중..." : "입고사진 등록"}
                 </button>
               </div>
 
@@ -3315,6 +3445,7 @@ export default function App() {
 
                     <div className="receipt-clean-actions">
                       <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
+                      {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>구매입력 반영</button>}
                       <button className="complete" onClick={() => toggleReceiptPhotoProcessed(item)}>
                         {item.is_processed ? "미처리로 변경" : "처리완료"}
                       </button>
@@ -9806,6 +9937,21 @@ td .icon{
   .update-popup li strong{
     font-size:12px !important;
   }
+}
+
+/* ===== Photo To Register Link Buttons ===== */
+.receipt-clean-actions{
+  grid-template-columns:repeat(auto-fit,minmax(92px,1fr)) !important;
+}
+
+.receipt-clean-actions .link{
+  background:#2563eb !important;
+  color:#ffffff !important;
+}
+
+.receipt-submit-clean:disabled{
+  opacity:.62;
+  cursor:not-allowed;
 }
 
 `;
