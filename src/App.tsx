@@ -10077,4 +10077,58 @@ button[class*="download"]{
   }
 }
 
+/* ===== Unified Page Header / Download Button Alignment ===== */
+.card > .between:first-child{
+  display:grid !important;
+  grid-template-columns:1fr auto auto !important;
+  align-items:center !important;
+  gap:10px !important;
+  margin-bottom:16px !important;
+}
+
+.card > .between:first-child h2{
+  margin:0 !important;
+  text-align:left !important;
+  justify-self:start !important;
+}
+
+.card > .between:first-child button{
+  justify-self:end !important;
+  min-width:118px !important;
+  min-height:42px !important;
+  border-radius:14px !important;
+  padding:0 16px !important;
+}
+
+.card > .between:first-child button:first-of-type{
+  grid-column:auto !important;
+}
+
+.card > .between:first-child button + button{
+  margin-left:0 !important;
+}
+
+@media (max-width:900px){
+  .card > .between:first-child{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+  }
+
+  .card > .between:first-child h2{
+    text-align:center !important;
+    justify-self:center !important;
+  }
+
+  .card > .between:first-child button{
+    width:100% !important;
+    justify-self:stretch !important;
+  }
+}
+
+/* 구매조회 필터와 표 간격 정리 */
+.card > .grid5 + .mobile-purchase-cards,
+.card > .grid5 + .scroll-table{
+  margin-top:12px !important;
+}
+
 `;
