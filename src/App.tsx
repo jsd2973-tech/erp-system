@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import jsPDF from "jspdf";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
 
@@ -369,43 +368,113 @@ const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[
     return;
   }
 
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const escapeHtml = (value: any) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
   const headers = Object.keys(rows[0] || {});
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
-  const usableWidth = pageWidth - margin * 2;
-  const colWidth = usableWidth / Math.max(headers.length, 1);
-  let y = 16;
+  const totalIndex = rows.findIndex((row) => String(row[headers[0]] || "").includes("총합계"));
 
-  doc.setFontSize(16);
-  doc.text(title, margin, y);
-  y += 9;
+  const tableHead = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+  const tableBody = rows
+    .map((row, rowIndex) => {
+      const isTotal = rowIndex === totalIndex || String(row[headers[0]] || "").includes("총합계");
+      const cells = headers
+        .map((h) => {
+          const raw = row[h];
+          const isNumber = typeof raw === "number" || ["금액", "합계", "공급가액", "부가세", "부가세액", "수량", "단가"].some((key) => h.includes(key));
+          const value = isNumber && raw !== "" && raw != null && !Number.isNaN(Number(raw))
+            ? Number(raw).toLocaleString("ko-KR")
+            : raw;
+          return `<td class="${isNumber ? "right" : ""}">${escapeHtml(value)}</td>`;
+        })
+        .join("");
+      return `<tr class="${isTotal ? "total" : ""}">${cells}</tr>`;
+    })
+    .join("");
 
-  doc.setFontSize(8);
-  doc.text(`출력일: ${todayText()}`, margin, y);
-  y += 8;
+  const printable = window.open("", "_blank", "width=1200,height=800");
+  if (!printable) {
+    alert("팝업이 차단되었습니다. 브라우저에서 팝업 허용 후 다시 출력하세요.");
+    return;
+  }
 
-  doc.setFontSize(7);
-  headers.forEach((h, i) => {
-    doc.text(String(h).slice(0, 18), margin + i * colWidth, y);
-  });
-  y += 6;
-
-  rows.forEach((row) => {
-    if (y > 190) {
-      doc.addPage();
-      y = 14;
+  printable.document.open();
+  printable.document.write(`<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(fileName)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
+      color: #111827;
+      background: #ffffff;
     }
-
-    headers.forEach((h, i) => {
-      const value = row[h] == null ? "" : String(row[h]);
-      doc.text(value.slice(0, 22), margin + i * colWidth, y);
-    });
-
-    y += 6;
-  });
-
-  doc.save(`${fileName}.pdf`);
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .meta {
+      margin-bottom: 12px;
+      font-size: 11px;
+      color: #475569;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-size: 10px;
+    }
+    th {
+      background: #e8f1fb;
+      color: #111827;
+      font-weight: 800;
+      border: 1px solid #cbd5e1;
+      padding: 6px 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    td {
+      border: 1px solid #e5e7eb;
+      padding: 5px;
+      vertical-align: middle;
+      word-break: keep-all;
+    }
+    td.right { text-align: right; }
+    tr.total td {
+      background: #fff2cc;
+      font-weight: 800;
+      border-color: #c9b458;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <div class="meta">출력일: ${todayText()}</div>
+  <table>
+    <thead><tr>${tableHead}</tr></thead>
+    <tbody>${tableBody}</tbody>
+  </table>
+  <script>
+    window.onload = () => {
+      setTimeout(() => window.print(), 250);
+    };
+  </script>
+</body>
+</html>`);
+  printable.document.close();
 };
 
 
@@ -10615,6 +10684,92 @@ button[class*="download"]{
   .card-lookup-page .scroll-table{
     min-height:0 !important;
     max-height:none !important;
+  }
+}
+
+/* ===== Unified Download / Print Buttons Final ===== */
+.card > .between:first-child,
+.lookup-page > .between:first-child,
+.card-lookup-page > .between:first-child{
+  display:grid !important;
+  grid-template-columns:1fr auto auto !important;
+  align-items:center !important;
+  gap:10px !important;
+  margin-bottom:14px !important;
+}
+
+.card > .between:first-child h2,
+.lookup-page > .between:first-child h2,
+.card-lookup-page > .between:first-child h2{
+  justify-self:start !important;
+  text-align:left !important;
+  margin:0 !important;
+}
+
+.card > .between:first-child button,
+.lookup-page > .between:first-child button,
+.card-lookup-page > .between:first-child button,
+.bulk-transfer-download,
+button[onclick*="downloadExcel"],
+button[onclick*="downloadPdf"]{
+  min-width:112px !important;
+  min-height:42px !important;
+  height:42px !important;
+  padding:0 16px !important;
+  border:0 !important;
+  border-radius:14px !important;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8) !important;
+  color:#ffffff !important;
+  font-size:13px !important;
+  font-weight:1000 !important;
+  box-shadow:0 10px 22px rgba(37,99,235,.22) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  white-space:nowrap !important;
+}
+
+.card > .between:first-child button:hover,
+.lookup-page > .between:first-child button:hover,
+.card-lookup-page > .between:first-child button:hover,
+.bulk-transfer-download:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.03);
+}
+
+@media (max-width:900px){
+  .card > .between:first-child,
+  .lookup-page > .between:first-child,
+  .card-lookup-page > .between:first-child{
+    grid-template-columns:1fr !important;
+  }
+
+  .card > .between:first-child h2,
+  .lookup-page > .between:first-child h2,
+  .card-lookup-page > .between:first-child h2{
+    justify-self:center !important;
+    text-align:center !important;
+  }
+
+  .card > .between:first-child button,
+  .lookup-page > .between:first-child button,
+  .card-lookup-page > .between:first-child button{
+    width:100% !important;
+  }
+}
+
+/* 정비조회 상단 버튼 묶음 통일 */
+.maint-lookup-page > .between:first-child > div{
+  display:flex !important;
+  gap:10px !important;
+  justify-self:end !important;
+}
+
+@media (max-width:900px){
+  .maint-lookup-page > .between:first-child > div{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    width:100% !important;
   }
 }
 
