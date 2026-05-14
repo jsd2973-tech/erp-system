@@ -67,6 +67,18 @@ type ReceiptPhoto = {
 };
 
 
+type MaintenanceSchedule = {
+  id: string;
+  schedule_date: string;
+  equipment_name: string;
+  work_detail: string;
+  worker_name?: string;
+  priority?: string;
+  status?: string;
+  memo?: string;
+  created_at?: string;
+};
+
 type MaintenancePhoto = {
   id: string;
   maint_date: string;
@@ -920,6 +932,18 @@ export default function App() {
   const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
   const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
   const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
+  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([]);
+  const [maintenanceScheduleForm, setMaintenanceScheduleForm] = useState({
+    schedule_date: getTodayKey(),
+    equipment_name: "",
+    work_detail: "",
+    worker_name: "",
+    priority: "보통",
+    status: "예정",
+    memo: "",
+  });
+  const [editingMaintenanceScheduleId, setEditingMaintenanceScheduleId] = useState("");
+
   const [photoLinkModal, setPhotoLinkModal] = useState<{
     mode: "" | "purchase" | "maint" | "recordPurchase" | "recordMaint";
     targetId: string;
@@ -1453,6 +1477,7 @@ export default function App() {
       loadVendorAccounts();
       loadReceiptPhotos();
       loadMaintenancePhotos();
+      loadMaintenanceSchedules();
     }
   }, [session]);
 
@@ -1477,6 +1502,10 @@ export default function App() {
 
     if (menuTab === "maintenance_photos") {
       loadMaintenancePhotos();
+    }
+
+    if (menuTab === "maintenance_schedule_new" || menuTab === "maintenance_schedules") {
+      loadMaintenanceSchedules();
     }
   }, [menuTab, session]);
 
@@ -1792,6 +1821,76 @@ export default function App() {
     if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
 
     await loadMaintenancePhotos();
+  };
+
+  const resetMaintenanceScheduleForm = () => {
+    setMaintenanceScheduleForm({
+      schedule_date: getTodayKey(),
+      equipment_name: "",
+      work_detail: "",
+      worker_name: "",
+      priority: "보통",
+      status: "예정",
+      memo: "",
+    });
+    setEditingMaintenanceScheduleId("");
+  };
+
+  const saveMaintenanceSchedule = async () => {
+    if (!isAdmin) return alert("관리자만 정비일정을 등록/수정할 수 있습니다.");
+    if (!maintenanceScheduleForm.schedule_date) return alert("예정일을 입력하세요.");
+    if (!maintenanceScheduleForm.equipment_name.trim()) return alert("장비명을 입력하세요.");
+    if (!maintenanceScheduleForm.work_detail.trim()) return alert("작업내용을 입력하세요.");
+
+    const payload: MaintenanceSchedule = {
+      id: editingMaintenanceScheduleId || uid(),
+      schedule_date: maintenanceScheduleForm.schedule_date,
+      equipment_name: maintenanceScheduleForm.equipment_name.trim(),
+      work_detail: maintenanceScheduleForm.work_detail.trim(),
+      worker_name: maintenanceScheduleForm.worker_name.trim(),
+      priority: maintenanceScheduleForm.priority || "보통",
+      status: maintenanceScheduleForm.status || "예정",
+      memo: maintenanceScheduleForm.memo.trim(),
+    };
+
+    const { error } = await supabase.from("maintenance_schedules").upsert(payload);
+    if (error) return alert(`정비일정 저장 실패: ${error.message}`);
+
+    await loadMaintenanceSchedules();
+    resetMaintenanceScheduleForm();
+    setMenuTab("maintenance_schedules");
+  };
+
+  const editMaintenanceSchedule = (item: MaintenanceSchedule) => {
+    setEditingMaintenanceScheduleId(item.id);
+    setMaintenanceScheduleForm({
+      schedule_date: item.schedule_date || getTodayKey(),
+      equipment_name: item.equipment_name || "",
+      work_detail: item.work_detail || "",
+      worker_name: item.worker_name || "",
+      priority: item.priority || "보통",
+      status: item.status || "예정",
+      memo: item.memo || "",
+    });
+    setMenuTab("maintenance_schedule_new");
+  };
+
+  const deleteMaintenanceSchedule = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!confirm("정비일정을 삭제할까요?")) return;
+    const { error } = await supabase.from("maintenance_schedules").delete().eq("id", id);
+    if (error) return alert(`정비일정 삭제 실패: ${error.message}`);
+    setMaintenanceSchedules((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateMaintenanceScheduleStatus = async (item: MaintenanceSchedule, status: string) => {
+    if (!isAdmin) return alert("관리자만 상태를 변경할 수 있습니다.");
+    const { error } = await supabase
+      .from("maintenance_schedules")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", item.id);
+    if (error) return alert(`정비일정 상태 변경 실패: ${error.message}`);
+    setMaintenanceSchedules((prev) => prev.map((x) => (x.id === item.id ? { ...x, status } : x)));
   };
 
   const markReceiptPhotoProcessed = async (id: string) => {
@@ -2953,6 +3052,8 @@ export default function App() {
               <button type="button" onMouseDown={() => setMenuTab("maint_list")}>정비조회</button>
               <button type="button" onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button>
               <button type="button" onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button>
+              <button type="button" onMouseDown={() => setMenuTab("maintenance_schedule_new")}>정비일정등록</button>
+              <button type="button" onMouseDown={() => setMenuTab("maintenance_schedules")}>정비일정조회</button>
             </div>
           </div>
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
@@ -4429,6 +4530,8 @@ export default function App() {
               <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>
               <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>
               <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>
+              <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>
+              <button onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>정비일정조회</button>
             </>
           )}
 
@@ -4451,7 +4554,7 @@ export default function App() {
           <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
           <button className={mobileSheet === "buy" || ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
           <button className={mobileSheet === "card" || ["card_use", "card_list", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
           <button className={mobileSheet === "more" || ["update_history", "permits", "layout", "vendors", "warehouse_groups", "items", "update_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
         </div>
 
@@ -4609,6 +4712,109 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
     </section>
   );
 }
+
+
+function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSchedule, updateStatus }: any) {
+  const [from, setFrom] = useState(getTodayKey());
+  const [to, setTo] = useState("");
+  const [keyword, setKeyword] = useState("");
+
+  const filtered = useMemo(() => {
+    return (schedules || [])
+      .filter((item: MaintenanceSchedule) => {
+        const d = item.schedule_date || "";
+        const okFrom = !from || d >= from;
+        const okTo = !to || d <= to;
+        const q = `${item.equipment_name || ""} ${item.work_detail || ""} ${item.worker_name || ""} ${item.priority || ""} ${item.status || ""} ${item.memo || ""}`;
+        const okKeyword = !keyword || q.includes(keyword);
+        return okFrom && okTo && okKeyword;
+      })
+      .sort((a: MaintenanceSchedule, b: MaintenanceSchedule) => {
+        const dateCompare = String(a.schedule_date || "").localeCompare(String(b.schedule_date || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return String(a.created_at || a.id || "").localeCompare(String(b.created_at || b.id || ""));
+      });
+  }, [schedules, from, to, keyword]);
+
+  return (
+    <section className="card lookup-page maintenance-schedule-list-page">
+      <div className="between">
+        <h2>정비일정조회</h2>
+        <button onClick={() => downloadExcel(`정비일정_${todayText()}`, filtered.map((item: MaintenanceSchedule) => ({
+          예정일: item.schedule_date,
+          장비명: item.equipment_name,
+          작업내용: item.work_detail,
+          작업자: item.worker_name || "",
+          우선순위: item.priority || "",
+          상태: item.status || "",
+          메모: item.memo || "",
+        })))}>엑셀 다운로드</button>
+      </div>
+
+      <div className="grid5">
+        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="검색"><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="장비/작업내용/작업자 검색" /></Field>
+        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setKeyword(""); }}>검색 초기화</button></Field>
+      </div>
+
+      <ScrollTable>
+        <table>
+          <thead>
+            <tr><th>예정일</th><th>장비명</th><th>작업내용</th><th>작업자</th><th>우선순위</th><th>상태</th><th>메모</th><th>관리</th></tr>
+          </thead>
+          <tbody>
+            {!filtered.length ? (
+              <tr><td colSpan={8} className="empty">등록된 정비일정이 없습니다.</td></tr>
+            ) : filtered.map((item: MaintenanceSchedule) => (
+              <tr key={item.id}>
+                <td>{item.schedule_date || "-"}</td>
+                <td>{item.equipment_name || "-"}</td>
+                <td>{item.work_detail || "-"}</td>
+                <td>{item.worker_name || "-"}</td>
+                <td><span className={`schedule-priority ${item.priority || "보통"}`}>{item.priority || "보통"}</span></td>
+                <td><span className={`schedule-status ${item.status || "예정"}`}>{item.status || "예정"}</span></td>
+                <td>{item.memo || "-"}</td>
+                <td>{isAdmin ? (
+                  <>
+                    <button className="icon" onClick={() => editSchedule(item)}><Pencil size={16} /></button>
+                    <button className="icon" onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
+                    <button className="icon" onClick={() => deleteSchedule(item.id)}><Trash2 size={16} /></button>
+                  </>
+                ) : "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </ScrollTable>
+
+      <div className="mobile-card-list">
+        {filtered.map((item: MaintenanceSchedule) => (
+          <div className="mobile-list-card" key={`mobile-${item.id}`}>
+            <div className="mobile-list-top">
+              <b>{item.equipment_name}</b>
+              <span>{item.schedule_date}</span>
+            </div>
+            <div className="mobile-list-body">
+              <div><label>작업내용</label><p>{item.work_detail}</p></div>
+              <div><label>작업자</label><p>{item.worker_name || "-"}</p></div>
+              <div><label>우선순위/상태</label><p>{item.priority || "보통"} / {item.status || "예정"}</p></div>
+              <div><label>메모</label><p>{item.memo || "-"}</p></div>
+            </div>
+            {isAdmin && (
+              <div className="mobile-card-actions">
+                <button onClick={() => editSchedule(item)}>수정</button>
+                <button onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
+                <button onClick={() => deleteSchedule(item.id)}>삭제</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 
 function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
   const [selected, setSelected] = useState<Maint | null>(null);
@@ -10824,6 +11030,40 @@ button[onclick*="downloadPdf"]{
     display:grid;
     gap:8px;
   }
+}
+
+/* ===== Maintenance Schedule Feature ===== */
+.schedule-priority,
+.schedule-status{
+  display:inline-flex;
+  min-width:48px;
+  justify-content:center;
+  padding:5px 8px;
+  border-radius:999px;
+  font-weight:1000;
+  font-size:12px;
+}
+.schedule-priority.긴급{ background:#fee2e2; color:#b91c1c; }
+.schedule-priority.높음{ background:#ffedd5; color:#c2410c; }
+.schedule-priority.보통{ background:#e0f2fe; color:#0369a1; }
+.schedule-priority.낮음{ background:#dcfce7; color:#15803d; }
+.schedule-status.예정{ background:#ffedd5; color:#c2410c; }
+.schedule-status.진행중{ background:#dbeafe; color:#1d4ed8; }
+.schedule-status.완료{ background:#dcfce7; color:#15803d; }
+.maintenance-schedule-page,
+.maintenance-schedule-list-page{
+  min-height:calc(100vh - 215px) !important;
+}
+.maintenance-schedule-list-page .scroll-table{
+  flex:1 1 auto;
+  min-height:430px;
+  max-height:calc(100vh - 360px);
+  overflow:auto;
+}
+@media (max-width:900px){
+  .maintenance-schedule-page,
+  .maintenance-schedule-list-page{ min-height:auto !important; }
+  .maintenance-schedule-list-page .scroll-table{ min-height:0; max-height:none; }
 }
 
 `;
