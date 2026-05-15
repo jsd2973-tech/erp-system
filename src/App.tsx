@@ -3010,7 +3010,7 @@ export default function App() {
   };
 
   const saveSiteNotice = async () => {
-    if (!isAdmin) return alert("관리자만 현장 공지를 저장할 수 있습니다.");
+    if (!(isAdmin || currentRole === "office")) return alert("관리자 또는 사무실직원만 공지를 저장할 수 있습니다.");
     if (!siteNoticeForm.title.trim() || !siteNoticeForm.content.trim()) {
       return alert("제목과 내용을 입력하세요.");
     }
@@ -4466,6 +4466,7 @@ export default function App() {
             deleteSiteNotice={deleteSiteNotice}
             siteNoticeError={siteNoticeError}
             isAdmin={isAdmin}
+            currentRole={currentRole}
           />
         )}
 
@@ -6167,7 +6168,9 @@ function SiteNoticePage({
   deleteSiteNotice,
   siteNoticeError,
   isAdmin,
+  currentRole,
 }: any) {
+  const canWriteNotice = isAdmin || currentRole === "office";
   const activeNotices = isAdmin ? (allSiteNotices || siteNotices || []) : (siteNotices || []);
   const urgentCount = activeNotices.filter((n: SiteNotice) => n.priority === "긴급").length;
   const noticeTargetRoles = siteNoticeForm.target_roles || ["all"];
@@ -6209,7 +6212,7 @@ function SiteNoticePage({
         <div>
           <span>NOTICE</span>
           <h2>공지</h2>
-          <p>현장 공유사항을 등록하면 홈 대시보드와 공지 메뉴에 계속 표시됩니다.</p>
+          <p>관리자와 사무실직원은 공지를 등록할 수 있고, 현장직원은 공지를 확인할 수 있습니다.</p>
         </div>
         <div className="site-notice-modern-summary">
           <b>{activeNotices.length}</b>
@@ -6226,7 +6229,7 @@ function SiteNoticePage({
         </div>
       )}
 
-      {isAdmin && (
+      {canWriteNotice && (
         <div className="site-notice-editor-card">
           <div className="site-notice-editor-title">
             <div>
@@ -6275,7 +6278,7 @@ function SiteNoticePage({
                 {noticeEmployees.map((user: UserPermission) => (
                   <label key={user.email}>
                     <input type="checkbox" checked={noticeTargetEmails.includes(user.email)} onChange={() => toggleNoticeTargetEmail(user.email)} />
-                    <span>{user.email}</span>
+                    <span>{toLoginId(user.email)}</span>
                     <em>{user.role === "field" ? "현장" : "사무실"}</em>
                   </label>
                 ))}
@@ -6294,14 +6297,14 @@ function SiteNoticePage({
         {activeNotices.length ? activeNotices.map((notice: SiteNotice) => (
           <article className={`site-notice-modern-card ${notice.priority || "보통"}`} key={notice.id}>
             <div className="site-notice-modern-card-top">
-              {isAdmin && <small>대상: {targetLabel(notice)}</small>}
+              {canWriteNotice && <small>대상: {targetLabel(notice)}</small>}
             </div>
             <h3>{notice.title}</h3>
             <p>{notice.content}</p>
-            {isAdmin && (
+            {canWriteNotice && (
               <div className="site-notice-modern-actions">
                 <button onClick={() => editSiteNotice(notice)}>수정</button>
-                <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>내리기</button>
+                {isAdmin && <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>내리기</button>}
               </div>
             )}
           </article>
