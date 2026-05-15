@@ -937,6 +937,11 @@ export default function App() {
     const permissions = currentUserPermission?.permissions || {};
     return !!permissions[tab];
   };
+  const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
+  const menuButton = (tab: string, label: string) =>
+    canAccessTab(tab) ? <button onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
+  const mobileMenuButton = (tab: string, label: string) =>
+    canAccessTab(tab) ? <button onClick={() => { setMenuTab(tab); setMobileSheet(""); }}>{label}</button> : null;
 
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
@@ -3225,25 +3230,62 @@ export default function App() {
           </div>
         )}
 
-        <nav className="menu">
-          <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>
-          <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>
-          <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>
-          <div className="menu-group"><button>구매</button><div className="sub"><button onMouseDown={() => setMenuTab("new")}>구매입력</button><button onMouseDown={() => setMenuTab("list")}>구매조회</button><button onMouseDown={() => setMenuTab("status")}>구매현황</button><button onMouseDown={() => setMenuTab("bulk_transfer")}>대량이체</button><button onMouseDown={() => setMenuTab("receipt_photos")}>입고사진등록</button><button onMouseDown={() => setMenuTab("vendor_accounts")}>업체계좌관리</button></div></div>
-          <div className="menu-group"><button>카드</button><div className="sub"><button onMouseDown={() => setMenuTab("card_use")}>카드사용</button><button onMouseDown={() => setMenuTab("card_list")}>카드조회</button><button onMouseDown={() => setMenuTab("card_stats")}>카드통계</button></div></div>
-          <div className="menu-group maint-menu-group">
-            <button type="button">정비</button>
-            <div className="sub maint-sub">
-              <button type="button" onMouseDown={() => setMenuTab("maint_new")}>정비등록</button>
-              <button type="button" onMouseDown={() => setMenuTab("maint_list")}>정비조회</button>
-              <button type="button" onMouseDown={() => setMenuTab("maint_stats")}>정비통계</button>
-              <button type="button" onMouseDown={() => setMenuTab("maintenance_photos")}>정비사진등록</button>
-              <button type="button" onMouseDown={() => setMenuTab("maintenance_schedule_new")}>정비일정등록</button>
-              <button type="button" onMouseDown={() => setMenuTab("maintenance_schedules")}>정비일정조회</button>
+        <nav className="menu permission-aware-menu">
+          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>}
+          {canAccessTab("update_history") && <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>}
+          {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>}
+
+          {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
+            <div className="menu-group">
+              <button>구매</button>
+              <div className="sub">
+                {menuButton("new", "구매입력")}
+                {menuButton("list", "구매조회")}
+                {menuButton("status", "구매현황")}
+                {menuButton("bulk_transfer", "대량이체")}
+                {menuButton("receipt_photos", "입고사진등록")}
+                {menuButton("vendor_accounts", "업체계좌관리")}
+              </div>
             </div>
-          </div>
-          <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
-          <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
+          )}
+
+          {canShowAny(["card_use", "card_list", "card_stats"]) && (
+            <div className="menu-group">
+              <button>카드</button>
+              <div className="sub">
+                {menuButton("card_use", "카드사용")}
+                {menuButton("card_list", "카드조회")}
+                {menuButton("card_stats", "카드통계")}
+              </div>
+            </div>
+          )}
+
+          {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
+            <div className="menu-group maint-menu-group">
+              <button type="button">정비</button>
+              <div className="sub maint-sub">
+                {menuButton("maint_new", "정비등록")}
+                {menuButton("maint_list", "정비조회")}
+                {menuButton("maint_stats", "정비통계")}
+                {menuButton("maintenance_photos", "정비사진등록")}
+                {menuButton("maintenance_schedule_new", "정비일정등록")}
+                {menuButton("maintenance_schedules", "정비일정조회")}
+              </div>
+            </div>
+          )}
+
+          {canShowAny(["vendors", "warehouse_groups", "items"]) && (
+            <div className="menu-group">
+              <button>기초등록</button>
+              <div className="sub">
+                {menuButton("vendors", "거래처등록")}
+                {menuButton("warehouse_groups", "창고등록")}
+                {menuButton("items", "품목등록")}
+              </div>
+            </div>
+          )}
+
+          {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
           <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
@@ -4852,44 +4894,44 @@ export default function App() {
         <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
           {mobileSheet === "buy" && (
             <>
-              <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>
-              <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>
-              <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>
-              <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>
-              <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>
-              
+              {mobileMenuButton("new", "구매입력")}
+              {mobileMenuButton("list", "구매조회")}
+              {mobileMenuButton("status", "구매현황")}
+              {mobileMenuButton("bulk_transfer", "대량이체")}
+              {mobileMenuButton("receipt_photos", "입고사진등록")}
+              {mobileMenuButton("vendor_accounts", "업체계좌관리")}
             </>
           )}
 
           {mobileSheet === "card" && (
             <>
-              <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>카드사용</button>
-              <button onClick={() => { setMenuTab("card_list"); setMobileSheet(""); }}>카드조회</button>
-              <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>카드통계</button>
+              {mobileMenuButton("card_use", "카드사용")}
+              {mobileMenuButton("card_list", "카드조회")}
+              {mobileMenuButton("card_stats", "카드통계")}
             </>
           )}
 
           {mobileSheet === "maint" && (
             <>
-              <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>
-              <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>
-              <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>
-              <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>
-              <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>
-              <button onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>정비일정조회</button>
+              {mobileMenuButton("maint_new", "정비등록")}
+              {mobileMenuButton("maint_list", "정비조회")}
+              {mobileMenuButton("maint_stats", "정비통계")}
+              {mobileMenuButton("maintenance_photos", "정비사진등록")}
+              {mobileMenuButton("maintenance_schedule_new", "정비일정등록")}
+              {mobileMenuButton("maintenance_schedules", "정비일정조회")}
             </>
           )}
 
           {mobileSheet === "more" && (
             <>
-              <button onClick={() => { setMenuTab("update_history"); setMobileSheet(""); }}>공지</button>
-              <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>
-              <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>
-              <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>
-              <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>
-              <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>
+              {mobileMenuButton("update_history", "공지")}
+              {mobileMenuButton("layout", "생산라인")}
+              {mobileMenuButton("vendors", "거래처등록")}
+              {mobileMenuButton("warehouse_groups", "창고등록")}
+              {mobileMenuButton("items", "품목등록")}
+              {mobileMenuButton("permits", "허가관리")}
               {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
-
+              {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
               <button className="mobile-sheet-logout" onClick={logout}>로그아웃</button>
             </>
           )}
@@ -13408,6 +13450,18 @@ button[onclick*="downloadPdf"]{
   }
   .permission-form{
     display:grid;
+  }
+}
+
+/* ===== Permission Aware Menu Hide ===== */
+.permission-aware-mobile-nav{
+  grid-template-columns:repeat(auto-fit,minmax(76px,1fr)) !important;
+}
+
+@media (max-width:900px){
+  .permission-aware-menu .menu-group,
+  .permission-aware-menu > button{
+    display:none;
   }
 }
 
