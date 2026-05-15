@@ -928,21 +928,12 @@ export default function App() {
   });
   const currentUserPermission = userPermissions.find((item) => item.email === userEmail);
   const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "office");
-  const canManageSystem = isAdmin;
-  const canModifyRecords = isAdmin;
   const canAccessTab = (tab: string) => {
     if (!tab || tab === "home") return true;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
     const permissions = currentUserPermission?.permissions || {};
     return !!permissions[tab];
-  };
-  const openAllowedTab = (tab: string) => {
-    if (!canAccessTab(tab)) {
-      alert("해당 메뉴 권한이 없습니다.");
-      return;
-    }
-    setMenuTab(tab);
   };
 
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
