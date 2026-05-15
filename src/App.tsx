@@ -6581,7 +6581,7 @@ function HomeDashboard({
     {
       label: "이번달 카드사용",
       value: `${monthCards.length}건 · ${money(monthCardTotal)}원`,
-      sub: `당월 카드사용금액 ${money(monthCardTotal)}원`,
+      sub: "",
       icon: "💳",
       tone: "green",
       tab: "card_use",
