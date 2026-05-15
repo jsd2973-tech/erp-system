@@ -6550,106 +6550,191 @@ function HomeDashboard({
   setMenuTab?: (tab: string) => void;
 }) {
   const today = getTodayKey();
-  const todayLabel = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+  const todayLabel = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+  const monthKey = today.slice(0, 7);
   const todayPurchases = purchases.filter((p) => p.date === today);
   const todayCards = cardUses.filter((c) => c.date === today);
   const todayMaints = maints.filter((m) => m.date === today);
-  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== '완료');
-  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === '긴급' && x.status !== '완료');
+  const monthPurchases = purchases.filter((p) => (p.date || "").startsWith(monthKey));
+  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
+  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
   const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
   const warningCount = urgentSchedules.length + unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length;
-  const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 3);
-  const recentPurchases = [...purchases].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
-  const recentCards = [...cardUses].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
-  const recentMaints = [...maints].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
+  const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 4);
+  const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
+  const recentCards = [...cardUses].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
+  const recentMaints = [...maints].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
 
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const todayCardTotal = todayCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const latestNotice = activeNotices[0];
 
   const kpiCards = [
-    { label: '오늘 구매 등록', count: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: '🛒', color: 'blue', tab: 'new' },
-    { label: '오늘 카드사용', count: `${todayCards.length}건`, sub: `금액 ${money(todayCardTotal)}원`, icon: '💳', color: 'green', tab: 'card_use' },
-    { label: '오늘 정비 등록', count: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: '🔧', color: 'purple', tab: 'maint_new' },
-    { label: '확인 필요', count: `${warningCount}건`, sub: `미처리/긴급 항목`, icon: '⚠️', color: 'red', tab: 'maintenance_photos' },
+    { label: "오늘 구매", value: `${todayPurchases.length}건`, sub: `${money(todayPurchaseTotal)}원`, icon: "🛒", tone: "blue", tab: "new" },
+    { label: "이번달 구매", value: `${monthPurchases.length}건`, sub: `${money(monthPurchaseTotal)}원`, icon: "📊", tone: "indigo", tab: "list" },
+    { label: "카드사용", value: `${todayCards.length}건`, sub: `${money(todayCardTotal)}원`, icon: "💳", tone: "green", tab: "card_use" },
+    { label: "확인 필요", value: `${warningCount}건`, sub: "미처리 · 긴급", icon: "⚠️", tone: "red", tab: "maintenance_photos" },
+  ];
+
+  const quickMenus = [
+    { label: "구매입력", tab: "new", icon: "＋" },
+    { label: "구매조회", tab: "list", icon: "⌕" },
+    { label: "카드사용", tab: "card_use", icon: "₩" },
+    { label: "정비등록", tab: "maint_new", icon: "⚙" },
+    { label: "공지사항", tab: "site_notices", icon: "!" },
   ];
 
   return (
-    <section className="home-upgrade">
-      <div className="home-upgrade-topbar">
-        <div>
-          <h2>관리자님, 오늘도 안전한 하루 되세요!</h2>
-          <p>구매 · 카드 · 정비 · 공지 현황을 한 화면에서 확인합니다.</p>
+    <section className="modern-home-shell">
+      <aside className="modern-home-side">
+        <div className="modern-home-brand">
+          <span>TM</span>
+          <div>
+            <b>태명 ERP</b>
+            <em>Operations Dashboard</em>
+          </div>
         </div>
-        <div className="home-upgrade-date">{todayLabel}</div>
-      </div>
 
-      <div className="home-upgrade-kpis">
-        {kpiCards.map((card) => (
-          <button className={`home-upgrade-kpi ${card.color}`} key={card.label} onClick={() => setMenuTab?.(card.tab)}>
-            <span className="home-upgrade-icon">{card.icon}</span>
-            <span className="home-upgrade-kpi-text">
+        <div className="modern-home-side-menu">
+          {quickMenus.map((m) => (
+            <button key={m.tab} onClick={() => setMenuTab?.(m.tab)}>
+              <i>{m.icon}</i>
+              <span>{m.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="modern-home-side-card">
+          <span>오늘 기준</span>
+          <b>{todayLabel}</b>
+          <p>구매 · 카드 · 정비 · 공지를 한 화면에서 확인합니다.</p>
+        </div>
+      </aside>
+
+      <div className="modern-home-main">
+        <div className="modern-home-hero">
+          <div>
+            <span className="modern-home-eyebrow">TAEMYUNG INDUSTRIAL DEVELOPMENT</span>
+            <h2>홈 대시보드</h2>
+            <p>오늘 처리할 업무와 최근 등록 내역을 빠르게 확인하세요.</p>
+          </div>
+          <button onClick={() => setMenuTab?.("site_notices")}>공지 관리</button>
+        </div>
+
+        <div className="modern-home-kpis">
+          {kpiCards.map((card) => (
+            <button className={`modern-home-kpi ${card.tone}`} key={card.label} onClick={() => setMenuTab?.(card.tab)}>
+              <span className="modern-home-kpi-icon">{card.icon}</span>
               <em>{card.label}</em>
-              <b>{card.count}</b>
+              <b>{card.value}</b>
               <small>{card.sub}</small>
-            </span>
-            <i>자세히 보기 ›</i>
-          </button>
-        ))}
-      </div>
-
-      <div className="home-upgrade-grid">
-        <div className="home-upgrade-panel">
-          <div className="home-upgrade-panel-head"><h3>공지사항</h3><button onClick={() => setMenuTab?.('site_notices')}>더보기 ›</button></div>
-          <div className="home-upgrade-list">
-            {activeNotices.length ? activeNotices.map((n) => (
-              <button className="home-upgrade-notice" key={n.id} onClick={() => setMenuTab?.('site_notices')}>
-                <span>NEW</span><b>{n.title || '제목 없음'}</b><em>{n.notice_date || ''}</em>
-                <p>{n.content}</p>
-              </button>
-            )) : <div className="home-upgrade-empty">등록된 공지가 없습니다.</div>}
-          </div>
+            </button>
+          ))}
         </div>
 
-        <div className="home-upgrade-panel">
-          <div className="home-upgrade-panel-head"><h3>오늘 정비 일정</h3><button onClick={() => setMenuTab?.('maintenance_schedules')}>더보기 ›</button></div>
-          <div className="home-upgrade-list">
-            {todaySchedules.length ? todaySchedules.slice(0, 5).map((s) => (
-              <div className="home-upgrade-task" key={s.id}>
-                <span>☑</span><div><b>{s.equipment_name}</b><p>{s.work_detail}</p></div><em>{s.priority || '보통'}</em>
+        <div className="modern-home-layout">
+          <div className="modern-home-left">
+            <div className="modern-home-panel notice-panel">
+              <div className="modern-home-panel-head">
+                <div>
+                  <span>NOTICE</span>
+                  <h3>공지사항</h3>
+                </div>
+                <button onClick={() => setMenuTab?.("site_notices")}>전체보기</button>
               </div>
-            )) : <div className="home-upgrade-empty">오늘 등록된 정비일정이 없습니다.</div>}
+
+              {latestNotice ? (
+                <button className="modern-home-feature-notice" onClick={() => setMenuTab?.("site_notices")}>
+                  <b>{latestNotice.title || "제목 없음"}</b>
+                  <p>{latestNotice.content}</p>
+                </button>
+              ) : (
+                <div className="modern-home-empty">등록된 공지가 없습니다.</div>
+              )}
+
+              <div className="modern-home-notice-list">
+                {activeNotices.slice(1).map((n) => (
+                  <button key={n.id} onClick={() => setMenuTab?.("site_notices")}>
+                    <b>{n.title || "제목 없음"}</b>
+                    <span>{n.content}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="modern-home-panel">
+              <div className="modern-home-panel-head">
+                <div>
+                  <span>PURCHASE</span>
+                  <h3>최근 구매 내역</h3>
+                </div>
+                <button onClick={() => setMenuTab?.("list")}>구매조회</button>
+              </div>
+              <table className="modern-home-table">
+                <tbody>
+                  {recentPurchases.length ? recentPurchases.map((p) => (
+                    <tr key={p.id}>
+                      <td>{(p.date || "").slice(5) || "-"}</td>
+                      <td>{p.vendor || "-"}</td>
+                      <td>{getPurchaseItemSummary(p)}</td>
+                      <td>{money(p.total)}원</td>
+                    </tr>
+                  )) : <tr><td colSpan={4}>구매내역이 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
-        <div className="home-upgrade-panel warning">
-          <div className="home-upgrade-panel-head"><h3>확인 필요</h3><button onClick={() => setMenuTab?.('maintenance_photos')}>더보기 ›</button></div>
-          <div className="home-upgrade-alerts">
-            <button onClick={() => setMenuTab?.('receipt_photos')}><b>입고사진 미처리</b><span>{unprocessedReceiptPhotos.length}건</span></button>
-            <button onClick={() => setMenuTab?.('maintenance_photos')}><b>정비사진 미처리</b><span>{unprocessedMaintenancePhotos.length}건</span></button>
-            <button onClick={() => setMenuTab?.('maintenance_schedules')}><b>긴급 정비일정</b><span>{urgentSchedules.length}건</span></button>
+          <div className="modern-home-right">
+            <div className="modern-home-panel">
+              <div className="modern-home-panel-head">
+                <div>
+                  <span>MAINTENANCE</span>
+                  <h3>오늘 정비 일정</h3>
+                </div>
+                <button onClick={() => setMenuTab?.("maintenance_schedules")}>일정조회</button>
+              </div>
+              <div className="modern-home-task-list">
+                {todaySchedules.length ? todaySchedules.slice(0, 5).map((s) => (
+                  <div className="modern-home-task" key={s.id}>
+                    <i>{s.priority === "긴급" ? "!" : "✓"}</i>
+                    <div><b>{s.equipment_name}</b><p>{s.work_detail}</p></div>
+                    <em>{s.priority || "보통"}</em>
+                  </div>
+                )) : <div className="modern-home-empty">오늘 등록된 정비일정이 없습니다.</div>}
+              </div>
+            </div>
+
+            <div className="modern-home-panel alert-panel">
+              <div className="modern-home-panel-head">
+                <div>
+                  <span>CHECK</span>
+                  <h3>확인 필요</h3>
+                </div>
+              </div>
+              <div className="modern-home-alert-grid">
+                <button onClick={() => setMenuTab?.("receipt_photos")}><span>입고사진</span><b>{unprocessedReceiptPhotos.length}</b></button>
+                <button onClick={() => setMenuTab?.("maintenance_photos")}><span>정비사진</span><b>{unprocessedMaintenancePhotos.length}</b></button>
+                <button onClick={() => setMenuTab?.("maintenance_schedules")}><span>긴급일정</span><b>{urgentSchedules.length}</b></button>
+              </div>
+            </div>
+
+            <div className="modern-home-panel compact-panel">
+              <div className="modern-home-panel-head">
+                <div>
+                  <span>RECENT</span>
+                  <h3>최근 카드 · 정비</h3>
+                </div>
+              </div>
+              <div className="modern-home-mini-list">
+                {recentCards.slice(0, 3).map((c) => <button key={c.id} onClick={() => setMenuTab?.("card_list")}><span>카드</span><b>{c.place || "-"}</b><em>{money(c.amount)}원</em></button>)}
+                {recentMaints.slice(0, 3).map((m) => <button key={m.id} onClick={() => setMenuTab?.("maint_list")}><span>정비</span><b>{m.title || "-"}</b><em>{money(m.cost)}원</em></button>)}
+                {!recentCards.length && !recentMaints.length && <div className="modern-home-empty">최근 내역이 없습니다.</div>}
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div className="home-upgrade-panel">
-          <div className="home-upgrade-panel-head"><h3>최근 구매 내역</h3><button onClick={() => setMenuTab?.('list')}>더보기 ›</button></div>
-          <table className="home-upgrade-table"><tbody>
-            {recentPurchases.length ? recentPurchases.map((p) => <tr key={p.id}><td>{(p.date || '').slice(5)}</td><td>{p.vendor || '-'}</td><td>{getPurchaseItemSummary(p)}</td><td>{money(p.total)}원</td></tr>) : <tr><td colSpan={4}>구매내역이 없습니다.</td></tr>}
-          </tbody></table>
-        </div>
-
-        <div className="home-upgrade-panel">
-          <div className="home-upgrade-panel-head"><h3>최근 카드사용 내역</h3><button onClick={() => setMenuTab?.('card_list')}>더보기 ›</button></div>
-          <table className="home-upgrade-table"><tbody>
-            {recentCards.length ? recentCards.map((c) => <tr key={c.id}><td>{(c.date || '').slice(5)}</td><td>{c.place || '-'}</td><td>{c.memo || '-'}</td><td>{money(c.amount)}원</td></tr>) : <tr><td colSpan={4}>카드사용 내역이 없습니다.</td></tr>}
-          </tbody></table>
-        </div>
-
-        <div className="home-upgrade-panel">
-          <div className="home-upgrade-panel-head"><h3>최근 정비 내역</h3><button onClick={() => setMenuTab?.('maint_list')}>더보기 ›</button></div>
-          <table className="home-upgrade-table"><tbody>
-            {recentMaints.length ? recentMaints.map((m) => <tr key={m.id}><td>{(m.date || '').slice(5)}</td><td>{m.warehouse || '-'}</td><td>{m.title || '-'}</td><td>{money(m.cost)}원</td></tr>) : <tr><td colSpan={4}>정비내역이 없습니다.</td></tr>}
-          </tbody></table>
         </div>
       </div>
     </section>
@@ -14394,4 +14479,23 @@ button[onclick*="downloadPdf"]{
 .home-upgrade-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}.home-upgrade-kpi{position:relative;display:grid;grid-template-columns:70px 1fr;align-items:center;gap:14px;min-height:134px;padding:18px;border-radius:12px;background:white;border:1px solid #dbe4f0;box-shadow:0 8px 24px rgba(15,23,42,.06);text-align:left;cursor:pointer}.home-upgrade-kpi.blue{border-color:#bfdbfe}.home-upgrade-kpi.green{border-color:#bbf7d0}.home-upgrade-kpi.purple{border-color:#ddd6fe}.home-upgrade-kpi.red{border-color:#fecaca;background:#fff7f7}.home-upgrade-icon{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;color:#fff;font-size:28px;background:#2563eb}.home-upgrade-kpi.green .home-upgrade-icon{background:#10b981}.home-upgrade-kpi.purple .home-upgrade-icon{background:#7c3aed}.home-upgrade-kpi.red .home-upgrade-icon{background:#e11d48}.home-upgrade-kpi-text em{display:block;font-style:normal;color:#0f172a;font-size:14px;font-weight:1000}.home-upgrade-kpi-text b{display:block;margin-top:10px;color:#1d4ed8;font-size:31px;font-weight:1000}.home-upgrade-kpi.green b{color:#047857}.home-upgrade-kpi.purple b{color:#6d28d9}.home-upgrade-kpi.red b{color:#e11d48}.home-upgrade-kpi-text small{display:block;margin-top:8px;color:#475569;font-weight:800}.home-upgrade-kpi i{position:absolute;right:18px;bottom:14px;color:#2563eb;font-style:normal;font-size:12px;font-weight:1000}.home-upgrade-kpi.red i{color:#e11d48}
 .home-upgrade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.home-upgrade-panel{background:white;border:1px solid #dbe4f0;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.05);padding:17px;min-height:185px}.home-upgrade-panel.warning{background:#fffafa;border-color:#fecaca}.home-upgrade-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.home-upgrade-panel-head h3{margin:0;color:#0f172a;font-size:18px;font-weight:1000}.home-upgrade-panel-head button{border:0;background:transparent;color:#2563eb;font-size:12px;font-weight:1000;cursor:pointer}.home-upgrade-list{display:grid;gap:9px}.home-upgrade-notice{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;width:100%;padding:9px 0;border:0;border-bottom:1px solid #eef2f7;background:transparent;text-align:left;cursor:pointer}.home-upgrade-notice span{border-radius:999px;background:#2563eb;color:white;font-size:10px;font-weight:1000;text-align:center;padding:3px 6px}.home-upgrade-notice b{font-size:13px;color:#111827}.home-upgrade-notice em{font-style:normal;font-size:12px;color:#94a3b8}.home-upgrade-notice p{grid-column:2/4;margin:0;color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.home-upgrade-task{display:grid;grid-template-columns:24px 1fr auto;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eef2f7}.home-upgrade-task span{color:#2563eb;font-weight:1000}.home-upgrade-task b{font-size:13px;color:#111827}.home-upgrade-task p{margin:4px 0 0;color:#64748b;font-size:12px}.home-upgrade-task em{font-style:normal;background:#eef2ff;color:#4338ca;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:1000}.home-upgrade-alerts{display:grid;gap:12px}.home-upgrade-alerts button{display:flex;justify-content:space-between;align-items:center;border:1px solid #fee2e2;background:white;border-radius:12px;padding:12px;cursor:pointer}.home-upgrade-alerts b{color:#111827}.home-upgrade-alerts span{background:#e11d48;color:white;border-radius:999px;padding:7px 12px;font-weight:1000}.home-upgrade-table{width:100%;border-collapse:collapse;font-size:13px}.home-upgrade-table td{border-bottom:1px solid #eef2f7;padding:9px 5px;color:#334155;font-weight:800;white-space:nowrap}.home-upgrade-table td:nth-child(2){color:#0f172a}.home-upgrade-table td:last-child{text-align:right;color:#111827;font-weight:1000}.home-upgrade-empty{min-height:110px;display:grid;place-items:center;color:#94a3b8;font-weight:900;background:#f8fafc;border-radius:12px}
 @media(max-width:1100px){.home-upgrade-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.home-upgrade-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.home-upgrade{padding:12px;border-radius:14px}.home-upgrade-topbar{display:block}.home-upgrade-date{margin-top:10px}.home-upgrade-kpis,.home-upgrade-grid{grid-template-columns:1fr}.home-upgrade-kpi{grid-template-columns:56px 1fr;min-height:105px}.home-upgrade-icon{width:48px;height:48px;font-size:22px}.home-upgrade-kpi-text b{font-size:25px}.home-upgrade-table td{font-size:12px;padding:8px 3px}.home-upgrade-table td:nth-child(3){max-width:110px;overflow:hidden;text-overflow:ellipsis}}
+
+/* Modern home dashboard - actual ERP home only */
+.modern-home-shell{display:grid;grid-template-columns:260px minmax(0,1fr);gap:22px;align-items:stretch;background:#f4f7fb;border-radius:28px;padding:18px;margin:8px 0 28px}
+.modern-home-side{min-height:720px;background:linear-gradient(180deg,#071a3d 0%,#0b2355 58%,#123a82 100%);border-radius:26px;padding:24px;color:white;box-shadow:0 24px 70px rgba(15,23,42,.25);display:flex;flex-direction:column;gap:22px}
+.modern-home-brand{display:flex;gap:14px;align-items:center;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.14)}
+.modern-home-brand>span{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:#2f6bff;font-weight:950;letter-spacing:-.5px;box-shadow:0 12px 28px rgba(47,107,255,.35)}
+.modern-home-brand b{display:block;font-size:19px;font-weight:950}.modern-home-brand em{display:block;margin-top:4px;font-style:normal;font-size:11px;color:#b9c7e8;font-weight:800}
+.modern-home-side-menu{display:flex;flex-direction:column;gap:8px}.modern-home-side-menu button{border:0;background:transparent;color:#dbe7ff;display:flex;align-items:center;gap:12px;padding:13px 12px;border-radius:15px;font-weight:900;text-align:left;cursor:pointer}.modern-home-side-menu button:hover{background:rgba(255,255,255,.1);color:white}.modern-home-side-menu button:first-child{background:#2563eb;color:white;box-shadow:0 12px 26px rgba(37,99,235,.35)}.modern-home-side-menu i{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-style:normal;font-weight:950}
+.modern-home-side-card{margin-top:auto;border-radius:22px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16);padding:18px}.modern-home-side-card span{display:block;color:#bfd0f5;font-size:12px;font-weight:900}.modern-home-side-card b{display:block;margin-top:8px;font-size:18px;line-height:1.35}.modern-home-side-card p{margin:10px 0 0;color:#d7e2fb;font-size:13px;line-height:1.5}
+.modern-home-main{min-width:0;display:flex;flex-direction:column;gap:18px}.modern-home-hero{border-radius:26px;padding:28px 30px;display:flex;align-items:center;justify-content:space-between;gap:18px;background:radial-gradient(circle at 80% 20%,rgba(255,255,255,.22),transparent 25%),linear-gradient(135deg,#0d47c9 0%,#2563eb 52%,#60a5fa 100%);color:white;box-shadow:0 18px 46px rgba(37,99,235,.22)}
+.modern-home-eyebrow{font-size:11px;font-weight:950;letter-spacing:1.6px;color:#dbeafe}.modern-home-hero h2{margin:9px 0 4px;font-size:34px;line-height:1.1;font-weight:950;letter-spacing:-1.2px}.modern-home-hero p{margin:0;color:#eaf2ff;font-weight:700}.modern-home-hero button{border:0;border-radius:16px;background:white;color:#1d4ed8;padding:13px 18px;font-weight:950;cursor:pointer;box-shadow:0 12px 28px rgba(15,23,42,.12)}
+.modern-home-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.modern-home-kpi{border:1px solid #e8eef7;border-radius:24px;background:white;padding:20px;min-height:150px;cursor:pointer;text-align:left;box-shadow:0 14px 34px rgba(15,23,42,.07);transition:transform .15s ease,box-shadow .15s ease}.modern-home-kpi:hover{transform:translateY(-3px);box-shadow:0 20px 44px rgba(15,23,42,.11)}.modern-home-kpi-icon{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;font-size:21px;margin-bottom:14px}.modern-home-kpi em{display:block;font-style:normal;color:#64748b;font-size:13px;font-weight:950}.modern-home-kpi b{display:block;margin-top:6px;font-size:32px;line-height:1;font-weight:950;color:#0f172a;letter-spacing:-1px}.modern-home-kpi small{display:block;margin-top:10px;color:#64748b;font-size:12px;font-weight:850}.modern-home-kpi.blue .modern-home-kpi-icon{background:#dbeafe}.modern-home-kpi.indigo .modern-home-kpi-icon{background:#e0e7ff}.modern-home-kpi.green .modern-home-kpi-icon{background:#dcfce7}.modern-home-kpi.red .modern-home-kpi-icon{background:#fee2e2}
+.modern-home-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:18px;align-items:start}.modern-home-left,.modern-home-right{display:flex;flex-direction:column;gap:18px;min-width:0}.modern-home-panel{background:white;border:1px solid #e8eef7;border-radius:24px;padding:22px;box-shadow:0 14px 34px rgba(15,23,42,.07);min-width:0}.modern-home-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}.modern-home-panel-head span{display:block;font-size:11px;font-weight:950;letter-spacing:1.2px;color:#2563eb}.modern-home-panel-head h3{margin:4px 0 0;font-size:20px;font-weight:950;color:#0f172a}.modern-home-panel-head button{border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:950;cursor:pointer;white-space:nowrap}
+.modern-home-feature-notice{width:100%;border:0;text-align:left;cursor:pointer;border-radius:20px;padding:22px;background:linear-gradient(135deg,#eff6ff,#f8fafc);border:1px solid #dbeafe}.modern-home-feature-notice b{display:block;font-size:20px;color:#0f172a;font-weight:950}.modern-home-feature-notice p{margin:10px 0 0;color:#475569;font-weight:750;line-height:1.55;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.modern-home-notice-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.modern-home-notice-list button{border:1px solid #e8eef7;background:#fff;border-radius:16px;padding:14px;text-align:left;cursor:pointer}.modern-home-notice-list b{display:block;font-size:14px;color:#111827;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-notice-list span{display:block;margin-top:6px;color:#64748b;font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modern-home-table{width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px}.modern-home-table td{background:#f8fafc;padding:13px 12px;border-top:1px solid #edf2f7;border-bottom:1px solid #edf2f7;color:#334155;font-weight:800}.modern-home-table td:first-child{border-left:1px solid #edf2f7;border-radius:14px 0 0 14px;color:#64748b;white-space:nowrap}.modern-home-table td:last-child{border-right:1px solid #edf2f7;border-radius:0 14px 14px 0;text-align:right;color:#0f172a;white-space:nowrap;font-weight:950}.modern-home-task-list{display:flex;flex-direction:column;gap:10px}.modern-home-task{display:flex;align-items:center;gap:12px;border-radius:18px;background:#f8fafc;border:1px solid #edf2f7;padding:13px}.modern-home-task i{width:34px;height:34px;border-radius:12px;background:#dbeafe;color:#1d4ed8;display:grid;place-items:center;font-style:normal;font-weight:950}.modern-home-task div{flex:1;min-width:0}.modern-home-task b{display:block;color:#0f172a;font-size:14px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-task p{margin:3px 0 0;color:#64748b;font-size:12px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-task em{font-style:normal;font-size:12px;font-weight:950;color:#475569}
+.modern-home-alert-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.modern-home-alert-grid button{border:0;border-radius:18px;background:#fff7ed;padding:16px 10px;cursor:pointer;border:1px solid #fed7aa}.modern-home-alert-grid span{display:block;font-size:12px;font-weight:950;color:#9a3412}.modern-home-alert-grid b{display:block;margin-top:6px;font-size:28px;font-weight:950;color:#c2410c}.modern-home-mini-list{display:flex;flex-direction:column;gap:8px}.modern-home-mini-list button{border:1px solid #edf2f7;border-radius:16px;background:#f8fafc;padding:12px;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;text-align:left;cursor:pointer}.modern-home-mini-list span{font-size:12px;font-weight:950;color:#2563eb}.modern-home-mini-list b{font-size:13px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-mini-list em{font-style:normal;font-size:12px;color:#475569;font-weight:950;white-space:nowrap}.modern-home-empty{border-radius:18px;background:#f8fafc;border:1px dashed #cbd5e1;padding:24px;text-align:center;color:#64748b;font-weight:850}
+@media(max-width:1100px){.modern-home-shell{grid-template-columns:1fr}.modern-home-side{min-height:auto}.modern-home-side-menu{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}.modern-home-side-card{display:none}.modern-home-layout{grid-template-columns:1fr}}
+@media(max-width:760px){.modern-home-shell{padding:10px;border-radius:18px;margin:0 0 18px}.modern-home-side{padding:16px;border-radius:20px}.modern-home-brand em{display:none}.modern-home-side-menu{grid-template-columns:repeat(2,minmax(0,1fr))}.modern-home-hero{padding:20px;border-radius:20px;align-items:flex-start;flex-direction:column}.modern-home-hero h2{font-size:28px}.modern-home-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.modern-home-kpi{padding:16px;min-height:132px;border-radius:18px}.modern-home-kpi b{font-size:26px}.modern-home-panel{padding:16px;border-radius:20px}.modern-home-notice-list{grid-template-columns:1fr}.modern-home-alert-grid{grid-template-columns:1fr}.modern-home-table td{font-size:12px;padding:11px 8px}}
+
 `;
