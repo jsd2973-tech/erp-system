@@ -545,6 +545,16 @@ type UpdateNotice = {
   created_at?: string;
 };
 
+type SiteNotice = {
+  id: string;
+  notice_date: string;
+  title: string;
+  content: string;
+  priority?: string;
+  is_active?: boolean;
+  created_at?: string;
+};
+
 type UserRole = "admin" | "office" | "field";
 
 type UserPermission = {
@@ -575,7 +585,7 @@ const updateNoticeHideValue = () => getTodayKey();
 
 const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
-  { key: "update_history", label: "공지" },
+  { key: "site_notices", label: "공지" },
   { key: "layout", label: "생산라인" },
   { key: "new", label: "구매입력" },
   { key: "list", label: "구매조회" },
@@ -915,6 +925,11 @@ export default function App() {
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
+  const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
+  const [siteNoticeForm, setSiteNoticeForm] = useState({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true });
+  const [editingSiteNoticeId, setEditingSiteNoticeId] = useState("");
+  const [siteNoticeError, setSiteNoticeError] = useState("");
+
   const recentUpdateItems = updateNotices.filter(isRecentNotice).slice(0, 3);
   const [updateNoticeForm, setUpdateNoticeForm] = useState({ notice_date: getTodayKey(), content: "" });
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
@@ -1550,6 +1565,7 @@ export default function App() {
       loadReceiptPhotos();
       loadMaintenancePhotos();
       loadMaintenanceSchedules();
+      loadSiteNotices();
       loadUserPermissions();
     }
   }, [session]);
@@ -2862,10 +2878,77 @@ export default function App() {
     const dedupedNotices = dedupeUpdateNotices(notices);
     setUpdateNotices(dedupedNotices);
 
-    const hiddenValue = localStorage.getItem(UPDATE_NOTICE_HIDE_KEY);
-    const hasRecentNotice = dedupedNotices.some(isRecentNotice);
+    setShowUpdateNotice(false);
+  };
 
-    setShowUpdateNotice(hasRecentNotice && hiddenValue !== updateNoticeHideValue());
+  const loadSiteNotices = async () => {
+    setSiteNoticeError("");
+
+    const { data, error } = await supabase
+      .from("site_notices")
+      .select("*")
+      .eq("is_active", true)
+      .order("notice_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setSiteNoticeError(error.message);
+      setSiteNotices([]);
+      return;
+    }
+
+    setSiteNotices(((data || []) as any[]).map((item) => ({
+      ...item,
+      id: String(item.id),
+      notice_date: String(item.notice_date || "").slice(0, 10),
+      priority: item.priority || "보통",
+    })) as SiteNotice[]);
+  };
+
+  const saveSiteNotice = async () => {
+    if (!isAdmin) return alert("관리자만 현장 공지를 저장할 수 있습니다.");
+    if (!siteNoticeForm.notice_date || !siteNoticeForm.title.trim() || !siteNoticeForm.content.trim()) {
+      return alert("날짜, 제목, 내용을 입력하세요.");
+    }
+
+    const payload = {
+      id: editingSiteNoticeId || uid(),
+      notice_date: siteNoticeForm.notice_date,
+      title: siteNoticeForm.title.trim(),
+      content: siteNoticeForm.content.trim(),
+      priority: siteNoticeForm.priority || "보통",
+      is_active: siteNoticeForm.is_active,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("site_notices").upsert(payload);
+    if (error) return alert(`공지 저장 실패: ${error.message}`);
+
+    setSiteNoticeForm({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true });
+    setEditingSiteNoticeId("");
+    await loadSiteNotices();
+  };
+
+  const editSiteNotice = (notice: SiteNotice) => {
+    setEditingSiteNoticeId(notice.id);
+    setSiteNoticeForm({
+      notice_date: notice.notice_date || getTodayKey(),
+      title: notice.title || "",
+      content: notice.content || "",
+      priority: notice.priority || "보통",
+      is_active: notice.is_active !== false,
+    });
+  };
+
+  const deleteSiteNotice = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 현장 공지를 삭제할 수 있습니다.");
+    if (!confirm("공지를 삭제할까요?")) return;
+
+    const { error } = await supabase.from("site_notices").delete().eq("id", id);
+    if (error) return alert(`공지 삭제 실패: ${error.message}`);
+
+    await loadSiteNotices();
   };
 
   const loadUserPermissions = async () => {
@@ -3239,7 +3322,7 @@ export default function App() {
 
         <nav className="menu permission-aware-menu">
           {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>}
-          {canAccessTab("update_history") && <button className={menuTab === "update_history" ? "active" : ""} onClick={() => setMenuTab("update_history")}>공지</button>}
+          {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => setMenuTab("site_notices")}>공지</button>}
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
@@ -3293,7 +3376,6 @@ export default function App() {
           )}
 
           {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
-          {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
           <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
@@ -4264,7 +4346,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} updateNotices={updateNotices} setMenuTab={setMenuTab} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={siteNotices} updateNotices={updateNotices} setMenuTab={setMenuTab} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -4931,13 +5013,12 @@ export default function App() {
 
           {mobileSheet === "more" && (
             <>
-              {mobileMenuButton("update_history", "공지")}
+              {mobileMenuButton("site_notices", "공지")}
               {mobileMenuButton("layout", "생산라인")}
               {mobileMenuButton("vendors", "거래처등록")}
               {mobileMenuButton("warehouse_groups", "창고등록")}
               {mobileMenuButton("items", "품목등록")}
               {mobileMenuButton("permits", "허가관리")}
-              {isAdmin && <button onClick={() => { setMenuTab("update_notices"); setMobileSheet(""); }}>업데이트관리</button>}
               {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
               <button className="mobile-sheet-logout" onClick={logout}>로그아웃</button>
             </>
@@ -4955,7 +5036,7 @@ export default function App() {
           {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
             <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
           )}
-          {canShowAny(["update_history", "layout", "vendors", "warehouse_groups", "items", "permits"]) && (
+          {canShowAny(["site_notices", "layout", "vendors", "warehouse_groups", "items", "permits"]) && (
             <button className={mobileSheet === "more" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
           )}
         </div>
@@ -5902,6 +5983,86 @@ function Home({
 }
 
 
+
+function SiteNoticePage({
+  siteNotices,
+  siteNoticeForm,
+  setSiteNoticeForm,
+  editingSiteNoticeId,
+  saveSiteNotice,
+  editSiteNotice,
+  deleteSiteNotice,
+  siteNoticeError,
+  isAdmin,
+}: any) {
+  return (
+    <section className="site-notice-page">
+      <div className="site-notice-hero">
+        <div>
+          <span>Worksite Notice</span>
+          <h2>공지사항</h2>
+          <p>현장 작업자/사무실 직원에게 공유할 공지 내용을 등록합니다.</p>
+        </div>
+      </div>
+
+      {siteNoticeError && <div className="notice-pro-error">공지 불러오기 실패: {siteNoticeError}</div>}
+
+      {isAdmin && (
+        <div className="site-notice-form-card">
+          <div className="site-notice-form-head">
+            <h3>{editingSiteNoticeId ? "공지 수정" : "공지 등록"}</h3>
+            <p>저장하면 홈 대시보드의 공지사항 영역에 표시됩니다.</p>
+          </div>
+          <div className="site-notice-form-grid">
+            <Field label="공지일">
+              <input type="date" value={siteNoticeForm.notice_date} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, notice_date: e.target.value })} />
+            </Field>
+            <Field label="중요도">
+              <select value={siteNoticeForm.priority} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, priority: e.target.value })}>
+                <option>긴급</option>
+                <option>중요</option>
+                <option>보통</option>
+              </select>
+            </Field>
+            <Field label="제목">
+              <input value={siteNoticeForm.title} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, title: e.target.value })} placeholder="예: 내일 오전 세륜기 점검" />
+            </Field>
+          </div>
+          <Field label="내용">
+            <textarea value={siteNoticeForm.content} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, content: e.target.value })} placeholder="현장 공유 내용을 입력하세요." />
+          </Field>
+          <div className="site-notice-actions">
+            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정저장" : "저장"}</button>
+            <button onClick={() => setSiteNoticeForm({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true })}>초기화</button>
+          </div>
+        </div>
+      )}
+
+      <div className="site-notice-list">
+        {(siteNotices || []).length ? siteNotices.map((notice: SiteNotice) => (
+          <article className={`site-notice-card ${notice.priority || "보통"}`} key={notice.id}>
+            <div className="site-notice-card-top">
+              <span>{notice.notice_date}</span>
+              <em>{notice.priority || "보통"}</em>
+            </div>
+            <h3>{notice.title}</h3>
+            <p>{notice.content}</p>
+            {isAdmin && (
+              <div className="site-notice-card-actions">
+                <button onClick={() => editSiteNotice(notice)}>수정</button>
+                <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>삭제</button>
+              </div>
+            )}
+          </article>
+        )) : (
+          <div className="dashboard-pro-empty">등록된 공지가 없습니다.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+
 function BackupPermissionPage({
   purchases,
   maints,
@@ -6057,7 +6218,7 @@ function BackupPermissionPage({
         <div>
           <span>System Control</span>
           <h2>백업 / 권한관리</h2>
-          <p>전체 데이터를 인터넷 저장 기준으로 백업하고, 직원 권한을 3단계로 관리합니다.</p>
+          <p>전체 데이터를 인터넷 저장 기준으로 백업하고, 직원 권한과 공지 접근을 관리합니다.</p>
         </div>
       </div>
 
@@ -6145,6 +6306,7 @@ function HomeDashboard({
   maintenanceSchedules = [],
   receiptPhotos = [],
   maintenancePhotos = [],
+  siteNotices = [],
   updateNotices = [],
   setMenuTab,
 }: {
@@ -6154,6 +6316,7 @@ function HomeDashboard({
   maintenanceSchedules?: MaintenanceSchedule[];
   receiptPhotos?: ReceiptPhoto[];
   maintenancePhotos?: MaintenancePhoto[];
+  siteNotices?: SiteNotice[];
   updateNotices?: UpdateNotice[];
   setMenuTab?: (tab: string) => void;
 }) {
@@ -6346,18 +6509,19 @@ function HomeDashboard({
             </div>
           </div>
 
-          <div className="dashboard-pro-panel">
+          <div className="dashboard-pro-panel site-notice-home-panel">
             <div className="dashboard-pro-panel-head">
-              <h3>최근 공지</h3>
-              <button onClick={() => setMenuTab?.("update_history")}>더보기</button>
+              <h3>공지사항</h3>
+              <button onClick={() => setMenuTab?.("site_notices")}>더보기</button>
             </div>
             <div className="dashboard-mini-list">
-              {(updateNotices || []).slice(0, 4).map((n) => (
-                <div className="dashboard-mini-row" key={n.id}>
-                  <span>{n.notice_date}</span>
-                  <b>{n.content}</b>
+              {(siteNotices || []).slice(0, 4).length ? (siteNotices || []).slice(0, 4).map((n) => (
+                <div className="dashboard-mini-row site-notice-mini" key={n.id}>
+                  <span>{n.notice_date} · {n.priority || "보통"}</span>
+                  <b>{n.title}</b>
+                  <em>{n.content}</em>
                 </div>
-              ))}
+              )) : <div className="dashboard-pro-empty">등록된 공지가 없습니다.</div>}
             </div>
           </div>
         </div>
@@ -13486,6 +13650,187 @@ button[onclick*="downloadPdf"]{
 }
 .permission-aware-mobile-nav button{
   min-width:0 !important;
+}
+
+/* ===== Site Notice Feature ===== */
+.site-notice-page{
+  min-height:calc(100vh - 210px);
+  border-radius:24px;
+  padding:22px;
+  background:linear-gradient(180deg,#f8fafc 0%,#eef4fb 100%);
+  box-shadow:0 18px 50px rgba(15,23,42,.10);
+}
+
+.site-notice-hero{
+  margin-bottom:16px;
+}
+
+.site-notice-hero span{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-hero h2{
+  margin:8px 0 4px;
+  color:#0f172a;
+  font-size:30px;
+  font-weight:1000;
+}
+
+.site-notice-hero p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.site-notice-form-card,
+.site-notice-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:18px;
+  box-shadow:0 10px 26px rgba(15,23,42,.06);
+}
+
+.site-notice-form-card{
+  margin-bottom:16px;
+}
+
+.site-notice-form-head h3{
+  margin:0 0 6px;
+  color:#0f172a;
+  font-size:20px;
+  font-weight:1000;
+}
+
+.site-notice-form-head p{
+  margin:0 0 14px;
+  color:#64748b;
+  font-weight:800;
+}
+
+.site-notice-form-grid{
+  display:grid;
+  grid-template-columns:180px 160px 1fr;
+  gap:12px;
+}
+
+.site-notice-form-card textarea{
+  min-height:110px;
+}
+
+.site-notice-actions,
+.site-notice-card-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:12px;
+}
+
+.site-notice-actions button,
+.site-notice-card-actions button{
+  min-height:40px;
+  border:0;
+  border-radius:13px;
+  padding:0 16px;
+  font-weight:1000;
+  background:#e2e8f0;
+  color:#0f172a;
+}
+
+.site-notice-actions .primary{
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;
+}
+
+.site-notice-card-actions .danger{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.site-notice-list{
+  display:grid;
+  gap:12px;
+}
+
+.site-notice-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.site-notice-card-top span{
+  color:#2563eb;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-card-top em{
+  font-style:normal;
+  border-radius:999px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:1000;
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+
+.site-notice-card.긴급 .site-notice-card-top em{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.site-notice-card.중요 .site-notice-card-top em{
+  background:#ffedd5;
+  color:#c2410c;
+}
+
+.site-notice-card h3{
+  margin:0 0 8px;
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.site-notice-card p{
+  margin:0;
+  color:#334155;
+  font-weight:800;
+  line-height:1.55;
+  white-space:pre-wrap;
+}
+
+.site-notice-mini em{
+  display:block;
+  margin-top:4px;
+  color:#64748b;
+  font-style:normal;
+  font-size:11px;
+  font-weight:800;
+  line-height:1.35;
+}
+
+@media (max-width:900px){
+  .site-notice-page{
+    padding:14px;
+    border-radius:18px;
+  }
+
+  .site-notice-form-grid{
+    grid-template-columns:1fr;
+  }
+
+  .site-notice-actions,
+  .site-notice-card-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
 }
 
 `;
