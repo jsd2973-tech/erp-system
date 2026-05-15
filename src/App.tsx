@@ -545,6 +545,17 @@ type UpdateNotice = {
   created_at?: string;
 };
 
+type UserRole = "admin" | "office" | "field";
+
+type UserPermission = {
+  id: string;
+  email: string;
+  role: UserRole;
+  permissions?: Record<string, boolean>;
+  created_at?: string;
+  updated_at?: string;
+};
+
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayKey = () => {
@@ -561,6 +572,33 @@ const isRecentNotice = (notice: UpdateNotice) => {
 
 const updateNoticeHideValue = () => getTodayKey();
 
+
+const ERP_PERMISSION_MODULES = [
+  { key: "home", label: "홈" },
+  { key: "update_history", label: "공지" },
+  { key: "layout", label: "생산라인" },
+  { key: "new", label: "구매입력" },
+  { key: "list", label: "구매조회" },
+  { key: "status", label: "구매현황" },
+  { key: "bulk_transfer", label: "대량이체" },
+  { key: "receipt_photos", label: "입고사진등록" },
+  { key: "vendor_accounts", label: "업체계좌관리" },
+  { key: "card_use", label: "카드사용" },
+  { key: "card_list", label: "카드조회" },
+  { key: "card_stats", label: "카드통계" },
+  { key: "maint_new", label: "정비등록" },
+  { key: "maint_list", label: "정비조회" },
+  { key: "maint_stats", label: "정비통계" },
+  { key: "maintenance_photos", label: "정비사진등록" },
+  { key: "maintenance_schedule_new", label: "정비일정등록" },
+  { key: "maintenance_schedules", label: "정비일정조회" },
+  { key: "vendors", label: "거래처등록" },
+  { key: "warehouse_groups", label: "창고등록" },
+  { key: "items", label: "품목등록" },
+  { key: "permits", label: "허가관리" },
+];
+
+const ERP_OFFICE_BLOCKED_TABS = new Set(["update_notices", "backup_permissions"]);
 
 const dedupeUpdateNotices = (notices: UpdateNotice[]) => {
   const seen = new Set<string>();
@@ -881,6 +919,32 @@ export default function App() {
   const [updateNoticeForm, setUpdateNoticeForm] = useState({ notice_date: getTodayKey(), content: "" });
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [updateNoticeError, setUpdateNoticeError] = useState("");
+  const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
+  const [permissionForm, setPermissionForm] = useState<UserPermission>({
+    id: uid(),
+    email: "",
+    role: "field",
+    permissions: { home: true },
+  });
+  const currentUserPermission = userPermissions.find((item) => item.email === userEmail);
+  const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "office");
+  const canManageSystem = isAdmin;
+  const canModifyRecords = isAdmin;
+  const canAccessTab = (tab: string) => {
+    if (!tab || tab === "home") return true;
+    if (isAdmin) return true;
+    if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
+    const permissions = currentUserPermission?.permissions || {};
+    return !!permissions[tab];
+  };
+  const openAllowedTab = (tab: string) => {
+    if (!canAccessTab(tab)) {
+      alert("해당 메뉴 권한이 없습니다.");
+      return;
+    }
+    setMenuTab(tab);
+  };
+
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth <= 900 : false
@@ -1479,6 +1543,7 @@ export default function App() {
       loadReceiptPhotos();
       loadMaintenancePhotos();
       loadMaintenanceSchedules();
+      loadUserPermissions();
     }
   }, [session]);
 
@@ -1509,6 +1574,15 @@ export default function App() {
       loadMaintenanceSchedules();
     }
   }, [menuTab, session]);
+
+
+  useEffect(() => {
+    if (!session) return;
+    if (!canAccessTab(menuTab)) {
+      setMenuTab("home");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.email, menuTab, currentRole, userPermissions.length]);
 
   const vendorOptions = useMemo(
     () =>
@@ -2778,6 +2852,57 @@ export default function App() {
     setShowUpdateNotice(hasRecentNotice && hiddenValue !== updateNoticeHideValue());
   };
 
+  const loadUserPermissions = async () => {
+    const { data, error } = await supabase
+      .from("user_permissions")
+      .select("*")
+      .order("email", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setUserPermissions([]);
+      return;
+    }
+
+    setUserPermissions(((data || []) as any[]).map((item) => ({
+      ...item,
+      id: String(item.id),
+      role: (item.role || "field") as UserRole,
+      permissions: item.permissions || {},
+    })) as UserPermission[]);
+  };
+
+  const saveUserPermission = async (next?: UserPermission) => {
+    if (!isAdmin) return alert("관리자만 권한을 저장할 수 있습니다.");
+    const target = next || permissionForm;
+    const email = target.email.trim().toLowerCase();
+    if (!email) return alert("직원 이메일을 입력하세요.");
+
+    const payload = {
+      id: target.id || uid(),
+      email,
+      role: target.role || "field",
+      permissions: target.role === "field" ? (target.permissions || {}) : {},
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("user_permissions").upsert(payload, { onConflict: "email" });
+    if (error) return alert(`권한 저장 실패: ${error.message}`);
+
+    await loadUserPermissions();
+    setPermissionForm({ id: uid(), email: "", role: "field", permissions: { home: true } });
+  };
+
+  const deleteUserPermission = async (email: string) => {
+    if (!isAdmin) return alert("관리자만 권한을 삭제할 수 있습니다.");
+    if (!confirm(`${email} 권한을 삭제할까요?`)) return;
+
+    const { error } = await supabase.from("user_permissions").delete().eq("email", email);
+    if (error) return alert(`권한 삭제 실패: ${error.message}`);
+
+    await loadUserPermissions();
+  };
+
   const saveUpdateNotice = async () => {
     if (!isAdmin) return alert("관리자만 업데이트 공지를 저장할 수 있습니다.");
     if (!updateNoticeForm.notice_date || !updateNoticeForm.content.trim()) {
@@ -3116,7 +3241,8 @@ export default function App() {
           <div className="menu-group"><button>기초등록</button><div className="sub"><button onMouseDown={() => setMenuTab("vendors")}>거래처등록</button><button onMouseDown={() => setMenuTab("warehouse_groups")}>창고등록</button><button onMouseDown={() => setMenuTab("items")}>품목등록</button></div></div>
           <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>
           {isAdmin && <button className={menuTab === "update_notices" ? "active" : ""} onClick={() => setMenuTab("update_notices")}>업데이트관리</button>}
-          <div className="user-box"><span>{userEmail}{isAdmin ? " · 관리자" : " · 직원"}</span><button onClick={logout}>로그아웃</button></div>
+          {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
@@ -5683,6 +5809,243 @@ function Home({
     </section>
   );
 }
+
+
+function BackupPermissionPage({
+  purchases,
+  maints,
+  cardUses,
+  vendors,
+  groups,
+  warehouses,
+  items,
+  permits,
+  vendorAccounts,
+  receiptPhotos,
+  maintenancePhotos,
+  maintenanceSchedules,
+  updateNotices,
+  userPermissions,
+  permissionForm,
+  setPermissionForm,
+  saveUserPermission,
+  deleteUserPermission,
+  loadAll,
+  loadPermits,
+  loadVendorAccounts,
+  loadReceiptPhotos,
+  loadMaintenancePhotos,
+  loadMaintenanceSchedules,
+  loadUserPermissions,
+}: any) {
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+
+  const backupPayload = {
+    backup_version: "taemyung-erp-v1",
+    exported_at: new Date().toISOString(),
+    data: {
+      purchases,
+      maints,
+      cardUses,
+      vendors,
+      groups,
+      warehouses,
+      items,
+      permits,
+      vendorAccounts,
+      receiptPhotos,
+      maintenancePhotos,
+      maintenanceSchedules,
+      updateNotices,
+      userPermissions,
+    },
+  };
+
+  const downloadJsonBackup = () => {
+    const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `taemyung_erp_backup_${todayText()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadExcelBackup = () => {
+    downloadExcel(`전체백업_${todayText()}`, [
+      { 구분: "구매", 건수: purchases.length },
+      { 구분: "정비", 건수: maints.length },
+      { 구분: "카드", 건수: cardUses.length },
+      { 구분: "거래처", 건수: vendors.length },
+      { 구분: "창고대분류", 건수: groups.length },
+      { 구분: "창고", 건수: warehouses.length },
+      { 구분: "품목", 건수: items.length },
+      { 구분: "허가관리", 건수: permits.length },
+      { 구분: "업체계좌", 건수: vendorAccounts.length },
+      { 구분: "입고사진", 건수: receiptPhotos.length },
+      { 구분: "정비사진", 건수: maintenancePhotos.length },
+      { 구분: "정비일정", 건수: maintenanceSchedules.length },
+      { 구분: "권한", 건수: userPermissions.length },
+    ]);
+  };
+
+  const restoreJsonBackup = async () => {
+    if (!restoreFile) return alert("복구할 JSON 백업 파일을 선택하세요.");
+    if (!confirm("선택한 백업 파일로 복구합니다. 같은 id 데이터는 덮어씁니다. 진행할까요?")) return;
+
+    setRestoreBusy(true);
+
+    try {
+      const raw = await restoreFile.text();
+      const parsed = JSON.parse(raw);
+      const data = parsed.data || parsed;
+
+      const restoreMap: Array<[string, any[] | undefined]> = [
+        ["vendors", data.vendors],
+        ["warehouse_groups", data.groups],
+        ["warehouses", data.warehouses],
+        ["items", data.items],
+        ["purchases", data.purchases],
+        ["maints", data.maints],
+        ["card_uses", data.cardUses],
+        ["permit_renewals", data.permits],
+        ["vendor_accounts", data.vendorAccounts],
+        ["receipt_photos", data.receiptPhotos],
+        ["maintenance_photos", data.maintenancePhotos],
+        ["maintenance_schedules", data.maintenanceSchedules],
+        ["update_notices", data.updateNotices],
+        ["user_permissions", data.userPermissions],
+      ];
+
+      for (const [table, rows] of restoreMap) {
+        if (!Array.isArray(rows) || !rows.length) continue;
+        const { error } = await supabase.from(table).upsert(rows);
+        if (error) throw new Error(`${table} 복구 실패: ${error.message}`);
+      }
+
+      await Promise.all([
+        loadAll(),
+        loadPermits(),
+        loadVendorAccounts(),
+        loadReceiptPhotos(),
+        loadMaintenancePhotos(),
+        loadMaintenanceSchedules(),
+        loadUserPermissions(),
+      ]);
+
+      alert("백업 복구가 완료되었습니다.");
+      setRestoreFile(null);
+    } catch (error: any) {
+      alert(error?.message || "백업 복구 중 오류가 발생했습니다.");
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
+
+  const togglePermission = (key: string) => {
+    const current = permissionForm.permissions || {};
+    setPermissionForm({
+      ...permissionForm,
+      permissions: { ...current, [key]: !current[key] },
+    });
+  };
+
+  const editPermission = (item: UserPermission) => {
+    setPermissionForm({
+      id: item.id || uid(),
+      email: item.email || "",
+      role: item.role || "field",
+      permissions: item.permissions || { home: true },
+    });
+  };
+
+  return (
+    <section className="backup-permission-page">
+      <div className="backup-permission-hero">
+        <div>
+          <span>System Control</span>
+          <h2>백업 / 권한관리</h2>
+          <p>전체 데이터를 인터넷 저장 기준으로 백업하고, 직원 권한을 3단계로 관리합니다.</p>
+        </div>
+      </div>
+
+      <div className="backup-permission-grid">
+        <div className="backup-card">
+          <h3>전체 백업</h3>
+          <p>현재 ERP 주요 데이터를 JSON 파일로 내려받습니다. 복구용은 JSON을 사용하세요.</p>
+          <div className="backup-stat-grid">
+            <div><b>{purchases.length}</b><span>구매</span></div>
+            <div><b>{maints.length}</b><span>정비</span></div>
+            <div><b>{cardUses.length}</b><span>카드</span></div>
+            <div><b>{maintenanceSchedules.length}</b><span>정비일정</span></div>
+          </div>
+          <div className="backup-actions">
+            <button className="primary" onClick={downloadJsonBackup}>JSON 백업 다운로드</button>
+            <button onClick={downloadExcelBackup}>백업 요약 엑셀</button>
+          </div>
+        </div>
+
+        <div className="backup-card danger-zone">
+          <h3>백업 복구</h3>
+          <p>JSON 백업 파일을 선택하면 같은 ID 데이터는 덮어씁니다. 실행 전 한 번 더 백업하세요.</p>
+          <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] || null)} />
+          <button className="danger" disabled={restoreBusy} onClick={restoreJsonBackup}>
+            {restoreBusy ? "복구 중..." : "JSON 백업 복구"}
+          </button>
+        </div>
+      </div>
+
+      <div className="permission-card">
+        <div className="permission-head">
+          <div>
+            <h3>직원 권한관리</h3>
+            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능</p>
+          </div>
+        </div>
+
+        <div className="permission-form">
+          <Field label="직원 이메일">
+            <input value={permissionForm.email} onChange={(e) => setPermissionForm({ ...permissionForm, email: e.target.value })} placeholder="직원 이메일" />
+          </Field>
+          <Field label="권한 단계">
+            <select value={permissionForm.role} onChange={(e) => setPermissionForm({ ...permissionForm, role: e.target.value as UserRole })}>
+              <option value="office">사무실직원</option>
+              <option value="field">현장직원</option>
+            </select>
+          </Field>
+          <button className="primary" onClick={() => saveUserPermission()}>권한 저장</button>
+        </div>
+
+        {permissionForm.role === "field" && (
+          <div className="permission-checks">
+            {ERP_PERMISSION_MODULES.map((m) => (
+              <label key={m.key}>
+                <input type="checkbox" checked={!!permissionForm.permissions?.[m.key]} onChange={() => togglePermission(m.key)} />
+                <span>{m.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="permission-list">
+          {userPermissions.map((item: UserPermission) => (
+            <div className="permission-row" key={item.email}>
+              <div>
+                <b>{item.email}</b>
+                <span>{item.role === "office" ? "사무실직원" : item.role === "field" ? "현장직원" : "관리자"}</span>
+              </div>
+              <em>{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
+              <button onClick={() => editPermission(item)}>수정</button>
+              <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 function HomeDashboard({
   purchases,
@@ -12805,6 +13168,212 @@ button[onclick*="downloadPdf"]{
   .mobile-maint-card-top span,
   .mobile-card-use-top span{
     width:max-content !important;
+  }
+}
+
+/* ===== Backup and Permission Page ===== */
+.backup-permission-page{
+  min-height:calc(100vh - 210px);
+  border-radius:24px;
+  padding:22px;
+  background:linear-gradient(180deg,#f8fafc 0%,#eef4fb 100%);
+  box-shadow:0 18px 50px rgba(15,23,42,.10);
+}
+
+.backup-permission-hero{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.backup-permission-hero span{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.backup-permission-hero h2{
+  margin:8px 0 4px;
+  color:#0f172a;
+  font-size:30px;
+  font-weight:1000;
+}
+
+.backup-permission-hero p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.backup-permission-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-bottom:16px;
+}
+
+.backup-card,
+.permission-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:18px;
+  box-shadow:0 10px 26px rgba(15,23,42,.06);
+}
+
+.backup-card h3,
+.permission-card h3{
+  margin:0 0 8px;
+  color:#0f172a;
+  font-size:20px;
+  font-weight:1000;
+}
+
+.backup-card p,
+.permission-card p{
+  margin:0 0 14px;
+  color:#64748b;
+  font-weight:800;
+}
+
+.backup-stat-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin:14px 0;
+}
+
+.backup-stat-grid div{
+  padding:14px;
+  border-radius:16px;
+  background:#f8fafc;
+  text-align:center;
+}
+
+.backup-stat-grid b{
+  display:block;
+  color:#1d4ed8;
+  font-size:24px;
+  font-weight:1000;
+}
+
+.backup-stat-grid span{
+  display:block;
+  margin-top:4px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.backup-actions,
+.permission-form{
+  display:flex;
+  gap:10px;
+  align-items:end;
+  flex-wrap:wrap;
+}
+
+.backup-card button,
+.permission-card button{
+  min-height:42px;
+  border:0;
+  border-radius:14px;
+  padding:0 16px;
+  font-weight:1000;
+  background:#e2e8f0;
+  color:#0f172a;
+}
+
+.backup-card button.primary,
+.permission-card button.primary{
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;
+}
+
+.backup-card button.danger,
+.permission-card button.danger{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.danger-zone{
+  background:linear-gradient(135deg,#fff,#fff1f2);
+}
+
+.permission-checks{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin:16px 0;
+  padding:14px;
+  border-radius:18px;
+  background:#f8fafc;
+}
+
+.permission-checks label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 10px;
+  border-radius:12px;
+  background:#fff;
+  font-weight:900;
+  color:#334155;
+}
+
+.permission-list{
+  display:grid;
+  gap:10px;
+  margin-top:14px;
+}
+
+.permission-row{
+  display:grid;
+  grid-template-columns:1fr auto auto auto;
+  gap:10px;
+  align-items:center;
+  padding:12px;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  background:#fff;
+}
+
+.permission-row b{
+  display:block;
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.permission-row span,
+.permission-row em{
+  color:#64748b;
+  font-size:12px;
+  font-style:normal;
+  font-weight:900;
+}
+
+@media (max-width:900px){
+  .backup-permission-page{
+    padding:14px;
+    border-radius:18px;
+  }
+  .backup-permission-grid{
+    grid-template-columns:1fr;
+  }
+  .backup-stat-grid,
+  .permission-checks{
+    grid-template-columns:1fr 1fr;
+  }
+  .permission-row{
+    grid-template-columns:1fr;
+  }
+  .permission-form{
+    display:grid;
   }
 }
 
