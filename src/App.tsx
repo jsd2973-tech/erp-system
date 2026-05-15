@@ -187,6 +187,20 @@ const formatInputDate = (value: string) => {
 
 const money = (v: number | string | undefined) => Number(v || 0).toLocaleString("ko-KR");
 
+const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">) => {
+  const itemNames = (purchase.rows || [])
+    .map((row) => String(row.item || "").trim())
+    .filter(Boolean);
+
+  if (!itemNames.length) return purchase.itemSummary || "-";
+
+  const firstItem = itemNames[0];
+  const extraCount = itemNames.length - 1;
+
+  return extraCount > 0 ? `${firstItem} 외 ${extraCount}건` : firstItem;
+};
+
+
 
 const parseExcelLikeDate = (value: any) => {
   if (!value && value !== 0) return "";
@@ -1756,7 +1770,7 @@ export default function App() {
       supplyTotal: purchaseSupplyTotal,
       vatTotal: purchaseVatTotal,
       total: purchaseTotal,
-      itemSummary: validRows[0].item,
+      itemSummary: getPurchaseItemSummary({ itemSummary: validRows[0].item, rows: validRows }),
       image_urls: purchaseHeader.image_urls || [],
       image_url: (purchaseHeader.image_urls || [])[0] || "",
     };
@@ -5035,14 +5049,14 @@ export default function App() {
                 {photoLinkModal.mode === "recordPurchase" && purchases
                   .filter((purchase) => {
                     const q = photoLinkModal.search.trim();
-                    return matchLooseKeywords(`${purchase.date || ""} ${purchase.vendor || ""} ${purchase.warehouse || ""} ${purchase.itemSummary || ""}`, q);
+                    return matchLooseKeywords(`${purchase.date || ""} ${purchase.vendor || ""} ${purchase.warehouse || ""} ${getPurchaseItemSummary(purchase) || ""}`, q);
                   })
                   .map((purchase) => (
                     <button className="photo-link-item" key={purchase.id} onClick={() => connectPurchaseRecordToReceiptPhoto(purchase, photoLinkModal.targetId)}>
                       <div>
                         <strong>{purchase.vendor || "거래처 미입력"}</strong>
                         <span>{purchase.date || "-"} · {purchase.warehouse || "-"}</span>
-                        <p>{purchase.itemSummary || "-"} / {money(purchase.total)}원</p>
+                        <p>{getPurchaseItemSummary(purchase)} / {money(purchase.total)}원</p>
                       </div>
                       <AttachmentGroup urls={purchase.image_urls || (purchase.image_url ? [purchase.image_url] : [])} />
                     </button>
@@ -5143,9 +5157,9 @@ function ScrollTable({ children }: { children: any }) {
 
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto }: any) {
   return <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
-  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
+  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: p.itemSummary, 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
   {!purchases.length ? (
     <div className="empty">저장된 구매내역 없음</div>
   ) : purchases.map((p: Purchase, index: number) => {
@@ -5158,7 +5172,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
           <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
         </div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
-        <div className="mobile-purchase-card-row"><span>품목</span><b>{p.itemSummary || "-"}</b></div>
+        <div className="mobile-purchase-card-row"><span>품목</span><b>{getPurchaseItemSummary(p)}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
         <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
@@ -5174,7 +5188,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
 </div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -5277,7 +5291,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
       <ScrollTable>
         <table>
           <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{p.itemSummary}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
+          <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
     </section>
@@ -6490,7 +6504,10 @@ function HomeDashboard({
   const today = new Date().toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
 
-  const todayPurchaseTotal = purchases.filter((p) => p.date === today).reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const todayPurchases = purchases.filter((p) => p.date === today);
+  const todayCards = cardUses.filter((c) => c.date === today);
+  const todayMaints = maints.filter((m) => m.date === today);
+  const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = purchases.filter((p) => (p.date || "").startsWith(monthKey)).reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
@@ -6537,32 +6554,32 @@ function HomeDashboard({
       <div className="dashboard-pro-hero">
         <div>
           <span>Taemyung ERP</span>
-          <h2>오늘 주요 현황</h2>
-          <p>구매, 카드, 정비, 사진 미처리 현황을 한 화면에서 확인합니다.</p>
+          <h2>홈 대시보드</h2>
+          <p>오늘 등록 현황, 공지, 정비일정, 최근 내역을 한 화면에서 확인합니다.</p>
         </div>
         <div className="dashboard-pro-date">{today}</div>
       </div>
 
       <div className="dashboard-pro-kpis">
-        <button className="dashboard-pro-kpi blue" onClick={() => setMenuTab?.("receipt_photos")}>
-          <span>미처리 입고사진</span>
-          <b>{unprocessedReceiptPhotos.length}건</b>
-          <em>오늘 등록 {receiptPhotos.filter((x) => x.receipt_date === today).length}건</em>
+        <button className="dashboard-pro-kpi blue" onClick={() => setMenuTab?.("list")}>
+          <span>오늘 구매 등록</span>
+          <b>{todayPurchases.length}건</b>
+          <em>금액 {money(todayPurchaseTotal)}원</em>
+        </button>
+        <button className="dashboard-pro-kpi green" onClick={() => setMenuTab?.("card_list")}>
+          <span>오늘 카드사용</span>
+          <b>{todayCards.length}건</b>
+          <em>이번달 {money(monthCardTotal)}원</em>
+        </button>
+        <button className="dashboard-pro-kpi purple" onClick={() => setMenuTab?.("maint_list")}>
+          <span>오늘 정비 등록</span>
+          <b>{todayMaints.length}건</b>
+          <em>오늘 일정 {todaySchedules.length}건</em>
         </button>
         <button className="dashboard-pro-kpi red" onClick={() => setMenuTab?.("maintenance_photos")}>
-          <span>긴급/미처리 정비</span>
-          <b>{urgentSchedules.length + unprocessedMaintenancePhotos.length}건</b>
-          <em>정비사진 미처리 {unprocessedMaintenancePhotos.length}건</em>
-        </button>
-        <button className="dashboard-pro-kpi green" onClick={() => setMenuTab?.("status")}>
-          <span>오늘 구매금액</span>
-          <b>{money(todayPurchaseTotal)}원</b>
-          <em>이번달 {money(monthPurchaseTotal)}원</em>
-        </button>
-        <button className="dashboard-pro-kpi purple" onClick={() => setMenuTab?.("card_list")}>
-          <span>이번달 카드사용</span>
-          <b>{money(monthCardTotal)}원</b>
-          
+          <span>처리 필요</span>
+          <b>{urgentSchedules.length + unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length}건</b>
+          <em>입고사진 {unprocessedReceiptPhotos.length} · 정비사진 {unprocessedMaintenancePhotos.length}</em>
         </button>
       </div>
 
@@ -6624,7 +6641,7 @@ function HomeDashboard({
               </div>
               <table className="dashboard-pro-table dashboard-mobile-stack">
                 <thead><tr><th>일자</th><th>거래처</th><th>품목</th><th>금액</th></tr></thead>
-                <tbody>{recentPurchases.map((p)=><tr key={p.id}><td data-label="일자">{p.date}</td><td data-label="거래처">{p.vendor}</td><td data-label="품목">{p.itemSummary}</td><td data-label="금액" className="right">{money(p.total)}</td></tr>)}</tbody>
+                <tbody>{recentPurchases.map((p)=><tr key={p.id}><td data-label="일자">{p.date}</td><td data-label="거래처">{p.vendor}</td><td data-label="품목">{getPurchaseItemSummary(p)}</td><td data-label="금액" className="right">{money(p.total)}</td></tr>)}</tbody>
               </table>
             </div>
 
