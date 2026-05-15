@@ -6554,7 +6554,6 @@ function HomeDashboard({
   const monthKey = today.slice(0, 7);
   const todayPurchases = purchases.filter((p) => p.date === today);
   const todayCards = cardUses.filter((c) => c.date === today);
-  const todayMaints = maints.filter((m) => m.date === today);
   const monthPurchases = purchases.filter((p) => (p.date || "").startsWith(monthKey));
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
   const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
