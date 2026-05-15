@@ -4027,7 +4027,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} updateNotices={updateNotices} setMenuTab={setMenuTab} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -5658,7 +5658,25 @@ function Home({
   );
 }
 
-function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[]; maints: Maint[]; cardUses: CardUse[] }) {
+function HomeDashboard({
+  purchases,
+  maints,
+  cardUses,
+  maintenanceSchedules = [],
+  receiptPhotos = [],
+  maintenancePhotos = [],
+  updateNotices = [],
+  setMenuTab,
+}: {
+  purchases: Purchase[];
+  maints: Maint[];
+  cardUses: CardUse[];
+  maintenanceSchedules?: MaintenanceSchedule[];
+  receiptPhotos?: ReceiptPhoto[];
+  maintenancePhotos?: MaintenancePhoto[];
+  updateNotices?: UpdateNotice[];
+  setMenuTab?: (tab: string) => void;
+}) {
   const today = new Date().toISOString().slice(0, 10);
   const monthKey = today.slice(0, 7);
 
@@ -5667,8 +5685,14 @@ function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[];
   const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
   const monthMaintTotal = maints.filter((m) => (m.date || "").startsWith(monthKey)).reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
 
+  const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
+  const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
+  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
+  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
+
   const recentMaints = [...maints].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
   const recentCards = [...cardUses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
+  const recentSchedules = [...maintenanceSchedules].sort((a,b)=>String(a.schedule_date||"").localeCompare(String(b.schedule_date||""))).slice(0,6);
 
   const vendorMap = new Map<string, number>();
   purchases.forEach((p)=>vendorMap.set(p.vendor || "-", (vendorMap.get(p.vendor || "-") || 0) + Number(p.total || 0)));
@@ -5678,55 +5702,190 @@ function HomeDashboard({ purchases, maints, cardUses }: { purchases: Purchase[];
   purchases.forEach((p)=> (p.rows || []).forEach((r)=> itemMap.set(r.item || "-", (itemMap.get(r.item || "-") || 0) + Number(r.qty || 0))));
   const topItems = Array.from(itemMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
+  const recentPhotoFeed = [
+    ...receiptPhotos.map((x) => ({
+      id: `r-${x.id}`,
+      type: "입고사진",
+      date: x.receipt_date,
+      title: x.vendor_name || "거래처 미입력",
+      memo: x.memo || "",
+      image: (x.image_urls || [])[0],
+      tab: "receipt_photos",
+      done: x.is_processed,
+    })),
+    ...maintenancePhotos.map((x) => ({
+      id: `m-${x.id}`,
+      type: "정비사진",
+      date: x.maint_date,
+      title: x.equipment_name || "설비 미입력",
+      memo: x.memo || "",
+      image: (x.image_urls || [])[0],
+      tab: "maintenance_photos",
+      done: x.is_processed,
+    })),
+  ].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
 
   return (
-    <section className="dashboard-wrap">
-      <div className="dashboard-grid">
-        <div className="dashboard-card"><span>오늘 구매금액</span><b>{money(todayPurchaseTotal)}원</b></div>
-        <div className="dashboard-card"><span>이번달 구매금액</span><b>{money(monthPurchaseTotal)}원</b></div>
-        <div className="dashboard-card"><span>이번달 카드사용</span><b>{money(monthCardTotal)}원</b></div>
-        <div className="dashboard-card"><span>이번달 정비금액</span><b>{money(monthMaintTotal)}원</b></div>
+    <section className="dashboard-pro-wrap">
+      <div className="dashboard-pro-hero">
+        <div>
+          <span>Taemyung ERP</span>
+          <h2>오늘 주요 현황</h2>
+          <p>구매, 카드, 정비, 사진 미처리 현황을 한 화면에서 확인합니다.</p>
+        </div>
+        <div className="dashboard-pro-date">{today}</div>
       </div>
 
-      <div className="dashboard-two">
-        <div className="dashboard-panel">
-          <h3>최근 정비내역</h3>
-          <table className="dashboard-table">
-            <thead><tr><th>일자</th><th>제목</th><th>창고</th></tr></thead>
-            <tbody>{recentMaints.map((m)=><tr key={m.id}><td>{m.date}</td><td>{m.title}</td><td>{m.warehouse}</td></tr>)}</tbody>
-          </table>
-        </div>
-
-        <div className="dashboard-panel">
-          <h3>최근 카드사용</h3>
-          <table className="dashboard-table">
-            <thead><tr><th>일자</th><th>사용처</th><th>금액</th></tr></thead>
-            <tbody>{recentCards.map((c)=><tr key={c.id}><td>{c.date}</td><td>{c.place}</td><td className="right">{money(c.amount)}</td></tr>)}</tbody>
-          </table>
-        </div>
+      <div className="dashboard-pro-kpis">
+        <button className="dashboard-pro-kpi blue" onClick={() => setMenuTab?.("receipt_photos")}>
+          <span>미처리 입고사진</span>
+          <b>{unprocessedReceiptPhotos.length}건</b>
+          <em>오늘 등록 {receiptPhotos.filter((x) => x.receipt_date === today).length}건</em>
+        </button>
+        <button className="dashboard-pro-kpi red" onClick={() => setMenuTab?.("maintenance_photos")}>
+          <span>긴급/미처리 정비</span>
+          <b>{urgentSchedules.length + unprocessedMaintenancePhotos.length}건</b>
+          <em>정비사진 미처리 {unprocessedMaintenancePhotos.length}건</em>
+        </button>
+        <button className="dashboard-pro-kpi green" onClick={() => setMenuTab?.("status")}>
+          <span>오늘 구매금액</span>
+          <b>{money(todayPurchaseTotal)}원</b>
+          <em>이번달 {money(monthPurchaseTotal)}원</em>
+        </button>
+        <button className="dashboard-pro-kpi purple" onClick={() => setMenuTab?.("card_list")}>
+          <span>이번달 카드사용</span>
+          <b>{money(monthCardTotal)}원</b>
+          <em>이번달 정비 {money(monthMaintTotal)}원</em>
+        </button>
       </div>
 
-      <div className="dashboard-two">
-        <div className="dashboard-panel">
-          <h3>거래처 TOP5</h3>
-          <table className="dashboard-table">
-            <thead><tr><th>거래처</th><th>금액</th></tr></thead>
-            <tbody>{topVendors.map(([n,a])=><tr key={n}><td>{n}</td><td className="right">{money(a)}</td></tr>)}</tbody>
-          </table>
+      <div className="dashboard-pro-main">
+        <div className="dashboard-pro-left">
+          <div className="dashboard-pro-panel schedule">
+            <div className="dashboard-pro-panel-head">
+              <div>
+                <h3>오늘 정비일정</h3>
+                <p>같은 날짜에 여러 작업이 있으면 전부 표시됩니다.</p>
+              </div>
+              <button onClick={() => setMenuTab?.("maintenance_schedules")}>전체보기</button>
+            </div>
+            <div className="dashboard-schedule-list">
+              {todaySchedules.length ? todaySchedules.slice(0, 8).map((s) => (
+                <div className="dashboard-schedule-row" key={s.id}>
+                  <div>
+                    <strong>{s.equipment_name}</strong>
+                    <p>{s.work_detail}</p>
+                  </div>
+                  <span className={`schedule-priority ${s.priority || "보통"}`}>{s.priority || "보통"}</span>
+                  <span className={`schedule-status ${s.status || "예정"}`}>{s.status || "예정"}</span>
+                </div>
+              )) : (
+                <div className="dashboard-pro-empty">오늘 등록된 정비일정이 없습니다.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-pro-split">
+            <div className="dashboard-pro-panel">
+              <div className="dashboard-pro-panel-head">
+                <h3>최근 정비내역</h3>
+                <button onClick={() => setMenuTab?.("maint_list")}>더보기</button>
+              </div>
+              <table className="dashboard-pro-table">
+                <thead><tr><th>일자</th><th>제목</th><th>창고</th></tr></thead>
+                <tbody>{recentMaints.map((m)=><tr key={m.id}><td>{m.date}</td><td>{m.title}</td><td>{m.warehouse}</td></tr>)}</tbody>
+              </table>
+            </div>
+
+            <div className="dashboard-pro-panel">
+              <div className="dashboard-pro-panel-head">
+                <h3>최근 카드사용</h3>
+                <button onClick={() => setMenuTab?.("card_list")}>더보기</button>
+              </div>
+              <table className="dashboard-pro-table">
+                <thead><tr><th>일자</th><th>사용처</th><th>금액</th></tr></thead>
+                <tbody>{recentCards.map((c)=><tr key={c.id}><td>{c.date}</td><td>{c.place}</td><td className="right">{money(c.amount)}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="dashboard-pro-split">
+            <div className="dashboard-pro-panel">
+              <h3>거래처 TOP5</h3>
+              <table className="dashboard-pro-table">
+                <thead><tr><th>거래처</th><th>금액</th></tr></thead>
+                <tbody>{topVendors.map(([n,a])=><tr key={n}><td>{n}</td><td className="right">{money(a)}</td></tr>)}</tbody>
+              </table>
+            </div>
+
+            <div className="dashboard-pro-panel">
+              <h3>품목 TOP5</h3>
+              <table className="dashboard-pro-table">
+                <thead><tr><th>품목</th><th>수량</th></tr></thead>
+                <tbody>{topItems.map(([n,q])=><tr key={n}><td>{n}</td><td className="right">{money(q)}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div className="dashboard-panel">
-          <h3>품목 TOP5</h3>
-          <table className="dashboard-table">
-            <thead><tr><th>품목</th><th>수량</th></tr></thead>
-            <tbody>{topItems.map(([n,q])=><tr key={n}><td>{n}</td><td className="right">{money(q)}</td></tr>)}</tbody>
-          </table>
+        <div className="dashboard-pro-right">
+          <div className="dashboard-pro-panel">
+            <div className="dashboard-pro-panel-head">
+              <h3>최근 등록 사진</h3>
+              <button onClick={() => setMenuTab?.("receipt_photos")}>보기</button>
+            </div>
+            <div className="dashboard-photo-feed">
+              {recentPhotoFeed.length ? recentPhotoFeed.map((p) => (
+                <button className="dashboard-photo-row" key={p.id} onClick={() => setMenuTab?.(p.tab)}>
+                  <div className="dashboard-photo-thumb">
+                    {p.image ? <img src={p.image} alt={p.title} /> : <span>사진</span>}
+                  </div>
+                  <div>
+                    <strong>{p.title}</strong>
+                    <p>{p.type} · {p.done ? "처리완료" : "미처리"}</p>
+                    <small>{p.memo}</small>
+                  </div>
+                </button>
+              )) : <div className="dashboard-pro-empty">등록된 사진이 없습니다.</div>}
+            </div>
+          </div>
+
+          <div className="dashboard-pro-panel">
+            <div className="dashboard-pro-panel-head">
+              <h3>정비일정 예정</h3>
+              <button onClick={() => setMenuTab?.("maintenance_schedule_new")}>등록</button>
+            </div>
+            <div className="dashboard-mini-list">
+              {recentSchedules.length ? recentSchedules.map((s) => (
+                <div className="dashboard-mini-row" key={s.id}>
+                  <span>{s.schedule_date}</span>
+                  <b>{s.equipment_name}</b>
+                  <em>{s.work_detail}</em>
+                </div>
+              )) : <div className="dashboard-pro-empty">예정 일정이 없습니다.</div>}
+            </div>
+          </div>
+
+          <div className="dashboard-pro-panel">
+            <div className="dashboard-pro-panel-head">
+              <h3>최근 공지</h3>
+              <button onClick={() => setMenuTab?.("update_history")}>더보기</button>
+            </div>
+            <div className="dashboard-mini-list">
+              {(updateNotices || []).slice(0, 4).map((n) => (
+                <div className="dashboard-mini-row" key={n.id}>
+                  <span>{n.notice_date}</span>
+                  <b>{n.content}</b>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-
     </section>
   );
 }
+
 
 function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const [from, setFrom] = useState("");
@@ -11765,6 +11924,312 @@ button[onclick*="downloadPdf"]{
 
   .schedule-pro-actions{
     grid-template-columns:1fr !important;
+  }
+}
+
+/* ===== Home Dashboard Pro Redesign ===== */
+.dashboard-pro-wrap{
+  padding:22px;
+  border-radius:24px;
+  background:linear-gradient(180deg,#f8fafc 0%,#eef4fb 100%);
+  box-shadow:0 18px 50px rgba(15,23,42,.10);
+  min-height:calc(100vh - 210px);
+}
+
+.dashboard-pro-hero{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  align-items:flex-start;
+  margin-bottom:18px;
+}
+
+.dashboard-pro-hero span{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.dashboard-pro-hero h2{
+  margin:8px 0 4px;
+  color:#0f172a;
+  font-size:30px;
+  font-weight:1000;
+  letter-spacing:-.7px;
+}
+
+.dashboard-pro-hero p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.dashboard-pro-date{
+  min-height:40px;
+  display:flex;
+  align-items:center;
+  padding:0 14px;
+  border-radius:14px;
+  background:#fff;
+  color:#0f172a;
+  font-weight:1000;
+  box-shadow:0 8px 20px rgba(15,23,42,.06);
+}
+
+.dashboard-pro-kpis{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.dashboard-pro-kpi{
+  text-align:left;
+  border:0;
+  border-radius:22px;
+  padding:18px;
+  min-height:128px;
+  box-shadow:0 14px 34px rgba(15,23,42,.08);
+  cursor:pointer;
+}
+
+.dashboard-pro-kpi span{
+  display:block;
+  font-size:13px;
+  font-weight:1000;
+  margin-bottom:10px;
+}
+
+.dashboard-pro-kpi b{
+  display:block;
+  color:#0f172a;
+  font-size:28px;
+  font-weight:1000;
+}
+
+.dashboard-pro-kpi em{
+  display:block;
+  margin-top:8px;
+  color:#64748b;
+  font-size:12px;
+  font-style:normal;
+  font-weight:900;
+}
+
+.dashboard-pro-kpi.blue{background:linear-gradient(135deg,#eff6ff,#dbeafe);}
+.dashboard-pro-kpi.red{background:linear-gradient(135deg,#fff1f2,#fee2e2);}
+.dashboard-pro-kpi.green{background:linear-gradient(135deg,#f0fdf4,#dcfce7);}
+.dashboard-pro-kpi.purple{background:linear-gradient(135deg,#f5f3ff,#ede9fe);}
+
+.dashboard-pro-main{
+  display:grid;
+  grid-template-columns:minmax(0,1.65fr) minmax(330px,.75fr);
+  gap:16px;
+}
+
+.dashboard-pro-left,
+.dashboard-pro-right{
+  display:grid;
+  gap:16px;
+  align-content:start;
+}
+
+.dashboard-pro-split{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+
+.dashboard-pro-panel{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:16px;
+  box-shadow:0 10px 26px rgba(15,23,42,.06);
+  overflow:hidden;
+}
+
+.dashboard-pro-panel-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+
+.dashboard-pro-panel h3{
+  margin:0;
+  color:#0f172a;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.dashboard-pro-panel p{
+  margin:5px 0 0;
+  color:#64748b;
+  font-weight:800;
+  font-size:12px;
+}
+
+.dashboard-pro-panel-head button{
+  border:0;
+  border-radius:12px;
+  min-height:34px;
+  padding:0 12px;
+  background:#e0ecff;
+  color:#1d4ed8;
+  font-weight:1000;
+}
+
+.dashboard-schedule-list{
+  display:grid;
+  gap:8px;
+}
+
+.dashboard-schedule-row{
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:10px;
+  align-items:center;
+  padding:12px;
+  border-radius:16px;
+  background:#f8fafc;
+  border:1px solid #edf2f7;
+}
+
+.dashboard-schedule-row strong{
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.dashboard-schedule-row p{
+  margin:4px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.dashboard-pro-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+
+.dashboard-pro-table th{
+  background:#eef4fb;
+  color:#334155;
+  font-weight:1000;
+  padding:10px;
+}
+
+.dashboard-pro-table td{
+  border-bottom:1px solid #f1f5f9;
+  padding:10px;
+  color:#334155;
+  font-weight:800;
+}
+
+.dashboard-photo-feed,
+.dashboard-mini-list{
+  display:grid;
+  gap:10px;
+}
+
+.dashboard-photo-row{
+  display:grid;
+  grid-template-columns:58px 1fr;
+  gap:10px;
+  text-align:left;
+  border:0;
+  border-radius:16px;
+  padding:10px;
+  background:#f8fafc;
+}
+
+.dashboard-photo-thumb{
+  width:58px;
+  height:58px;
+  border-radius:14px;
+  background:#e2e8f0;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  color:#64748b;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.dashboard-photo-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.dashboard-photo-row strong,
+.dashboard-mini-row b{
+  display:block;
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.dashboard-photo-row p,
+.dashboard-photo-row small,
+.dashboard-mini-row em{
+  display:block;
+  margin-top:3px;
+  color:#64748b;
+  font-style:normal;
+  font-weight:800;
+}
+
+.dashboard-mini-row{
+  padding:10px 0;
+  border-bottom:1px solid #f1f5f9;
+}
+
+.dashboard-mini-row span{
+  display:block;
+  color:#2563eb;
+  font-size:12px;
+  font-weight:1000;
+  margin-bottom:3px;
+}
+
+.dashboard-pro-empty{
+  padding:22px;
+  text-align:center;
+  color:#94a3b8;
+  font-weight:900;
+  background:#f8fafc;
+  border-radius:16px;
+}
+
+@media (max-width:1200px){
+  .dashboard-pro-main,
+  .dashboard-pro-split{
+    grid-template-columns:1fr;
+  }
+  .dashboard-pro-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:900px){
+  .dashboard-pro-wrap{
+    padding:16px;
+    min-height:auto;
+  }
+  .dashboard-pro-hero{
+    display:grid;
+  }
+  .dashboard-pro-kpis{
+    grid-template-columns:1fr;
+  }
+  .dashboard-schedule-row{
+    grid-template-columns:1fr;
   }
 }
 
