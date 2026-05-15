@@ -926,7 +926,7 @@ export default function App() {
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
   const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
-  const [siteNoticeForm, setSiteNoticeForm] = useState({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true });
+  const [siteNoticeForm, setSiteNoticeForm] = useState({ title: "", content: "", priority: "보통", is_active: true });
   const [editingSiteNoticeId, setEditingSiteNoticeId] = useState("");
   const [siteNoticeError, setSiteNoticeError] = useState("");
 
@@ -2908,13 +2908,13 @@ export default function App() {
 
   const saveSiteNotice = async () => {
     if (!isAdmin) return alert("관리자만 현장 공지를 저장할 수 있습니다.");
-    if (!siteNoticeForm.notice_date || !siteNoticeForm.title.trim() || !siteNoticeForm.content.trim()) {
-      return alert("날짜, 제목, 내용을 입력하세요.");
+    if (!siteNoticeForm.title.trim() || !siteNoticeForm.content.trim()) {
+      return alert("제목과 내용을 입력하세요.");
     }
 
     const payload = {
       id: editingSiteNoticeId || uid(),
-      notice_date: siteNoticeForm.notice_date,
+      notice_date: getTodayKey(),
       title: siteNoticeForm.title.trim(),
       content: siteNoticeForm.content.trim(),
       priority: siteNoticeForm.priority || "보통",
@@ -2925,7 +2925,7 @@ export default function App() {
     const { error } = await supabase.from("site_notices").upsert(payload);
     if (error) return alert(`공지 저장 실패: ${error.message}`);
 
-    setSiteNoticeForm({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true });
+    setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true });
     setEditingSiteNoticeId("");
     await loadSiteNotices();
   };
@@ -2933,7 +2933,6 @@ export default function App() {
   const editSiteNotice = (notice: SiteNotice) => {
     setEditingSiteNoticeId(notice.id);
     setSiteNoticeForm({
-      notice_date: notice.notice_date || getTodayKey(),
       title: notice.title || "",
       content: notice.content || "",
       priority: notice.priority || "보통",
@@ -6009,72 +6008,91 @@ function SiteNoticePage({
   siteNoticeError,
   isAdmin,
 }: any) {
+  const activeNotices = siteNotices || [];
+  const urgentCount = activeNotices.filter((n: SiteNotice) => n.priority === "긴급").length;
+
   return (
-    <section className="site-notice-page">
-      <div className="site-notice-hero">
+    <section className="site-notice-modern-page">
+      <div className="site-notice-modern-head">
         <div>
-          <span>Worksite Notice</span>
-          <h2>공지사항</h2>
-          <p>현장 작업자/사무실 직원에게 공유할 공지 내용을 등록합니다.</p>
+          <span>NOTICE</span>
+          <h2>공지</h2>
+          <p>현장 공유사항을 등록하면 홈 대시보드와 공지 메뉴에 계속 표시됩니다.</p>
+        </div>
+        <div className="site-notice-modern-summary">
+          <b>{activeNotices.length}</b>
+          <em>게시중</em>
+          <strong>{urgentCount} 긴급</strong>
         </div>
       </div>
 
-      {siteNoticeError && <div className="notice-pro-error">공지 불러오기 실패: {siteNoticeError}</div>}
+      {siteNoticeError && (
+        <div className="site-notice-error">
+          공지 불러오기 실패: {siteNoticeError}
+          <br />
+          Supabase에 site_notices 테이블을 먼저 만들어야 합니다.
+        </div>
+      )}
 
       {isAdmin && (
-        <div className="site-notice-form-card">
-          <div className="site-notice-form-head">
-            <h3>{editingSiteNoticeId ? "공지 수정" : "공지 등록"}</h3>
-            <p>저장하면 홈 대시보드의 공지사항 영역에 표시됩니다.</p>
+        <div className="site-notice-editor-card">
+          <div className="site-notice-editor-title">
+            <div>
+              <h3>{editingSiteNoticeId ? "공지 수정" : "공지 등록"}</h3>
+              <p>내리지 않는 이상 계속 표시됩니다. 날짜는 입력하지 않아도 됩니다.</p>
+            </div>
+            <select value={siteNoticeForm.priority} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, priority: e.target.value })}>
+              <option>긴급</option>
+              <option>중요</option>
+              <option>보통</option>
+            </select>
           </div>
-          <div className="site-notice-form-grid">
-            <Field label="공지일">
-              <input type="date" value={siteNoticeForm.notice_date} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, notice_date: e.target.value })} />
-            </Field>
-            <Field label="중요도">
-              <select value={siteNoticeForm.priority} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, priority: e.target.value })}>
-                <option>긴급</option>
-                <option>중요</option>
-                <option>보통</option>
-              </select>
-            </Field>
-            <Field label="제목">
-              <input value={siteNoticeForm.title} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, title: e.target.value })} placeholder="예: 내일 오전 세륜기 점검" />
-            </Field>
-          </div>
-          <Field label="내용">
-            <textarea value={siteNoticeForm.content} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, content: e.target.value })} placeholder="현장 공유 내용을 입력하세요." />
-          </Field>
-          <div className="site-notice-actions">
-            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정저장" : "저장"}</button>
-            <button onClick={() => setSiteNoticeForm({ notice_date: getTodayKey(), title: "", content: "", priority: "보통", is_active: true })}>초기화</button>
+
+          <input
+            className="site-notice-title-input"
+            value={siteNoticeForm.title}
+            onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, title: e.target.value })}
+            placeholder="공지 제목"
+          />
+
+          <textarea
+            className="site-notice-content-input"
+            value={siteNoticeForm.content}
+            onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, content: e.target.value })}
+            placeholder="공지 내용을 입력하세요. 예: 내일 오전 세륜기 점검 / 전 직원 출차 전 세륜 필수"
+          />
+
+          <div className="site-notice-editor-actions">
+            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정 저장" : "공지 저장"}</button>
+            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true })}>초기화</button>
           </div>
         </div>
       )}
 
-      <div className="site-notice-list">
-        {(siteNotices || []).length ? siteNotices.map((notice: SiteNotice) => (
-          <article className={`site-notice-card ${notice.priority || "보통"}`} key={notice.id}>
-            <div className="site-notice-card-top">
-              <span>{notice.notice_date}</span>
+      <div className="site-notice-modern-list">
+        {activeNotices.length ? activeNotices.map((notice: SiteNotice) => (
+          <article className={`site-notice-modern-card ${notice.priority || "보통"}`} key={notice.id}>
+            <div className="site-notice-modern-card-top">
               <em>{notice.priority || "보통"}</em>
+              <span>게시중</span>
             </div>
             <h3>{notice.title}</h3>
             <p>{notice.content}</p>
             {isAdmin && (
-              <div className="site-notice-card-actions">
+              <div className="site-notice-modern-actions">
                 <button onClick={() => editSiteNotice(notice)}>수정</button>
-                <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>삭제</button>
+                <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>내리기</button>
               </div>
             )}
           </article>
         )) : (
-          <div className="dashboard-pro-empty">등록된 공지가 없습니다.</div>
+          <div className="site-notice-modern-empty">등록된 공지가 없습니다.</div>
         )}
       </div>
     </section>
   );
 }
+
 
 
 function BackupPermissionPage({
@@ -6529,7 +6547,7 @@ function HomeDashboard({
             <div className="dashboard-mini-list">
               {(siteNotices || []).slice(0, 4).length ? (siteNotices || []).slice(0, 4).map((n) => (
                 <div className="dashboard-mini-row site-notice-mini" key={n.id}>
-                  <span>{n.notice_date} · {n.priority || "보통"}</span>
+                  <span>{n.priority || "보통"} · 게시중</span>
                   <b>{n.title}</b>
                   <em>{n.content}</em>
                 </div>
@@ -13840,6 +13858,298 @@ button[onclick*="downloadPdf"]{
 
   .site-notice-actions,
   .site-notice-card-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+/* ===== Site Notice Modern Redesign ===== */
+.site-notice-modern-page{
+  min-height:calc(100vh - 210px);
+  border-radius:26px;
+  padding:24px;
+  background:linear-gradient(180deg,#f8fafc 0%,#edf4ff 100%);
+  box-shadow:0 18px 50px rgba(15,23,42,.10);
+}
+
+.site-notice-modern-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.site-notice-modern-head span{
+  display:inline-flex;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-modern-head h2{
+  margin:8px 0 4px;
+  color:#0f172a;
+  font-size:32px;
+  font-weight:1000;
+  letter-spacing:-.8px;
+}
+
+.site-notice-modern-head p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.site-notice-modern-summary{
+  min-width:160px;
+  border-radius:22px;
+  padding:16px;
+  background:#fff;
+  box-shadow:0 10px 28px rgba(15,23,42,.08);
+  text-align:center;
+}
+
+.site-notice-modern-summary b{
+  display:block;
+  color:#1d4ed8;
+  font-size:34px;
+  line-height:1;
+  font-weight:1000;
+}
+
+.site-notice-modern-summary em,
+.site-notice-modern-summary strong{
+  display:block;
+  margin-top:6px;
+  color:#64748b;
+  font-style:normal;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-error{
+  margin-bottom:14px;
+  padding:14px;
+  border-radius:16px;
+  background:#fee2e2;
+  color:#991b1b;
+  font-weight:900;
+  text-align:center;
+}
+
+.site-notice-editor-card{
+  margin-bottom:18px;
+  border-radius:26px;
+  padding:20px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 14px 34px rgba(15,23,42,.08);
+}
+
+.site-notice-editor-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.site-notice-editor-title h3{
+  margin:0 0 5px;
+  color:#0f172a;
+  font-size:21px;
+  font-weight:1000;
+}
+
+.site-notice-editor-title p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+
+.site-notice-editor-title select{
+  min-width:130px;
+  min-height:44px;
+  border:1px solid #d8e1ee;
+  border-radius:14px;
+  padding:0 12px;
+  font-weight:1000;
+  background:#f8fafc;
+}
+
+.site-notice-title-input,
+.site-notice-content-input{
+  width:100%;
+  border:1px solid #d8e1ee;
+  border-radius:18px;
+  background:#fff;
+  color:#0f172a;
+  font-weight:900;
+  box-sizing:border-box;
+}
+
+.site-notice-title-input{
+  min-height:52px;
+  padding:0 16px;
+  margin-bottom:12px;
+  font-size:16px;
+}
+
+.site-notice-content-input{
+  min-height:150px;
+  padding:16px;
+  resize:vertical;
+  line-height:1.55;
+}
+
+.site-notice-title-input:focus,
+.site-notice-content-input:focus,
+.site-notice-editor-title select:focus{
+  outline:none;
+  border-color:#2563eb;
+  box-shadow:0 0 0 4px rgba(37,99,235,.12);
+}
+
+.site-notice-editor-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:14px;
+}
+
+.site-notice-editor-actions button,
+.site-notice-modern-actions button{
+  min-height:42px;
+  border:0;
+  border-radius:14px;
+  padding:0 18px;
+  font-weight:1000;
+  background:#e2e8f0;
+  color:#0f172a;
+}
+
+.site-notice-editor-actions .primary{
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  color:#fff;
+  box-shadow:0 10px 22px rgba(37,99,235,.24);
+}
+
+.site-notice-modern-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:14px;
+}
+
+.site-notice-modern-card{
+  border-radius:24px;
+  padding:18px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 10px 28px rgba(15,23,42,.06);
+  border-left:8px solid #3b82f6;
+}
+
+.site-notice-modern-card.긴급{
+  border-left-color:#ef4444;
+  background:linear-gradient(135deg,#fff,#fff1f2);
+}
+
+.site-notice-modern-card.중요{
+  border-left-color:#f97316;
+  background:linear-gradient(135deg,#fff,#fff7ed);
+}
+
+.site-notice-modern-card-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.site-notice-modern-card-top em{
+  font-style:normal;
+  border-radius:999px;
+  padding:5px 10px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-modern-card.긴급 .site-notice-modern-card-top em{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.site-notice-modern-card.중요 .site-notice-modern-card-top em{
+  background:#ffedd5;
+  color:#c2410c;
+}
+
+.site-notice-modern-card-top span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.site-notice-modern-card h3{
+  margin:0 0 10px;
+  color:#0f172a;
+  font-size:18px;
+  font-weight:1000;
+  line-height:1.35;
+}
+
+.site-notice-modern-card p{
+  margin:0;
+  color:#334155;
+  font-weight:800;
+  line-height:1.6;
+  white-space:pre-wrap;
+}
+
+.site-notice-modern-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
+
+.site-notice-modern-actions .danger{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.site-notice-modern-empty{
+  grid-column:1 / -1;
+  padding:42px;
+  text-align:center;
+  color:#94a3b8;
+  font-weight:1000;
+  background:#fff;
+  border-radius:22px;
+}
+
+@media (max-width:900px){
+  .site-notice-modern-page{
+    padding:14px;
+    border-radius:18px;
+  }
+  .site-notice-modern-head,
+  .site-notice-editor-title{
+    display:grid;
+  }
+  .site-notice-modern-summary{
+    width:100%;
+    box-sizing:border-box;
+  }
+  .site-notice-editor-actions,
+  .site-notice-modern-actions{
     display:grid;
     grid-template-columns:1fr 1fr;
   }
