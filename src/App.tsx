@@ -1446,14 +1446,15 @@ export default function App() {
 
     restoreSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (nextSession) {
-        setSession(nextSession);
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      if (event === "SIGNED_OUT" || !nextSession) {
+        setSession(null);
+        setAuthLoading(false);
         return;
       }
 
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session || null);
+      setSession(nextSession);
+      setAuthLoading(false);
     });
 
     const keepAlive = window.setInterval(async () => {
@@ -2709,11 +2710,17 @@ export default function App() {
 
     setAuthPrefs(nextPrefs);
     writeAuthPrefs(nextPrefs);
+    setAuthLoading(false);
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    setAuthLoading(false);
     setSession(null);
+    setMenuTab("home");
+    setMobileSheet("");
+    setShowMobileQuickStart(false);
+    setShowUpdateNotice(false);
+    setLoginError("");
 
     const nextPrefs = {
       ...authPrefs,
@@ -2723,6 +2730,11 @@ export default function App() {
 
     setAuthPrefs(nextPrefs);
     writeAuthPrefs(nextPrefs);
+
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error(error);
+    }
   };
 
   const closeUpdateNotice = () => {
