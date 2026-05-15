@@ -924,18 +924,25 @@ export default function App() {
     id: uid(),
     email: "",
     role: "field",
-    permissions: { home: true },
+    permissions: {},
   });
   const currentUserPermission = userPermissions.find((item) => item.email === userEmail);
   const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "office");
   const canCreateRecords = currentRole === "admin" || currentRole === "office";
   const canEditDeleteRecords = currentRole === "admin";
   const canAccessTab = (tab: string) => {
-    if (!tab || tab === "home") return true;
+    if (!tab) return true;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
     const permissions = currentUserPermission?.permissions || {};
     return !!permissions[tab];
+  };
+
+  const getFirstAllowedTab = () => {
+    if (isAdmin || currentRole === "office") return "home";
+    const permissions = currentUserPermission?.permissions || {};
+    const first = ERP_PERMISSION_MODULES.find((module) => permissions[module.key]);
+    return first?.key || "home";
   };
   const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
@@ -1579,7 +1586,7 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     if (!canAccessTab(menuTab)) {
-      setMenuTab("home");
+      setMenuTab(getFirstAllowedTab());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.email, menuTab, currentRole, userPermissions.length]);
@@ -2899,7 +2906,7 @@ export default function App() {
     if (error) return alert(`권한 저장 실패: ${error.message}`);
 
     await loadUserPermissions();
-    setPermissionForm({ id: uid(), email: "", role: "field", permissions: { home: true } });
+    setPermissionForm({ id: uid(), email: "", role: "field", permissions: {} });
   };
 
   const deleteUserPermission = async (email: string) => {
@@ -6032,7 +6039,7 @@ function BackupPermissionPage({
       id: item.id || uid(),
       email: item.email || "",
       role: item.role || "field",
-      permissions: item.permissions || { home: true },
+      permissions: item.permissions || {},
     });
   };
 
@@ -6076,7 +6083,7 @@ function BackupPermissionPage({
         <div className="permission-head">
           <div>
             <h3>직원 권한관리</h3>
-            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능</p>
+            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능. 홈도 체크해야 보입니다.</p>
           </div>
         </div>
 
