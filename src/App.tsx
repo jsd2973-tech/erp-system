@@ -1997,6 +1997,22 @@ export default function App() {
     return Array.from(new Set([...(base || []), ...(extra || [])].filter(Boolean)));
   };
 
+  const normalizeSearchText = (value: any) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[\s()\[\]{}·,._\-\/]/g, "");
+
+  const matchLooseKeywords = (target: string, query: string) => {
+    const keywords = String(query || "").split(/\s+/).filter(Boolean);
+    if (!keywords.length) return true;
+
+    const normalizedTarget = normalizeSearchText(target);
+    return keywords.every((keyword) => {
+      const normalizedKeyword = normalizeSearchText(keyword);
+      return !normalizedKeyword || normalizedTarget.includes(normalizedKeyword);
+    });
+  };
+
   const openPurchasePhotoPicker = (purchase: Purchase) => {
     setPhotoLinkModal({ mode: "purchase", targetId: purchase.id, search: `${purchase.date || ""} ${purchase.vendor || ""}`.trim() });
   };
@@ -2006,11 +2022,11 @@ export default function App() {
   };
 
   const openPurchaseRecordPickerFromReceiptPhoto = (photo: ReceiptPhoto) => {
-    setPhotoLinkModal({ mode: "recordPurchase", targetId: photo.id, search: `${photo.receipt_date || ""} ${photo.vendor_name || ""}`.trim() });
+    setPhotoLinkModal({ mode: "recordPurchase", targetId: photo.id, search: `${photo.vendor_name || ""}`.trim() });
   };
 
   const openMaintRecordPickerFromMaintenancePhoto = (photo: MaintenancePhoto) => {
-    setPhotoLinkModal({ mode: "recordMaint", targetId: photo.id, search: `${photo.maint_date || ""} ${photo.equipment_name || ""}`.trim() });
+    setPhotoLinkModal({ mode: "recordMaint", targetId: photo.id, search: `${photo.equipment_name || ""}`.trim() });
   };
 
   const connectPurchaseRecordToReceiptPhoto = async (purchase: Purchase, receiptPhotoId: string) => {
@@ -4587,7 +4603,7 @@ export default function App() {
                 className="photo-link-search"
                 value={photoLinkModal.search}
                 onChange={(e) => setPhotoLinkModal({ ...photoLinkModal, search: e.target.value })}
-                placeholder="날짜 / 거래처 / 설비 / 내용 검색"
+                placeholder="거래처/날짜/품목/창고 검색, 비우면 전체 표시"
               />
 
               <div className="photo-link-list">
@@ -4628,8 +4644,7 @@ export default function App() {
                 {photoLinkModal.mode === "recordPurchase" && purchases
                   .filter((purchase) => {
                     const q = photoLinkModal.search.trim();
-                    if (!q) return true;
-                    return `${purchase.date || ""} ${purchase.vendor || ""} ${purchase.warehouse || ""} ${purchase.itemSummary || ""}`.includes(q);
+                    return matchLooseKeywords(`${purchase.date || ""} ${purchase.vendor || ""} ${purchase.warehouse || ""} ${purchase.itemSummary || ""}`, q);
                   })
                   .map((purchase) => (
                     <button className="photo-link-item" key={purchase.id} onClick={() => connectPurchaseRecordToReceiptPhoto(purchase, photoLinkModal.targetId)}>
@@ -4645,8 +4660,7 @@ export default function App() {
                 {photoLinkModal.mode === "recordMaint" && maints
                   .filter((maint) => {
                     const q = photoLinkModal.search.trim();
-                    if (!q) return true;
-                    return `${maint.date || ""} ${maint.warehouse || ""} ${maint.title || ""} ${maint.detail || ""}`.includes(q);
+                    return matchLooseKeywords(`${maint.date || ""} ${maint.warehouse || ""} ${maint.title || ""} ${maint.detail || ""}`, q);
                   })
                   .map((maint) => (
                     <button className="photo-link-item" key={maint.id} onClick={() => connectMaintRecordToMaintenancePhoto(maint, photoLinkModal.targetId)}>
