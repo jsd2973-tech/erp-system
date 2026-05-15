@@ -552,6 +552,8 @@ type SiteNotice = {
   content: string;
   priority?: string;
   is_active?: boolean;
+  target_roles?: string[];
+  target_emails?: string[];
   created_at?: string;
 };
 
@@ -880,6 +882,57 @@ html, body, #root {
 }
 
 
+.site-notice-target-box{
+  margin:14px 0 4px;
+  padding:14px;
+  border:1px solid #dbeafe;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.site-notice-target-box>strong{
+  display:block;
+  margin-bottom:10px;
+  color:#0f172a;
+  font-weight:1000;
+}
+.site-notice-target-checks,
+.site-notice-target-emails{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.site-notice-target-emails{
+  margin-top:10px;
+}
+.site-notice-target-checks label,
+.site-notice-target-emails label{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin:0;
+  padding:8px 10px;
+  border:1px solid #e2e8f0;
+  border-radius:999px;
+  background:white;
+  color:#334155;
+  font-size:12px;
+  font-weight:900;
+}
+.site-notice-target-checks input,
+.site-notice-target-emails input{
+  width:auto;
+  accent-color:#2563eb;
+}
+.site-notice-target-emails em{
+  color:#64748b;
+  font-style:normal;
+}
+.site-notice-modern-card-top small{
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+}
+
 `;
 
 export default function App() {
@@ -926,7 +979,7 @@ export default function App() {
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
   const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
-  const [siteNoticeForm, setSiteNoticeForm] = useState({ title: "", content: "", priority: "보통", is_active: true });
+  const [siteNoticeForm, setSiteNoticeForm] = useState({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] as string[] });
   const [editingSiteNoticeId, setEditingSiteNoticeId] = useState("");
   const [siteNoticeError, setSiteNoticeError] = useState("");
 
@@ -947,6 +1000,7 @@ export default function App() {
   const canEditDeleteRecords = currentRole === "admin";
   const canAccessTab = (tab: string) => {
     if (!tab) return true;
+    if (tab === "site_notices") return true;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
     const permissions = currentUserPermission?.permissions || {};
@@ -964,6 +1018,19 @@ export default function App() {
     canAccessTab(tab) ? <button onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
   const mobileMenuButton = (tab: string, label: string) =>
     canAccessTab(tab) ? <button onClick={() => { setMenuTab(tab); setMobileSheet(""); }}>{label}</button> : null;
+
+  const visibleSiteNotices = useMemo(() => {
+    return (siteNotices || []).filter((notice) => {
+      if (isAdmin) return true;
+      const roles = Array.isArray(notice.target_roles) ? notice.target_roles : ["all"];
+      const emails = Array.isArray(notice.target_emails) ? notice.target_emails : [];
+      if (!roles.length && !emails.length) return true;
+      if (roles.includes("all")) return true;
+      if (roles.includes(currentRole)) return true;
+      if (userEmail && emails.includes(userEmail)) return true;
+      return false;
+    });
+  }, [siteNotices, isAdmin, currentRole, userEmail]);
 
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
   const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
@@ -2903,6 +2970,8 @@ export default function App() {
       id: String(item.id),
       notice_date: String(item.notice_date || "").slice(0, 10),
       priority: item.priority || "보통",
+      target_roles: Array.isArray(item.target_roles) ? item.target_roles : ["all"],
+      target_emails: Array.isArray(item.target_emails) ? item.target_emails : [],
     })) as SiteNotice[]);
   };
 
@@ -2919,13 +2988,15 @@ export default function App() {
       content: siteNoticeForm.content.trim(),
       priority: siteNoticeForm.priority || "보통",
       is_active: siteNoticeForm.is_active,
+      target_roles: siteNoticeForm.target_roles?.length ? siteNoticeForm.target_roles : ["all"],
+      target_emails: siteNoticeForm.target_emails || [],
       updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase.from("site_notices").upsert(payload);
     if (error) return alert(`공지 저장 실패: ${error.message}`);
 
-    setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true });
+    setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] });
     setEditingSiteNoticeId("");
     await loadSiteNotices();
   };
@@ -2937,6 +3008,8 @@ export default function App() {
       content: notice.content || "",
       priority: notice.priority || "보통",
       is_active: notice.is_active !== false,
+      target_roles: notice.target_roles?.length ? notice.target_roles : ["all"],
+      target_emails: notice.target_emails || [],
     });
   };
 
@@ -4347,7 +4420,9 @@ export default function App() {
 
         {menuTab === "site_notices" && (
           <SiteNoticePage
-            siteNotices={siteNotices}
+            siteNotices={visibleSiteNotices}
+            allSiteNotices={siteNotices}
+            userPermissions={userPermissions}
             siteNoticeForm={siteNoticeForm}
             setSiteNoticeForm={setSiteNoticeForm}
             editingSiteNoticeId={editingSiteNoticeId}
@@ -4359,7 +4434,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={siteNotices} setMenuTab={setMenuTab} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -5999,6 +6074,8 @@ function Home({
 
 function SiteNoticePage({
   siteNotices,
+  allSiteNotices,
+  userPermissions = [],
   siteNoticeForm,
   setSiteNoticeForm,
   editingSiteNoticeId,
@@ -6008,8 +6085,40 @@ function SiteNoticePage({
   siteNoticeError,
   isAdmin,
 }: any) {
-  const activeNotices = siteNotices || [];
+  const activeNotices = isAdmin ? (allSiteNotices || siteNotices || []) : (siteNotices || []);
   const urgentCount = activeNotices.filter((n: SiteNotice) => n.priority === "긴급").length;
+  const noticeTargetRoles = siteNoticeForm.target_roles || ["all"];
+  const noticeTargetEmails = siteNoticeForm.target_emails || [];
+  const noticeEmployees = (userPermissions || []).filter((u: UserPermission) => !!u.email);
+
+  const toggleNoticeTargetRole = (role: string) => {
+    let nextRoles = [...noticeTargetRoles];
+
+    if (role === "all") {
+      nextRoles = nextRoles.includes("all") ? [] : ["all"];
+    } else {
+      nextRoles = nextRoles.filter((item) => item !== "all");
+      nextRoles = nextRoles.includes(role) ? nextRoles.filter((item) => item !== role) : [...nextRoles, role];
+    }
+
+    setSiteNoticeForm({ ...siteNoticeForm, target_roles: nextRoles.length ? nextRoles : ["all"] });
+  };
+
+  const toggleNoticeTargetEmail = (email: string) => {
+    const nextEmails = noticeTargetEmails.includes(email)
+      ? noticeTargetEmails.filter((item: string) => item !== email)
+      : [...noticeTargetEmails, email];
+
+    setSiteNoticeForm({ ...siteNoticeForm, target_roles: noticeTargetRoles.filter((item: string) => item !== "all"), target_emails: nextEmails });
+  };
+
+  const targetLabel = (notice: SiteNotice) => {
+    const roles = notice.target_roles || ["all"];
+    const emails = notice.target_emails || [];
+    if (roles.includes("all") || (!roles.length && !emails.length)) return "전체 직원";
+    const roleLabels = roles.map((role) => role === "office" ? "사무실직원" : role === "field" ? "현장직원" : role).filter(Boolean);
+    return [...roleLabels, ...emails].join(", ") || "전체 직원";
+  };
 
   return (
     <section className="site-notice-modern-page">
@@ -6021,7 +6130,7 @@ function SiteNoticePage({
         </div>
         <div className="site-notice-modern-summary">
           <b>{activeNotices.length}</b>
-          <em>게시중</em>
+          <em>공지</em>
           <strong>{urgentCount} 긴급</strong>
         </div>
       </div>
@@ -6062,9 +6171,38 @@ function SiteNoticePage({
             placeholder="공지 내용을 입력하세요. 예: 내일 오전 세륜기 점검 / 전 직원 출차 전 세륜 필수"
           />
 
+          <div className="site-notice-target-box">
+            <strong>공지 볼 직원 선택</strong>
+            <div className="site-notice-target-checks">
+              <label>
+                <input type="checkbox" checked={noticeTargetRoles.includes("all")} onChange={() => toggleNoticeTargetRole("all")} />
+                <span>전체 직원</span>
+              </label>
+              <label>
+                <input type="checkbox" checked={noticeTargetRoles.includes("office")} onChange={() => toggleNoticeTargetRole("office")} />
+                <span>사무실직원</span>
+              </label>
+              <label>
+                <input type="checkbox" checked={noticeTargetRoles.includes("field")} onChange={() => toggleNoticeTargetRole("field")} />
+                <span>현장직원</span>
+              </label>
+            </div>
+            {!!noticeEmployees.length && (
+              <div className="site-notice-target-emails">
+                {noticeEmployees.map((user: UserPermission) => (
+                  <label key={user.email}>
+                    <input type="checkbox" checked={noticeTargetEmails.includes(user.email)} onChange={() => toggleNoticeTargetEmail(user.email)} />
+                    <span>{user.email}</span>
+                    <em>{user.role === "field" ? "현장" : "사무실"}</em>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="site-notice-editor-actions">
             <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정 저장" : "공지 저장"}</button>
-            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true })}>초기화</button>
+            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] })}>초기화</button>
           </div>
         </div>
       )}
@@ -6073,8 +6211,7 @@ function SiteNoticePage({
         {activeNotices.length ? activeNotices.map((notice: SiteNotice) => (
           <article className={`site-notice-modern-card ${notice.priority || "보통"}`} key={notice.id}>
             <div className="site-notice-modern-card-top">
-              <em>{notice.priority || "보통"}</em>
-              <span>게시중</span>
+              {isAdmin && <small>대상: {targetLabel(notice)}</small>}
             </div>
             <h3>{notice.title}</h3>
             <p>{notice.content}</p>
@@ -6547,7 +6684,6 @@ function HomeDashboard({
             <div className="dashboard-mini-list">
               {(siteNotices || []).slice(0, 4).length ? (siteNotices || []).slice(0, 4).map((n) => (
                 <div className="dashboard-mini-row site-notice-mini" key={n.id}>
-                  <span>{n.priority || "보통"} · 게시중</span>
                   <b>{n.title}</b>
                   <em>{n.content}</em>
                 </div>
@@ -14153,6 +14289,57 @@ button[onclick*="downloadPdf"]{
     display:grid;
     grid-template-columns:1fr 1fr;
   }
+}
+
+.site-notice-target-box{
+  margin:14px 0 4px;
+  padding:14px;
+  border:1px solid #dbeafe;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.site-notice-target-box>strong{
+  display:block;
+  margin-bottom:10px;
+  color:#0f172a;
+  font-weight:1000;
+}
+.site-notice-target-checks,
+.site-notice-target-emails{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.site-notice-target-emails{
+  margin-top:10px;
+}
+.site-notice-target-checks label,
+.site-notice-target-emails label{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin:0;
+  padding:8px 10px;
+  border:1px solid #e2e8f0;
+  border-radius:999px;
+  background:white;
+  color:#334155;
+  font-size:12px;
+  font-weight:900;
+}
+.site-notice-target-checks input,
+.site-notice-target-emails input{
+  width:auto;
+  accent-color:#2563eb;
+}
+.site-notice-target-emails em{
+  color:#64748b;
+  font-style:normal;
+}
+.site-notice-modern-card-top small{
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
 }
 
 `;
