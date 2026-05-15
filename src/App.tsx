@@ -5683,7 +5683,6 @@ function HomeDashboard({
   const todayPurchaseTotal = purchases.filter((p) => p.date === today).reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = purchases.filter((p) => (p.date || "").startsWith(monthKey)).reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
-  const monthMaintTotal = maints.filter((m) => (m.date || "").startsWith(monthKey)).reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
 
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
   const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
@@ -5753,7 +5752,7 @@ function HomeDashboard({
         <button className="dashboard-pro-kpi purple" onClick={() => setMenuTab?.("card_list")}>
           <span>이번달 카드사용</span>
           <b>{money(monthCardTotal)}원</b>
-          <em>이번달 정비 {money(monthMaintTotal)}원</em>
+          
         </button>
       </div>
 
