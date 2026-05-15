@@ -6840,7 +6840,7 @@ function HomeDashboard({
             <h3>최근 정비 내역</h3>
             <button onClick={() => setMenuTab?.("maint_list")}>더보기 ›</button>
           </div>
-          <table className="modern-home-table">
+          <table className="modern-home-table desktop-only-table">
             <thead><tr><th>날짜</th><th>장비명 / 작업내용</th><th>구분</th><th>금액</th></tr></thead>
             <tbody>
               {recentMaints.length ? recentMaints.map((m) => (
@@ -6853,6 +6853,25 @@ function HomeDashboard({
               )) : <tr><td colSpan={4}>정비내역이 없습니다.</td></tr>}
             </tbody>
           </table>
+
+          <div className="mobile-history-cards">
+            {recentMaints.map((m) => (
+              <button className="mobile-history-card" key={m.id}>
+                <div className="mobile-history-date">
+                  <b>{(m.date || "").slice(5) || "-"}</b>
+                </div>
+
+                <div className="mobile-history-main">
+                  <strong>{m.title || "정비"}</strong>
+                  <span>{m.warehouse || "-"}</span>
+                </div>
+
+                <div className="mobile-history-amount">
+                  {money(m.total || m.cost)}원
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -14641,6 +14660,106 @@ button[onclick*="downloadPdf"]{
 .modern-home-grid{display:grid;gap:18px}.modern-home-grid.middle{grid-template-columns:1.05fr 1.05fr .78fr .95fr;margin-bottom:18px}.modern-home-grid.bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.modern-home-panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px;box-shadow:0 10px 26px rgba(15,23,42,.055);min-width:0}.modern-home-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.modern-home-panel-head h3{margin:0;font-size:20px;font-weight:950;color:#111827;letter-spacing:-.3px}.modern-home-panel-head button{border:0;background:transparent;color:#2563eb;font-size:13px;font-weight:950;cursor:pointer;white-space:nowrap}.modern-home-list,.modern-home-schedule-list,.modern-home-alert-list{display:flex;flex-direction:column;gap:10px}.modern-home-notice-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f7;text-align:left;cursor:pointer}.modern-home-notice-row span{display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 7px;border-radius:999px;background:#1265ff;color:white;font-size:10px;font-weight:950}.modern-home-notice-row b{font-size:14px;color:#111827;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-notice-row em{font-style:normal;color:#64748b;font-size:13px;font-weight:750;white-space:nowrap}.modern-home-schedule-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start;padding:8px 0;text-align:left;cursor:pointer}.modern-home-schedule-row span{color:#64748b;font-weight:950}.modern-home-schedule-row b{display:block;color:#111827;font-size:15px;font-weight:950}.modern-home-schedule-row p{margin:4px 0 0;color:#475569;font-size:13px;font-weight:750;line-height:1.45}.modern-home-alert-list button{border:1px solid #ffd1d9;background:#fff8f9;border-radius:13px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}.modern-home-alert-list b{color:#111827;font-size:14px;font-weight:950}.modern-home-alert-list span{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:26px;border-radius:999px;background:#e11d48;color:white;font-size:13px;font-weight:950}.modern-home-mini-calendar-panel{padding:18px}.mini-calendar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;color:#334155}.mini-calendar-title b{font-size:13px;font-weight:950;color:#111827}.mini-calendar-title span{font-size:12px;font-weight:950;color:#2563eb}.mini-calendar-title button{border:1px solid #dbe7ff;background:#f8fbff;color:#2563eb;border-radius:9px;padding:5px 8px;font-size:11px;font-weight:950;cursor:pointer}.mini-calendar-week{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:5px}.mini-calendar-week span{text-align:center;color:#64748b;font-size:10px;font-weight:950}.mini-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.mini-calendar-day{position:relative;height:27px;border:0;border-radius:7px;background:transparent;color:#334155;font-size:12px;font-weight:850;cursor:pointer}.mini-calendar-day.blank{cursor:default;color:#cbd5e1}.mini-calendar-day.today{background:#2563eb;color:#fff;box-shadow:0 0 0 2px rgba(37,99,235,.18)}.mini-calendar-day.has-work:not(.today){background:#eef6ff;color:#1d4ed8}.mini-calendar-day i{position:absolute;right:2px;bottom:2px;min-width:11px;height:11px;border-radius:999px;background:#10b981;color:#fff;font-style:normal;font-size:8px;line-height:11px;text-align:center}.mini-calendar-legend{display:flex;gap:10px;margin-top:10px;color:#64748b;font-size:10px;font-weight:850}.mini-calendar-legend span{display:flex;align-items:center;gap:4px}.mini-calendar-legend i{width:7px;height:7px;border-radius:999px;display:inline-block}.today-dot{background:#2563eb}.work-dot{background:#10b981}.mini-calendar-tooltip{display:none;position:absolute;left:50%;bottom:31px;z-index:50;width:220px;transform:translateX(-50%);border:1px solid #dbe7ff;background:#0f172a;color:#fff;border-radius:12px;padding:9px 10px;box-shadow:0 16px 34px rgba(15,23,42,.25);text-align:left}.mini-calendar-tooltip:after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:10px;height:10px;background:#0f172a}.mini-calendar-tooltip em{display:block;font-style:normal;font-size:11px;font-weight:850;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mini-calendar-day.has-work:hover .mini-calendar-tooltip{display:block}.calendar-detail-backdrop{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:18px}.calendar-detail-modal{width:min(560px,94vw);max-height:82vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(15,23,42,.32);border:1px solid #e2e8f0}.calendar-detail-head{display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid #eef2f7}.calendar-detail-head span{display:block;color:#2563eb;font-size:12px;font-weight:950}.calendar-detail-head h3{margin:4px 0 0;color:#111827;font-size:22px;font-weight:950}.calendar-detail-head button{width:36px;height:36px;border:0;border-radius:999px;background:#f1f5f9;color:#334155;font-size:24px;line-height:1;cursor:pointer}.calendar-detail-list{display:flex;flex-direction:column;gap:12px;padding:18px 24px}.calendar-detail-item{border:1px solid #e2e8f0;background:#f8fbff;border-radius:16px;padding:16px}.calendar-detail-item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.calendar-detail-item-top b{color:#111827;font-size:16px;font-weight:950}.calendar-detail-badge{display:inline-flex;align-items:center;justify-content:center;height:26px;padding:0 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:950}.calendar-detail-badge.urgent{background:#fee2e2;color:#dc2626}.calendar-detail-item p{margin:0 0 12px;color:#334155;font-size:14px;font-weight:850;line-height:1.45}.calendar-detail-item dl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}.calendar-detail-item dl div{border-radius:10px;background:#fff;padding:9px 10px}.calendar-detail-item dt{margin:0 0 4px;color:#64748b;font-size:11px;font-weight:950}.calendar-detail-item dd{margin:0;color:#111827;font-size:13px;font-weight:850}.calendar-detail-item dl div:last-child{grid-column:1/-1}.calendar-detail-actions{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid #eef2f7;background:#f8fafc}.calendar-detail-actions button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:12px;padding:10px 14px;font-size:13px;font-weight:950;cursor:pointer}.calendar-detail-actions button.primary{border-color:#2563eb;background:#2563eb;color:#fff}.desktop-only-table{display:table}.mobile-history-cards{display:none}.mobile-history-card{border:1px solid #e5e7eb;background:#fff;border-radius:18px;padding:16px;display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:14px;align-items:center;box-shadow:0 2px 10px rgba(15,23,42,.05);margin-bottom:12px;text-align:left}.mobile-history-date b{display:block;color:#2563eb;font-size:24px;font-weight:950;line-height:1}.mobile-history-main strong{display:block;color:#0f172a;font-size:17px;font-weight:950;line-height:1.35;word-break:keep-all}.mobile-history-main span{display:block;margin-top:4px;color:#64748b;font-size:13px;font-weight:700}.mobile-history-amount{color:#111827;font-size:18px;font-weight:950;white-space:nowrap}.modern-home-photo-list{display:flex;flex-direction:column;gap:10px}.modern-home-photo-row{border:1px solid #eef2f7;background:#fff;border-radius:14px;padding:10px;display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:center;text-align:left;cursor:pointer}.modern-home-photo-thumb{width:54px;height:54px;border-radius:12px;background-size:cover;background-position:center;background-color:#dbeafe;display:grid;place-items:center;color:#2563eb;font-size:12px;font-weight:950;overflow:hidden}.modern-home-photo-thumb.empty{background:linear-gradient(135deg,#dbeafe,#eef2ff)}.modern-home-photo-row b{display:block;color:#111827;font-size:14px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-photo-row p{margin:4px 0 0;color:#64748b;font-size:12px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-photo-row em{font-style:normal;color:#94a3b8;font-size:12px;font-weight:850;white-space:nowrap}.modern-home-calendar-panel{margin-bottom:18px}.modern-home-calendar-title{margin:-4px 0 12px;color:#475569;font-size:13px;font-weight:900}.modern-home-calendar-week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px}.modern-home-calendar-week span{text-align:center;color:#64748b;font-size:12px;font-weight:950}.modern-home-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.modern-home-calendar-day{min-height:82px;border:1px solid #e2e8f0;border-radius:13px;background:#fff;padding:9px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px}.modern-home-calendar-day.blank{background:#f8fafc;border-style:dashed;cursor:default}.modern-home-calendar-day b{font-size:13px;color:#111827;font-weight:950}.modern-home-calendar-day small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;background:#eef6ff;color:#1d4ed8;padding:3px 6px;font-size:10px;font-weight:900}.modern-home-calendar-day em{font-style:normal;color:#2563eb;font-size:11px;font-weight:950}.modern-home-calendar-day.today{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.modern-home-calendar-day.has-work{background:#fbfdff}.modern-home-table{width:100%;border-collapse:collapse;font-size:13px}.modern-home-table th{padding:0 8px 10px;border-bottom:1px solid #e5e7eb;color:#475569;font-size:12px;font-weight:950;text-align:left}.modern-home-table th:last-child{text-align:right}.modern-home-table td{padding:11px 8px;border-bottom:1px solid #eef2f7;color:#111827;font-weight:800;vertical-align:middle}.modern-home-table td:nth-child(1){white-space:nowrap;color:#334155}.modern-home-table td:nth-child(2),.modern-home-table td:nth-child(3){max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-table td:last-child{text-align:right;white-space:nowrap;font-weight:950}.modern-home-empty{border-radius:14px;background:#f8fafc;border:1px dashed #cbd5e1;padding:28px;text-align:center;color:#94a3b8;font-weight:850}
 @media(max-width:1200px){.modern-home-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.modern-home-grid.middle{grid-template-columns:1fr 1fr}.modern-home-grid.bottom{grid-template-columns:1fr}}
 @media(max-width:760px){.modern-home-kpis,.modern-home-grid.middle,.modern-home-grid.bottom{grid-template-columns:1fr}.modern-home-shell{padding:14px 10px 96px;max-width:100%;overflow-x:hidden}.modern-home-intro{flex-direction:column}.modern-home-intro h2{font-size:20px}.modern-home-kpis{grid-template-columns:1fr;gap:12px}.modern-home-kpi{min-height:128px;padding:18px;grid-template-columns:58px minmax(0,1fr)}.modern-home-kpi-icon{width:54px;height:54px;font-size:24px}.modern-home-kpi b{font-size:28px;line-height:1.18;word-break:keep-all}.modern-home-panel{padding:16px;overflow:hidden}.modern-home-panel-head h3{font-size:19px}.modern-home-table{width:100%;table-layout:fixed;font-size:12px}.modern-home-table th,.modern-home-table td{padding:10px 6px;white-space:normal!important;word-break:keep-all;overflow:hidden;text-overflow:ellipsis}.modern-home-table th:nth-child(2),.modern-home-table td:nth-child(2){display:none}.modern-home-table th:nth-child(1),.modern-home-table td:nth-child(1){width:58px;text-align:center}.modern-home-table th:nth-child(3),.modern-home-table td:nth-child(3){width:auto;max-width:none;text-align:left;white-space:normal!important;line-height:1.35}.modern-home-table th:nth-child(4),.modern-home-table td:nth-child(4){display:table-cell;width:78px;text-align:right;font-size:11px;white-space:nowrap!important}.modern-home-photo-row{grid-template-columns:46px minmax(0,1fr) auto}.modern-home-photo-thumb{width:46px;height:46px}.mini-calendar-tooltip{display:none!important}.calendar-detail-modal{width:94vw}.calendar-detail-item dl{grid-template-columns:1fr}.desktop-only-table{display:none}.mobile-history-cards{display:block}.mobile-history-card{grid-template-columns:58px minmax(0,1fr);padding:14px}.mobile-history-date b{font-size:20px}.mobile-history-main strong{font-size:15px}.mobile-history-amount{grid-column:2;justify-self:end;font-size:16px;margin-top:4px}}
+
+
+/* mobile dashboard history cards - final override */
+@media(max-width:760px){
+  .modern-home-panel .desktop-only-table,
+  .modern-home-panel table.desktop-only-table,
+  .modern-home-grid.bottom .modern-home-table{
+    display:none!important;
+  }
+
+  .modern-home-grid.bottom .mobile-history-cards{
+    display:flex!important;
+    flex-direction:column;
+    gap:10px;
+    width:100%;
+  }
+
+  .modern-home-grid.bottom .mobile-history-card{
+    width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box;
+    border:1px solid #e5e7eb;
+    background:#fff;
+    border-radius:16px;
+    padding:14px 14px;
+    display:grid!important;
+    grid-template-columns:58px minmax(0,1fr) auto;
+    gap:10px;
+    align-items:center;
+    box-shadow:0 6px 18px rgba(15,23,42,.06);
+    margin:0;
+    text-align:left;
+  }
+
+  .mobile-history-date{
+    align-self:center;
+  }
+
+  .mobile-history-date b{
+    display:block;
+    color:#2563eb;
+    font-size:18px;
+    line-height:1;
+    font-weight:950;
+    letter-spacing:-.3px;
+    white-space:nowrap;
+  }
+
+  .mobile-history-main{
+    min-width:0;
+  }
+
+  .mobile-history-main strong{
+    display:block;
+    color:#0f172a;
+    font-size:14px;
+    font-weight:950;
+    line-height:1.32;
+    word-break:keep-all;
+    white-space:normal;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+  }
+
+  .mobile-history-main span{
+    display:block;
+    margin-top:4px;
+    color:#64748b;
+    font-size:11px;
+    font-weight:750;
+    line-height:1.3;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .mobile-history-amount{
+    justify-self:end;
+    align-self:center;
+    color:#111827;
+    font-size:13px;
+    font-weight:950;
+    white-space:nowrap;
+    text-align:right;
+  }
+}
+
+@media(max-width:390px){
+  .modern-home-grid.bottom .mobile-history-card{
+    grid-template-columns:52px minmax(0,1fr);
+  }
+
+  .mobile-history-amount{
+    grid-column:2;
+    justify-self:end;
+    margin-top:2px;
+  }
+}
 
 
 `;
