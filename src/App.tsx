@@ -4222,7 +4222,7 @@ export default function App() {
 
                 return (
                   <div className="mobile-list-card" key={c.id}>
-                    <div className="mobile-list-top">
+                    <div className="mobile-list-top mobile-maint-card-top">
                       <b>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</b>
                       <span>{money(c.amount)}원</span>
                     </div>
@@ -12584,6 +12584,201 @@ button[onclick*="downloadPdf"]{
 
   textarea{
     min-height:80px !important;
+  }
+}
+
+/* ===== Mobile Lookup Cards: Maintenance / Card Use Match Purchase Style ===== */
+@media (max-width:900px){
+  /* 정비조회/카드조회 공통 카드화 */
+  .mobile-card-list,
+  .mobile-card-list-maints,
+  .mobile-card-list-cards{
+    display:grid !important;
+    gap:12px !important;
+    margin-top:12px !important;
+  }
+
+  .mobile-list-card,
+  .mobile-maint-card,
+  .mobile-card-use-card{
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    border-radius:22px !important;
+    padding:16px !important;
+    box-shadow:0 10px 28px rgba(15,23,42,.07) !important;
+    overflow:hidden !important;
+  }
+
+  .mobile-list-top,
+  .mobile-maint-card-top,
+  .mobile-card-use-top{
+    display:flex !important;
+    justify-content:space-between !important;
+    align-items:flex-start !important;
+    gap:10px !important;
+    margin-bottom:12px !important;
+    padding-bottom:12px !important;
+    border-bottom:1px solid #eef2f7 !important;
+  }
+
+  .mobile-list-top b,
+  .mobile-maint-card-top b,
+  .mobile-card-use-top b{
+    color:#0f172a !important;
+    font-size:17px !important;
+    font-weight:1000 !important;
+    line-height:1.25 !important;
+    word-break:keep-all !important;
+    overflow-wrap:anywhere !important;
+  }
+
+  .mobile-list-top span,
+  .mobile-maint-card-top span,
+  .mobile-card-use-top span{
+    flex:0 0 auto !important;
+    padding:5px 9px !important;
+    border-radius:999px !important;
+    background:#eff6ff !important;
+    color:#1d4ed8 !important;
+    font-size:12px !important;
+    font-weight:1000 !important;
+  }
+
+  .mobile-list-body,
+  .mobile-maint-card-body,
+  .mobile-card-use-body{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+  }
+
+  .mobile-list-body > div,
+  .mobile-maint-card-body > div,
+  .mobile-card-use-body > div{
+    min-width:0 !important;
+    padding:10px !important;
+    border-radius:14px !important;
+    background:#f8fafc !important;
+  }
+
+  .mobile-list-body label,
+  .mobile-maint-card-body label,
+  .mobile-card-use-body label{
+    display:block !important;
+    margin-bottom:5px !important;
+    color:#64748b !important;
+    font-size:11px !important;
+    font-weight:1000 !important;
+  }
+
+  .mobile-list-body p,
+  .mobile-maint-card-body p,
+  .mobile-card-use-body p{
+    margin:0 !important;
+    color:#0f172a !important;
+    font-size:13px !important;
+    font-weight:900 !important;
+    line-height:1.35 !important;
+    word-break:keep-all !important;
+    overflow-wrap:anywhere !important;
+  }
+
+  .mobile-list-body .wide,
+  .mobile-maint-card-body .wide,
+  .mobile-card-use-body .wide,
+  .mobile-list-body > div:last-child:nth-child(odd),
+  .mobile-maint-card-body > div:last-child:nth-child(odd),
+  .mobile-card-use-body > div:last-child:nth-child(odd){
+    grid-column:1 / -1 !important;
+  }
+
+  .mobile-card-actions,
+  .mobile-maint-card-actions,
+  .mobile-card-use-actions{
+    display:grid !important;
+    grid-template-columns:repeat(auto-fit,minmax(82px,1fr)) !important;
+    gap:8px !important;
+    margin-top:12px !important;
+  }
+
+  .mobile-card-actions button,
+  .mobile-maint-card-actions button,
+  .mobile-card-use-actions button{
+    min-height:38px !important;
+    border:0 !important;
+    border-radius:12px !important;
+    padding:0 8px !important;
+    background:#e2e8f0 !important;
+    color:#0f172a !important;
+    font-size:12px !important;
+    font-weight:1000 !important;
+  }
+
+  .mobile-card-actions button:first-child,
+  .mobile-maint-card-actions button:first-child,
+  .mobile-card-use-actions button:first-child{
+    background:#dbeafe !important;
+    color:#1d4ed8 !important;
+  }
+
+  .mobile-card-actions button:last-child,
+  .mobile-maint-card-actions button:last-child,
+  .mobile-card-use-actions button:last-child{
+    background:#fee2e2 !important;
+    color:#b91c1c !important;
+  }
+
+  /* 정비조회/카드조회는 모바일에서 PC 표 숨기고 카드 우선 */
+  .maint-lookup-page .scroll-table,
+  .card-lookup-page .scroll-table{
+    display:none !important;
+  }
+
+  .maint-lookup-page .mobile-card-list,
+  .card-lookup-page .mobile-card-list{
+    display:grid !important;
+  }
+
+  /* 금액/합계 강조 */
+  .mobile-card-use-body p.amount,
+  .mobile-list-body p.amount,
+  .mobile-maint-card-body p.amount{
+    color:#1d4ed8 !important;
+    font-size:15px !important;
+    font-weight:1000 !important;
+  }
+
+  /* 사진 첨부 썸네일 */
+  .mobile-maint-card .attachment-group,
+  .mobile-list-card .attachment-group{
+    justify-content:flex-start !important;
+  }
+
+  .mobile-maint-card .attachment-preview,
+  .mobile-list-card .attachment-preview{
+    width:54px !important;
+    height:54px !important;
+    border-radius:13px !important;
+  }
+}
+
+@media (max-width:390px){
+  .mobile-list-body,
+  .mobile-maint-card-body,
+  .mobile-card-use-body{
+    grid-template-columns:1fr !important;
+  }
+
+  .mobile-list-top,
+  .mobile-maint-card-top,
+  .mobile-card-use-top{
+    display:grid !important;
+  }
+
+  .mobile-list-top span,
+  .mobile-maint-card-top span,
+  .mobile-card-use-top span{
+    width:max-content !important;
   }
 }
 
