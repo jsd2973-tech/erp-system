@@ -1517,6 +1517,16 @@ export default function App() {
     [vendors]
   );
   const warehouseNames = useMemo(() => [...groups.map((g) => g.name), ...warehouses.map((w) => `${w.group} / ${w.name}`)], [groups, warehouses]);
+  const maintenanceEquipmentOptions = useMemo(() => {
+    const values = [
+      ...groups.map((g) => g.name),
+      ...warehouses.map((w) => `${w.group} / ${w.name}`),
+      ...warehouses.map((w) => w.name),
+    ]
+      .map((v) => String(v || "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(values));
+  }, [groups, warehouses]);
   const itemOptions = useMemo(
     () => items.map((i) => ({ label: i.name, value: i.name, code: i.code, name: i.name })).filter((i) => i.name),
     [items]
@@ -4403,8 +4413,11 @@ export default function App() {
 
             <div className="schedule-pro-layout">
               <div className="schedule-pro-form-card">
-                <div className="schedule-pro-card-title">
-                  <b>일정 정보</b>
+                <div className="schedule-pro-card-title modern">
+                  <div>
+                    <b>일정 정보</b>
+                    <small>창고/설비를 선택하고 작업 내용을 등록하세요.</small>
+                  </div>
                   <span>{maintenanceScheduleForm.schedule_date || getTodayKey()}</span>
                 </div>
 
@@ -4412,8 +4425,18 @@ export default function App() {
                   <Field label="예정일">
                     <input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} />
                   </Field>
-                  <Field label="장비명">
-                    <input value={maintenanceScheduleForm.equipment_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })} placeholder="예: 1200콘 크라샤" />
+                  <Field label="장비/창고 선택">
+                    <input
+                      list="maintenance-equipment-options"
+                      value={maintenanceScheduleForm.equipment_name}
+                      onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })}
+                      placeholder="창고/설비 검색 또는 직접 입력"
+                    />
+                    <datalist id="maintenance-equipment-options">
+                      {maintenanceEquipmentOptions.map((name) => (
+                        <option value={name} key={name} />
+                      ))}
+                    </datalist>
                   </Field>
                   <Field label="작업내용">
                     <input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="예: 라이너 교체" />
@@ -4431,6 +4454,19 @@ export default function App() {
                       <option>예정</option><option>진행중</option><option>완료</option>
                     </select>
                   </Field>
+                </div>
+
+                <div className="schedule-equipment-chips">
+                  <span>빠른 선택</span>
+                  {(maintenanceEquipmentOptions || []).slice(0, 10).map((name) => (
+                    <button
+                      type="button"
+                      key={name}
+                      onClick={() => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: name })}
+                    >
+                      {name}
+                    </button>
+                  ))}
                 </div>
 
                 <Field label="메모">
@@ -11549,6 +11585,186 @@ button[onclick*="downloadPdf"]{
 
   .schedule-mobile-list{
     display:grid !important;
+  }
+}
+
+/* ===== Maintenance Schedule Modern Polish + Equipment Select ===== */
+.maintenance-schedule-pro-page{
+  background:linear-gradient(180deg,#f8fafc 0%,#eef4fb 100%) !important;
+  border:1px solid rgba(148,163,184,.24) !important;
+}
+
+.schedule-pro-hero{
+  padding:6px 4px 8px !important;
+}
+
+.schedule-pro-hero h2{
+  font-size:30px !important;
+  letter-spacing:-.8px !important;
+}
+
+.schedule-pro-layout{
+  grid-template-columns:minmax(0,1.45fr) minmax(360px,.75fr) !important;
+  align-items:start !important;
+}
+
+.schedule-pro-form-card{
+  padding:24px !important;
+  border-radius:28px !important;
+  background:rgba(255,255,255,.94) !important;
+  box-shadow:0 20px 60px rgba(15,23,42,.08) !important;
+}
+
+.schedule-pro-card-title.modern{
+  padding:0 0 16px !important;
+  border-bottom:1px solid #eef2f7 !important;
+}
+
+.schedule-pro-card-title.modern small{
+  display:block;
+  margin-top:5px;
+  color:#64748b;
+  font-weight:800;
+}
+
+.schedule-pro-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:16px !important;
+  margin-top:18px !important;
+}
+
+.schedule-pro-form-card .field label{
+  font-size:13px !important;
+  color:#334155 !important;
+  font-weight:1000 !important;
+  margin-bottom:7px !important;
+}
+
+.schedule-pro-form-card input,
+.schedule-pro-form-card select,
+.schedule-pro-form-card textarea{
+  min-height:48px !important;
+  border-radius:16px !important;
+  border:1px solid #d8e1ee !important;
+  background:#ffffff !important;
+  font-size:14px !important;
+  font-weight:800 !important;
+  padding:0 14px !important;
+  transition:.18s ease !important;
+}
+
+.schedule-pro-form-card textarea{
+  padding:14px !important;
+  min-height:110px !important;
+}
+
+.schedule-pro-form-card input:focus,
+.schedule-pro-form-card select:focus,
+.schedule-pro-form-card textarea:focus{
+  outline:none !important;
+  border-color:#2563eb !important;
+  box-shadow:0 0 0 4px rgba(37,99,235,.12) !important;
+}
+
+.schedule-equipment-chips{
+  margin:14px 0 16px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:12px;
+  border-radius:18px;
+  background:#f8fafc;
+  border:1px dashed #cbd5e1;
+}
+
+.schedule-equipment-chips span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:1000;
+  margin-right:2px;
+}
+
+.schedule-equipment-chips button{
+  min-height:32px;
+  border:0;
+  border-radius:999px;
+  padding:0 12px;
+  background:#e0ecff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.schedule-equipment-chips button:hover{
+  background:#2563eb;
+  color:#fff;
+}
+
+.schedule-pro-actions{
+  padding-top:14px;
+  border-top:1px solid #eef2f7;
+}
+
+.schedule-pro-actions .primary{
+  background:linear-gradient(135deg,#16a34a,#15803d) !important;
+  color:#fff !important;
+  border:0 !important;
+  box-shadow:0 12px 24px rgba(22,163,74,.24);
+}
+
+.schedule-pro-actions button:not(.primary){
+  border:0 !important;
+  background:#e2e8f0 !important;
+  color:#334155 !important;
+}
+
+.schedule-pro-side{
+  gap:12px !important;
+}
+
+.schedule-pro-mini-card{
+  min-height:106px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  border-radius:24px !important;
+}
+
+.schedule-pro-mini-card b{
+  font-size:32px !important;
+}
+
+.schedule-pro-preview{
+  border-radius:24px !important;
+}
+
+@media (max-width:1200px){
+  .schedule-pro-layout{
+    grid-template-columns:1fr !important;
+  }
+
+  .schedule-pro-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+@media (max-width:900px){
+  .schedule-pro-grid{
+    grid-template-columns:1fr !important;
+  }
+
+  .schedule-equipment-chips{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  .schedule-equipment-chips span{
+    grid-column:1 / -1;
+  }
+
+  .schedule-pro-actions{
+    grid-template-columns:1fr !important;
   }
 }
 
