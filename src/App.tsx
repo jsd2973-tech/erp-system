@@ -6556,14 +6556,50 @@ function HomeDashboard({
   const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
   const todayMaints = maints.filter((m) => m.date === today);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
+  const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
   const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
   const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
-  const warningCount = urgentSchedules.length + unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length;
+  const pendingPhotoCount = unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length;
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentCards = [...cardUses].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentMaints = [...maints].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
+  const recentPhotos = [
+    ...receiptPhotos.map((p) => ({
+      id: `receipt-${p.id}`,
+      date: p.created_at || p.receipt_date || "",
+      title: p.vendor_name || "입고사진",
+      memo: p.memo || "",
+      urls: p.image_urls || [],
+      tab: "receipt_photos",
+      label: "입고",
+    })),
+    ...maintenancePhotos.map((p) => ({
+      id: `maintenance-${p.id}`,
+      date: p.created_at || p.maint_date || "",
+      title: p.equipment_name || "정비사진",
+      memo: p.memo || "",
+      urls: p.image_urls || [],
+      tab: "maintenance_photos",
+      label: p.is_urgent ? "긴급" : "정비",
+    })),
+  ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
+
+  const calendarYear = Number(monthKey.slice(0, 4));
+  const calendarMonth = Number(monthKey.slice(5, 7));
+  const firstDayOfMonth = new Date(calendarYear, calendarMonth - 1, 1).getDay();
+  const daysInMonth = new Date(calendarYear, calendarMonth, 0).getDate();
+  const maintenanceCalendarDays = Array.from({ length: firstDayOfMonth + daysInMonth }, (_, index) => {
+    if (index < firstDayOfMonth) return null;
+    const day = index - firstDayOfMonth + 1;
+    const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
+    return {
+      day,
+      dateKey,
+      schedules: monthSchedules.filter((s) => s.schedule_date === dateKey),
+    };
+  });
 
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
@@ -6587,7 +6623,7 @@ function HomeDashboard({
       tab: "card_use",
     },
     { label: "오늘 정비 등록", value: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: "🔧", tone: "purple", tab: "maint_new" },
-    { label: "확인 필요", value: `${warningCount}건`, sub: "미처리/긴급 등록", icon: "⚠️", tone: "red", tab: "maintenance_photos" },
+    { label: "정비 캘린더", value: `${monthSchedules.length}건`, sub: `긴급 ${urgentSchedules.length}건 · 미처리사진 ${pendingPhotoCount}건`, icon: "📅", tone: "red", tab: "maintenance_schedules" },
   ];
 
   return (
@@ -6649,16 +6685,57 @@ function HomeDashboard({
           </div>
         </div>
 
-        <div className="modern-home-panel alert-panel">
+        <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>확인 필요</h3>
+            <h3>최근 등록사진</h3>
             <button onClick={() => setMenuTab?.("maintenance_photos")}>더보기 ›</button>
           </div>
-          <div className="modern-home-alert-list">
-            <button onClick={() => setMenuTab?.("receipt_photos")}><b>입고사진 미처리</b><span>{unprocessedReceiptPhotos.length}건</span></button>
-            <button onClick={() => setMenuTab?.("maintenance_photos")}><b>정비사진 미처리</b><span>{unprocessedMaintenancePhotos.length}건</span></button>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}><b>긴급 정비 요청</b><span>{urgentSchedules.length}건</span></button>
+          <div className="modern-home-photo-list">
+            {recentPhotos.length ? recentPhotos.map((photo) => (
+              <button className="modern-home-photo-row" key={photo.id} onClick={() => setMenuTab?.(photo.tab)}>
+                {photo.urls[0] ? (
+                  <span className="modern-home-photo-thumb" style={{ backgroundImage: `url(${photo.urls[0]})` }} />
+                ) : (
+                  <span className="modern-home-photo-thumb empty">사진</span>
+                )}
+                <div>
+                  <b>{photo.title}</b>
+                  <p>{photo.memo || `${photo.label} 사진`}</p>
+                </div>
+                <em>{String(photo.date || "").slice(5, 10) || "-"}</em>
+              </button>
+            )) : <div className="modern-home-empty">최근 등록사진이 없습니다.</div>}
           </div>
+        </div>
+      </div>
+
+      <div className="modern-home-panel modern-home-calendar-panel">
+        <div className="modern-home-panel-head">
+          <h3>정비 일정 캘린더</h3>
+          <button onClick={() => setMenuTab?.("maintenance_schedules")}>정비일정조회 ›</button>
+        </div>
+        <div className="modern-home-calendar-title">{monthKey} 정비일정 {monthSchedules.length}건</div>
+        <div className="modern-home-calendar-week">
+          {["일", "월", "화", "수", "목", "금", "토"].map((d) => <span key={d}>{d}</span>)}
+        </div>
+        <div className="modern-home-calendar-grid">
+          {maintenanceCalendarDays.map((cell, index) => (
+            cell ? (
+              <button
+                key={cell.dateKey}
+                className={`modern-home-calendar-day ${cell.dateKey === today ? "today" : ""} ${cell.schedules.length ? "has-work" : ""}`}
+                onClick={() => setMenuTab?.("maintenance_schedules")}
+              >
+                <b>{cell.day}</b>
+                {cell.schedules.slice(0, 2).map((s) => (
+                  <small key={s.id}>{s.equipment_name || "장비"} · {s.status || "예정"}</small>
+                ))}
+                {cell.schedules.length > 2 && <em>+{cell.schedules.length - 2}</em>}
+              </button>
+            ) : (
+              <div className="modern-home-calendar-day blank" key={`blank-${index}`} />
+            )
+          ))}
         </div>
       </div>
 
@@ -14470,9 +14547,9 @@ button[onclick*="downloadPdf"]{
 .modern-home-shell{background:#f6f8fc;border-radius:0;padding:22px 24px 30px;margin:0 0 22px;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
 .modern-home-intro{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px;padding:8px 2px 0}.modern-home-intro h2{margin:0 0 6px;font-size:24px;font-weight:950;color:#111827;letter-spacing:-.6px}.modern-home-intro p{margin:0;color:#475569;font-size:14px;font-weight:750}.modern-home-intro button{border:1px solid #d8e2f0;background:#fff;border-radius:12px;padding:11px 17px;color:#334155;font-weight:900;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,.04)}
 .modern-home-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:18px}.modern-home-kpi{min-height:150px;border:1px solid #e0e7f2;border-radius:16px;background:#fff;padding:22px;display:grid;grid-template-columns:72px 1fr;grid-template-rows:1fr auto;gap:8px 18px;text-align:left;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.06);transition:transform .15s ease,box-shadow .15s ease}.modern-home-kpi:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(15,23,42,.1)}.modern-home-kpi-icon{width:64px;height:64px;border-radius:17px;display:grid;place-items:center;font-size:30px;color:white;grid-row:1/3}.modern-home-kpi em{display:block;font-style:normal;color:#111827;font-size:15px;font-weight:950}.modern-home-kpi b{display:block;margin-top:8px;font-size:36px;line-height:1;font-weight:950;letter-spacing:-1px}.modern-home-kpi small{display:block;margin-top:10px;color:#334155;font-size:13px;font-weight:800}.modern-home-kpi>i{grid-column:2;font-style:normal;text-align:right;color:#2563eb;font-size:13px;font-weight:950}.modern-home-kpi.blue .modern-home-kpi-icon{background:linear-gradient(135deg,#0d5bff,#2563eb)}.modern-home-kpi.blue b{color:#1455d9}.modern-home-kpi.green .modern-home-kpi-icon{background:linear-gradient(135deg,#11b981,#35c99a)}.modern-home-kpi.green b{color:#059669}.modern-home-kpi.purple .modern-home-kpi-icon{background:linear-gradient(135deg,#7c3aed,#5b43d6)}.modern-home-kpi.purple b{color:#6d28d9}.modern-home-kpi.red{background:#fff7f8;border-color:#f8cdd6}.modern-home-kpi.red .modern-home-kpi-icon{background:linear-gradient(135deg,#e11d48,#f43f5e)}.modern-home-kpi.red b{color:#e11d48}
-.modern-home-grid{display:grid;gap:18px}.modern-home-grid.middle{grid-template-columns:1.1fr 1.1fr .95fr;margin-bottom:18px}.modern-home-grid.bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.modern-home-panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px;box-shadow:0 10px 26px rgba(15,23,42,.055);min-width:0}.modern-home-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.modern-home-panel-head h3{margin:0;font-size:20px;font-weight:950;color:#111827;letter-spacing:-.3px}.modern-home-panel-head button{border:0;background:transparent;color:#2563eb;font-size:13px;font-weight:950;cursor:pointer;white-space:nowrap}.modern-home-list,.modern-home-schedule-list,.modern-home-alert-list{display:flex;flex-direction:column;gap:10px}.modern-home-notice-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f7;text-align:left;cursor:pointer}.modern-home-notice-row span{display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 7px;border-radius:999px;background:#1265ff;color:white;font-size:10px;font-weight:950}.modern-home-notice-row b{font-size:14px;color:#111827;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-notice-row em{font-style:normal;color:#64748b;font-size:13px;font-weight:750;white-space:nowrap}.modern-home-schedule-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start;padding:8px 0;text-align:left;cursor:pointer}.modern-home-schedule-row span{color:#64748b;font-weight:950}.modern-home-schedule-row b{display:block;color:#111827;font-size:15px;font-weight:950}.modern-home-schedule-row p{margin:4px 0 0;color:#475569;font-size:13px;font-weight:750;line-height:1.45}.modern-home-alert-list button{border:1px solid #ffd1d9;background:#fff8f9;border-radius:13px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}.modern-home-alert-list b{color:#111827;font-size:14px;font-weight:950}.modern-home-alert-list span{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:26px;border-radius:999px;background:#e11d48;color:white;font-size:13px;font-weight:950}.modern-home-table{width:100%;border-collapse:collapse;font-size:13px}.modern-home-table th{padding:0 8px 10px;border-bottom:1px solid #e5e7eb;color:#475569;font-size:12px;font-weight:950;text-align:left}.modern-home-table th:last-child{text-align:right}.modern-home-table td{padding:11px 8px;border-bottom:1px solid #eef2f7;color:#111827;font-weight:800;vertical-align:middle}.modern-home-table td:nth-child(1){white-space:nowrap;color:#334155}.modern-home-table td:nth-child(2),.modern-home-table td:nth-child(3){max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-table td:last-child{text-align:right;white-space:nowrap;font-weight:950}.modern-home-empty{border-radius:14px;background:#f8fafc;border:1px dashed #cbd5e1;padding:28px;text-align:center;color:#94a3b8;font-weight:850}
+.modern-home-grid{display:grid;gap:18px}.modern-home-grid.middle{grid-template-columns:1.1fr 1.1fr .95fr;margin-bottom:18px}.modern-home-grid.bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.modern-home-panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px;box-shadow:0 10px 26px rgba(15,23,42,.055);min-width:0}.modern-home-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}.modern-home-panel-head h3{margin:0;font-size:20px;font-weight:950;color:#111827;letter-spacing:-.3px}.modern-home-panel-head button{border:0;background:transparent;color:#2563eb;font-size:13px;font-weight:950;cursor:pointer;white-space:nowrap}.modern-home-list,.modern-home-schedule-list,.modern-home-alert-list{display:flex;flex-direction:column;gap:10px}.modern-home-notice-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f7;text-align:left;cursor:pointer}.modern-home-notice-row span{display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 7px;border-radius:999px;background:#1265ff;color:white;font-size:10px;font-weight:950}.modern-home-notice-row b{font-size:14px;color:#111827;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-notice-row em{font-style:normal;color:#64748b;font-size:13px;font-weight:750;white-space:nowrap}.modern-home-schedule-row{border:0;background:#fff;width:100%;display:grid;grid-template-columns:24px 1fr;gap:12px;align-items:start;padding:8px 0;text-align:left;cursor:pointer}.modern-home-schedule-row span{color:#64748b;font-weight:950}.modern-home-schedule-row b{display:block;color:#111827;font-size:15px;font-weight:950}.modern-home-schedule-row p{margin:4px 0 0;color:#475569;font-size:13px;font-weight:750;line-height:1.45}.modern-home-alert-list button{border:1px solid #ffd1d9;background:#fff8f9;border-radius:13px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}.modern-home-alert-list b{color:#111827;font-size:14px;font-weight:950}.modern-home-alert-list span{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:26px;border-radius:999px;background:#e11d48;color:white;font-size:13px;font-weight:950}.modern-home-photo-list{display:flex;flex-direction:column;gap:10px}.modern-home-photo-row{border:1px solid #eef2f7;background:#fff;border-radius:14px;padding:10px;display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:center;text-align:left;cursor:pointer}.modern-home-photo-thumb{width:54px;height:54px;border-radius:12px;background-size:cover;background-position:center;background-color:#dbeafe;display:grid;place-items:center;color:#2563eb;font-size:12px;font-weight:950;overflow:hidden}.modern-home-photo-thumb.empty{background:linear-gradient(135deg,#dbeafe,#eef2ff)}.modern-home-photo-row b{display:block;color:#111827;font-size:14px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-photo-row p{margin:4px 0 0;color:#64748b;font-size:12px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-photo-row em{font-style:normal;color:#94a3b8;font-size:12px;font-weight:850;white-space:nowrap}.modern-home-calendar-panel{margin-bottom:18px}.modern-home-calendar-title{margin:-4px 0 12px;color:#475569;font-size:13px;font-weight:900}.modern-home-calendar-week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px}.modern-home-calendar-week span{text-align:center;color:#64748b;font-size:12px;font-weight:950}.modern-home-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}.modern-home-calendar-day{min-height:82px;border:1px solid #e2e8f0;border-radius:13px;background:#fff;padding:9px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px}.modern-home-calendar-day.blank{background:#f8fafc;border-style:dashed;cursor:default}.modern-home-calendar-day b{font-size:13px;color:#111827;font-weight:950}.modern-home-calendar-day small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;background:#eef6ff;color:#1d4ed8;padding:3px 6px;font-size:10px;font-weight:900}.modern-home-calendar-day em{font-style:normal;color:#2563eb;font-size:11px;font-weight:950}.modern-home-calendar-day.today{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}.modern-home-calendar-day.has-work{background:#fbfdff}.modern-home-table{width:100%;border-collapse:collapse;font-size:13px}.modern-home-table th{padding:0 8px 10px;border-bottom:1px solid #e5e7eb;color:#475569;font-size:12px;font-weight:950;text-align:left}.modern-home-table th:last-child{text-align:right}.modern-home-table td{padding:11px 8px;border-bottom:1px solid #eef2f7;color:#111827;font-weight:800;vertical-align:middle}.modern-home-table td:nth-child(1){white-space:nowrap;color:#334155}.modern-home-table td:nth-child(2),.modern-home-table td:nth-child(3){max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.modern-home-table td:last-child{text-align:right;white-space:nowrap;font-weight:950}.modern-home-empty{border-radius:14px;background:#f8fafc;border:1px dashed #cbd5e1;padding:28px;text-align:center;color:#94a3b8;font-weight:850}
 @media(max-width:1200px){.modern-home-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.modern-home-grid.middle,.modern-home-grid.bottom{grid-template-columns:1fr}}
-@media(max-width:760px){.modern-home-shell{padding:14px 10px 20px}.modern-home-intro{flex-direction:column}.modern-home-intro h2{font-size:20px}.modern-home-kpis{grid-template-columns:1fr;gap:12px}.modern-home-kpi{min-height:128px;padding:18px;grid-template-columns:58px 1fr}.modern-home-kpi-icon{width:54px;height:54px;font-size:24px}.modern-home-kpi b{font-size:30px}.modern-home-panel{padding:16px}.modern-home-table{font-size:12px}.modern-home-table th:nth-child(2),.modern-home-table td:nth-child(2){display:none}}
+@media(max-width:760px){.modern-home-calendar-grid,.modern-home-calendar-week{gap:5px}.modern-home-calendar-day{min-height:62px;padding:6px}.modern-home-calendar-day small{display:none}.modern-home-shell{padding:14px 10px 20px}.modern-home-intro{flex-direction:column}.modern-home-intro h2{font-size:20px}.modern-home-kpis{grid-template-columns:1fr;gap:12px}.modern-home-kpi{min-height:128px;padding:18px;grid-template-columns:58px 1fr}.modern-home-kpi-icon{width:54px;height:54px;font-size:24px}.modern-home-kpi b{font-size:30px}.modern-home-panel{padding:16px}.modern-home-table{font-size:12px}.modern-home-table th:nth-child(2),.modern-home-table td:nth-child(2){display:none}}
 
 
 `;
