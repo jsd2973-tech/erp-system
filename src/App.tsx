@@ -4346,7 +4346,21 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={siteNotices} updateNotices={updateNotices} setMenuTab={setMenuTab} />}
+        {menuTab === "site_notices" && (
+          <SiteNoticePage
+            siteNotices={siteNotices}
+            siteNoticeForm={siteNoticeForm}
+            setSiteNoticeForm={setSiteNoticeForm}
+            editingSiteNoticeId={editingSiteNoticeId}
+            saveSiteNotice={saveSiteNotice}
+            editSiteNotice={editSiteNotice}
+            deleteSiteNotice={deleteSiteNotice}
+            siteNoticeError={siteNoticeError}
+            isAdmin={isAdmin}
+          />
+        )}
+
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={siteNotices} setMenuTab={setMenuTab} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -6307,7 +6321,6 @@ function HomeDashboard({
   receiptPhotos = [],
   maintenancePhotos = [],
   siteNotices = [],
-  updateNotices = [],
   setMenuTab,
 }: {
   purchases: Purchase[];
@@ -6317,7 +6330,6 @@ function HomeDashboard({
   receiptPhotos?: ReceiptPhoto[];
   maintenancePhotos?: MaintenancePhoto[];
   siteNotices?: SiteNotice[];
-  updateNotices?: UpdateNotice[];
   setMenuTab?: (tab: string) => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
