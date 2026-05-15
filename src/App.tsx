@@ -5156,7 +5156,16 @@ function ScrollTable({ children }: { children: any }) {
 }
 
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto }: any) {
-  return <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
+  const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
+
+  const openPurchaseDetail = (purchase: Purchase) => {
+    if ((purchase.rows || []).length > 1) {
+      setDetailPurchase(purchase);
+    }
+  };
+
+  return <>
+    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
@@ -5172,7 +5181,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
           <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
         </div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
-        <div className="mobile-purchase-card-row"><span>품목</span><b>{getPurchaseItemSummary(p)}</b></div>
+        <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
         <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
@@ -5188,7 +5197,46 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
 </div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>;
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>
+    {detailPurchase && (
+      <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
+        <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="purchase-detail-modal-head">
+            <div>
+              <h2>상세 품목</h2>
+              <p>{detailPurchase.vendor || "거래처 미입력"} · {detailPurchase.date || "날짜 없음"}</p>
+            </div>
+            <button onClick={() => setDetailPurchase(null)}>닫기</button>
+          </div>
+          <ScrollTable>
+            <table className="purchase-detail-table">
+              <thead>
+                <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr>
+              </thead>
+              <tbody>
+                {(detailPurchase.rows || []).map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.item || "-"}</td>
+                    <td>{row.spec || "-"}</td>
+                    <td className="right">{money(row.qty)}</td>
+                    <td className="right">{money(row.price)}</td>
+                    <td className="right">{money(row.supply)}</td>
+                    <td className="right">{money(row.vat)}</td>
+                    <td className="right">{money(row.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollTable>
+          <div className="purchase-detail-total">
+            <span>공급가액 {money(detailPurchase.supplyTotal)}원</span>
+            <span>부가세 {money(detailPurchase.vatTotal)}원</span>
+            <b>합계 {money(detailPurchase.total)}원</b>
+          </div>
+        </div>
+      </div>
+    )}
+  </>;
 }
 
 function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
@@ -12751,6 +12799,90 @@ button[onclick*="downloadPdf"]{
   .schedule-pro-actions{
     grid-template-columns:1fr !important;
   }
+}
+
+
+/* ===== Purchase Item Detail Modal ===== */
+.purchase-item-detail-button{
+  border:0;
+  background:transparent;
+  color:#2563eb;
+  font:inherit;
+  font-weight:1000;
+  padding:0;
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+.purchase-detail-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  background:rgba(15,23,42,.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.purchase-detail-modal{
+  width:min(980px,96vw);
+  max-height:88vh;
+  overflow:auto;
+  background:#fff;
+  border-radius:22px;
+  padding:20px;
+  box-shadow:0 30px 90px rgba(15,23,42,.35);
+}
+.purchase-detail-modal-head{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:14px;
+}
+.purchase-detail-modal-head h2{
+  margin:0;
+  font-size:24px;
+  font-weight:1000;
+  color:#0f172a;
+}
+.purchase-detail-modal-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-weight:800;
+}
+.purchase-detail-modal-head button{
+  border:0;
+  border-radius:12px;
+  padding:10px 14px;
+  background:#e2e8f0;
+  font-weight:1000;
+  cursor:pointer;
+}
+.purchase-detail-table th{
+  white-space:nowrap;
+}
+.purchase-detail-total{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:14px;
+}
+.purchase-detail-total span,
+.purchase-detail-total b{
+  display:inline-flex;
+  align-items:center;
+  min-height:38px;
+  padding:0 14px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#0f172a;
+  font-weight:1000;
+}
+.purchase-detail-total b{
+  background:#dbeafe;
+  color:#1d4ed8;
 }
 
 /* ===== Home Dashboard Pro Redesign ===== */
