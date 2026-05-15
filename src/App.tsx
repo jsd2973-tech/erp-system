@@ -6565,7 +6565,6 @@ function HomeDashboard({
 
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const todayCardTotal = todayCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
-  const todayMaintTotal = todayMaints.reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
 
   const kpiCards = [
     { label: "오늘 구매 등록", value: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: "🛒", tone: "blue", tab: "new" },
