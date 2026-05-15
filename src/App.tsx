@@ -6549,217 +6549,112 @@ function HomeDashboard({
   siteNotices?: SiteNotice[];
   setMenuTab?: (tab: string) => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthKey = today.slice(0, 7);
-
+  const today = getTodayKey();
+  const todayLabel = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
   const todayPurchases = purchases.filter((p) => p.date === today);
   const todayCards = cardUses.filter((c) => c.date === today);
   const todayMaints = maints.filter((m) => m.date === today);
-  const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
-  const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
-
+  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== '완료');
+  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === '긴급' && x.status !== '완료');
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
   const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
-  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
-  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
+  const warningCount = urgentSchedules.length + unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length;
+  const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 3);
+  const recentPurchases = [...purchases].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
+  const recentCards = [...cardUses].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
+  const recentMaints = [...maints].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 5);
 
-  const recentMaints = [...maints].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
-  const recentCards = [...cardUses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
-  const recentPurchases = [...purchases].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
-  const recentSchedules = [...maintenanceSchedules].sort((a,b)=>String(a.schedule_date||"").localeCompare(String(b.schedule_date||""))).slice(0,6);
+  const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const todayCardTotal = todayCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
-  const vendorMap = new Map<string, number>();
-  purchases.forEach((p)=>vendorMap.set(p.vendor || "-", (vendorMap.get(p.vendor || "-") || 0) + Number(p.total || 0)));
-  const topVendors = Array.from(vendorMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
-
-
-  const recentPhotoFeed = [
-    ...receiptPhotos.map((x) => ({
-      id: `r-${x.id}`,
-      type: "입고사진",
-      date: x.receipt_date,
-      title: x.vendor_name || "거래처 미입력",
-      memo: x.memo || "",
-      image: (x.image_urls || [])[0],
-      tab: "receipt_photos",
-      done: x.is_processed,
-    })),
-    ...maintenancePhotos.map((x) => ({
-      id: `m-${x.id}`,
-      type: "정비사진",
-      date: x.maint_date,
-      title: x.equipment_name || "설비 미입력",
-      memo: x.memo || "",
-      image: (x.image_urls || [])[0],
-      tab: "maintenance_photos",
-      done: x.is_processed,
-    })),
-  ].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
+  const kpiCards = [
+    { label: '오늘 구매 등록', count: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: '🛒', color: 'blue', tab: 'new' },
+    { label: '오늘 카드사용', count: `${todayCards.length}건`, sub: `금액 ${money(todayCardTotal)}원`, icon: '💳', color: 'green', tab: 'card_use' },
+    { label: '오늘 정비 등록', count: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: '🔧', color: 'purple', tab: 'maint_new' },
+    { label: '확인 필요', count: `${warningCount}건`, sub: `미처리/긴급 항목`, icon: '⚠️', color: 'red', tab: 'maintenance_photos' },
+  ];
 
   return (
-    <section className="dashboard-pro-wrap">
-      <div className="dashboard-pro-hero">
+    <section className="home-upgrade">
+      <div className="home-upgrade-topbar">
         <div>
-          <span>Taemyung ERP</span>
-          <h2>홈 대시보드</h2>
-          <p>오늘 등록 현황, 공지, 정비일정, 최근 내역을 한 화면에서 확인합니다.</p>
+          <h2>관리자님, 오늘도 안전한 하루 되세요!</h2>
+          <p>구매 · 카드 · 정비 · 공지 현황을 한 화면에서 확인합니다.</p>
         </div>
-        <div className="dashboard-pro-date">{today}</div>
+        <div className="home-upgrade-date">{todayLabel}</div>
       </div>
 
-      <div className="dashboard-pro-kpis">
-        <button className="dashboard-pro-kpi blue" onClick={() => setMenuTab?.("list")}>
-          <span>오늘 구매 등록</span>
-          <b>{todayPurchases.length}건</b>
-          <em>금액 {money(todayPurchaseTotal)}원</em>
-        </button>
-        <button className="dashboard-pro-kpi green" onClick={() => setMenuTab?.("card_list")}>
-          <span>오늘 카드사용</span>
-          <b>{todayCards.length}건</b>
-          <em>이번달 {money(monthCardTotal)}원</em>
-        </button>
-        <button className="dashboard-pro-kpi purple" onClick={() => setMenuTab?.("maint_list")}>
-          <span>오늘 정비 등록</span>
-          <b>{todayMaints.length}건</b>
-          <em>오늘 일정 {todaySchedules.length}건</em>
-        </button>
-        <button className="dashboard-pro-kpi red" onClick={() => setMenuTab?.("maintenance_photos")}>
-          <span>처리 필요</span>
-          <b>{urgentSchedules.length + unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length}건</b>
-          <em>입고사진 {unprocessedReceiptPhotos.length} · 정비사진 {unprocessedMaintenancePhotos.length}</em>
-        </button>
+      <div className="home-upgrade-kpis">
+        {kpiCards.map((card) => (
+          <button className={`home-upgrade-kpi ${card.color}`} key={card.label} onClick={() => setMenuTab?.(card.tab)}>
+            <span className="home-upgrade-icon">{card.icon}</span>
+            <span className="home-upgrade-kpi-text">
+              <em>{card.label}</em>
+              <b>{card.count}</b>
+              <small>{card.sub}</small>
+            </span>
+            <i>자세히 보기 ›</i>
+          </button>
+        ))}
       </div>
 
-      <div className="dashboard-pro-main">
-        <div className="dashboard-pro-left">
-          <div className="dashboard-pro-panel schedule">
-            <div className="dashboard-pro-panel-head">
-              <div>
-                <h3>오늘 정비일정</h3>
-                <p>같은 날짜에 여러 작업이 있으면 전부 표시됩니다.</p>
-              </div>
-              <button onClick={() => setMenuTab?.("maintenance_schedules")}>전체보기</button>
-            </div>
-            <div className="dashboard-schedule-list">
-              {todaySchedules.length ? todaySchedules.slice(0, 8).map((s) => (
-                <div className="dashboard-schedule-row" key={s.id}>
-                  <div>
-                    <strong>{s.equipment_name}</strong>
-                    <p>{s.work_detail}</p>
-                  </div>
-                  <span className={`schedule-priority ${s.priority || "보통"}`}>{s.priority || "보통"}</span>
-                  <span className={`schedule-status ${s.status || "예정"}`}>{s.status || "예정"}</span>
-                </div>
-              )) : (
-                <div className="dashboard-pro-empty">오늘 등록된 정비일정이 없습니다.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="dashboard-pro-split">
-            <div className="dashboard-pro-panel">
-              <div className="dashboard-pro-panel-head">
-                <h3>최근 정비내역</h3>
-                <button onClick={() => setMenuTab?.("maint_list")}>더보기</button>
-              </div>
-              <table className="dashboard-pro-table dashboard-mobile-stack">
-                <thead><tr><th>일자</th><th>제목</th><th>창고</th></tr></thead>
-                <tbody>{recentMaints.map((m)=><tr key={m.id}><td data-label="일자">{m.date}</td><td data-label="제목">{m.title}</td><td data-label="창고">{m.warehouse}</td></tr>)}</tbody>
-              </table>
-            </div>
-
-            <div className="dashboard-pro-panel">
-              <div className="dashboard-pro-panel-head">
-                <h3>최근 카드사용</h3>
-                <button onClick={() => setMenuTab?.("card_list")}>더보기</button>
-              </div>
-              <table className="dashboard-pro-table dashboard-mobile-stack">
-                <thead><tr><th>일자</th><th>사용처</th><th>금액</th></tr></thead>
-                <tbody>{recentCards.map((c)=><tr key={c.id}><td data-label="일자">{c.date}</td><td data-label="사용처">{c.place}</td><td data-label="금액" className="right">{money(c.amount)}</td></tr>)}</tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="dashboard-pro-split dashboard-purchase-vendor-row">
-            <div className="dashboard-pro-panel">
-              <div className="dashboard-pro-panel-head">
-                <h3>최근 구매내역</h3>
-                <button onClick={() => setMenuTab?.("list")}>더보기</button>
-              </div>
-              <table className="dashboard-pro-table dashboard-mobile-stack">
-                <thead><tr><th>일자</th><th>거래처</th><th>품목</th><th>금액</th></tr></thead>
-                <tbody>{recentPurchases.map((p)=><tr key={p.id}><td data-label="일자">{p.date}</td><td data-label="거래처">{p.vendor}</td><td data-label="품목">{getPurchaseItemSummary(p)}</td><td data-label="금액" className="right">{money(p.total)}</td></tr>)}</tbody>
-              </table>
-            </div>
-
-            <div className="dashboard-pro-panel">
-              <h3>거래처 TOP5</h3>
-              <table className="dashboard-pro-table dashboard-mobile-stack">
-                <thead><tr><th>거래처</th><th>금액</th></tr></thead>
-                <tbody>{topVendors.map(([n,a])=><tr key={n}><td data-label="거래처">{n}</td><td data-label="금액" className="right">{money(a)}</td></tr>)}</tbody>
-              </table>
-            </div>
+      <div className="home-upgrade-grid">
+        <div className="home-upgrade-panel">
+          <div className="home-upgrade-panel-head"><h3>공지사항</h3><button onClick={() => setMenuTab?.('site_notices')}>더보기 ›</button></div>
+          <div className="home-upgrade-list">
+            {activeNotices.length ? activeNotices.map((n) => (
+              <button className="home-upgrade-notice" key={n.id} onClick={() => setMenuTab?.('site_notices')}>
+                <span>NEW</span><b>{n.title || '제목 없음'}</b><em>{n.notice_date || ''}</em>
+                <p>{n.content}</p>
+              </button>
+            )) : <div className="home-upgrade-empty">등록된 공지가 없습니다.</div>}
           </div>
         </div>
 
-        <div className="dashboard-pro-right">
-          <div className="dashboard-pro-panel">
-            <div className="dashboard-pro-panel-head">
-              <h3>최근 등록 사진</h3>
-              <button onClick={() => setMenuTab?.("receipt_photos")}>보기</button>
-            </div>
-            <div className="dashboard-photo-feed">
-              {recentPhotoFeed.length ? recentPhotoFeed.map((p) => (
-                <button className="dashboard-photo-row" key={p.id} onClick={() => setMenuTab?.(p.tab)}>
-                  <div className="dashboard-photo-thumb">
-                    {p.image ? <img src={p.image} alt={p.title} /> : <span>사진</span>}
-                  </div>
-                  <div>
-                    <strong>{p.title}</strong>
-                    <p>{p.type} · {p.done ? "처리완료" : "미처리"}</p>
-                    <small>{p.memo}</small>
-                  </div>
-                </button>
-              )) : <div className="dashboard-pro-empty">등록된 사진이 없습니다.</div>}
-            </div>
+        <div className="home-upgrade-panel">
+          <div className="home-upgrade-panel-head"><h3>오늘 정비 일정</h3><button onClick={() => setMenuTab?.('maintenance_schedules')}>더보기 ›</button></div>
+          <div className="home-upgrade-list">
+            {todaySchedules.length ? todaySchedules.slice(0, 5).map((s) => (
+              <div className="home-upgrade-task" key={s.id}>
+                <span>☑</span><div><b>{s.equipment_name}</b><p>{s.work_detail}</p></div><em>{s.priority || '보통'}</em>
+              </div>
+            )) : <div className="home-upgrade-empty">오늘 등록된 정비일정이 없습니다.</div>}
           </div>
+        </div>
 
-          <div className="dashboard-pro-panel">
-            <div className="dashboard-pro-panel-head">
-              <h3>정비일정 예정</h3>
-              <button onClick={() => setMenuTab?.("maintenance_schedule_new")}>등록</button>
-            </div>
-            <div className="dashboard-mini-list">
-              {recentSchedules.length ? recentSchedules.map((s) => (
-                <div className="dashboard-mini-row" key={s.id}>
-                  <span>{s.schedule_date}</span>
-                  <b>{s.equipment_name}</b>
-                  <em>{s.work_detail}</em>
-                </div>
-              )) : <div className="dashboard-pro-empty">예정 일정이 없습니다.</div>}
-            </div>
+        <div className="home-upgrade-panel warning">
+          <div className="home-upgrade-panel-head"><h3>확인 필요</h3><button onClick={() => setMenuTab?.('maintenance_photos')}>더보기 ›</button></div>
+          <div className="home-upgrade-alerts">
+            <button onClick={() => setMenuTab?.('receipt_photos')}><b>입고사진 미처리</b><span>{unprocessedReceiptPhotos.length}건</span></button>
+            <button onClick={() => setMenuTab?.('maintenance_photos')}><b>정비사진 미처리</b><span>{unprocessedMaintenancePhotos.length}건</span></button>
+            <button onClick={() => setMenuTab?.('maintenance_schedules')}><b>긴급 정비일정</b><span>{urgentSchedules.length}건</span></button>
           </div>
+        </div>
 
-          <div className="dashboard-pro-panel site-notice-home-panel">
-            <div className="dashboard-pro-panel-head">
-              <h3>공지사항</h3>
-              <button onClick={() => setMenuTab?.("site_notices")}>더보기</button>
-            </div>
-            <div className="dashboard-mini-list">
-              {(siteNotices || []).slice(0, 4).length ? (siteNotices || []).slice(0, 4).map((n) => (
-                <div className="dashboard-mini-row site-notice-mini" key={n.id}>
-                  <b>{n.title}</b>
-                  <em>{n.content}</em>
-                </div>
-              )) : <div className="dashboard-pro-empty">등록된 공지가 없습니다.</div>}
-            </div>
-          </div>
+        <div className="home-upgrade-panel">
+          <div className="home-upgrade-panel-head"><h3>최근 구매 내역</h3><button onClick={() => setMenuTab?.('list')}>더보기 ›</button></div>
+          <table className="home-upgrade-table"><tbody>
+            {recentPurchases.length ? recentPurchases.map((p) => <tr key={p.id}><td>{(p.date || '').slice(5)}</td><td>{p.vendor || '-'}</td><td>{getPurchaseItemSummary(p)}</td><td>{money(p.total)}원</td></tr>) : <tr><td colSpan={4}>구매내역이 없습니다.</td></tr>}
+          </tbody></table>
+        </div>
+
+        <div className="home-upgrade-panel">
+          <div className="home-upgrade-panel-head"><h3>최근 카드사용 내역</h3><button onClick={() => setMenuTab?.('card_list')}>더보기 ›</button></div>
+          <table className="home-upgrade-table"><tbody>
+            {recentCards.length ? recentCards.map((c) => <tr key={c.id}><td>{(c.date || '').slice(5)}</td><td>{c.place || '-'}</td><td>{c.memo || '-'}</td><td>{money(c.amount)}원</td></tr>) : <tr><td colSpan={4}>카드사용 내역이 없습니다.</td></tr>}
+          </tbody></table>
+        </div>
+
+        <div className="home-upgrade-panel">
+          <div className="home-upgrade-panel-head"><h3>최근 정비 내역</h3><button onClick={() => setMenuTab?.('maint_list')}>더보기 ›</button></div>
+          <table className="home-upgrade-table"><tbody>
+            {recentMaints.length ? recentMaints.map((m) => <tr key={m.id}><td>{(m.date || '').slice(5)}</td><td>{m.warehouse || '-'}</td><td>{m.title || '-'}</td><td>{money(m.cost)}원</td></tr>) : <tr><td colSpan={4}>정비내역이 없습니다.</td></tr>}
+          </tbody></table>
         </div>
       </div>
     </section>
   );
 }
-
 
 function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const [from, setFrom] = useState("");
@@ -14490,4 +14385,13 @@ button[onclick*="downloadPdf"]{
   font-weight:900;
 }
 
+
+
+/* ===== Home dashboard mockup style override ===== */
+.home-upgrade{background:#f6f8fc;border:1px solid #dde5f0;border-radius:0;padding:26px;min-height:calc(100vh - 120px)}
+.home-upgrade-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #e2e8f0}
+.home-upgrade-topbar h2{margin:0;color:#111827;font-size:23px;font-weight:1000;letter-spacing:-.5px}.home-upgrade-topbar p{margin:8px 0 0;color:#64748b;font-weight:800}.home-upgrade-date{font-weight:1000;color:#111827;white-space:nowrap}
+.home-upgrade-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}.home-upgrade-kpi{position:relative;display:grid;grid-template-columns:70px 1fr;align-items:center;gap:14px;min-height:134px;padding:18px;border-radius:12px;background:white;border:1px solid #dbe4f0;box-shadow:0 8px 24px rgba(15,23,42,.06);text-align:left;cursor:pointer}.home-upgrade-kpi.blue{border-color:#bfdbfe}.home-upgrade-kpi.green{border-color:#bbf7d0}.home-upgrade-kpi.purple{border-color:#ddd6fe}.home-upgrade-kpi.red{border-color:#fecaca;background:#fff7f7}.home-upgrade-icon{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;color:#fff;font-size:28px;background:#2563eb}.home-upgrade-kpi.green .home-upgrade-icon{background:#10b981}.home-upgrade-kpi.purple .home-upgrade-icon{background:#7c3aed}.home-upgrade-kpi.red .home-upgrade-icon{background:#e11d48}.home-upgrade-kpi-text em{display:block;font-style:normal;color:#0f172a;font-size:14px;font-weight:1000}.home-upgrade-kpi-text b{display:block;margin-top:10px;color:#1d4ed8;font-size:31px;font-weight:1000}.home-upgrade-kpi.green b{color:#047857}.home-upgrade-kpi.purple b{color:#6d28d9}.home-upgrade-kpi.red b{color:#e11d48}.home-upgrade-kpi-text small{display:block;margin-top:8px;color:#475569;font-weight:800}.home-upgrade-kpi i{position:absolute;right:18px;bottom:14px;color:#2563eb;font-style:normal;font-size:12px;font-weight:1000}.home-upgrade-kpi.red i{color:#e11d48}
+.home-upgrade-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.home-upgrade-panel{background:white;border:1px solid #dbe4f0;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.05);padding:17px;min-height:185px}.home-upgrade-panel.warning{background:#fffafa;border-color:#fecaca}.home-upgrade-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.home-upgrade-panel-head h3{margin:0;color:#0f172a;font-size:18px;font-weight:1000}.home-upgrade-panel-head button{border:0;background:transparent;color:#2563eb;font-size:12px;font-weight:1000;cursor:pointer}.home-upgrade-list{display:grid;gap:9px}.home-upgrade-notice{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;width:100%;padding:9px 0;border:0;border-bottom:1px solid #eef2f7;background:transparent;text-align:left;cursor:pointer}.home-upgrade-notice span{border-radius:999px;background:#2563eb;color:white;font-size:10px;font-weight:1000;text-align:center;padding:3px 6px}.home-upgrade-notice b{font-size:13px;color:#111827}.home-upgrade-notice em{font-style:normal;font-size:12px;color:#94a3b8}.home-upgrade-notice p{grid-column:2/4;margin:0;color:#64748b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.home-upgrade-task{display:grid;grid-template-columns:24px 1fr auto;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid #eef2f7}.home-upgrade-task span{color:#2563eb;font-weight:1000}.home-upgrade-task b{font-size:13px;color:#111827}.home-upgrade-task p{margin:4px 0 0;color:#64748b;font-size:12px}.home-upgrade-task em{font-style:normal;background:#eef2ff;color:#4338ca;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:1000}.home-upgrade-alerts{display:grid;gap:12px}.home-upgrade-alerts button{display:flex;justify-content:space-between;align-items:center;border:1px solid #fee2e2;background:white;border-radius:12px;padding:12px;cursor:pointer}.home-upgrade-alerts b{color:#111827}.home-upgrade-alerts span{background:#e11d48;color:white;border-radius:999px;padding:7px 12px;font-weight:1000}.home-upgrade-table{width:100%;border-collapse:collapse;font-size:13px}.home-upgrade-table td{border-bottom:1px solid #eef2f7;padding:9px 5px;color:#334155;font-weight:800;white-space:nowrap}.home-upgrade-table td:nth-child(2){color:#0f172a}.home-upgrade-table td:last-child{text-align:right;color:#111827;font-weight:1000}.home-upgrade-empty{min-height:110px;display:grid;place-items:center;color:#94a3b8;font-weight:900;background:#f8fafc;border-radius:12px}
+@media(max-width:1100px){.home-upgrade-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.home-upgrade-grid{grid-template-columns:1fr 1fr}}@media(max-width:700px){.home-upgrade{padding:12px;border-radius:14px}.home-upgrade-topbar{display:block}.home-upgrade-date{margin-top:10px}.home-upgrade-kpis,.home-upgrade-grid{grid-template-columns:1fr}.home-upgrade-kpi{grid-template-columns:56px 1fr;min-height:105px}.home-upgrade-icon{width:48px;height:48px;font-size:22px}.home-upgrade-kpi-text b{font-size:25px}.home-upgrade-table td{font-size:12px;padding:8px 3px}.home-upgrade-table td:nth-child(3){max-width:110px;overflow:hidden;text-overflow:ellipsis}}
 `;
