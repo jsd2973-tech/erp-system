@@ -12311,4 +12311,280 @@ button[onclick*="downloadPdf"]{
   }
 }
 
+/* ===== Mobile Dashboard Polish + UI Consistency ===== */
+.dashboard-pro-wrap{
+  padding:20px;
+}
+
+.dashboard-pro-panel{
+  transition:all .18s ease;
+}
+
+.dashboard-pro-panel:hover{
+  transform:translateY(-2px);
+  box-shadow:0 18px 38px rgba(15,23,42,.10);
+}
+
+.dashboard-pro-panel h3{
+  letter-spacing:-.4px;
+}
+
+.dashboard-pro-panel-head button,
+.dashboard-pro-kpi,
+.excel-download-btn,
+.pdf-download-btn{
+  transition:all .15s ease;
+}
+
+.dashboard-pro-panel-head button:hover,
+.excel-download-btn:hover,
+.pdf-download-btn:hover{
+  transform:translateY(-1px);
+}
+
+.dashboard-pro-table th{
+  height:42px;
+  font-size:13px;
+}
+
+.dashboard-pro-table td{
+  height:42px;
+  font-size:13px;
+}
+
+.dashboard-photo-row{
+  align-items:center;
+}
+
+.dashboard-photo-row strong{
+  font-size:13px;
+  line-height:1.2;
+}
+
+.dashboard-photo-row p{
+  font-size:11px;
+}
+
+.dashboard-photo-row small{
+  font-size:10px;
+}
+
+.dashboard-mini-row{
+  padding:12px 0;
+}
+
+.dashboard-mini-row b{
+  font-size:13px;
+  line-height:1.3;
+}
+
+.dashboard-mini-row em{
+  font-size:11px;
+}
+
+.dashboard-pro-kpi{
+  min-height:118px;
+}
+
+.dashboard-pro-kpi b{
+  line-height:1;
+}
+
+.dashboard-pro-empty{
+  min-height:88px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+@media (max-width:900px){
+  .dashboard-pro-wrap{
+    padding:12px;
+    border-radius:18px;
+  }
+
+  .dashboard-pro-hero{
+    margin-bottom:12px;
+  }
+
+  .dashboard-pro-hero h2{
+    font-size:24px;
+  }
+
+  .dashboard-pro-hero p{
+    font-size:12px;
+    line-height:1.4;
+  }
+
+  .dashboard-pro-date{
+    width:max-content;
+    font-size:12px;
+    min-height:34px;
+  }
+
+  .dashboard-pro-kpis{
+    gap:10px;
+    margin-bottom:12px;
+  }
+
+  .dashboard-pro-kpi{
+    border-radius:18px;
+    min-height:auto;
+    padding:14px;
+  }
+
+  .dashboard-pro-kpi span{
+    font-size:11px;
+    margin-bottom:8px;
+  }
+
+  .dashboard-pro-kpi b{
+    font-size:24px;
+  }
+
+  .dashboard-pro-kpi em{
+    margin-top:6px;
+    font-size:11px;
+  }
+
+  .dashboard-pro-main,
+  .dashboard-pro-left,
+  .dashboard-pro-right,
+  .dashboard-pro-split{
+    gap:12px;
+  }
+
+  .dashboard-pro-panel{
+    padding:12px;
+    border-radius:18px;
+  }
+
+  .dashboard-pro-panel-head{
+    margin-bottom:10px;
+  }
+
+  .dashboard-pro-panel-head button{
+    min-height:30px;
+    font-size:11px;
+    padding:0 10px;
+    border-radius:10px;
+  }
+
+  .dashboard-pro-panel h3{
+    font-size:17px;
+  }
+
+  .dashboard-pro-table td,
+  .dashboard-pro-table th{
+    font-size:12px;
+  }
+
+  .dashboard-mobile-stack tbody{
+    gap:8px;
+  }
+
+  .dashboard-mobile-stack tr{
+    border-radius:14px;
+    padding:10px;
+  }
+
+  .dashboard-mobile-stack td{
+    grid-template-columns:62px 1fr;
+    font-size:12px;
+    line-height:1.35;
+  }
+
+  .dashboard-mobile-stack td::before{
+    font-size:11px;
+  }
+
+  .dashboard-photo-feed{
+    gap:8px;
+  }
+
+  .dashboard-photo-row{
+    grid-template-columns:52px 1fr;
+    padding:8px;
+    border-radius:14px;
+  }
+
+  .dashboard-photo-thumb{
+    width:52px;
+    height:52px;
+    border-radius:12px;
+  }
+
+  .dashboard-photo-row strong{
+    font-size:12px;
+  }
+
+  .dashboard-photo-row p{
+    font-size:10px;
+  }
+
+  .dashboard-photo-row small{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+
+  .dashboard-mini-row{
+    padding:10px 0;
+  }
+
+  .dashboard-mini-row b{
+    font-size:12px;
+  }
+
+  .dashboard-mini-row em{
+    font-size:10px;
+  }
+
+  .dashboard-schedule-row{
+    padding:10px;
+    border-radius:14px;
+  }
+
+  .dashboard-schedule-row strong{
+    font-size:13px;
+  }
+
+  .dashboard-schedule-row p{
+    font-size:11px;
+  }
+
+  .dashboard-pro-empty{
+    min-height:72px;
+    font-size:12px;
+    border-radius:14px;
+  }
+
+  /* 전체 메뉴 UI 통일 */
+  .excel-download-btn,
+  .pdf-download-btn{
+    min-height:34px !important;
+    border-radius:12px !important;
+    padding:0 14px !important;
+    font-size:12px !important;
+    font-weight:1000 !important;
+  }
+
+  table{
+    font-size:12px;
+  }
+
+  input,
+  select,
+  textarea{
+    font-size:13px !important;
+    min-height:40px;
+    border-radius:12px !important;
+  }
+
+  textarea{
+    min-height:80px !important;
+  }
+}
+
 `;
