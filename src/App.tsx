@@ -6508,7 +6508,6 @@ function HomeDashboard({
   const todayCards = cardUses.filter((c) => c.date === today);
   const todayMaints = maints.filter((m) => m.date === today);
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
-  const monthPurchaseTotal = purchases.filter((p) => (p.date || "").startsWith(monthKey)).reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = cardUses.filter((c) => (c.date || "").startsWith(monthKey)).reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
