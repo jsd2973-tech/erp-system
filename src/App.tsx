@@ -6550,8 +6550,10 @@ function HomeDashboard({
   setMenuTab?: (tab: string) => void;
 }) {
   const today = getTodayKey();
+  const monthKey = today.slice(0, 7);
   const todayPurchases = purchases.filter((p) => p.date === today);
-  const todayCards = cardUses.filter((c) => c.date === today);
+  const monthPurchases = purchases.filter((p) => String(p.date || "").startsWith(monthKey));
+  const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
   const todayMaints = maints.filter((m) => m.date === today);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
   const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
@@ -6564,11 +6566,26 @@ function HomeDashboard({
   const recentMaints = [...maints].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
 
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
-  const todayCardTotal = todayCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const monthCardTotal = monthCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const kpiCards = [
-    { label: "오늘 구매 금액", value: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: "🛒", tone: "blue", tab: "new" },
-    { label: "이번달 카드사용", value: `${todayCards.length}건`, sub: `금액 ${money(todayCardTotal)}원`, icon: "💳", tone: "green", tab: "card_use" },
+    {
+      label: "오늘 구매 금액",
+      value: `${todayPurchases.length}건 · ${money(todayPurchaseTotal)}원`,
+      sub: `이번달 구매금액 ${money(monthPurchaseTotal)}원`,
+      icon: "🛒",
+      tone: "blue",
+      tab: "new",
+    },
+    {
+      label: "이번달 카드사용",
+      value: `${monthCards.length}건 · ${money(monthCardTotal)}원`,
+      sub: `당월 카드사용금액 ${money(monthCardTotal)}원`,
+      icon: "💳",
+      tone: "green",
+      tab: "card_use",
+    },
     { label: "오늘 정비 등록", value: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: "🔧", tone: "purple", tab: "maint_new" },
     { label: "확인 필요", value: `${warningCount}건`, sub: "미처리/긴급 등록", icon: "⚠️", tone: "red", tab: "maintenance_photos" },
   ];
