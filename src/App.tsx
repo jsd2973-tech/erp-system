@@ -6557,10 +6557,8 @@ function HomeDashboard({
   const todayMaints = maints.filter((m) => m.date === today);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
   const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
-  const urgentSchedules = maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료");
   const unprocessedReceiptPhotos = receiptPhotos.filter((x) => !x.is_processed);
   const unprocessedMaintenancePhotos = maintenancePhotos.filter((x) => !x.is_processed);
-  const pendingPhotoCount = unprocessedReceiptPhotos.length + unprocessedMaintenancePhotos.length;
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentCards = [...cardUses].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
