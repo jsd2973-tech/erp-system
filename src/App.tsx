@@ -928,6 +928,8 @@ export default function App() {
   });
   const currentUserPermission = userPermissions.find((item) => item.email === userEmail);
   const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "office");
+  const canCreateRecords = currentRole === "admin" || currentRole === "office";
+  const canEditDeleteRecords = currentRole === "admin";
   const canAccessTab = (tab: string) => {
     if (!tab || tab === "home") return true;
     if (isAdmin) return true;
@@ -1355,6 +1357,8 @@ export default function App() {
   };
 
   const savePermit = async () => {
+    if (editingPermitId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!permitForm.title.trim()) return alert("허가/신고명을 입력하세요.");
 
     const id = editingPermitId || permitStableId(permitForm.company, permitForm.title.trim());
@@ -1646,6 +1650,8 @@ export default function App() {
   };
 
   const savePurchase = async () => {
+    if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     const validRows = rows.filter((r) => r.item && Number(r.qty) > 0);
     if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("거래처, 창고, 품목/수량을 확인하세요.");
     const payload: Purchase = {
@@ -1896,7 +1902,7 @@ export default function App() {
   };
 
   const toggleMaintenancePhotoProcessed = async (item: MaintenancePhoto) => {
-    if (!isAdmin) return alert("관리자만 처리상태를 변경할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("처리상태 변경은 관리자만 가능합니다.");
 
     const { error } = await supabase
       .from("maintenance_photos")
@@ -1909,7 +1915,7 @@ export default function App() {
   };
 
   const deleteMaintenancePhoto = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("정비사진 등록건을 삭제할까요?")) return;
 
     const { error } = await supabase.from("maintenance_photos").delete().eq("id", id);
@@ -1932,7 +1938,8 @@ export default function App() {
   };
 
   const saveMaintenanceSchedule = async () => {
-    if (!isAdmin) return alert("관리자만 정비일정을 등록/수정할 수 있습니다.");
+    if (editingMaintenanceScheduleId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!maintenanceScheduleForm.schedule_date) return alert("예정일을 입력하세요.");
     if (!maintenanceScheduleForm.equipment_name.trim()) return alert("장비명을 입력하세요.");
     if (!maintenanceScheduleForm.work_detail.trim()) return alert("작업내용을 입력하세요.");
@@ -1971,7 +1978,7 @@ export default function App() {
   };
 
   const deleteMaintenanceSchedule = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("정비일정을 삭제할까요?")) return;
     const { error } = await supabase.from("maintenance_schedules").delete().eq("id", id);
     if (error) return alert(`정비일정 삭제 실패: ${error.message}`);
@@ -1979,7 +1986,7 @@ export default function App() {
   };
 
   const updateMaintenanceScheduleStatus = async (item: MaintenanceSchedule, status: string) => {
-    if (!isAdmin) return alert("관리자만 상태를 변경할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("상태 변경은 관리자만 가능합니다.");
     const { error } = await supabase
       .from("maintenance_schedules")
       .update({ status, updated_at: new Date().toISOString() })
@@ -2273,7 +2280,7 @@ export default function App() {
   };
 
   const toggleReceiptPhotoProcessed = async (item: ReceiptPhoto) => {
-    if (!isAdmin) return alert("관리자만 처리상태를 변경할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("처리상태 변경은 관리자만 가능합니다.");
 
     const { error } = await supabase
       .from("receipt_photos")
@@ -2286,7 +2293,7 @@ export default function App() {
   };
 
   const deleteReceiptPhoto = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("입고사진 등록건을 삭제할까요?")) return;
 
     const { error } = await supabase.from("receipt_photos").delete().eq("id", id);
@@ -2302,6 +2309,8 @@ export default function App() {
   };
 
   const saveCardUse = async () => {
+    if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!cardForm.date || !cardForm.place || !Number(cardForm.amount || 0)) {
       return alert("사용일자, 사용처, 금액을 확인하세요.");
     }
@@ -2347,7 +2356,7 @@ export default function App() {
   };
 
   const deleteCardUse = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const { error } = await supabase.from("card_uses").delete().eq("id", id);
     if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
     setCardUses((prev) => prev.filter((c) => c.id !== id));
@@ -2380,7 +2389,8 @@ export default function App() {
     });
 
   const saveVendor = async () => {
-    if (!isAdmin) return alert("관리자만 거래처를 등록/수정할 수 있습니다.");
+    if (editingVendorId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!vendorForm.name) return;
     const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
     const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
@@ -2417,7 +2427,8 @@ export default function App() {
   };
 
   const saveGroup = async () => {
-    if (!isAdmin) return alert("관리자만 창고를 등록/수정할 수 있습니다.");
+    if (editingGroupId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!groupForm.name) return;
     const payload: Group = { id: editingGroupId || uid(), ...groupForm };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
@@ -2429,7 +2440,8 @@ export default function App() {
   };
 
   const saveWarehouse = async () => {
-    if (!isAdmin) return alert("관리자만 창고를 등록/수정할 수 있습니다.");
+    if (editingWarehouseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!warehouseForm.group || !warehouseForm.name) return;
     const payload: Warehouse = { id: editingWarehouseId || uid(), ...warehouseForm };
     const { error } = await supabase.from("warehouses").upsert(payload);
@@ -2442,7 +2454,7 @@ export default function App() {
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
   const deleteGroup = async (id: string, name: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const newGroups = reseq(groups.filter((g) => g.id !== id));
     const newWarehouses = reseq(warehouses.filter((w) => w.group !== name));
     const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
@@ -2457,7 +2469,7 @@ export default function App() {
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
   const deleteWarehouse = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const newWarehouses = reseq(warehouses.filter((w) => w.id !== id));
     const { error } = await supabase.from("warehouses").delete().eq("id", id);
     if (error) return alert(`창고 삭제 실패: ${error.message}`);
@@ -2467,7 +2479,8 @@ export default function App() {
   };
 
   const saveItem = async () => {
-    if (!isAdmin) return alert("관리자만 품목을 등록/수정할 수 있습니다.");
+    if (editingItemId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!itemForm.name) return;
     const existing = editingItemId ? items.find((i) => i.id === editingItemId) : items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
     const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
@@ -2695,14 +2708,14 @@ export default function App() {
   };
 
   const deletePurchase = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const { error } = await supabase.from("purchases").delete().eq("id", id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
   };
 
   const deleteVendor = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const { error } = await supabase.from("vendors").delete().eq("id", id);
     if (error) return alert(`거래처 삭제 실패: ${error.message}`);
     setVendors((prev) => prev.filter((v) => v.id !== id));
@@ -2718,7 +2731,7 @@ export default function App() {
   };
 
   const deleteItem = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const { error } = await supabase.from("items").delete().eq("id", id);
     if (error) return alert(`품목 삭제 실패: ${error.message}`);
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -2739,7 +2752,7 @@ export default function App() {
   };
 
   const deleteMaint = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const { error } = await supabase.from("maints").delete().eq("id", id);
     if (error) return alert(`정비 삭제 실패: ${error.message}`);
     setMaints((prev) => prev.filter((m) => m.id !== id));
@@ -2927,7 +2940,7 @@ export default function App() {
   };
 
   const deleteUpdateNotice = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 삭제할 수 있습니다.");
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("업데이트 공지를 삭제할까요?")) return;
 
     setUpdateNotices((prev) => prev.filter((notice) => notice.id !== id));
@@ -4263,7 +4276,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={isAdmin} onLinkPhoto={openPurchasePhotoPicker} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -4432,7 +4445,7 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={isAdmin} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
@@ -4571,7 +4584,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={isAdmin} onLinkPhoto={openMaintPhotoPicker} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={canEditDeleteRecords} onLinkPhoto={openMaintPhotoPicker} />}
 
         {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
@@ -4698,7 +4711,7 @@ export default function App() {
         {menuTab === "maintenance_schedules" && (
           <MaintenanceScheduleList
             schedules={maintenanceSchedules}
-            isAdmin={isAdmin}
+            isAdmin={canEditDeleteRecords}
             editSchedule={editMaintenanceSchedule}
             deleteSchedule={deleteMaintenanceSchedule}
             updateStatus={updateMaintenanceScheduleStatus}
