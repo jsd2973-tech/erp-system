@@ -4172,6 +4172,36 @@ export default function App() {
           </section>
         )}
 
+        {menuTab === "backup_permissions" && (
+          <BackupPermissionPage
+            purchases={purchases}
+            maints={maints}
+            cardUses={cardUses}
+            vendors={vendors}
+            groups={groups}
+            warehouses={warehouses}
+            items={items}
+            permits={permits}
+            vendorAccounts={vendorAccounts}
+            receiptPhotos={receiptPhotos}
+            maintenancePhotos={maintenancePhotos}
+            maintenanceSchedules={maintenanceSchedules}
+            updateNotices={updateNotices}
+            userPermissions={userPermissions}
+            permissionForm={permissionForm}
+            setPermissionForm={setPermissionForm}
+            saveUserPermission={saveUserPermission}
+            deleteUserPermission={deleteUserPermission}
+            loadAll={loadAll}
+            loadPermits={loadPermits}
+            loadVendorAccounts={loadVendorAccounts}
+            loadReceiptPhotos={loadReceiptPhotos}
+            loadMaintenancePhotos={loadMaintenancePhotos}
+            loadMaintenanceSchedules={loadMaintenanceSchedules}
+            loadUserPermissions={loadUserPermissions}
+          />
+        )}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} updateNotices={updateNotices} setMenuTab={setMenuTab} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
