@@ -145,6 +145,19 @@ const KEY = {
 
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
+const INTERNAL_LOGIN_DOMAIN = "tm.local";
+
+const toLoginEmail = (value: string) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  return raw.includes("@") ? raw : `${raw}@${INTERNAL_LOGIN_DOMAIN}`;
+};
+
+const toLoginId = (value: string) => {
+  const raw = String(value || "").trim().toLowerCase();
+  const suffix = `@${INTERNAL_LOGIN_DOMAIN}`;
+  return raw.endsWith(suffix) ? raw.slice(0, -suffix.length) : raw;
+};
 
 const readAuthPrefs = () => {
   try {
@@ -2878,7 +2891,13 @@ export default function App() {
   const login = async () => {
     setLoginError("");
 
-    const email = loginForm.email.trim();
+    const loginId = loginForm.email.trim();
+    const email = toLoginEmail(loginId);
+
+    if (!email) {
+      setLoginError("아이디를 입력하세요.");
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -2886,15 +2905,16 @@ export default function App() {
     });
 
     if (error) {
-      setLoginError("로그인 실패: 이메일 또는 비밀번호를 확인하세요.");
+      setLoginError("로그인 실패: 아이디 또는 비밀번호를 확인하세요.");
       return;
     }
 
     const nextPrefs = {
       ...authPrefs,
-      email: authPrefs.saveEmail || authPrefs.autoLogin ? email : "",
+      email: authPrefs.saveEmail || authPrefs.autoLogin ? toLoginId(email) : "",
     };
 
+    setLoginForm((prev) => ({ ...prev, email: toLoginId(email) }));
     setAuthPrefs(nextPrefs);
     writeAuthPrefs(nextPrefs);
     setAuthLoading(false);
@@ -3060,8 +3080,9 @@ export default function App() {
   const saveUserPermission = async (next?: UserPermission) => {
     if (!isAdmin) return alert("관리자만 권한을 저장할 수 있습니다.");
     const target = next || permissionForm;
-    const email = target.email.trim().toLowerCase();
-    if (!email) return alert("직원 이메일을 입력하세요.");
+    const loginId = target.email.trim().toLowerCase();
+    const email = toLoginEmail(loginId);
+    if (!email) return alert("직원 아이디를 입력하세요.");
 
     const payload = {
       id: target.id || uid(),
@@ -3080,7 +3101,7 @@ export default function App() {
 
   const deleteUserPermission = async (email: string) => {
     if (!isAdmin) return alert("관리자만 권한을 삭제할 수 있습니다.");
-    if (!confirm(`${email} 권한을 삭제할까요?`)) return;
+    if (!confirm(`${toLoginId(email)} 권한을 삭제할까요?`)) return;
 
     const { error } = await supabase.from("user_permissions").delete().eq("email", email);
     if (error) return alert(`권한 삭제 실패: ${error.message}`);
@@ -3207,7 +3228,7 @@ export default function App() {
           <h1>태명산업개발</h1>
           <p>통합 관리 시스템 로그인</p>
 
-          <label>이메일</label>
+          <label>아이디</label>
           <input
             value={loginForm.email}
             onChange={(e) => {
@@ -3215,12 +3236,12 @@ export default function App() {
               setLoginForm({ ...loginForm, email });
 
               if (authPrefs.saveEmail || authPrefs.autoLogin) {
-                const nextPrefs = { ...authPrefs, email };
+                const nextPrefs = { ...authPrefs, email: toLoginId(email) };
                 setAuthPrefs(nextPrefs);
                 writeAuthPrefs(nextPrefs);
               }
             }}
-            placeholder="이메일 입력"
+            placeholder="아이디 입력 예: field01"
           />
 
           <label>비밀번호</label>
@@ -6437,7 +6458,7 @@ function BackupPermissionPage({
   const editPermission = (item: UserPermission) => {
     setPermissionForm({
       id: item.id || uid(),
-      email: item.email || "",
+      email: toLoginId(item.email || ""),
       role: item.role || "field",
       permissions: item.permissions || {},
     });
@@ -6483,13 +6504,13 @@ function BackupPermissionPage({
         <div className="permission-head">
           <div>
             <h3>직원 권한관리</h3>
-            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능. 홈도 체크해야 보입니다.</p>
+            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능. 직원 아이디는 field01처럼 입력하면 내부에서 field01@tm.local로 저장됩니다.</p>
           </div>
         </div>
 
         <div className="permission-form">
-          <Field label="직원 이메일">
-            <input value={permissionForm.email} onChange={(e) => setPermissionForm({ ...permissionForm, email: e.target.value })} placeholder="직원 이메일" />
+          <Field label="직원 아이디">
+            <input value={permissionForm.email} onChange={(e) => setPermissionForm({ ...permissionForm, email: e.target.value })} placeholder="예: field01" />
           </Field>
           <Field label="권한 단계">
             <select value={permissionForm.role} onChange={(e) => setPermissionForm({ ...permissionForm, role: e.target.value as UserRole })}>
@@ -6515,7 +6536,7 @@ function BackupPermissionPage({
           {userPermissions.map((item: UserPermission) => (
             <div className="permission-row" key={item.email}>
               <div>
-                <b>{item.email}</b>
+                <b>{toLoginId(item.email)}</b>
                 <span>{item.role === "office" ? "사무실직원" : item.role === "field" ? "현장직원" : "관리자"}</span>
               </div>
               <em>{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
