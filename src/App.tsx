@@ -4944,12 +4944,20 @@ export default function App() {
           )}
         </div>
 
-        <div className="mobile-bottom-nav">
-          <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
-          <button className={mobileSheet === "buy" || ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
-          <button className={mobileSheet === "card" || ["card_use", "card_list", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-          <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-          <button className={mobileSheet === "more" || ["update_history", "permits", "layout", "vendors", "warehouse_groups", "items", "update_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+        <div className="mobile-bottom-nav permission-aware-mobile-nav">
+          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>}
+          {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
+            <button className={mobileSheet === "buy" || ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
+          )}
+          {canShowAny(["card_use", "card_list", "card_stats"]) && (
+            <button className={mobileSheet === "card" || ["card_use", "card_list", "card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
+          )}
+          {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
+            <button className={mobileSheet === "maint" || ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+          )}
+          {canShowAny(["update_history", "layout", "vendors", "warehouse_groups", "items", "permits"]) && (
+            <button className={mobileSheet === "more" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+          )}
         </div>
 
       </div>
@@ -13470,6 +13478,14 @@ button[onclick*="downloadPdf"]{
   .permission-aware-menu > button{
     display:none;
   }
+}
+
+/* ===== Mobile Permission Bottom Nav Final ===== */
+.permission-aware-mobile-nav{
+  grid-template-columns:repeat(auto-fit,minmax(72px,1fr)) !important;
+}
+.permission-aware-mobile-nav button{
+  min-width:0 !important;
 }
 
 `;
