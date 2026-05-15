@@ -5692,15 +5692,13 @@ function HomeDashboard({
 
   const recentMaints = [...maints].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
   const recentCards = [...cardUses].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
+  const recentPurchases = [...purchases].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).slice(0,5);
   const recentSchedules = [...maintenanceSchedules].sort((a,b)=>String(a.schedule_date||"").localeCompare(String(b.schedule_date||""))).slice(0,6);
 
   const vendorMap = new Map<string, number>();
   purchases.forEach((p)=>vendorMap.set(p.vendor || "-", (vendorMap.get(p.vendor || "-") || 0) + Number(p.total || 0)));
   const topVendors = Array.from(vendorMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  const itemMap = new Map<string, number>();
-  purchases.forEach((p)=> (p.rows || []).forEach((r)=> itemMap.set(r.item || "-", (itemMap.get(r.item || "-") || 0) + Number(r.qty || 0))));
-  const topItems = Array.from(itemMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   const recentPhotoFeed = [
     ...receiptPhotos.map((x) => ({
@@ -5791,9 +5789,9 @@ function HomeDashboard({
                 <h3>최근 정비내역</h3>
                 <button onClick={() => setMenuTab?.("maint_list")}>더보기</button>
               </div>
-              <table className="dashboard-pro-table">
+              <table className="dashboard-pro-table dashboard-mobile-stack">
                 <thead><tr><th>일자</th><th>제목</th><th>창고</th></tr></thead>
-                <tbody>{recentMaints.map((m)=><tr key={m.id}><td>{m.date}</td><td>{m.title}</td><td>{m.warehouse}</td></tr>)}</tbody>
+                <tbody>{recentMaints.map((m)=><tr key={m.id}><td data-label="일자">{m.date}</td><td data-label="제목">{m.title}</td><td data-label="창고">{m.warehouse}</td></tr>)}</tbody>
               </table>
             </div>
 
@@ -5802,27 +5800,30 @@ function HomeDashboard({
                 <h3>최근 카드사용</h3>
                 <button onClick={() => setMenuTab?.("card_list")}>더보기</button>
               </div>
-              <table className="dashboard-pro-table">
+              <table className="dashboard-pro-table dashboard-mobile-stack">
                 <thead><tr><th>일자</th><th>사용처</th><th>금액</th></tr></thead>
-                <tbody>{recentCards.map((c)=><tr key={c.id}><td>{c.date}</td><td>{c.place}</td><td className="right">{money(c.amount)}</td></tr>)}</tbody>
+                <tbody>{recentCards.map((c)=><tr key={c.id}><td data-label="일자">{c.date}</td><td data-label="사용처">{c.place}</td><td data-label="금액" className="right">{money(c.amount)}</td></tr>)}</tbody>
               </table>
             </div>
           </div>
 
-          <div className="dashboard-pro-split">
+          <div className="dashboard-pro-split dashboard-purchase-vendor-row">
             <div className="dashboard-pro-panel">
-              <h3>거래처 TOP5</h3>
-              <table className="dashboard-pro-table">
-                <thead><tr><th>거래처</th><th>금액</th></tr></thead>
-                <tbody>{topVendors.map(([n,a])=><tr key={n}><td>{n}</td><td className="right">{money(a)}</td></tr>)}</tbody>
+              <div className="dashboard-pro-panel-head">
+                <h3>최근 구매내역</h3>
+                <button onClick={() => setMenuTab?.("list")}>더보기</button>
+              </div>
+              <table className="dashboard-pro-table dashboard-mobile-stack">
+                <thead><tr><th>일자</th><th>거래처</th><th>품목</th><th>금액</th></tr></thead>
+                <tbody>{recentPurchases.map((p)=><tr key={p.id}><td data-label="일자">{p.date}</td><td data-label="거래처">{p.vendor}</td><td data-label="품목">{p.itemSummary}</td><td data-label="금액" className="right">{money(p.total)}</td></tr>)}</tbody>
               </table>
             </div>
 
             <div className="dashboard-pro-panel">
-              <h3>품목 TOP5</h3>
-              <table className="dashboard-pro-table">
-                <thead><tr><th>품목</th><th>수량</th></tr></thead>
-                <tbody>{topItems.map(([n,q])=><tr key={n}><td>{n}</td><td className="right">{money(q)}</td></tr>)}</tbody>
+              <h3>거래처 TOP5</h3>
+              <table className="dashboard-pro-table dashboard-mobile-stack">
+                <thead><tr><th>거래처</th><th>금액</th></tr></thead>
+                <tbody>{topVendors.map(([n,a])=><tr key={n}><td data-label="거래처">{n}</td><td data-label="금액" className="right">{money(a)}</td></tr>)}</tbody>
               </table>
             </div>
           </div>
@@ -12230,6 +12231,84 @@ button[onclick*="downloadPdf"]{
   }
   .dashboard-schedule-row{
     grid-template-columns:1fr;
+  }
+}
+
+/* ===== Dashboard Mobile Text Overflow Fix + Recent Purchases ===== */
+.dashboard-pro-table{
+  table-layout:fixed;
+}
+
+.dashboard-pro-table th,
+.dashboard-pro-table td{
+  word-break:keep-all;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.dashboard-purchase-vendor-row{
+  grid-template-columns:1.25fr .75fr;
+}
+
+@media (max-width:900px){
+  .dashboard-pro-panel{
+    overflow:hidden;
+  }
+
+  .dashboard-mobile-stack{
+    display:block;
+  }
+
+  .dashboard-mobile-stack thead{
+    display:none;
+  }
+
+  .dashboard-mobile-stack tbody{
+    display:grid;
+    gap:10px;
+  }
+
+  .dashboard-mobile-stack tr{
+    display:grid;
+    gap:6px;
+    padding:12px;
+    border-radius:16px;
+    background:#f8fafc;
+    border:1px solid #e5e7eb;
+  }
+
+  .dashboard-mobile-stack td{
+    display:grid;
+    grid-template-columns:74px 1fr;
+    gap:8px;
+    border:0 !important;
+    padding:0 !important;
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+    word-break:break-word !important;
+    text-align:left !important;
+    font-size:13px;
+  }
+
+  .dashboard-mobile-stack td::before{
+    content:attr(data-label);
+    color:#64748b;
+    font-weight:1000;
+  }
+
+  .dashboard-mobile-stack td.right{
+    text-align:left !important;
+  }
+
+  .dashboard-pro-table td,
+  .dashboard-pro-table th{
+    white-space:normal !important;
+  }
+
+  .dashboard-purchase-vendor-row{
+    grid-template-columns:1fr !important;
   }
 }
 
