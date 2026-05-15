@@ -6567,8 +6567,8 @@ function HomeDashboard({
   const todayCardTotal = todayCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
 
   const kpiCards = [
-    { label: "오늘 구매 등록", value: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: "🛒", tone: "blue", tab: "new" },
-    { label: "오늘 카드사용", value: `${todayCards.length}건`, sub: `금액 ${money(todayCardTotal)}원`, icon: "💳", tone: "green", tab: "card_use" },
+    { label: "오늘 구매 금액", value: `${todayPurchases.length}건`, sub: `금액 ${money(todayPurchaseTotal)}원`, icon: "🛒", tone: "blue", tab: "new" },
+    { label: "이번달 카드사용", value: `${todayCards.length}건`, sub: `금액 ${money(todayCardTotal)}원`, icon: "💳", tone: "green", tab: "card_use" },
     { label: "오늘 정비 등록", value: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: "🔧", tone: "purple", tab: "maint_new" },
     { label: "확인 필요", value: `${warningCount}건`, sub: "미처리/긴급 등록", icon: "⚠️", tone: "red", tab: "maintenance_photos" },
   ];
