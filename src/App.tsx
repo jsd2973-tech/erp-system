@@ -1059,14 +1059,6 @@ export default function App() {
   }, [siteNotices, isAdmin, currentRole, userEmail]);
 
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
-  const [showMobileQuickStart, setShowMobileQuickStart] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 900 : false
-  );
-  const openMobileQuickMenu = (target: string) => {
-    setMenuTab(target as any);
-    setMobileSheet("");
-    setShowMobileQuickStart(false);
-  };
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "", image_urls: [] as string[] });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
@@ -2969,7 +2961,6 @@ export default function App() {
     setSession(null);
     setMenuTab("home");
     setMobileSheet("");
-    setShowMobileQuickStart(false);
     setShowUpdateNotice(false);
     setLoginError("");
 
@@ -3357,50 +3348,6 @@ export default function App() {
         {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
 
 
-
-        {showMobileQuickStart && (
-          <div className="mobile-quick-start">
-            <div className="mobile-quick-card">
-              <div className="mobile-quick-logo">
-                <strong>태명산업개발</strong>
-                <span>통합 관리 시스템</span>
-              </div>
-
-              <div className="mobile-quick-title">
-                <h2>업무 선택</h2>
-                <p>사용할 메뉴를 선택하세요.</p>
-              </div>
-
-              <button className="mobile-quick-btn photo" onClick={() => openMobileQuickMenu("receipt_photos")}>
-                <span>📷</span>
-                <div>
-                  <b>입고사진등록</b>
-                  <small>자재 입고 사진과 내용 등록</small>
-                </div>
-              </button>
-
-              <button className="mobile-quick-btn maint" onClick={() => openMobileQuickMenu("maintenance_photos")}>
-                <span>🛠️</span>
-                <div>
-                  <b>정비사진등록</b>
-                  <small>정비 사진과 내용 등록</small>
-                </div>
-              </button>
-
-              <button className="mobile-quick-btn home" onClick={() => openMobileQuickMenu("home")}>
-                <span>🏠</span>
-                <div>
-                  <b>홈으로 가기</b>
-                  <small>전체 ERP 메뉴 보기</small>
-                </div>
-              </button>
-
-              <button className="mobile-quick-logout" onClick={logout}>
-                로그아웃
-              </button>
-            </div>
-          </div>
-        )}
 
         {showUpdateNotice && (
           <div className="update-popup-backdrop">
