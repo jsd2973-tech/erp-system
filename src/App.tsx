@@ -1027,6 +1027,7 @@ export default function App() {
   const canEditDeleteRecords = currentRole === "admin";
   const canAccessTab = (tab: string) => {
     if (!tab) return true;
+    if (tab === "home") return true;
     if (tab === "site_notices") return true;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
@@ -1036,9 +1037,7 @@ export default function App() {
 
   const getFirstAllowedTab = () => {
     if (isAdmin || currentRole === "office") return "home";
-    const permissions = currentUserPermission?.permissions || {};
-    const first = ERP_PERMISSION_MODULES.find((module) => permissions[module.key]);
-    return first?.key || "home";
+    return "home";
   };
   const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
