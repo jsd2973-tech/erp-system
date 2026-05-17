@@ -1044,8 +1044,6 @@ export default function App() {
   const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
     canAccessTab(tab) ? <button onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
-  const mobileMenuButton = (tab: string, label: string) =>
-    canAccessTab(tab) ? <button onClick={() => { setMenuTab(tab); setMobileSheet(""); }}>{label}</button> : null;
 
   const visibleSiteNotices = useMemo(() => {
     return (siteNotices || []).filter((notice) => {
