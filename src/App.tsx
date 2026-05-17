@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
@@ -1002,6 +1002,8 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
+  const menuHistoryReadyRef = useRef(false);
+  const skipNextMenuHistoryRef = useRef(false);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
@@ -1695,11 +1697,49 @@ export default function App() {
 
   useEffect(() => {
     if (!session) return;
-    if (!canAccessTab(menuTab)) {
-      setMenuTab(getFirstAllowedTab());
-    }
+
+    const onPopState = () => {
+      const url = new URL(window.location.href);
+      const nextTab = url.searchParams.get("tab") || window.history.state?.erpMenuTab || "home";
+
+      skipNextMenuHistoryRef.current = true;
+      setMenuTab(canAccessTab(nextTab) ? nextTab : getFirstAllowedTab());
+      setMobileSheet("");
+    };
+
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.email, menuTab, currentRole, userPermissions.length]);
+  }, [session?.user?.email, currentRole, userPermissions.length]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", menuTab);
+
+    const nextState = {
+      ...(window.history.state || {}),
+      erpMenuTab: menuTab,
+    };
+
+    if (!menuHistoryReadyRef.current) {
+      window.history.replaceState(nextState, "", url);
+      menuHistoryReadyRef.current = true;
+      return;
+    }
+
+    if (skipNextMenuHistoryRef.current) {
+      skipNextMenuHistoryRef.current = false;
+      window.history.replaceState(nextState, "", url);
+      return;
+    }
+
+    window.history.pushState(nextState, "", url);
+  }, [menuTab, session]);
 
   const vendorOptions = useMemo(
     () =>
