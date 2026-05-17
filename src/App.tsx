@@ -1071,6 +1071,7 @@ export default function App() {
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "", image_urls: [] as string[] });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
+  const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
 
   const [vendorForm, setVendorForm] = useState({ code: `V${String(vendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
@@ -1771,6 +1772,11 @@ export default function App() {
     setEditingPurchaseId("");
   };
 
+  const openPurchaseEntryPopup = () => {
+    resetPurchaseForm();
+    setPurchaseEntryPopupOpen(true);
+  };
+
   const savePurchase = async () => {
     if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
@@ -1795,6 +1801,7 @@ export default function App() {
       setLinkingReceiptPhotoId("");
     }
     resetPurchaseForm();
+    setPurchaseEntryPopupOpen(false);
     setMenuTab("list");
   };
 
@@ -4470,13 +4477,16 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
-        {menuTab === "new" && (
-          <section className="card">
-            <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
+        {(menuTab === "new" || purchaseEntryPopupOpen) && (
+          <section className={`card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
+            <div className="purchase-entry-popup-head">
+              <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
+              {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>닫기</button>}
+            </div>
             <div className="grid3">
               <Field label="일자">
                                 <div className="date-input-wrap">
@@ -4531,7 +4541,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -5177,7 +5187,7 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto }: any) {
+function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
 
   const openPurchaseDetail = (purchase: Purchase) => {
@@ -5187,10 +5197,10 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   };
 
   return <>
-    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
+    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
   {!purchases.length ? (
     <div className="empty">저장된 구매내역 없음</div>
   ) : purchases.map((p: Purchase, index: number) => {
@@ -6563,6 +6573,7 @@ function HomeDashboard({
   maintenancePhotos = [],
   siteNotices = [],
   setMenuTab,
+  currentRole,
 }: {
   purchases: Purchase[];
   maints: Maint[];
@@ -6572,6 +6583,7 @@ function HomeDashboard({
   maintenancePhotos?: MaintenancePhoto[];
   siteNotices?: SiteNotice[];
   setMenuTab?: (tab: string) => void;
+  currentRole?: UserRole;
 }) {
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
@@ -6624,6 +6636,57 @@ function HomeDashboard({
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = monthCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+
+  if (currentRole === "field") {
+    return (
+      <section className="field-mobile-home">
+        <div className="field-mobile-hero">
+          <span>현장직원 홈</span>
+          <h2>오늘 필요한 메뉴만 크게 모았습니다.</h2>
+          <p>공지 확인, 사진 등록, 정비일정을 빠르게 처리하세요.</p>
+        </div>
+
+        <div className="field-mobile-quick-grid">
+          <button onClick={() => setMenuTab?.("site_notices")}><b>공지</b><span>전달사항 확인</span></button>
+          <button onClick={() => setMenuTab?.("receipt_photos")}><b>입고사진등록</b><span>입고 사진 촬영</span></button>
+          <button onClick={() => setMenuTab?.("maintenance_photos")}><b>정비사진등록</b><span>정비 전후 사진</span></button>
+          <button onClick={() => setMenuTab?.("maintenance_schedules")}><b>정비일정</b><span>오늘 작업 확인</span></button>
+        </div>
+
+        <div className="field-mobile-card">
+          <div className="field-mobile-card-head">
+            <h3>오늘 정비 일정</h3>
+            <button onClick={() => setMenuTab?.("maintenance_schedules")}>전체보기</button>
+          </div>
+          <div className="field-mobile-list">
+            {todaySchedules.length ? todaySchedules.slice(0, 5).map((s) => (
+              <button key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
+                <b>{s.equipment_name || "장비명 없음"}</b>
+                <span>{s.work_detail || "작업내용 없음"}</span>
+                <em>{s.worker_name || "담당자 미지정"} · {s.status || "예정"}</em>
+              </button>
+            )) : <div className="field-mobile-empty">오늘 등록된 정비일정이 없습니다.</div>}
+          </div>
+        </div>
+
+        <div className="field-mobile-card">
+          <div className="field-mobile-card-head">
+            <h3>공지사항</h3>
+            <button onClick={() => setMenuTab?.("site_notices")}>전체보기</button>
+          </div>
+          <div className="field-mobile-list">
+            {activeNotices.length ? activeNotices.slice(0, 4).map((notice) => (
+              <button key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
+                <b>{notice.title || "제목 없음"}</b>
+                <span>{notice.content || ""}</span>
+                <em>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</em>
+              </button>
+            )) : <div className="field-mobile-empty">등록된 공지가 없습니다.</div>}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const kpiCards = [
     {
@@ -14784,6 +14847,35 @@ button[onclick*="downloadPdf"]{
     margin-top:2px;
   }
 }
+
+
+/* field mobile home */
+.field-mobile-home{padding:18px 14px 100px;background:#f4f7fb;min-height:calc(100vh - 70px)}
+.field-mobile-hero{border-radius:24px;padding:24px 20px;background:linear-gradient(135deg,#0d5bff,#38bdf8);color:#fff;box-shadow:0 18px 38px rgba(37,99,235,.18);margin-bottom:16px}
+.field-mobile-hero span{display:inline-flex;height:24px;padding:0 10px;align-items:center;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:950}
+.field-mobile-hero h2{margin:12px 0 6px;font-size:24px;line-height:1.2;font-weight:950;letter-spacing:-.6px}
+.field-mobile-hero p{margin:0;opacity:.92;font-size:14px;font-weight:750}
+.field-mobile-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.field-mobile-quick-grid button{min-height:112px;border:0;border-radius:22px;background:#fff;padding:18px;text-align:left;box-shadow:0 10px 26px rgba(15,23,42,.07);cursor:pointer}
+.field-mobile-quick-grid b{display:block;color:#0f172a;font-size:18px;font-weight:950;line-height:1.25}
+.field-mobile-quick-grid span{display:block;margin-top:8px;color:#64748b;font-size:13px;font-weight:800}
+.field-mobile-card{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:18px;margin-bottom:14px;box-shadow:0 10px 26px rgba(15,23,42,.055)}
+.field-mobile-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.field-mobile-card-head h3{margin:0;color:#111827;font-size:19px;font-weight:950}
+.field-mobile-card-head button{border:0;background:#eff6ff;color:#2563eb;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:950}
+.field-mobile-list{display:flex;flex-direction:column;gap:10px}
+.field-mobile-list button{border:1px solid #eef2f7;background:#fbfdff;border-radius:16px;padding:14px;text-align:left;cursor:pointer}
+.field-mobile-list b{display:block;color:#111827;font-size:15px;font-weight:950;line-height:1.3}
+.field-mobile-list span{display:block;margin-top:5px;color:#475569;font-size:13px;font-weight:800;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.field-mobile-list em{display:block;margin-top:7px;color:#94a3b8;font-size:12px;font-style:normal;font-weight:850}
+.field-mobile-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
+.purchase-lookup-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1180px,94vw);max-height:88vh;overflow:auto;box-shadow:0 30px 90px rgba(15,23,42,.35);border:1px solid #dbeafe}
+.purchase-entry-popup-card:before{content:"";position:fixed;inset:-100vh;z-index:-1;background:rgba(15,23,42,.45)}
+.purchase-entry-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.purchase-entry-popup-head h2{margin:0}
+.purchase-entry-popup-head button{border:0;background:#f1f5f9;color:#334155;border-radius:999px;padding:9px 13px;font-weight:950;cursor:pointer}
+@media(max-width:760px){.field-mobile-home{padding:14px 10px 96px}.field-mobile-hero h2{font-size:21px}.field-mobile-quick-grid{grid-template-columns:1fr}.field-mobile-quick-grid button{min-height:94px}.purchase-entry-popup-card{width:96vw;max-height:86vh;padding:16px}}
 
 
 `;
