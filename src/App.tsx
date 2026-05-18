@@ -4461,7 +4461,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -6508,6 +6508,7 @@ function HomeDashboard({
   siteNotices = [],
   setMenuTab,
   currentRole,
+  logout,
 }: {
   purchases: Purchase[];
   maints: Maint[];
@@ -6518,6 +6519,7 @@ function HomeDashboard({
   siteNotices?: SiteNotice[];
   setMenuTab?: (tab: string) => void;
   currentRole?: UserRole;
+  logout?: () => void;
 }) {
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
@@ -6575,7 +6577,10 @@ function HomeDashboard({
     return (
       <section className="field-mobile-home">
         <div className="field-mobile-hero">
-          <span>현장직원 홈</span>
+          <div className="field-mobile-hero-top">
+            <span>현장직원 홈</span>
+            <button onClick={logout}>로그아웃</button>
+          </div>
           <h2>오늘 필요한 메뉴만 크게 모았습니다.</h2>
           <p>공지 확인, 사진 등록, 정비일정을 빠르게 처리하세요.</p>
         </div>
@@ -14786,7 +14791,7 @@ button[onclick*="downloadPdf"]{
 /* field mobile home */
 .field-mobile-home{padding:18px 14px 100px;background:#f4f7fb;min-height:calc(100vh - 70px)}
 .field-mobile-hero{border-radius:24px;padding:24px 20px;background:linear-gradient(135deg,#0d5bff,#38bdf8);color:#fff;box-shadow:0 18px 38px rgba(37,99,235,.18);margin-bottom:16px}
-.field-mobile-hero span{display:inline-flex;height:24px;padding:0 10px;align-items:center;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:950}
+.field-mobile-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.field-mobile-hero span{display:inline-flex;height:24px;padding:0 10px;align-items:center;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:950}.field-mobile-hero-top button{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:950;cursor:pointer}
 .field-mobile-hero h2{margin:12px 0 6px;font-size:24px;line-height:1.2;font-weight:950;letter-spacing:-.6px}
 .field-mobile-hero p{margin:0;opacity:.92;font-size:14px;font-weight:750}
 .field-mobile-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
