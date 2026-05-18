@@ -6445,20 +6445,6 @@ function SiteNoticePage({
                 <span>현장직원</span>
               </label>
 
-              {!!receiptUploadPreviewUrls.length && (
-                <div className="upload-preview-grid">
-                  {receiptUploadPreviewUrls.map((url: string, idx: number) => (
-                    <button
-                      type="button"
-                      key={idx}
-                      className="upload-preview-thumb"
-                      onClick={() => window.open(url, "_blank")}
-                    >
-                      <img src={url} alt={`receipt-preview-${idx}`} />
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             {!!noticeEmployees.length && (
               <div className="site-notice-target-emails">
