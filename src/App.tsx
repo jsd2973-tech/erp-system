@@ -4461,7 +4461,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -6508,6 +6508,7 @@ function HomeDashboard({
   siteNotices = [],
   setMenuTab,
   currentRole,
+  logout,
 }: {
   purchases: Purchase[];
   maints: Maint[];
@@ -6518,6 +6519,7 @@ function HomeDashboard({
   siteNotices?: SiteNotice[];
   setMenuTab?: (tab: string) => void;
   currentRole?: UserRole;
+  logout?: () => void;
 }) {
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
