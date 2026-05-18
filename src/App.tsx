@@ -14926,4 +14926,174 @@ button[onclick*="downloadPdf"]{
 @media(max-width:370px){.field-app-actions{grid-template-columns:1fr}.field-app-summary-grid{grid-template-columns:repeat(2,1fr)}}
 
 
+/* field mobile UI cleanup override */
+@media(max-width:760px){
+  .field-app-home{
+    padding:12px 10px 104px;
+    overflow-x:hidden;
+  }
+
+  .field-app-hero{
+    border-radius:24px;
+    padding:22px 18px;
+    margin-bottom:14px;
+  }
+
+  .field-app-hero h2{
+    font-size:24px;
+    line-height:1.22;
+    letter-spacing:-.6px;
+  }
+
+  .field-app-hero p{
+    font-size:13px;
+    line-height:1.45;
+  }
+
+  .field-app-notice{
+    border-radius:22px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+
+  .field-app-notice b{
+    font-size:16px;
+    margin-bottom:8px;
+  }
+
+  .field-app-notice strong{
+    font-size:14px;
+    line-height:1.35;
+  }
+
+  .field-app-actions{
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:14px;
+  }
+
+  .field-app-actions button{
+    min-height:148px;
+    border-radius:22px;
+    padding:16px 14px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .field-app-actions i{
+    width:44px;
+    height:44px;
+    border-radius:15px;
+    font-size:22px;
+    margin-bottom:12px;
+    flex:0 0 auto;
+  }
+
+  .field-app-actions b{
+    display:block;
+    width:100%;
+    font-size:17px;
+    line-height:1.22;
+    letter-spacing:-.35px;
+    word-break:keep-all;
+    white-space:normal;
+  }
+
+  .field-app-actions span{
+    display:block;
+    width:100%;
+    margin-top:7px;
+    color:#64748b;
+    font-size:12px;
+    line-height:1.38;
+    font-weight:750;
+    word-break:keep-all;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+  }
+
+  .field-app-actions em{
+    right:12px;
+    bottom:12px;
+    width:34px;
+    height:34px;
+    font-size:22px;
+  }
+
+  .field-app-summary,
+  .field-app-panel{
+    border-radius:22px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+
+  .field-app-panel-head h3{
+    font-size:18px;
+  }
+
+  .field-app-summary-grid{
+    grid-template-columns:repeat(4,1fr);
+    gap:6px;
+  }
+
+  .field-app-summary-grid div{
+    border-radius:16px;
+    padding:10px 4px;
+  }
+
+  .field-app-summary-grid i{
+    font-size:21px;
+    margin-bottom:5px;
+  }
+
+  .field-app-summary-grid b{
+    font-size:21px;
+  }
+
+  .field-app-summary-grid span{
+    font-size:10px;
+    line-height:1.2;
+  }
+
+  .field-app-panels{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .mobile-bottom-nav.permission-aware-mobile-nav{
+    padding:8px 8px 10px;
+    gap:8px;
+  }
+
+  .mobile-bottom-nav.permission-aware-mobile-nav button{
+    min-height:58px;
+    border-radius:18px;
+    font-size:13px;
+    font-weight:950;
+  }
+}
+
+@media(max-width:380px){
+  .field-app-actions{
+    gap:10px;
+  }
+
+  .field-app-actions button{
+    min-height:142px;
+    padding:14px 12px;
+  }
+
+  .field-app-actions b{
+    font-size:16px;
+  }
+
+  .field-app-actions span{
+    font-size:11px;
+  }
+}
+
+
 `;
