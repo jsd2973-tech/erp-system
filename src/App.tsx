@@ -5203,15 +5203,80 @@ export default function App() {
           </div>
         )}
 
-        <div className="mobile-more-sheet" style={{ display: mobileSheet ? "grid" : "none" }}>
-          </div>
+        <div className="mobile-more-sheet role-mobile-sheet" style={{ display: mobileSheet ? "block" : "none" }}>
+          <div className="role-mobile-sheet-card">
+            <div className="role-mobile-sheet-head">
+              <strong>
+                {mobileSheet === "buy" ? "구매 메뉴" : mobileSheet === "card" ? "카드 메뉴" : mobileSheet === "maint" ? "정비 메뉴" : "더보기"}
+              </strong>
+              <button onClick={() => setMobileSheet("")}>닫기</button>
+            </div>
 
-        <div className="mobile-bottom-nav permission-aware-mobile-nav">
-          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>}
-          {canAccessTab("list") && <button className={["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMenuTab("list")}>구매</button>}
-          {canAccessTab("card_list") && <button className={["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMenuTab("card_list")}>카드</button>}
-          {canAccessTab("maintenance_schedules") && <button className={["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMenuTab("maintenance_schedules")}>정비</button>}
-          {canAccessTab("site_notices") && <button className={["site_notices","layout","vendors","warehouse_groups","items","permits"].includes(menuTab) ? "active" : ""} onClick={() => setMenuTab("site_notices")}>공지</button>}
+            <div className="role-mobile-sheet-grid">
+              {mobileSheet === "buy" && (
+                <>
+                  {canAccessTab("new") && <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>}
+                  {canAccessTab("list") && <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>}
+                  {canAccessTab("status") && <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>}
+                  {canAccessTab("bulk_transfer") && <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>}
+                  {canAccessTab("receipt_photos") && <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>}
+                  {canAccessTab("vendor_accounts") && <button onClick={() => { setMenuTab("vendor_accounts"); setMobileSheet(""); }}>업체계좌관리</button>}
+                </>
+              )}
+
+              {mobileSheet === "card" && (
+                <>
+                  {canAccessTab("card_use") && <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>카드사용</button>}
+                  {canAccessTab("card_list") && <button onClick={() => { setMenuTab("card_list"); setMobileSheet(""); }}>카드조회</button>}
+                  {canAccessTab("card_stats") && <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>카드통계</button>}
+                </>
+              )}
+
+              {mobileSheet === "maint" && (
+                <>
+                  {canAccessTab("maint_new") && <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>}
+                  {canAccessTab("maint_list") && <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>}
+                  {canAccessTab("maint_stats") && <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>}
+                  {canAccessTab("maintenance_photos") && <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>}
+                  {canAccessTab("maintenance_schedule_new") && <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>}
+                  {canAccessTab("maintenance_schedules") && <button onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>정비일정조회</button>}
+                </>
+              )}
+
+              {mobileSheet === "more" && (
+                <>
+                  {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
+                  {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
+                  {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
+                  {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
+                  {canAccessTab("items") && <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>}
+                  {canAccessTab("permits") && <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
+                  <button className="role-mobile-logout" onClick={logout}>로그아웃</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mobile-bottom-nav permission-aware-mobile-nav role-aware-bottom-nav">
+          {currentRole === "field" ? (
+            <>
+              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
+              {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
+              {canAccessTab("maintenance_photos") && <button className={menuTab === "maintenance_photos" ? "active" : ""} onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진</button>}
+              {canAccessTab("maintenance_schedules") && <button className={["maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>일정</button>}
+              <button className={mobileSheet === "more" || menuTab === "site_notices" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+            </>
+          ) : (
+            <>
+              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
+              <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
+              <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
+              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+              <button className={mobileSheet === "more" || ["site_notices","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+            </>
+          )}
         </div>
 
       </div>
@@ -15221,6 +15286,95 @@ button[onclick*="downloadPdf"]{
 button:disabled{
   opacity:.55;
   cursor:not-allowed;
+}
+
+
+.role-mobile-sheet{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:78px;
+  z-index:9998;
+  padding:0 12px;
+  pointer-events:none;
+}
+.role-mobile-sheet-card{
+  pointer-events:auto;
+  max-width:760px;
+  margin:0 auto;
+  border:1px solid #e2e8f0;
+  background:rgba(255,255,255,.98);
+  border-radius:24px;
+  box-shadow:0 22px 70px rgba(15,23,42,.22);
+  padding:16px;
+}
+.role-mobile-sheet-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+.role-mobile-sheet-head strong{
+  color:#0f172a;
+  font-size:18px;
+  font-weight:1000;
+}
+.role-mobile-sheet-head button{
+  border:0;
+  background:#f1f5f9;
+  color:#334155;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:950;
+}
+.role-mobile-sheet-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.role-mobile-sheet-grid button{
+  min-height:54px;
+  border:1px solid #e2e8f0;
+  background:#f8fafc;
+  color:#111827;
+  border-radius:16px;
+  padding:10px 12px;
+  font-size:14px;
+  font-weight:950;
+  text-align:left;
+}
+.role-mobile-sheet-grid button.role-mobile-logout{
+  grid-column:1/-1;
+  background:#fee2e2;
+  border-color:#fecaca;
+  color:#b91c1c;
+  text-align:center;
+}
+.role-aware-bottom-nav{
+  box-shadow:0 -10px 32px rgba(15,23,42,.1);
+}
+.role-aware-bottom-nav button{
+  white-space:nowrap;
+}
+@media(max-width:760px){
+  .role-mobile-sheet{
+    bottom:74px;
+    padding:0 8px;
+  }
+  .role-mobile-sheet-card{
+    border-radius:22px;
+    padding:14px;
+  }
+  .role-mobile-sheet-grid{
+    gap:8px;
+  }
+  .role-mobile-sheet-grid button{
+    min-height:52px;
+    font-size:13px;
+    border-radius:15px;
+  }
 }
 
 
