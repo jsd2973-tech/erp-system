@@ -145,6 +145,7 @@ const KEY = {
 
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
+const MAINT_DRAFT_KEY = "erp_maint_draft_v1";
 const INTERNAL_LOGIN_DOMAIN = "tm.local";
 
 const toLoginEmail = (value: string) => {
@@ -1079,6 +1080,8 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
+  const [maintSaving, setMaintSaving] = useState(false);
+  const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
@@ -2818,27 +2821,124 @@ export default function App() {
   const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
+  const clearMaintDraft = () => {
+    try {
+      localStorage.removeItem(MAINT_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
   const resetMaintForm = () => {
     setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
+    setMaintSaveError("");
+    clearMaintDraft();
   };
-  const saveMaint = async () => {
-    if (!maintForm.warehouse || !maintForm.title) return;
-    const validItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
-    const payload = { id: editingMaintId || uid(), ...maintForm, image_url: (maintForm.image_urls || [])[0] || "", image_urls: maintForm.image_urls || [], items: validItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal, cost: Number(maintGrandTotal || maintForm.cost || 0) };
-    const { error } = await supabase.from("maints").upsert(payload);
-    if (error) return alert(`정비 저장 실패: ${error.message}`);
-    setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
-    if (linkingMaintenancePhotoId) {
-      await markMaintenancePhotoProcessed(linkingMaintenancePhotoId);
-      setLinkingMaintenancePhotoId("");
+
+  const restoreMaintDraft = () => {
+    try {
+      const saved = localStorage.getItem(MAINT_DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (draft?.maintForm) setMaintForm(draft.maintForm);
+      if (Array.isArray(draft?.maintItems) && draft.maintItems.length) setMaintItems(draft.maintItems);
+      if (draft?.editingMaintId) setEditingMaintId(draft.editingMaintId);
+    } catch {
+      // ignore
     }
-    resetMaintForm();
-    setMenuTab("maint_list");
+  };
+
+  useEffect(() => {
+    restoreMaintDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const hasFormValue = !!(
+      maintForm.date ||
+      maintForm.warehouse ||
+      maintForm.manager ||
+      maintForm.title ||
+      maintForm.detail ||
+      maintForm.cost ||
+      (maintForm.image_urls || []).length ||
+      maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total)
+    );
+
+    if (!hasFormValue) return;
+
+    try {
+      localStorage.setItem(MAINT_DRAFT_KEY, JSON.stringify({
+        maintForm,
+        maintItems,
+        editingMaintId,
+        saved_at: new Date().toISOString(),
+      }));
+    } catch {
+      // ignore
+    }
+  }, [maintForm, maintItems, editingMaintId]);
+
+  const saveMaint = async () => {
+    if (maintSaving) return;
+    setMaintSaveError("");
+
+    if (!maintForm.warehouse || !maintForm.title) {
+      const message = "창고와 정비제목을 입력하세요.";
+      setMaintSaveError(message);
+      alert(message);
+      return;
+    }
+
+    setMaintSaving(true);
+
+    try {
+      const validItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
+      const payload = {
+        id: editingMaintId || uid(),
+        ...maintForm,
+        image_url: (maintForm.image_urls || [])[0] || "",
+        image_urls: maintForm.image_urls || [],
+        items: validItems,
+        supplyTotal: maintSupplyTotal,
+        vatTotal: maintVatTotal,
+        total: maintGrandTotal,
+        cost: Number(maintGrandTotal || maintForm.cost || 0),
+      };
+
+      const { error } = await supabase.from("maints").upsert(payload);
+      if (error) {
+        const message = `정비 저장 실패: ${error.message}`;
+        setMaintSaveError(message);
+        alert(message);
+        return;
+      }
+
+      setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
+
+      if (linkingMaintenancePhotoId) {
+        await markMaintenancePhotoProcessed(linkingMaintenancePhotoId);
+        setLinkingMaintenancePhotoId("");
+      }
+
+      clearMaintDraft();
+      resetMaintForm();
+      alert("정비가 저장되었습니다.");
+      setMenuTab("maint_list");
+    } catch (error: any) {
+      const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
+      setMaintSaveError(message);
+      alert(message);
+    } finally {
+      setMaintSaving(false);
+    }
   };
   const editMaint = (m: Maint) => {
     setMenuTab("maint_new");
+    setMaintSaveError("");
+    clearMaintDraft();
     setEditingMaintId(m.id);
     setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
     setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
@@ -4826,10 +4926,15 @@ export default function App() {
               </div>
             </div>
 
+            {maintSaveError && <div className="save-error-box">{maintSaveError}</div>}
+
             <div className="actions right-actions">
-              <button className="primary" onClick={saveMaint}>정비 저장</button>
-              <button onClick={resetMaintForm}>초기화</button>
+              <button className="primary" disabled={maintSaving} onClick={saveMaint}>
+                {maintSaving ? "저장 중..." : "정비 저장"}
+              </button>
+              <button disabled={maintSaving} onClick={resetMaintForm}>초기화</button>
             </div>
+            <p className="draft-help-text">작성 중인 정비등록 내용은 자동 임시저장됩니다. 저장 실패나 메뉴 이동 후에도 다시 정비등록에 들어오면 복원됩니다.</p>
           </section>
         )}
 
@@ -15093,6 +15198,29 @@ button[onclick*="downloadPdf"]{
   .field-app-actions span{
     font-size:11px;
   }
+}
+
+
+.save-error-box{
+  margin:14px 0;
+  padding:13px 14px;
+  border-radius:14px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#991b1b;
+  font-size:13px;
+  font-weight:850;
+}
+.draft-help-text{
+  margin:10px 0 0;
+  color:#64748b;
+  font-size:12px;
+  font-weight:750;
+  text-align:right;
+}
+button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 
