@@ -4058,6 +4058,21 @@ export default function App() {
                 <div className="receipt-file-count">
                   {maintenancePhotoFiles.length ? `${maintenancePhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
                 </div>
+
+                {!!maintenanceUploadPreviewUrls.length && (
+                  <div className="upload-preview-grid">
+                    {maintenanceUploadPreviewUrls.map((url, idx) => (
+                      <button
+                        type="button"
+                        key={`${url}-${idx}`}
+                        className="upload-preview-thumb"
+                        onClick={() => window.open(url, "_blank")}
+                      >
+                        <img src={url} alt={`정비사진 미리보기 ${idx + 1}`} />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -4223,6 +4238,21 @@ export default function App() {
                 <div className="receipt-file-count">
                   {receiptPhotoFiles.length ? `${receiptPhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
                 </div>
+
+                {!!receiptUploadPreviewUrls.length && (
+                  <div className="upload-preview-grid">
+                    {receiptUploadPreviewUrls.map((url, idx) => (
+                      <button
+                        type="button"
+                        key={`${url}-${idx}`}
+                        className="upload-preview-thumb"
+                        onClick={() => window.open(url, "_blank")}
+                      >
+                        <img src={url} alt={`입고사진 미리보기 ${idx + 1}`} />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
