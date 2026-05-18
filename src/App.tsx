@@ -4059,7 +4059,7 @@ export default function App() {
 
                 {!!maintenanceUploadPreviewUrls.length && (
                   <div className="upload-preview-grid">
-                    {maintenanceUploadPreviewUrls.map((url, idx) => (
+                    {maintenanceUploadPreviewUrls.map((url: string, idx: number) => (
                       <button
                         type="button"
                         key={`${url}-${idx}`}
@@ -4245,7 +4245,7 @@ export default function App() {
 
                 {!!receiptUploadPreviewUrls.length && (
                   <div className="upload-preview-grid">
-                    {receiptUploadPreviewUrls.map((url, idx) => (
+                    {receiptUploadPreviewUrls.map((url: string, idx: number) => (
                       <button
                         type="button"
                         key={`${url}-${idx}`}
@@ -6447,7 +6447,7 @@ function SiteNoticePage({
 
               {!!receiptUploadPreviewUrls.length && (
                 <div className="upload-preview-grid">
-                  {receiptUploadPreviewUrls.map((url, idx) => (
+                  {receiptUploadPreviewUrls.map((url: string, idx: number) => (
                     <button
                       type="button"
                       key={idx}
