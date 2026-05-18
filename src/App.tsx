@@ -4029,9 +4029,7 @@ export default function App() {
                   긴급 정비로 표시
                 </label>
 
-                <button className="receipt-submit-clean maintenance-submit" onClick={saveMaintenancePhoto} disabled={maintenancePhotoSaving}>
-                  {maintenancePhotoSaving ? "저장 중..." : "정비사진 등록"}
-                </button>
+
               </div>
 
               <div className="receipt-clean-upload-card">
@@ -4073,6 +4071,14 @@ export default function App() {
                     ))}
                   </div>
                 )}
+
+                <button
+                  className="receipt-submit-clean maintenance-submit upload-bottom-submit"
+                  onClick={saveMaintenancePhoto}
+                  disabled={maintenancePhotoSaving}
+                >
+                  {maintenancePhotoSaving ? "저장 중..." : "정비사진 등록"}
+                </button>
               </div>
             </div>
 
@@ -4209,9 +4215,7 @@ export default function App() {
                   />
                 </Field>
 
-                <button className="receipt-submit-clean" onClick={saveReceiptPhoto} disabled={receiptPhotoSaving}>
-                  {receiptPhotoSaving ? "저장 중..." : "입고사진 등록"}
-                </button>
+
               </div>
 
               <div className="receipt-clean-upload-card">
@@ -4253,6 +4257,14 @@ export default function App() {
                     ))}
                   </div>
                 )}
+
+                <button
+                  className="receipt-submit-clean upload-bottom-submit"
+                  onClick={saveReceiptPhoto}
+                  disabled={receiptPhotoSaving}
+                >
+                  {receiptPhotoSaving ? "저장 중..." : "입고사진 등록"}
+                </button>
               </div>
             </div>
 
@@ -15459,6 +15471,30 @@ button:disabled{
   height:100%;
   object-fit:cover;
   display:block;
+}
+
+
+.upload-bottom-submit{
+  margin-top:18px;
+}
+
+@media(max-width:760px){
+  .upload-preview-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+  }
+
+  .upload-preview-thumb{
+    border-radius:20px;
+    min-height:132px;
+  }
+
+  .upload-bottom-submit{
+    min-height:58px;
+    font-size:18px;
+    font-weight:1000;
+    border-radius:18px;
+  }
 }
 
 
