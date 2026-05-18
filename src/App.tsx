@@ -4461,7 +4461,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} logout={logout} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -6508,7 +6508,6 @@ function HomeDashboard({
   siteNotices = [],
   setMenuTab,
   currentRole,
-  logout,
 }: {
   purchases: Purchase[];
   maints: Maint[];
@@ -6519,7 +6518,6 @@ function HomeDashboard({
   siteNotices?: SiteNotice[];
   setMenuTab?: (tab: string) => void;
   currentRole?: UserRole;
-  logout?: () => void;
 }) {
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
@@ -6575,52 +6573,112 @@ function HomeDashboard({
 
   if (currentRole === "field") {
     return (
-      <section className="field-mobile-home">
-        <div className="field-mobile-hero">
-          <div className="field-mobile-hero-top">
-            <span>현장직원 홈</span>
-            <button onClick={logout}>로그아웃</button>
+      <section className="field-app-home">
+        <div className="field-app-topbar">
+          <div>
+            <strong>태명산업개발</strong>
+            <span>현장직원 전용</span>
           </div>
-          <h2>오늘 필요한 메뉴만 크게 모았습니다.</h2>
+          <button onClick={logout}>로그아웃</button>
+        </div>
+
+        <div className="field-app-hero">
+          <small>안녕하세요, 현장팀 님!</small>
+          <h2>오늘도 안전이 최우선입니다!</h2>
           <p>공지 확인, 사진 등록, 정비일정을 빠르게 처리하세요.</p>
-        </div>
-
-        <div className="field-mobile-quick-grid">
-          <button onClick={() => setMenuTab?.("site_notices")}><b>공지</b><span>전달사항 확인</span></button>
-          <button onClick={() => setMenuTab?.("receipt_photos")}><b>입고사진등록</b><span>입고 사진 촬영</span></button>
-          <button onClick={() => setMenuTab?.("maintenance_photos")}><b>정비사진등록</b><span>정비 전후 사진</span></button>
-          <button onClick={() => setMenuTab?.("maintenance_schedules")}><b>정비일정</b><span>오늘 작업 확인</span></button>
-        </div>
-
-        <div className="field-mobile-card">
-          <div className="field-mobile-card-head">
-            <h3>오늘 정비 일정</h3>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}>전체보기</button>
-          </div>
-          <div className="field-mobile-list">
-            {todaySchedules.length ? todaySchedules.slice(0, 5).map((s) => (
-              <button key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
-                <b>{s.equipment_name || "장비명 없음"}</b>
-                <span>{s.work_detail || "작업내용 없음"}</span>
-                <em>{s.worker_name || "담당자 미지정"} · {s.status || "예정"}</em>
-              </button>
-            )) : <div className="field-mobile-empty">오늘 등록된 정비일정이 없습니다.</div>}
+          <div className="field-app-hero-tags">
+            <span>📅 {today}</span>
+            <span>정비일정 {todaySchedules.length}건</span>
           </div>
         </div>
 
-        <div className="field-mobile-card">
-          <div className="field-mobile-card-head">
-            <h3>공지사항</h3>
-            <button onClick={() => setMenuTab?.("site_notices")}>전체보기</button>
+        <div className="field-app-notice" onClick={() => setMenuTab?.("site_notices")}>
+          <div>
+            <b>📢 공지사항</b>
+            {activeNotices[0] ? (
+              <>
+                <strong>{activeNotices[0].title || "제목 없음"}</strong>
+                <span>{(activeNotices[0].created_at || activeNotices[0].notice_date || "").slice(0, 10)}</span>
+              </>
+            ) : (
+              <strong>등록된 공지가 없습니다.</strong>
+            )}
           </div>
-          <div className="field-mobile-list">
-            {activeNotices.length ? activeNotices.slice(0, 4).map((notice) => (
-              <button key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
-                <b>{notice.title || "제목 없음"}</b>
-                <span>{notice.content || ""}</span>
-                <em>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</em>
-              </button>
-            )) : <div className="field-mobile-empty">등록된 공지가 없습니다.</div>}
+          <em>더보기 ›</em>
+        </div>
+
+        <div className="field-app-actions">
+          <button className="blue" onClick={() => setMenuTab?.("receipt_photos")}>
+            <i>📷</i>
+            <b>입고사진 등록</b>
+            <span>자재 입고 사진과 내용을 등록합니다.</span>
+            <em>›</em>
+          </button>
+
+          <button className="green" onClick={() => setMenuTab?.("maintenance_photos")}>
+            <i>🔧</i>
+            <b>정비사진 등록</b>
+            <span>정비 작업 사진과 내용을 등록합니다.</span>
+            <em>›</em>
+          </button>
+
+          <button className="orange" onClick={() => setMenuTab?.("maintenance_schedules")}>
+            <i>📅</i>
+            <b>정비 일정</b>
+            <span>예정된 정비일정을 확인합니다.</span>
+            <em>›</em>
+          </button>
+
+          <button className="purple" onClick={() => setMenuTab?.("maint_list")}>
+            <i>📄</i>
+            <b>작업 내역 조회</b>
+            <span>등록한 작업 내역을 확인합니다.</span>
+            <em>›</em>
+          </button>
+        </div>
+
+        <div className="field-app-summary">
+          <div className="field-app-panel-head">
+            <h3>오늘의 현황</h3>
+            <span>{today} 기준</span>
+          </div>
+          <div className="field-app-summary-grid">
+            <div><i>📷</i><b>{receiptPhotos.length}</b><span>입고 사진</span></div>
+            <div><i>🔧</i><b>{maintenancePhotos.length}</b><span>정비 사진</span></div>
+            <div><i>📅</i><b>{todaySchedules.length}</b><span>정비 일정</span></div>
+            <div><i>📢</i><b>{activeNotices.length}</b><span>공지</span></div>
+          </div>
+        </div>
+
+        <div className="field-app-panels">
+          <div className="field-app-panel">
+            <div className="field-app-panel-head">
+              <h3>오늘의 일정</h3>
+              <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기</button>
+            </div>
+            <div className="field-app-list">
+              {todaySchedules.length ? todaySchedules.slice(0, 3).map((s) => (
+                <button key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
+                  <b>{s.equipment_name || "장비명 없음"}</b>
+                  <span>{s.work_detail || "작업내용 없음"}</span>
+                </button>
+              )) : <div className="field-app-empty">오늘 등록된 일정이 없습니다.</div>}
+            </div>
+          </div>
+
+          <div className="field-app-panel">
+            <div className="field-app-panel-head">
+              <h3>최근 공지</h3>
+              <button onClick={() => setMenuTab?.("site_notices")}>더보기</button>
+            </div>
+            <div className="field-app-list">
+              {activeNotices.length ? activeNotices.slice(0, 3).map((notice) => (
+                <button key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
+                  <b>{notice.title || "제목 없음"}</b>
+                  <span>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</span>
+                </button>
+              )) : <div className="field-app-empty">등록된 공지가 없습니다.</div>}
+            </div>
           </div>
         </div>
       </section>
@@ -14791,7 +14849,7 @@ button[onclick*="downloadPdf"]{
 /* field mobile home */
 .field-mobile-home{padding:18px 14px 100px;background:#f4f7fb;min-height:calc(100vh - 70px)}
 .field-mobile-hero{border-radius:24px;padding:24px 20px;background:linear-gradient(135deg,#0d5bff,#38bdf8);color:#fff;box-shadow:0 18px 38px rgba(37,99,235,.18);margin-bottom:16px}
-.field-mobile-hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.field-mobile-hero span{display:inline-flex;height:24px;padding:0 10px;align-items:center;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:950}.field-mobile-hero-top button{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.16);color:#fff;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:950;cursor:pointer}
+.field-mobile-hero span{display:inline-flex;height:24px;padding:0 10px;align-items:center;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;font-weight:950}
 .field-mobile-hero h2{margin:12px 0 6px;font-size:24px;line-height:1.2;font-weight:950;letter-spacing:-.6px}
 .field-mobile-hero p{margin:0;opacity:.92;font-size:14px;font-weight:750}
 .field-mobile-quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
@@ -14815,6 +14873,55 @@ button[onclick*="downloadPdf"]{
 .purchase-entry-popup-head h2{margin:0}
 .purchase-entry-popup-head button{border:0;background:#f1f5f9;color:#334155;border-radius:999px;padding:9px 13px;font-weight:950;cursor:pointer}
 @media(max-width:760px){.field-mobile-home{padding:14px 10px 96px}.field-mobile-hero h2{font-size:21px}.field-mobile-quick-grid{grid-template-columns:1fr}.field-mobile-quick-grid button{min-height:94px}.purchase-entry-popup-card{width:96vw;max-height:86vh;padding:16px}}
+
+
+/* modern field worker mobile home */
+.field-app-home{min-height:100vh;background:#f5f8fc;padding:18px 14px 110px;color:#0f172a}
+.field-app-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.field-app-topbar strong{display:block;font-size:23px;font-weight:1000;letter-spacing:-.7px;color:#0f2a5f}
+.field-app-topbar span{display:block;margin-top:4px;color:#2563eb;font-size:14px;font-weight:950}
+.field-app-topbar button{border:1px solid #e2e8f0;background:#fff;color:#0f172a;border-radius:16px;padding:10px 14px;font-size:13px;font-weight:950;box-shadow:0 8px 22px rgba(15,23,42,.08)}
+.field-app-hero{position:relative;overflow:hidden;border-radius:28px;background:linear-gradient(135deg,#075bc8,#0f72f6 55%,#3b82f6);color:#fff;padding:26px 22px;margin-bottom:16px;box-shadow:0 22px 48px rgba(37,99,235,.24)}
+.field-app-hero:after{content:"";position:absolute;right:-50px;bottom:-55px;width:185px;height:185px;border-radius:999px;background:rgba(255,255,255,.13)}
+.field-app-hero small{display:block;font-size:15px;font-weight:850;opacity:.95}
+.field-app-hero h2{position:relative;z-index:1;margin:12px 0 8px;font-size:29px;line-height:1.15;font-weight:1000;letter-spacing:-1px}
+.field-app-hero p{position:relative;z-index:1;margin:0;font-size:15px;font-weight:750;opacity:.94;line-height:1.45}
+.field-app-hero-tags{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.field-app-hero-tags span{display:inline-flex;align-items:center;height:34px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,.16);font-size:13px;font-weight:900}
+.field-app-notice{border:1px solid #e2e8f0;background:#fff;border-radius:24px;padding:18px;margin-bottom:16px;display:flex;justify-content:space-between;gap:12px;box-shadow:0 10px 28px rgba(15,23,42,.06);cursor:pointer}
+.field-app-notice b{display:block;color:#0f172a;font-size:17px;font-weight:1000;margin-bottom:10px}
+.field-app-notice strong{display:block;color:#111827;font-size:15px;font-weight:900;line-height:1.35}
+.field-app-notice span{display:block;margin-top:6px;color:#94a3b8;font-size:12px;font-weight:800}
+.field-app-notice em{align-self:center;color:#2563eb;font-style:normal;font-size:14px;font-weight:950;white-space:nowrap}
+.field-app-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.field-app-actions button{position:relative;min-height:178px;border:1px solid transparent;border-radius:24px;padding:18px;text-align:left;box-shadow:0 12px 30px rgba(15,23,42,.07);overflow:hidden;cursor:pointer}
+.field-app-actions button:after{content:"";position:absolute;right:-24px;bottom:-30px;width:104px;height:104px;border-radius:32px;background:rgba(255,255,255,.48);transform:rotate(18deg)}
+.field-app-actions .blue{background:linear-gradient(135deg,#eff6ff,#fff);border-color:#cfe3ff}
+.field-app-actions .green{background:linear-gradient(135deg,#ecfdf5,#fff);border-color:#c7f3de}
+.field-app-actions .orange{background:linear-gradient(135deg,#fff7ed,#fff);border-color:#fed7aa}
+.field-app-actions .purple{background:linear-gradient(135deg,#f5f3ff,#fff);border-color:#ddd6fe}
+.field-app-actions i{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:18px;background:#fff;font-style:normal;font-size:28px;box-shadow:0 8px 22px rgba(15,23,42,.08);margin-bottom:18px}
+.field-app-actions b{display:block;font-size:21px;line-height:1.22;font-weight:1000;color:#0f172a;letter-spacing:-.7px}
+.field-app-actions span{display:block;margin-top:9px;color:#64748b;font-size:13px;font-weight:750;line-height:1.45}
+.field-app-actions em{position:absolute;right:18px;bottom:18px;z-index:1;width:42px;height:42px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;color:#2563eb;font-style:normal;font-size:26px;font-weight:600;box-shadow:0 8px 20px rgba(15,23,42,.1)}
+.field-app-summary,.field-app-panel{background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:18px;margin-bottom:16px;box-shadow:0 10px 28px rgba(15,23,42,.055)}
+.field-app-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.field-app-panel-head h3{margin:0;color:#0f172a;font-size:19px;font-weight:1000;letter-spacing:-.4px}
+.field-app-panel-head span{color:#64748b;font-size:12px;font-weight:850}
+.field-app-panel-head button{border:0;background:#eff6ff;color:#2563eb;border-radius:999px;padding:8px 11px;font-size:12px;font-weight:950}
+.field-app-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.field-app-summary-grid div{border-radius:18px;background:#f8fafc;padding:12px 8px;text-align:center}
+.field-app-summary-grid i{display:block;font-style:normal;font-size:23px;margin-bottom:6px}
+.field-app-summary-grid b{display:block;color:#0f172a;font-size:24px;font-weight:1000;line-height:1}
+.field-app-summary-grid span{display:block;margin-top:6px;color:#64748b;font-size:11px;font-weight:850}
+.field-app-panels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field-app-list{display:flex;flex-direction:column;gap:9px}
+.field-app-list button{border:1px solid #eef2f7;background:#fbfdff;border-radius:15px;padding:13px;text-align:left;cursor:pointer}
+.field-app-list b{display:block;color:#111827;font-size:14px;font-weight:950;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-app-list span{display:block;margin-top:5px;color:#64748b;font-size:12px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-app-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
+@media(max-width:760px){.field-app-home{padding:14px 12px 106px}.field-app-topbar strong{font-size:22px}.field-app-hero h2{font-size:27px}.field-app-actions{grid-template-columns:1fr 1fr;gap:12px}.field-app-actions button{min-height:168px;padding:16px}.field-app-actions b{font-size:19px}.field-app-panels{grid-template-columns:1fr}.field-app-summary-grid{grid-template-columns:repeat(4,1fr);gap:6px}.field-app-summary-grid div{padding:10px 4px}.field-app-summary-grid b{font-size:21px}.field-app-summary-grid span{font-size:10px}}
+@media(max-width:370px){.field-app-actions{grid-template-columns:1fr}.field-app-summary-grid{grid-template-columns:repeat(2,1fr)}}
 
 
 `;
