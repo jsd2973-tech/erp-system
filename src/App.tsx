@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
@@ -211,7 +211,7 @@ const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">
   const firstItem = itemNames[0];
   const extraCount = itemNames.length - 1;
 
-  return extraCount > 0 ? `${firstItem} 외 ${extraCount}건` : firstItem;
+  return extraCount > 0 ? `${firstItem} ??${extraCount}嫄? : firstItem;
 };
 
 
@@ -253,20 +253,20 @@ const permitStableId = (company: string, title: string) => {
 
 const normalizeVendorName = (value: string) =>
   String(value || "")
-    .replace(/[\s㈜\(\)\[\]주식회사]/g, "")
+    .replace(/[\s??(\)\[\]二쇱떇?뚯궗]/g, "")
     .toLowerCase();
 
 const bankCodeByName = (name: string) => {
   const raw = String(name || "").replace(/\s/g, "");
-  if (raw.includes("농협") || raw.includes("NH")) return "11";
-  if (raw.includes("국민")) return "04";
-  if (raw.includes("기업") || raw.includes("IBK") || raw.includes("중소기업")) return "03";
-  if (raw.includes("하나")) return "81";
-  if (raw.includes("우리")) return "20";
-  if (raw.includes("신한")) return "88";
-  if (raw.includes("신협")) return "48";
-  if (raw.includes("SC") || raw.includes("제일")) return "23";
-  if (raw.includes("카카오")) return "090";
+  if (raw.includes("?랁삊") || raw.includes("NH")) return "11";
+  if (raw.includes("援??")) return "04";
+  if (raw.includes("湲곗뾽") || raw.includes("IBK") || raw.includes("以묒냼湲곗뾽")) return "03";
+  if (raw.includes("?섎굹")) return "81";
+  if (raw.includes("?곕━")) return "20";
+  if (raw.includes("?좏븳")) return "88";
+  if (raw.includes("?좏삊")) return "48";
+  if (raw.includes("SC") || raw.includes("?쒖씪")) return "23";
+  if (raw.includes("移댁뭅??)) return "090";
   return "";
 };
 
@@ -286,7 +286,7 @@ async function readExcelRows(file: File) {
 
 const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
   if (!rows.length) {
-    alert("다운로드할 데이터가 없습니다.");
+    alert("?ㅼ슫濡쒕뱶???곗씠?곌? ?놁뒿?덈떎.");
     return;
   }
 
@@ -309,11 +309,11 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
     }, String(h).length);
 
     const header = String(h);
-    if (header.includes("일자") || header.includes("관리번호")) return { wch: 18 };
-    if (header.includes("거래처") || header.includes("사용처")) return { wch: 24 };
-    if (header.includes("품목") || header.includes("제목") || header.includes("내용") || header.includes("메모")) return { wch: 28 };
-    if (header.includes("영수증")) return { wch: 34 };
-    if (["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) return { wch: 14 };
+    if (header.includes("?쇱옄") || header.includes("愿由щ쾲??)) return { wch: 18 };
+    if (header.includes("嫄곕옒泥?) || header.includes("?ъ슜泥?)) return { wch: 24 };
+    if (header.includes("?덈ぉ") || header.includes("?쒕ぉ") || header.includes("?댁슜") || header.includes("硫붾え")) return { wch: 28 };
+    if (header.includes("?곸닔利?)) return { wch: 34 };
+    if (["?섎웾", "?④?", "怨듦툒媛??, "遺媛??, "遺媛?몄븸", "?⑷퀎", "湲덉븸"].some((x) => header.includes(x))) return { wch: 14 };
 
     return { wch: Math.min(Math.max(maxLength + 3, 12), 30) };
   });
@@ -354,7 +354,7 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
   for (let r = 1; r <= lastRow; r++) {
     const isHeader = r === 1;
     const firstCell = worksheet[XLSX.utils.encode_cell({ r: r - 1, c: 0 })];
-    const isTotalRow = !isHeader && String(firstCell?.v || "").includes("총합계");
+    const isTotalRow = !isHeader && String(firstCell?.v || "").includes("珥앺빀怨?);
 
     for (let c = 0; c <= lastColIndex; c++) {
       const cellAddress = XLSX.utils.encode_cell({ r: r - 1, c });
@@ -369,7 +369,7 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
         continue;
       }
 
-      if (["수량", "단가", "공급가액", "부가세", "부가세액", "합계", "금액"].some((x) => header.includes(x))) {
+      if (["?섎웾", "?④?", "怨듦툒媛??, "遺媛??, "遺媛?몄븸", "?⑷퀎", "湲덉븸"].some((x) => header.includes(x))) {
         const num = Number(cell.v || 0);
         if (!Number.isNaN(num)) {
           cell.v = num;
@@ -392,19 +392,19 @@ const downloadExcel = (fileName: string, rows: Record<string, any>[]) => {
   const workbook = XLSX.utils.book_new();
   workbook.Props = {
     Title: fileName,
-    Subject: "태명산업개발 ERP 다운로드",
-    Author: "태명산업개발",
+    Subject: "?쒕챸?곗뾽媛쒕컻 ERP ?ㅼ슫濡쒕뱶",
+    Author: "?쒕챸?곗뾽媛쒕컻",
     CreatedDate: new Date(),
   };
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, "자료");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "?먮즺");
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 
 
 const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[]) => {
   if (!rows.length) {
-    alert("출력할 데이터가 없습니다.");
+    alert("異쒕젰???곗씠?곌? ?놁뒿?덈떎.");
     return;
   }
 
@@ -417,16 +417,16 @@ const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[
       .replace(/'/g, "&#039;");
 
   const headers = Object.keys(rows[0] || {});
-  const totalIndex = rows.findIndex((row) => String(row[headers[0]] || "").includes("총합계"));
+  const totalIndex = rows.findIndex((row) => String(row[headers[0]] || "").includes("珥앺빀怨?));
 
   const tableHead = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
   const tableBody = rows
     .map((row, rowIndex) => {
-      const isTotal = rowIndex === totalIndex || String(row[headers[0]] || "").includes("총합계");
+      const isTotal = rowIndex === totalIndex || String(row[headers[0]] || "").includes("珥앺빀怨?);
       const cells = headers
         .map((h) => {
           const raw = row[h];
-          const isNumber = typeof raw === "number" || ["금액", "합계", "공급가액", "부가세", "부가세액", "수량", "단가"].some((key) => h.includes(key));
+          const isNumber = typeof raw === "number" || ["湲덉븸", "?⑷퀎", "怨듦툒媛??, "遺媛??, "遺媛?몄븸", "?섎웾", "?④?"].some((key) => h.includes(key));
           const value = isNumber && raw !== "" && raw != null && !Number.isNaN(Number(raw))
             ? Number(raw).toLocaleString("ko-KR")
             : raw;
@@ -439,7 +439,7 @@ const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[
 
   const printable = window.open("", "_blank", "width=1200,height=800");
   if (!printable) {
-    alert("팝업이 차단되었습니다. 브라우저에서 팝업 허용 후 다시 출력하세요.");
+    alert("?앹뾽??李⑤떒?섏뿀?듬땲?? 釉뚮씪?곗??먯꽌 ?앹뾽 ?덉슜 ???ㅼ떆 異쒕젰?섏꽭??");
     return;
   }
 
@@ -502,7 +502,7 @@ const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[
 </head>
 <body>
   <h1>${escapeHtml(title)}</h1>
-  <div class="meta">출력일: ${todayText()}</div>
+  <div class="meta">異쒕젰?? ${todayText()}</div>
   <table>
     <thead><tr>${tableHead}</tr></thead>
     <tbody>${tableBody}</tbody>
@@ -614,28 +614,28 @@ const updateNoticeHideValue = () => getTodayKey();
 
 
 const ERP_PERMISSION_MODULES = [
-  { key: "home", label: "홈" },
-  { key: "site_notices", label: "공지" },
-  { key: "layout", label: "생산라인" },
-  { key: "new", label: "구매입력" },
-  { key: "list", label: "구매조회" },
-  { key: "status", label: "구매현황" },
-  { key: "bulk_transfer", label: "대량이체" },
-  { key: "receipt_photos", label: "입고사진등록" },
-  { key: "vendor_accounts", label: "업체계좌관리" },
-  { key: "card_use", label: "카드사용" },
-  { key: "card_list", label: "카드조회" },
-  { key: "card_stats", label: "카드통계" },
-  { key: "maint_new", label: "정비등록" },
-  { key: "maint_list", label: "정비조회" },
-  { key: "maint_stats", label: "정비통계" },
-  { key: "maintenance_photos", label: "정비사진등록" },
-  { key: "maintenance_schedule_new", label: "정비일정등록" },
-  { key: "maintenance_schedules", label: "정비일정조회" },
-  { key: "vendors", label: "거래처등록" },
-  { key: "warehouse_groups", label: "창고등록" },
-  { key: "items", label: "품목등록" },
-  { key: "permits", label: "허가관리" },
+  { key: "home", label: "?? },
+  { key: "site_notices", label: "怨듭?" },
+  { key: "layout", label: "?앹궛?쇱씤" },
+  { key: "new", label: "援щℓ?낅젰" },
+  { key: "list", label: "援щℓ議고쉶" },
+  { key: "status", label: "援щℓ?꾪솴" },
+  { key: "bulk_transfer", label: "??됱씠泥? },
+  { key: "receipt_photos", label: "?낃퀬?ъ쭊?깅줉" },
+  { key: "vendor_accounts", label: "?낆껜怨꾩쥖愿由? },
+  { key: "card_use", label: "移대뱶?ъ슜" },
+  { key: "card_list", label: "移대뱶議고쉶" },
+  { key: "card_stats", label: "移대뱶?듦퀎" },
+  { key: "maint_new", label: "?뺣퉬?깅줉" },
+  { key: "maint_list", label: "?뺣퉬議고쉶" },
+  { key: "maint_stats", label: "?뺣퉬?듦퀎" },
+  { key: "maintenance_photos", label: "?뺣퉬?ъ쭊?깅줉" },
+  { key: "maintenance_schedule_new", label: "?뺣퉬?쇱젙?깅줉" },
+  { key: "maintenance_schedules", label: "?뺣퉬?쇱젙議고쉶" },
+  { key: "vendors", label: "嫄곕옒泥섎벑濡? },
+  { key: "warehouse_groups", label: "李쎄퀬?깅줉" },
+  { key: "items", label: "?덈ぉ?깅줉" },
+  { key: "permits", label: "?덇?愿由? },
 ];
 
 const ERP_OFFICE_BLOCKED_TABS = new Set(["update_notices", "backup_permissions"]);
@@ -751,7 +751,7 @@ function SearchSelect({
               </div>
             ))
           ) : (
-            <div className="dropdown-empty">검색 결과 없음</div>
+            <div className="dropdown-empty">寃??寃곌낵 ?놁쓬</div>
           )}
         </div>
       )}
@@ -966,27 +966,27 @@ html, body, #root {
 export default function App() {
   const [vendors, setVendors] = useState<Vendor[]>(() =>
     read(KEY.vendors, [
-      { id: uid(), code: "V001", name: "수산세보틱스", owner: "", phone: "", mobile: "" },
-      { id: uid(), code: "V002", name: "영재카", owner: "", phone: "", mobile: "" },
+      { id: uid(), code: "V001", name: "?섏궛?몃낫?깆뒪", owner: "", phone: "", mobile: "" },
+      { id: uid(), code: "V002", name: "?곸옱移?, owner: "", phone: "", mobile: "" },
     ])
   );
   const [groups, setGroups] = useState<Group[]>(() =>
     read(KEY.groups, [
-      { id: uid(), code: "0001", name: "크라샤" },
-      { id: uid(), code: "0002", name: "폐목" },
+      { id: uid(), code: "0001", name: "?щ씪?? },
+      { id: uid(), code: "0002", name: "?먮ぉ" },
     ])
   );
   const [warehouses, setWarehouses] = useState<Warehouse[]>(() =>
     read(KEY.warehouses, [
-      { id: uid(), code: "0001", group: "크라샤", name: "로더" },
-      { id: uid(), code: "0002", group: "크라샤", name: "암프" },
+      { id: uid(), code: "0001", group: "?щ씪??, name: "濡쒕뜑" },
+      { id: uid(), code: "0002", group: "?щ씪??, name: "?뷀봽" },
     ])
   );
   const [items, setItems] = useState<Item[]>(() =>
     read(KEY.items, [
-      { id: uid(), code: "0001", name: "유압호스", spec: "A형", unit: "ea", price: 50000 },
-      { id: uid(), code: "0002", name: "베어링", spec: "B형", unit: "ea", price: 20000 },
-      { id: uid(), code: "0003", name: "타이어", spec: "29인치", unit: "ea", price: 300000 },
+      { id: uid(), code: "0001", name: "?좎븬?몄뒪", spec: "A??, unit: "ea", price: 50000 },
+      { id: uid(), code: "0002", name: "踰좎뼱留?, spec: "B??, unit: "ea", price: 20000 },
+      { id: uid(), code: "0003", name: "??댁뼱", spec: "29?몄튂", unit: "ea", price: 300000 },
     ])
   );
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
@@ -1009,7 +1009,7 @@ export default function App() {
   const [hideUpdateToday, setHideUpdateToday] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<UpdateNotice[]>([]);
   const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
-  const [siteNoticeForm, setSiteNoticeForm] = useState({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] as string[] });
+  const [siteNoticeForm, setSiteNoticeForm] = useState({ title: "", content: "", priority: "蹂댄넻", is_active: true, target_roles: ["all"], target_emails: [] as string[] });
   const [editingSiteNoticeId, setEditingSiteNoticeId] = useState("");
   const [siteNoticeError, setSiteNoticeError] = useState("");
 
@@ -1092,6 +1092,7 @@ export default function App() {
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
   const [receiptUploadPreviewUrls, setReceiptUploadPreviewUrls] = useState<string[]>([]);
+  const [receiptUploadPreviewUrls, setReceiptUploadPreviewUrls] = useState<string[]>([]);
   const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
   const [maintenancePhotos, setMaintenancePhotos] = useState<MaintenancePhoto[]>([]);
   const [maintenancePhotoForm, setMaintenancePhotoForm] = useState({
@@ -1101,6 +1102,7 @@ export default function App() {
     is_urgent: false,
   });
   const [maintenancePhotoFiles, setMaintenancePhotoFiles] = useState<File[]>([]);
+  const [maintenanceUploadPreviewUrls, setMaintenanceUploadPreviewUrls] = useState<string[]>([]);
   const [maintenanceUploadPreviewUrls, setMaintenanceUploadPreviewUrls] = useState<string[]>([]);
   const [maintenancePhotoPreviewOpen, setMaintenancePhotoPreviewOpen] = useState<MaintenancePhoto | null>(null);
   const [linkingReceiptPhotoId, setLinkingReceiptPhotoId] = useState("");
@@ -1113,8 +1115,8 @@ export default function App() {
     equipment_name: "",
     work_detail: "",
     worker_name: "",
-    priority: "보통",
-    status: "예정",
+    priority: "蹂댄넻",
+    status: "?덉젙",
     memo: "",
   });
   const [editingMaintenanceScheduleId, setEditingMaintenanceScheduleId] = useState("");
@@ -1135,7 +1137,7 @@ export default function App() {
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
   const [permitForm, setPermitForm] = useState({
-    company: "태명",
+    company: "?쒕챸",
     title: "",
     agency: "",
     contact: "",
@@ -1143,7 +1145,7 @@ export default function App() {
     check_note: "",
     memo: "",
     cycle: "",
-    status: "진행",
+    status: "吏꾪뻾",
   });
   const [editingPermitId, setEditingPermitId] = useState("");
 
@@ -1181,14 +1183,14 @@ export default function App() {
       const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
 
       json.forEach((r) => {
-        const vendorName = String(pick(r, ["거래처명", "업체명", "상호"]) || "").trim();
+        const vendorName = String(pick(r, ["嫄곕옒泥섎챸", "?낆껜紐?, "?곹샇"]) || "").trim();
         if (!vendorName) return;
 
-        const bankName = String(pick(r, ["은행명", "은행"]) || "").trim();
-        const bankCode = String(pick(r, ["코드명", "은행코드", "코드"]) || bankCodeByName(bankName)).trim();
-        const accountName = String(pick(r, ["이름", "예금주", "입금자명"]) || "").trim();
-        const customerDisplayName = String(pick(r, ["고객관리성명", "고객관리명"]) || accountName || vendorName).trim();
-        const accountNumber = String(pick(r, ["계좌번호", "계좌"]) || "").trim();
+        const bankName = String(pick(r, ["??됰챸", "???]) || "").trim();
+        const bankCode = String(pick(r, ["肄붾뱶紐?, "??됱퐫??, "肄붾뱶"]) || bankCodeByName(bankName)).trim();
+        const accountName = String(pick(r, ["?대쫫", "?덇툑二?, "?낃툑?먮챸"]) || "").trim();
+        const customerDisplayName = String(pick(r, ["怨좉컼愿由ъ꽦紐?, "怨좉컼愿由щ챸"]) || accountName || vendorName).trim();
+        const accountNumber = String(pick(r, ["怨꾩쥖踰덊샇", "怨꾩쥖"]) || "").trim();
 
         rows.push({
           id: `account-${normalizeVendorName(vendorName)}`,
@@ -1203,7 +1205,7 @@ export default function App() {
       });
     });
 
-    if (!rows.length) return alert("계좌 엑셀에서 거래처 계좌 정보를 찾지 못했습니다.");
+    if (!rows.length) return alert("怨꾩쥖 ?묒??먯꽌 嫄곕옒泥?怨꾩쥖 ?뺣낫瑜?李얠? 紐삵뻽?듬땲??");
 
     const dedupedMap = new Map<string, VendorAccount>();
     rows.forEach((row) => {
@@ -1225,10 +1227,10 @@ export default function App() {
     const dedupedRows = Array.from(dedupedMap.values());
 
     const { error } = await supabase.from("vendor_accounts").upsert(dedupedRows, { onConflict: "id" });
-    if (error) return alert(`거래처 계좌 업로드 실패: ${error.message}`);
+    if (error) return alert(`嫄곕옒泥?怨꾩쥖 ?낅줈???ㅽ뙣: ${error.message}`);
 
     await loadVendorAccounts();
-    alert(`거래처 계좌 ${dedupedRows.length}건을 인터넷 DB에 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
+    alert(`嫄곕옒泥?怨꾩쥖 ${dedupedRows.length}嫄댁쓣 ?명꽣??DB????ν뻽?듬땲?? 以묐났 ${rows.length - dedupedRows.length}嫄댁? ?먮룞 ?뺣━?덉뒿?덈떎.`);
   };
 
   const findVendorAccount = (vendorName: string) => {
@@ -1276,7 +1278,7 @@ export default function App() {
       .filter((p) => !month || String(p.date || "").startsWith(month))
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
       .forEach((p) => {
-        const vendor = p.vendor || "거래처 미입력";
+        const vendor = p.vendor || "嫄곕옒泥?誘몄엯??;
         const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
         prev.amount += Number(p.total || 0);
         if (p.itemSummary) prev.memoItems.push(p.itemSummary);
@@ -1288,7 +1290,7 @@ export default function App() {
         const account = findVendorAccount(row.vendor);
         const bankName = account?.bank_name || "";
         const bankCode = account?.bank_code || bankCodeByName(bankName);
-        const memoItem = row.memoItems[0] || "구매";
+        const memoItem = row.memoItems[0] || "援щℓ";
         const monthLabel = transferMonth ? transferMonth.slice(5) : "";
 
         return {
@@ -1312,21 +1314,21 @@ export default function App() {
 
   const createBulkTransferExcel = (targetRows?: BulkTransferRow[]) => {
     const rows = targetRows || applyBulkTransferEdits(getBulkTransferRows());
-    if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
+    if (!rows.length) return alert("??됱씠泥대줈 留뚮뱾 援щℓ?댁뿭???놁뒿?덈떎.");
 
     const missing = rows.filter((row) => !row.matched);
     if (missing.length) {
-      const ok = confirm(`계좌 매칭 안 된 거래처가 ${missing.length}건 있습니다. 그래도 다운로드할까요?`);
+      const ok = confirm(`怨꾩쥖 留ㅼ묶 ????嫄곕옒泥섍? ${missing.length}嫄??덉뒿?덈떎. 洹몃옒???ㅼ슫濡쒕뱶?좉퉴??`);
       if (!ok) return;
     }
 
-    const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
+    const header = ["*?낃툑???, "*?낃툑怨꾩쥖", "*?낃툑??, "怨좉컼愿由ъ꽦紐?, "?낃툑?듭옣?쒖떆?댁슜", "異쒓툑?듭옣?쒖떆?댁슜", "?낃툑?몄퐫??, "鍮꾧퀬", "?낆껜?ъ슜key"];
     const dataRows = rows.map((row) => [
       String(row.bank_code || ""),
       cleanAccountNumber(row.account_number),
       Number(row.amount || 0),
       row.customer_display_name || row.account_name || row.vendor,
-      "(주)태명산업개발",
+      "(二??쒕챸?곗뾽媛쒕컻",
       row.memo,
       "",
       "",
@@ -1410,19 +1412,19 @@ export default function App() {
 
     const workbook = XLSX.utils.book_new();
     workbook.Props = {
-      Title: `${transferMonth || getTodayKey().slice(0, 7)} 대량이체`,
-      Subject: "태명산업개발 대량이체",
-      Author: "태명산업개발",
+      Title: `${transferMonth || getTodayKey().slice(0, 7)} ??됱씠泥?,
+      Subject: "?쒕챸?곗뾽媛쒕컻 ??됱씠泥?,
+      Author: "?쒕챸?곗뾽媛쒕컻",
       CreatedDate: new Date(),
     };
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
-    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xlsx`, { bookType: "xlsx", cellStyles: true });
+    XLSX.utils.book_append_sheet(workbook, worksheet, "??됱씠泥?誘몄엯湲덈텇");
+    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_??됱씠泥?xlsx`, { bookType: "xlsx", cellStyles: true });
   };
 
   const openBulkTransferDownloadPopup = () => {
     const rows = applyBulkTransferEdits(getBulkTransferRows());
-    if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
+    if (!rows.length) return alert("??됱씠泥대줈 留뚮뱾 援щℓ?댁뿭???놁뒿?덈떎.");
     setSelectedBulkTransferIds(rows.map((row) => row.id));
     setBulkTransferSelectOpen(true);
   };
@@ -1462,7 +1464,7 @@ export default function App() {
   const resetPermitForm = () => {
     setEditingPermitId("");
     setPermitForm({
-      company: "태명",
+      company: "?쒕챸",
       title: "",
       agency: "",
       contact: "",
@@ -1470,14 +1472,14 @@ export default function App() {
       check_note: "",
       memo: "",
       cycle: "",
-      status: "진행",
+      status: "吏꾪뻾",
     });
   };
 
   const savePermit = async () => {
-    if (editingPermitId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!permitForm.title.trim()) return alert("허가/신고명을 입력하세요.");
+    if (editingPermitId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
+    if (!permitForm.title.trim()) return alert("?덇?/?좉퀬紐낆쓣 ?낅젰?섏꽭??");
 
     const id = editingPermitId || permitStableId(permitForm.company, permitForm.title.trim());
     const payload = {
@@ -1490,13 +1492,13 @@ export default function App() {
       check_note: permitForm.check_note,
       memo: permitForm.memo,
       cycle: permitForm.cycle,
-      status: permitForm.status || "진행",
+      status: permitForm.status || "吏꾪뻾",
       updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase.from("permit_renewals").upsert(payload);
 
-    if (error) return alert(`허가/갱신 저장 실패: ${error.message}`);
+    if (error) return alert(`?덇?/媛깆떊 ????ㅽ뙣: ${error.message}`);
 
     await loadPermits();
     resetPermitForm();
@@ -1505,7 +1507,7 @@ export default function App() {
   const editPermit = (permit: PermitRenewal) => {
     setEditingPermitId(permit.id);
     setPermitForm({
-      company: permit.company || "태명",
+      company: permit.company || "?쒕챸",
       title: permit.title || "",
       agency: permit.agency || "",
       contact: permit.contact || "",
@@ -1513,16 +1515,16 @@ export default function App() {
       check_note: permit.check_note || "",
       memo: permit.memo || "",
       cycle: permit.cycle || "",
-      status: permit.status || "진행",
+      status: permit.status || "吏꾪뻾",
     });
     setMenuTab("permits");
   };
 
   const deletePermit = async (id: string) => {
-    if (!confirm("허가/갱신 항목을 삭제할까요?")) return;
+    if (!confirm("?덇?/媛깆떊 ??ぉ????젣?좉퉴??")) return;
 
     const { error } = await supabase.from("permit_renewals").delete().eq("id", id);
-    if (error) return alert(`허가/갱신 삭제 실패: ${error.message}`);
+    if (error) return alert(`?덇?/媛깆떊 ??젣 ?ㅽ뙣: ${error.message}`);
 
     await loadPermits();
   };
@@ -1535,7 +1537,7 @@ export default function App() {
     workbook.SheetNames.forEach((sheetName) => {
       const ws = workbook.Sheets[sheetName];
       const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true }) as any[][];
-      const headerIndex = matrix.findIndex((row) => row.some((cell) => String(cell || "").trim() === "내용"));
+      const headerIndex = matrix.findIndex((row) => row.some((cell) => String(cell || "").trim() === "?댁슜"));
       if (headerIndex < 0) return;
 
       matrix.slice(headerIndex + 1).forEach((row) => {
@@ -1552,7 +1554,7 @@ export default function App() {
           check_note: String(row[5] || "").trim(),
           memo: String(row[5] || "").trim(),
           cycle: String(row[6] || "").trim(),
-          status: "진행",
+          status: "吏꾪뻾",
           updated_at: new Date().toISOString(),
         };
 
@@ -1560,14 +1562,14 @@ export default function App() {
       });
     });
 
-    if (!rows.length) return alert("엑셀에서 등록할 허가/갱신 항목을 찾지 못했습니다.");
+    if (!rows.length) return alert("?묒??먯꽌 ?깅줉???덇?/媛깆떊 ??ぉ??李얠? 紐삵뻽?듬땲??");
 
     const { error } = await supabase.from("permit_renewals").upsert(rows, { onConflict: "id" });
 
-    if (error) return alert(`허가/갱신 엑셀 업로드 실패: ${error.message}`);
+    if (error) return alert(`?덇?/媛깆떊 ?묒? ?낅줈???ㅽ뙣: ${error.message}`);
 
     await loadPermits();
-    alert(`허가/갱신 항목 ${rows.length}건을 인터넷 DB에 저장했습니다.`);
+    alert(`?덇?/媛깆떊 ??ぉ ${rows.length}嫄댁쓣 ?명꽣??DB????ν뻽?듬땲??`);
   };
 
 
@@ -1586,7 +1588,7 @@ export default function App() {
 
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
       console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
-      alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
+      alert("Supabase ?곗씠?곕? 遺덈윭?ㅼ? 紐삵뻽?듬땲?? .env? RLS ?뺤콉???뺤씤?섏꽭??");
       setLoading(false);
       return;
     }
@@ -1812,10 +1814,10 @@ export default function App() {
   };
 
   const savePurchase = async () => {
-    if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingPurchaseId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     const validRows = rows.filter((r) => r.item && Number(r.qty) > 0);
-    if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("거래처, 창고, 품목/수량을 확인하세요.");
+    if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("嫄곕옒泥? 李쎄퀬, ?덈ぉ/?섎웾???뺤씤?섏꽭??");
     const payload: Purchase = {
       id: editingPurchaseId || uid(),
       ...purchaseHeader,
@@ -1828,7 +1830,7 @@ export default function App() {
       image_url: (purchaseHeader.image_urls || [])[0] || "",
     };
     const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
-    if (error) return alert(`구매 저장 실패: ${error.message}`);
+    if (error) return alert(`援щℓ ????ㅽ뙣: ${error.message}`);
     setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
     if (linkingReceiptPhotoId) {
       await markReceiptPhotoProcessed(linkingReceiptPhotoId);
@@ -1907,7 +1909,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`영수증 여러 장 업로드 실패: ${error.message}`);
+        alert(`?곸닔利??щ윭 ???낅줈???ㅽ뙣: ${error.message}`);
         continue;
       }
 
@@ -1936,7 +1938,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`정비 첨부 업로드 실패: ${error.message}`);
+        alert(`?뺣퉬 泥⑤? ?낅줈???ㅽ뙣: ${error.message}`);
         continue;
       }
 
@@ -2003,7 +2005,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`정비사진 업로드 실패: ${error.message}`);
+        alert(`?뺣퉬?ъ쭊 ?낅줈???ㅽ뙣: ${error.message}`);
         continue;
       }
 
@@ -2016,9 +2018,9 @@ export default function App() {
 
   const saveMaintenancePhoto = async () => {
     if (maintenancePhotoSaving) return;
-    if (!maintenancePhotoForm.maint_date) return alert("일자를 입력하세요.");
-    if (!maintenancePhotoForm.equipment_name.trim()) return alert("설비명을 입력하세요.");
-    if (!maintenancePhotoForm.memo.trim() && !maintenancePhotoFiles.length) return alert("정비내용 또는 사진을 입력하세요.");
+    if (!maintenancePhotoForm.maint_date) return alert("?쇱옄瑜??낅젰?섏꽭??");
+    if (!maintenancePhotoForm.equipment_name.trim()) return alert("?ㅻ퉬紐낆쓣 ?낅젰?섏꽭??");
+    if (!maintenancePhotoForm.memo.trim() && !maintenancePhotoFiles.length) return alert("?뺣퉬?댁슜 ?먮뒗 ?ъ쭊???낅젰?섏꽭??");
 
     setMaintenancePhotoSaving(true);
 
@@ -2035,7 +2037,7 @@ export default function App() {
         .limit(1);
 
       if ((duplicate || []).length) {
-        alert("같은 일자/설비명/내용의 정비사진이 이미 등록되어 있습니다.");
+        alert("媛숈? ?쇱옄/?ㅻ퉬紐??댁슜???뺣퉬?ъ쭊???대? ?깅줉?섏뼱 ?덉뒿?덈떎.");
         return;
       }
 
@@ -2047,43 +2049,43 @@ export default function App() {
         equipment_name: equipmentName,
         memo,
         image_urls: imageUrls,
-        created_by: userEmail || "직원",
+        created_by: userEmail || "吏곸썝",
         is_processed: false,
         is_urgent: maintenancePhotoForm.is_urgent,
       };
 
       const { error } = await supabase.from("maintenance_photos").insert(payload);
-      if (error) return alert(`정비사진 저장 실패: ${error.message}`);
+      if (error) return alert(`?뺣퉬?ъ쭊 ????ㅽ뙣: ${error.message}`);
 
       setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
       setMaintenancePhotoFiles([]);
       setMaintenanceUploadPreviewUrls([]);
       await loadMaintenancePhotos();
-      alert("정비사진이 등록되었습니다.");
+      alert("?뺣퉬?ъ쭊???깅줉?섏뿀?듬땲??");
     } finally {
       setMaintenancePhotoSaving(false);
     }
   };
 
   const toggleMaintenancePhotoProcessed = async (item: MaintenancePhoto) => {
-    if (!canEditDeleteRecords) return alert("처리상태 변경은 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("泥섎━?곹깭 蹂寃쎌? 愿由ъ옄留?媛?ν빀?덈떎.");
 
     const { error } = await supabase
       .from("maintenance_photos")
       .update({ is_processed: !item.is_processed })
       .eq("id", item.id);
 
-    if (error) return alert(`처리상태 변경 실패: ${error.message}`);
+    if (error) return alert(`泥섎━?곹깭 蹂寃??ㅽ뙣: ${error.message}`);
 
     await loadMaintenancePhotos();
   };
 
   const deleteMaintenancePhoto = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("정비사진 등록건을 삭제할까요?")) return;
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!confirm("?뺣퉬?ъ쭊 ?깅줉嫄댁쓣 ??젣?좉퉴??")) return;
 
     const { error } = await supabase.from("maintenance_photos").delete().eq("id", id);
-    if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬?ъ쭊 ??젣 ?ㅽ뙣: ${error.message}`);
 
     await loadMaintenancePhotos();
   };
@@ -2094,19 +2096,19 @@ export default function App() {
       equipment_name: "",
       work_detail: "",
       worker_name: "",
-      priority: "보통",
-      status: "예정",
+      priority: "蹂댄넻",
+      status: "?덉젙",
       memo: "",
     });
     setEditingMaintenanceScheduleId("");
   };
 
   const saveMaintenanceSchedule = async () => {
-    if (editingMaintenanceScheduleId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!maintenanceScheduleForm.schedule_date) return alert("예정일을 입력하세요.");
-    if (!maintenanceScheduleForm.equipment_name.trim()) return alert("장비명을 입력하세요.");
-    if (!maintenanceScheduleForm.work_detail.trim()) return alert("작업내용을 입력하세요.");
+    if (editingMaintenanceScheduleId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
+    if (!maintenanceScheduleForm.schedule_date) return alert("?덉젙?쇱쓣 ?낅젰?섏꽭??");
+    if (!maintenanceScheduleForm.equipment_name.trim()) return alert("?λ퉬紐낆쓣 ?낅젰?섏꽭??");
+    if (!maintenanceScheduleForm.work_detail.trim()) return alert("?묒뾽?댁슜???낅젰?섏꽭??");
 
     const payload: MaintenanceSchedule = {
       id: editingMaintenanceScheduleId || uid(),
@@ -2114,13 +2116,13 @@ export default function App() {
       equipment_name: maintenanceScheduleForm.equipment_name.trim(),
       work_detail: maintenanceScheduleForm.work_detail.trim(),
       worker_name: maintenanceScheduleForm.worker_name.trim(),
-      priority: maintenanceScheduleForm.priority || "보통",
-      status: maintenanceScheduleForm.status || "예정",
+      priority: maintenanceScheduleForm.priority || "蹂댄넻",
+      status: maintenanceScheduleForm.status || "?덉젙",
       memo: maintenanceScheduleForm.memo.trim(),
     };
 
     const { error } = await supabase.from("maintenance_schedules").upsert(payload);
-    if (error) return alert(`정비일정 저장 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬?쇱젙 ????ㅽ뙣: ${error.message}`);
 
     await loadMaintenanceSchedules();
     resetMaintenanceScheduleForm();
@@ -2134,28 +2136,28 @@ export default function App() {
       equipment_name: item.equipment_name || "",
       work_detail: item.work_detail || "",
       worker_name: item.worker_name || "",
-      priority: item.priority || "보통",
-      status: item.status || "예정",
+      priority: item.priority || "蹂댄넻",
+      status: item.status || "?덉젙",
       memo: item.memo || "",
     });
     setMenuTab("maintenance_schedule_new");
   };
 
   const deleteMaintenanceSchedule = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("정비일정을 삭제할까요?")) return;
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!confirm("?뺣퉬?쇱젙????젣?좉퉴??")) return;
     const { error } = await supabase.from("maintenance_schedules").delete().eq("id", id);
-    if (error) return alert(`정비일정 삭제 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬?쇱젙 ??젣 ?ㅽ뙣: ${error.message}`);
     setMaintenanceSchedules((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateMaintenanceScheduleStatus = async (item: MaintenanceSchedule, status: string) => {
-    if (!canEditDeleteRecords) return alert("상태 변경은 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("?곹깭 蹂寃쎌? 愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase
       .from("maintenance_schedules")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", item.id);
-    if (error) return alert(`정비일정 상태 변경 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬?쇱젙 ?곹깭 蹂寃??ㅽ뙣: ${error.message}`);
     setMaintenanceSchedules((prev) => prev.map((x) => (x.id === item.id ? { ...x, status } : x)));
   };
 
@@ -2166,7 +2168,7 @@ export default function App() {
       .eq("id", id);
 
     if (error) {
-      alert(`입고사진 처리완료 저장 실패: ${error.message}`);
+      alert(`?낃퀬?ъ쭊 泥섎━?꾨즺 ????ㅽ뙣: ${error.message}`);
       return false;
     }
 
@@ -2181,7 +2183,7 @@ export default function App() {
       .eq("id", id);
 
     if (error) {
-      alert(`정비사진 처리완료 저장 실패: ${error.message}`);
+      alert(`?뺣퉬?ъ쭊 泥섎━?꾨즺 ????ㅽ뙣: ${error.message}`);
       return false;
     }
 
@@ -2190,7 +2192,7 @@ export default function App() {
   };
 
   const applyReceiptPhotoToPurchase = async (item: ReceiptPhoto) => {
-    if (!isAdmin) return alert("관리자만 구매입력에 반영할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留?援щℓ?낅젰??諛섏쁺?????덉뒿?덈떎.");
 
     setPurchaseHeader({
       date: item.receipt_date || getTodayKey(),
@@ -2205,17 +2207,17 @@ export default function App() {
     await markReceiptPhotoProcessed(item.id);
 
     setMenuTab("new");
-    alert("입고사진을 구매입력에 반영했습니다. 창고/품목/금액을 입력해서 저장하세요.");
+    alert("?낃퀬?ъ쭊??援щℓ?낅젰??諛섏쁺?덉뒿?덈떎. 李쎄퀬/?덈ぉ/湲덉븸???낅젰?댁꽌 ??ν븯?몄슂.");
   };
 
   const applyMaintenancePhotoToMaint = async (item: MaintenancePhoto) => {
-    if (!isAdmin) return alert("관리자만 정비등록에 반영할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留??뺣퉬?깅줉??諛섏쁺?????덉뒿?덈떎.");
 
     setMaintForm({
       date: item.maint_date || getTodayKey(),
       warehouse: item.equipment_name || "",
       manager: userEmail || "",
-      title: item.is_urgent ? "긴급 정비" : "정비",
+      title: item.is_urgent ? "湲닿툒 ?뺣퉬" : "?뺣퉬",
       detail: item.memo || "",
       cost: "",
       image_urls: item.image_urls || [],
@@ -2227,7 +2229,7 @@ export default function App() {
     await markMaintenancePhotoProcessed(item.id);
 
     setMenuTab("maint_new");
-    alert("정비사진을 정비등록에 반영했습니다. 품목/금액을 입력해서 저장하세요.");
+    alert("?뺣퉬?ъ쭊???뺣퉬?깅줉??諛섏쁺?덉뒿?덈떎. ?덈ぉ/湲덉븸???낅젰?댁꽌 ??ν븯?몄슂.");
   };
 
   const mergeUrls = (base?: string[], extra?: string[]) => {
@@ -2237,7 +2239,7 @@ export default function App() {
   const normalizeSearchText = (value: any) =>
     String(value || "")
       .toLowerCase()
-      .replace(/[\s()\[\]{}·,._\-\/]/g, "");
+      .replace(/[\s()\[\]{}쨌,._\-\/]/g, "");
 
   const matchLooseKeywords = (target: string, query: string) => {
     const keywords = String(query || "").split(/\s+/).filter(Boolean);
@@ -2268,7 +2270,7 @@ export default function App() {
 
   const connectPurchaseRecordToReceiptPhoto = async (purchase: Purchase, receiptPhotoId: string) => {
     const photo = receiptPhotos.find((item) => item.id === receiptPhotoId);
-    if (!photo) return alert("입고사진을 찾지 못했습니다.");
+    if (!photo) return alert("?낃퀬?ъ쭊??李얠? 紐삵뻽?듬땲??");
 
     const nextUrls = mergeUrls(purchase.image_urls || (purchase.image_url ? [purchase.image_url] : []), photo.image_urls || []);
     const payload = { ...purchase, image_urls: nextUrls, image_url: nextUrls[0] || "" };
@@ -2278,17 +2280,17 @@ export default function App() {
       .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
       .eq("id", purchase.id);
 
-    if (error) return alert(`기존 구매내역 사진 연결 실패: ${error.message}`);
+    if (error) return alert(`湲곗〈 援щℓ?댁뿭 ?ъ쭊 ?곌껐 ?ㅽ뙣: ${error.message}`);
 
     setPurchases((prev) => prev.map((p) => (p.id === purchase.id ? payload : p)));
     await markReceiptPhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("기존 구매내역에 사진을 연결했습니다.");
+    alert("湲곗〈 援щℓ?댁뿭???ъ쭊???곌껐?덉뒿?덈떎.");
   };
 
   const connectMaintRecordToMaintenancePhoto = async (maint: Maint, maintenancePhotoId: string) => {
     const photo = maintenancePhotos.find((item) => item.id === maintenancePhotoId);
-    if (!photo) return alert("정비사진을 찾지 못했습니다.");
+    if (!photo) return alert("?뺣퉬?ъ쭊??李얠? 紐삵뻽?듬땲??");
 
     const nextUrls = mergeUrls(maint.image_urls || (maint.image_url ? [maint.image_url] : []), photo.image_urls || []);
     const payload = { ...maint, image_urls: nextUrls, image_url: nextUrls[0] || "" };
@@ -2298,17 +2300,17 @@ export default function App() {
       .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
       .eq("id", maint.id);
 
-    if (error) return alert(`기존 정비내역 사진 연결 실패: ${error.message}`);
+    if (error) return alert(`湲곗〈 ?뺣퉬?댁뿭 ?ъ쭊 ?곌껐 ?ㅽ뙣: ${error.message}`);
 
     setMaints((prev) => prev.map((m) => (m.id === maint.id ? payload : m)));
     await markMaintenancePhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("기존 정비내역에 사진을 연결했습니다.");
+    alert("湲곗〈 ?뺣퉬?댁뿭???ъ쭊???곌껐?덉뒿?덈떎.");
   };
 
   const connectReceiptPhotoToPurchase = async (photo: ReceiptPhoto, purchaseId: string) => {
     const target = purchases.find((p) => p.id === purchaseId);
-    if (!target) return alert("구매내역을 찾지 못했습니다.");
+    if (!target) return alert("援щℓ?댁뿭??李얠? 紐삵뻽?듬땲??");
 
     const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
     const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
@@ -2318,17 +2320,17 @@ export default function App() {
       .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
       .eq("id", target.id);
 
-    if (error) return alert(`구매내역 사진 연결 실패: ${error.message}`);
+    if (error) return alert(`援щℓ?댁뿭 ?ъ쭊 ?곌껐 ?ㅽ뙣: ${error.message}`);
 
     setPurchases((prev) => prev.map((p) => (p.id === target.id ? payload : p)));
     await markReceiptPhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("구매내역에 사진을 연결했습니다.");
+    alert("援щℓ?댁뿭???ъ쭊???곌껐?덉뒿?덈떎.");
   };
 
   const connectMaintenancePhotoToMaint = async (photo: MaintenancePhoto, maintId: string) => {
     const target = maints.find((m) => m.id === maintId);
-    if (!target) return alert("정비내역을 찾지 못했습니다.");
+    if (!target) return alert("?뺣퉬?댁뿭??李얠? 紐삵뻽?듬땲??");
 
     const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
     const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
@@ -2338,12 +2340,12 @@ export default function App() {
       .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
       .eq("id", target.id);
 
-    if (error) return alert(`정비내역 사진 연결 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬?댁뿭 ?ъ쭊 ?곌껐 ?ㅽ뙣: ${error.message}`);
 
     setMaints((prev) => prev.map((m) => (m.id === target.id ? payload : m)));
     await markMaintenancePhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("정비내역에 사진을 연결했습니다.");
+    alert("?뺣퉬?댁뿭???ъ쭊???곌껐?덉뒿?덈떎.");
   };
 
 
@@ -2383,7 +2385,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`입고사진 업로드 실패: ${error.message}`);
+        alert(`?낃퀬?ъ쭊 ?낅줈???ㅽ뙣: ${error.message}`);
         continue;
       }
 
@@ -2396,9 +2398,9 @@ export default function App() {
 
   const saveReceiptPhoto = async () => {
     if (receiptPhotoSaving) return;
-    if (!receiptPhotoForm.receipt_date) return alert("일자를 입력하세요.");
-    if (!receiptPhotoForm.vendor_name.trim()) return alert("거래처를 입력하세요.");
-    if (!receiptPhotoForm.memo.trim() && !receiptPhotoFiles.length) return alert("내용 또는 사진을 입력하세요.");
+    if (!receiptPhotoForm.receipt_date) return alert("?쇱옄瑜??낅젰?섏꽭??");
+    if (!receiptPhotoForm.vendor_name.trim()) return alert("嫄곕옒泥섎? ?낅젰?섏꽭??");
+    if (!receiptPhotoForm.memo.trim() && !receiptPhotoFiles.length) return alert("?댁슜 ?먮뒗 ?ъ쭊???낅젰?섏꽭??");
 
     setReceiptPhotoSaving(true);
 
@@ -2415,7 +2417,7 @@ export default function App() {
         .limit(1);
 
       if ((duplicate || []).length) {
-        alert("같은 일자/거래처/내용의 입고사진이 이미 등록되어 있습니다.");
+        alert("媛숈? ?쇱옄/嫄곕옒泥??댁슜???낃퀬?ъ쭊???대? ?깅줉?섏뼱 ?덉뒿?덈떎.");
         return;
       }
 
@@ -2427,42 +2429,42 @@ export default function App() {
         vendor_name: vendorName,
         memo,
         image_urls: imageUrls,
-        created_by: userEmail || "직원",
+        created_by: userEmail || "吏곸썝",
         is_processed: false,
       };
 
       const { error } = await supabase.from("receipt_photos").insert(payload);
-      if (error) return alert(`입고사진 저장 실패: ${error.message}`);
+      if (error) return alert(`?낃퀬?ъ쭊 ????ㅽ뙣: ${error.message}`);
 
       setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
       setReceiptPhotoFiles([]);
       setReceiptUploadPreviewUrls([]);
       await loadReceiptPhotos();
-      alert("입고사진이 등록되었습니다.");
+      alert("?낃퀬?ъ쭊???깅줉?섏뿀?듬땲??");
     } finally {
       setReceiptPhotoSaving(false);
     }
   };
 
   const toggleReceiptPhotoProcessed = async (item: ReceiptPhoto) => {
-    if (!canEditDeleteRecords) return alert("처리상태 변경은 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("泥섎━?곹깭 蹂寃쎌? 愿由ъ옄留?媛?ν빀?덈떎.");
 
     const { error } = await supabase
       .from("receipt_photos")
       .update({ is_processed: !item.is_processed })
       .eq("id", item.id);
 
-    if (error) return alert(`처리상태 변경 실패: ${error.message}`);
+    if (error) return alert(`泥섎━?곹깭 蹂寃??ㅽ뙣: ${error.message}`);
 
     await loadReceiptPhotos();
   };
 
   const deleteReceiptPhoto = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("입고사진 등록건을 삭제할까요?")) return;
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!confirm("?낃퀬?ъ쭊 ?깅줉嫄댁쓣 ??젣?좉퉴??")) return;
 
     const { error } = await supabase.from("receipt_photos").delete().eq("id", id);
-    if (error) return alert(`입고사진 삭제 실패: ${error.message}`);
+    if (error) return alert(`?낃퀬?ъ쭊 ??젣 ?ㅽ뙣: ${error.message}`);
 
     await loadReceiptPhotos();
   };
@@ -2474,10 +2476,10 @@ export default function App() {
   };
 
   const saveCardUse = async () => {
-    if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingCardUseId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     if (!cardForm.date || !cardForm.place || !Number(cardForm.amount || 0)) {
-      return alert("사용일자, 사용처, 금액을 확인하세요.");
+      return alert("?ъ슜?쇱옄, ?ъ슜泥? 湲덉븸???뺤씤?섏꽭??");
     }
 
     const payload: CardUse = {
@@ -2492,7 +2494,7 @@ export default function App() {
     };
 
     const { error } = await supabase.from("card_uses").upsert(payload);
-    if (error) return alert(`카드사용 저장 실패: ${error.message}`);
+    if (error) return alert(`移대뱶?ъ슜 ????ㅽ뙣: ${error.message}`);
 
     setCardUses((prev) =>
       editingCardUseId
@@ -2501,7 +2503,7 @@ export default function App() {
     );
 
     resetCardForm();
-    alert(editingCardUseId ? "카드사용 수정 완료" : "카드사용 저장 완료");
+    alert(editingCardUseId ? "移대뱶?ъ슜 ?섏젙 ?꾨즺" : "移대뱶?ъ슜 ????꾨즺");
     setMenuTab("card_list");
   };
 
@@ -2521,9 +2523,9 @@ export default function App() {
   };
 
   const deleteCardUse = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase.from("card_uses").delete().eq("id", id);
-    if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
+    if (error) return alert(`移대뱶?ъ슜 ??젣 ?ㅽ뙣: ${error.message}`);
     setCardUses((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -2554,13 +2556,13 @@ export default function App() {
     });
 
   const saveVendor = async () => {
-    if (editingVendorId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingVendorId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     if (!vendorForm.name) return;
     const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
     const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
     const { error } = await supabase.from("vendors").upsert(payload);
-    if (error) return alert(`거래처 저장 실패: ${error.message}`);
+    if (error) return alert(`嫄곕옒泥?????ㅽ뙣: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
     setVendorForm({ code: `V${String(next.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
@@ -2572,11 +2574,11 @@ export default function App() {
     const imported = rows
       .map((r) => ({
         id: uid(),
-        code: String(pick(r, ["거래처코드", "코드", "사업자번호"]) || "").trim() || `V${String(vendors.length + 1).padStart(3, "0")}`,
-        name: String(pick(r, ["거래처명", "상호"]) || "").trim(),
-        owner: String(pick(r, ["대표자", "대표자명"]) || "").trim(),
-        phone: String(pick(r, ["전화", "전화번호", "연락처"]) || "").trim(),
-        mobile: String(pick(r, ["모바일", "휴대폰", "휴대전화"]) || "").trim(),
+        code: String(pick(r, ["嫄곕옒泥섏퐫??, "肄붾뱶", "?ъ뾽?먮쾲??]) || "").trim() || `V${String(vendors.length + 1).padStart(3, "0")}`,
+        name: String(pick(r, ["嫄곕옒泥섎챸", "?곹샇"]) || "").trim(),
+        owner: String(pick(r, ["??쒖옄", "??쒖옄紐?]) || "").trim(),
+        phone: String(pick(r, ["?꾪솕", "?꾪솕踰덊샇", "?곕씫泥?]) || "").trim(),
+        mobile: String(pick(r, ["紐⑤컮??, "?대???, "?대??꾪솕"]) || "").trim(),
       }))
       .filter((x) => x.name);
     const merged = [...vendors];
@@ -2586,18 +2588,18 @@ export default function App() {
       else merged.push(row);
     });
     const { error } = await supabase.from("vendors").upsert(merged);
-    if (error) return alert(`거래처 업로드 실패: ${error.message}`);
+    if (error) return alert(`嫄곕옒泥??낅줈???ㅽ뙣: ${error.message}`);
     setVendors(merged);
-    setVendorImportMessage(`${imported.length}건 불러왔습니다.`);
+    setVendorImportMessage(`${imported.length}嫄?遺덈윭?붿뒿?덈떎.`);
   };
 
   const saveGroup = async () => {
-    if (editingGroupId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingGroupId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     if (!groupForm.name) return;
     const payload: Group = { id: editingGroupId || uid(), ...groupForm };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
-    if (error) return alert(`대분류 저장 실패: ${error.message}`);
+    if (error) return alert(`?遺꾨쪟 ????ㅽ뙣: ${error.message}`);
     const next = editingGroupId ? groups.map((g) => (g.id === editingGroupId ? payload : g)) : [...groups, payload];
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
@@ -2605,12 +2607,12 @@ export default function App() {
   };
 
   const saveWarehouse = async () => {
-    if (editingWarehouseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingWarehouseId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     if (!warehouseForm.group || !warehouseForm.name) return;
     const payload: Warehouse = { id: editingWarehouseId || uid(), ...warehouseForm };
     const { error } = await supabase.from("warehouses").upsert(payload);
-    if (error) return alert(`창고 저장 실패: ${error.message}`);
+    if (error) return alert(`李쎄퀬 ????ㅽ뙣: ${error.message}`);
     const next = editingWarehouseId ? warehouses.map((w) => (w.id === editingWarehouseId ? payload : w)) : [...warehouses, payload];
     setWarehouses(next);
     setWarehouseForm({ group: "", code: nextCode(next), name: "" });
@@ -2619,13 +2621,13 @@ export default function App() {
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
   const deleteGroup = async (id: string, name: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const newGroups = reseq(groups.filter((g) => g.id !== id));
     const newWarehouses = reseq(warehouses.filter((w) => w.group !== name));
     const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
-    if (delGroup.error) return alert(`대분류 삭제 실패: ${delGroup.error.message}`);
+    if (delGroup.error) return alert(`?遺꾨쪟 ??젣 ?ㅽ뙣: ${delGroup.error.message}`);
     const delWh = await supabase.from("warehouses").delete().eq("group", name);
-    if (delWh.error) return alert(`세부창고 삭제 실패: ${delWh.error.message}`);
+    if (delWh.error) return alert(`?몃?李쎄퀬 ??젣 ?ㅽ뙣: ${delWh.error.message}`);
     if (newGroups.length) await supabase.from("warehouse_groups").upsert(newGroups);
     if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
     setGroups(newGroups);
@@ -2634,23 +2636,23 @@ export default function App() {
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
   const deleteWarehouse = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const newWarehouses = reseq(warehouses.filter((w) => w.id !== id));
     const { error } = await supabase.from("warehouses").delete().eq("id", id);
-    if (error) return alert(`창고 삭제 실패: ${error.message}`);
+    if (error) return alert(`李쎄퀬 ??젣 ?ㅽ뙣: ${error.message}`);
     if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
     setWarehouses(newWarehouses);
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
 
   const saveItem = async () => {
-    if (editingItemId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+    if (editingItemId && !canEditDeleteRecords) return alert("?섏젙? 愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!canCreateRecords) return alert("?깅줉 沅뚰븳???놁뒿?덈떎.");
     if (!itemForm.name) return;
     const existing = editingItemId ? items.find((i) => i.id === editingItemId) : items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
     const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
     const { error } = await supabase.from("items").upsert(payload);
-    if (error) return alert(`품목 저장 실패: ${error.message}`);
+    if (error) return alert(`?덈ぉ ????ㅽ뙣: ${error.message}`);
     const next = existing ? items.map((i) => (i.id === existing.id ? payload : i)) : [...items, payload];
     setItems(next);
     setItemForm({ code: nextCode(next), name: "", spec: "", unit: "", price: "" });
@@ -2661,17 +2663,17 @@ export default function App() {
     const rows = await readExcelRows(file);
 
     const existingRes = await fetchAllRows("items", "code", 1000);
-    if (existingRes.error) return alert(`기존 품목 불러오기 실패: ${existingRes.error.message}`);
+    if (existingRes.error) return alert(`湲곗〈 ?덈ぉ 遺덈윭?ㅺ린 ?ㅽ뙣: ${existingRes.error.message}`);
 
     const existingItems = ((existingRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
 
     const imported = rows
       .map((r, idx) => {
-        const rawCode = String(pick(r, ["품목코드", "코드"]) || "").trim();
-        const name = String(pick(r, ["품목명", "품명"]) || "").trim();
-        const spec = String(pick(r, ["규격정보", "규격"]) || "").trim();
-        const unit = String(pick(r, ["단위"]) || "").trim();
-        const price = Number(pick(r, ["단가", "입고단가", "매입단가"]) || 0);
+        const rawCode = String(pick(r, ["?덈ぉ肄붾뱶", "肄붾뱶"]) || "").trim();
+        const name = String(pick(r, ["?덈ぉ紐?, "?덈챸"]) || "").trim();
+        const spec = String(pick(r, ["洹쒓꺽?뺣낫", "洹쒓꺽"]) || "").trim();
+        const unit = String(pick(r, ["?⑥쐞"]) || "").trim();
+        const price = Number(pick(r, ["?④?", "?낃퀬?④?", "留ㅼ엯?④?"]) || 0);
 
         return {
           id: uid(),
@@ -2696,14 +2698,14 @@ export default function App() {
     });
 
     const error = await upsertInChunks("items", merged, 500);
-    if (error) return alert(`품목 업로드 실패: ${error.message}`);
+    if (error) return alert(`?덈ぉ ?낅줈???ㅽ뙣: ${error.message}`);
 
     const reloadRes = await fetchAllRows("items", "code", 1000);
-    if (reloadRes.error) return alert(`품목 다시 불러오기 실패: ${reloadRes.error.message}`);
+    if (reloadRes.error) return alert(`?덈ぉ ?ㅼ떆 遺덈윭?ㅺ린 ?ㅽ뙣: ${reloadRes.error.message}`);
 
     const nextItems = ((reloadRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
     setItems(nextItems);
-    setItemImportMessage(`${imported.length}건 업로드 / 현재 ${nextItems.length}건 표시`);
+    setItemImportMessage(`${imported.length}嫄??낅줈??/ ?꾩옱 ${nextItems.length}嫄??쒖떆`);
     setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
   };
 
@@ -2719,7 +2721,7 @@ export default function App() {
 
   const saveNewItemFromModal = async () => {
     const name = newItemForm.name.trim();
-    if (!name) return alert("품목명을 입력하세요.");
+    if (!name) return alert("?덈ぉ紐낆쓣 ?낅젰?섏꽭??");
 
     const spec = newItemForm.spec.trim();
     const unit = newItemForm.unit.trim();
@@ -2735,7 +2737,7 @@ export default function App() {
     };
 
     const { error } = await supabase.from("items").insert(newItem);
-    if (error) return alert(`신규 품목 저장 실패: ${error.message}`);
+    if (error) return alert(`?좉퇋 ?덈ぉ ????ㅽ뙣: ${error.message}`);
     setItems((prev) => [...prev, newItem]);
 
     if (newItemModal.rowIndex !== null) {
@@ -2890,7 +2892,7 @@ export default function App() {
     setMaintSaveError("");
 
     if (!maintForm.warehouse || !maintForm.title) {
-      const message = "창고와 정비제목을 입력하세요.";
+      const message = "李쎄퀬? ?뺣퉬?쒕ぉ???낅젰?섏꽭??";
       setMaintSaveError(message);
       alert(message);
       return;
@@ -2914,7 +2916,7 @@ export default function App() {
 
       const { error } = await supabase.from("maints").upsert(payload);
       if (error) {
-        const message = `정비 저장 실패: ${error.message}`;
+        const message = `?뺣퉬 ????ㅽ뙣: ${error.message}`;
         setMaintSaveError(message);
         alert(message);
         return;
@@ -2929,10 +2931,10 @@ export default function App() {
 
       clearMaintDraft();
       resetMaintForm();
-      alert("정비가 저장되었습니다.");
+      alert("?뺣퉬媛 ??λ릺?덉뒿?덈떎.");
       setMenuTab("maint_list");
     } catch (error: any) {
-      const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
+      const message = error?.message ? `?뺣퉬 ???以??ㅻ쪟: ${error.message}` : "?뺣퉬 ???以??????녿뒗 ?ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.";
       setMaintSaveError(message);
       alert(message);
     } finally {
@@ -2970,53 +2972,53 @@ export default function App() {
   };
 
   const deletePurchase = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase.from("purchases").delete().eq("id", id);
-    if (error) return alert(`구매 삭제 실패: ${error.message}`);
+    if (error) return alert(`援щℓ ??젣 ?ㅽ뙣: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
   };
 
   const deleteVendor = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase.from("vendors").delete().eq("id", id);
-    if (error) return alert(`거래처 삭제 실패: ${error.message}`);
+    if (error) return alert(`嫄곕옒泥???젣 ?ㅽ뙣: ${error.message}`);
     setVendors((prev) => prev.filter((v) => v.id !== id));
   };
 
   const clearVendors = async () => {
-    if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留??꾩껜??젣?????덉뒿?덈떎.");
     const { error } = await supabase.from("vendors").delete().neq("id", "");
-    if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
+    if (error) return alert(`嫄곕옒泥??꾩껜??젣 ?ㅽ뙣: ${error.message}`);
     setVendors([]);
-    setVendorImportMessage("거래처 전체 삭제 완료");
+    setVendorImportMessage("嫄곕옒泥??꾩껜 ??젣 ?꾨즺");
     setVendorForm({ code: "V001", name: "", owner: "", phone: "", mobile: "" });
   };
 
   const deleteItem = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase.from("items").delete().eq("id", id);
-    if (error) return alert(`품목 삭제 실패: ${error.message}`);
+    if (error) return alert(`?덈ぉ ??젣 ?ㅽ뙣: ${error.message}`);
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   const clearItems = async () => {
-    if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
-    if (!confirm("품목을 전체 삭제하시겠습니까?\n삭제 후에는 되돌릴 수 없습니다.")) return;
+    if (!isAdmin) return alert("愿由ъ옄留??꾩껜??젣?????덉뒿?덈떎.");
+    if (!confirm("?덈ぉ???꾩껜 ??젣?섏떆寃좎뒿?덇퉴?\n??젣 ?꾩뿉???섎룎由????놁뒿?덈떎.")) return;
 
     const { error } = await supabase.from("items").delete().neq("id", "");
-    if (error) return alert(`품목 전체삭제 실패: ${error.message}`);
+    if (error) return alert(`?덈ぉ ?꾩껜??젣 ?ㅽ뙣: ${error.message}`);
 
     setItems([]);
     setItemSearch("");
-    setItemImportMessage("품목 전체 삭제 완료");
+    setItemImportMessage("?덈ぉ ?꾩껜 ??젣 ?꾨즺");
     setItemForm({ code: "0001", name: "", spec: "", unit: "", price: "" });
     setEditingItemId("");
   };
 
   const deleteMaint = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
     const { error } = await supabase.from("maints").delete().eq("id", id);
-    if (error) return alert(`정비 삭제 실패: ${error.message}`);
+    if (error) return alert(`?뺣퉬 ??젣 ?ㅽ뙣: ${error.message}`);
     setMaints((prev) => prev.filter((m) => m.id !== id));
   };
 
@@ -3035,7 +3037,7 @@ export default function App() {
     const email = toLoginEmail(loginId);
 
     if (!email) {
-      setLoginError("아이디를 입력하세요.");
+      setLoginError("?꾩씠?붾? ?낅젰?섏꽭??");
       return;
     }
 
@@ -3045,7 +3047,7 @@ export default function App() {
     });
 
     if (error) {
-      setLoginError("로그인 실패: 아이디 또는 비밀번호를 확인하세요.");
+      setLoginError("濡쒓렇???ㅽ뙣: ?꾩씠???먮뒗 鍮꾨?踰덊샇瑜??뺤씤?섏꽭??");
       return;
     }
 
@@ -3142,16 +3144,16 @@ export default function App() {
       ...item,
       id: String(item.id),
       notice_date: String(item.notice_date || "").slice(0, 10),
-      priority: item.priority || "보통",
+      priority: item.priority || "蹂댄넻",
       target_roles: Array.isArray(item.target_roles) ? item.target_roles : ["all"],
       target_emails: Array.isArray(item.target_emails) ? item.target_emails : [],
     })) as SiteNotice[]);
   };
 
   const saveSiteNotice = async () => {
-    if (!(isAdmin || currentRole === "office")) return alert("관리자 또는 사무실직원만 공지를 저장할 수 있습니다.");
+    if (!(isAdmin || currentRole === "office")) return alert("愿由ъ옄 ?먮뒗 ?щТ?ㅼ쭅?먮쭔 怨듭?瑜???ν븷 ???덉뒿?덈떎.");
     if (!siteNoticeForm.title.trim() || !siteNoticeForm.content.trim()) {
-      return alert("제목과 내용을 입력하세요.");
+      return alert("?쒕ぉ怨??댁슜???낅젰?섏꽭??");
     }
 
     const payload = {
@@ -3159,7 +3161,7 @@ export default function App() {
       notice_date: getTodayKey(),
       title: siteNoticeForm.title.trim(),
       content: siteNoticeForm.content.trim(),
-      priority: siteNoticeForm.priority || "보통",
+      priority: siteNoticeForm.priority || "蹂댄넻",
       is_active: siteNoticeForm.is_active,
       target_roles: siteNoticeForm.target_roles?.length ? siteNoticeForm.target_roles : ["all"],
       target_emails: siteNoticeForm.target_emails || [],
@@ -3167,9 +3169,9 @@ export default function App() {
     };
 
     const { error } = await supabase.from("site_notices").upsert(payload);
-    if (error) return alert(`공지 저장 실패: ${error.message}`);
+    if (error) return alert(`怨듭? ????ㅽ뙣: ${error.message}`);
 
-    setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] });
+    setSiteNoticeForm({ title: "", content: "", priority: "蹂댄넻", is_active: true, target_roles: ["all"], target_emails: [] });
     setEditingSiteNoticeId("");
     await loadSiteNotices();
   };
@@ -3179,7 +3181,7 @@ export default function App() {
     setSiteNoticeForm({
       title: notice.title || "",
       content: notice.content || "",
-      priority: notice.priority || "보통",
+      priority: notice.priority || "蹂댄넻",
       is_active: notice.is_active !== false,
       target_roles: notice.target_roles?.length ? notice.target_roles : ["all"],
       target_emails: notice.target_emails || [],
@@ -3187,11 +3189,11 @@ export default function App() {
   };
 
   const deleteSiteNotice = async (id: string) => {
-    if (!isAdmin) return alert("관리자만 현장 공지를 삭제할 수 있습니다.");
-    if (!confirm("공지를 삭제할까요?")) return;
+    if (!isAdmin) return alert("愿由ъ옄留??꾩옣 怨듭?瑜???젣?????덉뒿?덈떎.");
+    if (!confirm("怨듭?瑜???젣?좉퉴??")) return;
 
     const { error } = await supabase.from("site_notices").delete().eq("id", id);
-    if (error) return alert(`공지 삭제 실패: ${error.message}`);
+    if (error) return alert(`怨듭? ??젣 ?ㅽ뙣: ${error.message}`);
 
     await loadSiteNotices();
   };
@@ -3217,11 +3219,11 @@ export default function App() {
   };
 
   const saveUserPermission = async (next?: UserPermission) => {
-    if (!isAdmin) return alert("관리자만 권한을 저장할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留?沅뚰븳????ν븷 ???덉뒿?덈떎.");
     const target = next || permissionForm;
     const loginId = target.email.trim().toLowerCase();
     const email = toLoginEmail(loginId);
-    if (!email) return alert("직원 아이디를 입력하세요.");
+    if (!email) return alert("吏곸썝 ?꾩씠?붾? ?낅젰?섏꽭??");
 
     const payload = {
       id: target.id || uid(),
@@ -3232,26 +3234,26 @@ export default function App() {
     };
 
     const { error } = await supabase.from("user_permissions").upsert(payload, { onConflict: "email" });
-    if (error) return alert(`권한 저장 실패: ${error.message}`);
+    if (error) return alert(`沅뚰븳 ????ㅽ뙣: ${error.message}`);
 
     await loadUserPermissions();
     setPermissionForm({ id: uid(), email: "", role: "field", permissions: {} });
   };
 
   const deleteUserPermission = async (email: string) => {
-    if (!isAdmin) return alert("관리자만 권한을 삭제할 수 있습니다.");
-    if (!confirm(`${toLoginId(email)} 권한을 삭제할까요?`)) return;
+    if (!isAdmin) return alert("愿由ъ옄留?沅뚰븳????젣?????덉뒿?덈떎.");
+    if (!confirm(`${toLoginId(email)} 沅뚰븳????젣?좉퉴??`)) return;
 
     const { error } = await supabase.from("user_permissions").delete().eq("email", email);
-    if (error) return alert(`권한 삭제 실패: ${error.message}`);
+    if (error) return alert(`沅뚰븳 ??젣 ?ㅽ뙣: ${error.message}`);
 
     await loadUserPermissions();
   };
 
   const saveUpdateNotice = async () => {
-    if (!isAdmin) return alert("관리자만 업데이트 공지를 저장할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留??낅뜲?댄듃 怨듭?瑜???ν븷 ???덉뒿?덈떎.");
     if (!updateNoticeForm.notice_date || !updateNoticeForm.content.trim()) {
-      return alert("날짜와 업데이트 내용을 입력하세요.");
+      return alert("?좎쭨? ?낅뜲?댄듃 ?댁슜???낅젰?섏꽭??");
     }
 
     const payload = {
@@ -3263,12 +3265,12 @@ export default function App() {
     };
 
     const { error } = await supabase.from("update_notices").upsert(payload);
-    if (error) return alert(`업데이트 공지 저장 실패: ${error.message}`);
+    if (error) return alert(`?낅뜲?댄듃 怨듭? ????ㅽ뙣: ${error.message}`);
 
     setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
     setEditingUpdateNoticeId("");
     await loadUpdateNotices();
-    alert(editingUpdateNoticeId ? "업데이트 공지 수정 완료" : "업데이트 공지 등록 완료");
+    alert(editingUpdateNoticeId ? "?낅뜲?댄듃 怨듭? ?섏젙 ?꾨즺" : "?낅뜲?댄듃 怨듭? ?깅줉 ?꾨즺");
   };
 
   const editUpdateNotice = (notice: UpdateNotice) => {
@@ -3281,8 +3283,8 @@ export default function App() {
   };
 
   const deleteUpdateNotice = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("업데이트 공지를 삭제할까요?")) return;
+    if (!canEditDeleteRecords) return alert("??젣??愿由ъ옄留?媛?ν빀?덈떎.");
+    if (!confirm("?낅뜲?댄듃 怨듭?瑜???젣?좉퉴??")) return;
 
     setUpdateNotices((prev) => prev.filter((notice) => notice.id !== id));
 
@@ -3296,7 +3298,7 @@ export default function App() {
 
       if (softError) {
         await loadUpdateNotices();
-        return alert(`업데이트 공지 삭제 실패: ${softError.message}`);
+        return alert(`?낅뜲?댄듃 怨듭? ??젣 ?ㅽ뙣: ${softError.message}`);
       }
     }
 
@@ -3304,7 +3306,7 @@ export default function App() {
   };
 
   const cleanupDuplicateUpdateNotices = async () => {
-    if (!isAdmin) return alert("관리자만 중복 공지를 정리할 수 있습니다.");
+    if (!isAdmin) return alert("愿由ъ옄留?以묐났 怨듭?瑜??뺣━?????덉뒿?덈떎.");
 
     const { data, error } = await supabase
       .from("update_notices")
@@ -3313,7 +3315,7 @@ export default function App() {
       .order("notice_date", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (error) return alert(`중복 공지 조회 실패: ${error.message}`);
+    if (error) return alert(`以묐났 怨듭? 議고쉶 ?ㅽ뙣: ${error.message}`);
 
     const seen = new Set<string>();
     const duplicateIds: string[] = [];
@@ -3325,7 +3327,7 @@ export default function App() {
     });
 
     if (!duplicateIds.length) {
-      alert("중복 공지가 없습니다.");
+      alert("以묐났 怨듭?媛 ?놁뒿?덈떎.");
       return;
     }
 
@@ -3334,10 +3336,10 @@ export default function App() {
       .delete()
       .in("id", duplicateIds);
 
-    if (deleteError) return alert(`중복 공지 삭제 실패: ${deleteError.message}`);
+    if (deleteError) return alert(`以묐났 怨듭? ??젣 ?ㅽ뙣: ${deleteError.message}`);
 
     await loadUpdateNotices();
-    alert(`중복 공지 ${duplicateIds.length}건을 정리했습니다.`);
+    alert(`以묐났 怨듭? ${duplicateIds.length}嫄댁쓣 ?뺣━?덉뒿?덈떎.`);
   };
 
   useEffect(() => {
@@ -3351,7 +3353,7 @@ export default function App() {
       <>
         <style>{loginCss}</style>
         <div className="login-page">
-          <div className="login-card">로그인 확인 중...</div>
+          <div className="login-card">濡쒓렇???뺤씤 以?..</div>
         </div>
       </>
     );
@@ -3364,10 +3366,10 @@ export default function App() {
         <div className="login-page">
           <div className="login-card">
           <div className="login-badge">TAEMYUNG ERP</div>
-          <h1>태명산업개발</h1>
-          <p>통합 관리 시스템 로그인</p>
+          <h1>?쒕챸?곗뾽媛쒕컻</h1>
+          <p>?듯빀 愿由??쒖뒪??濡쒓렇??/p>
 
-          <label>아이디</label>
+          <label>?꾩씠??/label>
           <input
             value={loginForm.email}
             onChange={(e) => {
@@ -3380,15 +3382,15 @@ export default function App() {
                 writeAuthPrefs(nextPrefs);
               }
             }}
-            placeholder="아이디 입력 예: field01"
+            placeholder="?꾩씠???낅젰 ?? field01"
           />
 
-          <label>비밀번호</label>
+          <label>鍮꾨?踰덊샇</label>
           <input
             type="password"
             value={loginForm.password}
             onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-            placeholder="비밀번호 입력"
+            placeholder="鍮꾨?踰덊샇 ?낅젰"
             onKeyDown={(e) => {
               if (e.key === "Enter") login();
             }}
@@ -3409,8 +3411,7 @@ export default function App() {
                   writeAuthPrefs(nextPrefs);
                 }}
               />
-              아이디 저장
-            </label>
+              ?꾩씠?????            </label>
 
             <label>
               <input
@@ -3427,13 +3428,12 @@ export default function App() {
                   writeAuthPrefs(nextPrefs);
                 }}
               />
-              자동 로그인
-            </label>
+              ?먮룞 濡쒓렇??            </label>
           </div>
 
           {loginError && <div className="login-error">{loginError}</div>}
 
-          <button className="primary login-button" onClick={login}>로그인</button>
+          <button className="primary login-button" onClick={login}>濡쒓렇??/button>
           </div>
         </div>
       </>
@@ -3445,11 +3445,11 @@ export default function App() {
       <style>{css}</style>
       <div className="app">
         <header className="hero">
-          <h1 className="main-title">태명산업개발</h1>
-          <p>통합 관리 시스템</p>
+          <h1 className="main-title">?쒕챸?곗뾽媛쒕컻</h1>
+          <p>?듯빀 愿由??쒖뒪??/p>
         </header>
 
-        {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
+        {loading && <div className="loading">Supabase ?곗씠??遺덈윭?ㅻ뒗 以?..</div>}
 
 
 
@@ -3459,9 +3459,9 @@ export default function App() {
               <div className="update-popup-head">
                 <div>
                   <span>UPDATE</span>
-                  <h2>업데이트 안내</h2>
+                  <h2>?낅뜲?댄듃 ?덈궡</h2>
                 </div>
-                <button onClick={closeUpdateNotice}>×</button>
+                <button onClick={closeUpdateNotice}>횞</button>
               </div>
 
               <ul>
@@ -3480,9 +3480,9 @@ export default function App() {
                     checked={hideUpdateToday}
                     onChange={(e) => setHideUpdateToday(e.target.checked)}
                   />
-                  오늘 열지 않음
+                  ?ㅻ뒛 ?댁? ?딆쓬
                 </label>
-                <button className="primary" onClick={closeUpdateNotice}>확인</button>
+                <button className="primary" onClick={closeUpdateNotice}>?뺤씤</button>
               </div>
             </div>
           </div>
@@ -3494,121 +3494,121 @@ export default function App() {
             <div className="bulk-select-modal">
               <div className="bulk-select-head">
                 <div>
-                  <h2>대량이체 항목 선택</h2>
-                  <p>체크한 거래처만 엑셀로 다운로드됩니다.</p>
+                  <h2>??됱씠泥???ぉ ?좏깮</h2>
+                  <p>泥댄겕??嫄곕옒泥섎쭔 ?묒?濡??ㅼ슫濡쒕뱶?⑸땲??</p>
                 </div>
-                <button onClick={() => setBulkTransferSelectOpen(false)}>닫기</button>
+                <button onClick={() => setBulkTransferSelectOpen(false)}>?リ린</button>
               </div>
               <div className="bulk-select-actions">
-                <button onClick={() => setSelectedBulkTransferIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
-                <button onClick={() => setSelectedBulkTransferIds([])}>전체해제</button>
-                <strong>선택 {selectedBulkTransferIds.length}건 / {money(bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
+                <button onClick={() => setSelectedBulkTransferIds(bulkTransferRows.map((row) => row.id))}>?꾩껜?좏깮</button>
+                <button onClick={() => setSelectedBulkTransferIds([])}>?꾩껜?댁젣</button>
+                <strong>?좏깮 {selectedBulkTransferIds.length}嫄?/ {money(bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}??/strong>
               </div>
               <div className="bulk-select-list">
                 {bulkTransferRows.map((row) => (
                   <label className={row.matched ? "bulk-select-row" : "bulk-select-row missing"} key={row.id}>
                     <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
                     <span>{row.vendor}</span>
-                    <em>{row.matched ? "계좌매칭" : "계좌확인필요"}</em>
-                    <b>{money(row.amount)}원</b>
+                    <em>{row.matched ? "怨꾩쥖留ㅼ묶" : "怨꾩쥖?뺤씤?꾩슂"}</em>
+                    <b>{money(row.amount)}??/b>
                   </label>
                 ))}
               </div>
               <div className="bulk-select-bottom">
-                <button onClick={() => setBulkTransferSelectOpen(false)}>취소</button>
-                <button className="primary" onClick={downloadSelectedBulkTransferExcel}>선택 항목 다운로드</button>
+                <button onClick={() => setBulkTransferSelectOpen(false)}>痍⑥냼</button>
+                <button className="primary" onClick={downloadSelectedBulkTransferExcel}>?좏깮 ??ぉ ?ㅼ슫濡쒕뱶</button>
               </div>
             </div>
           </div>
         )}
 
         <nav className="menu permission-aware-menu">
-          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>}
-          {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => setMenuTab("site_notices")}>공지</button>}
-          {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>}
+          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>??/button>}
+          {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => setMenuTab("site_notices")}>怨듭?</button>}
+          {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>?앹궛?쇱씤</button>}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className="menu-group">
-              <button>구매</button>
+              <button>援щℓ</button>
               <div className="sub">
-                {menuButton("new", "구매입력")}
-                {menuButton("list", "구매조회")}
-                {menuButton("status", "구매현황")}
-                {menuButton("bulk_transfer", "대량이체")}
-                {menuButton("receipt_photos", "입고사진등록")}
-                {menuButton("vendor_accounts", "업체계좌관리")}
+                {menuButton("new", "援щℓ?낅젰")}
+                {menuButton("list", "援щℓ議고쉶")}
+                {menuButton("status", "援щℓ?꾪솴")}
+                {menuButton("bulk_transfer", "??됱씠泥?)}
+                {menuButton("receipt_photos", "?낃퀬?ъ쭊?깅줉")}
+                {menuButton("vendor_accounts", "?낆껜怨꾩쥖愿由?)}
               </div>
             </div>
           )}
 
           {canShowAny(["card_use", "card_list", "card_stats"]) && (
             <div className="menu-group">
-              <button>카드</button>
+              <button>移대뱶</button>
               <div className="sub">
-                {menuButton("card_use", "카드사용")}
-                {menuButton("card_list", "카드조회")}
-                {menuButton("card_stats", "카드통계")}
+                {menuButton("card_use", "移대뱶?ъ슜")}
+                {menuButton("card_list", "移대뱶議고쉶")}
+                {menuButton("card_stats", "移대뱶?듦퀎")}
               </div>
             </div>
           )}
 
           {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
             <div className="menu-group maint-menu-group">
-              <button type="button">정비</button>
+              <button type="button">?뺣퉬</button>
               <div className="sub maint-sub">
-                {menuButton("maint_new", "정비등록")}
-                {menuButton("maint_list", "정비조회")}
-                {menuButton("maint_stats", "정비통계")}
-                {menuButton("maintenance_photos", "정비사진등록")}
-                {menuButton("maintenance_schedule_new", "정비일정등록")}
-                {menuButton("maintenance_schedules", "정비일정조회")}
+                {menuButton("maint_new", "?뺣퉬?깅줉")}
+                {menuButton("maint_list", "?뺣퉬議고쉶")}
+                {menuButton("maint_stats", "?뺣퉬?듦퀎")}
+                {menuButton("maintenance_photos", "?뺣퉬?ъ쭊?깅줉")}
+                {menuButton("maintenance_schedule_new", "?뺣퉬?쇱젙?깅줉")}
+                {menuButton("maintenance_schedules", "?뺣퉬?쇱젙議고쉶")}
               </div>
             </div>
           )}
 
           {canShowAny(["vendors", "warehouse_groups", "items"]) && (
             <div className="menu-group">
-              <button>기초등록</button>
+              <button>湲곗큹?깅줉</button>
               <div className="sub">
-                {menuButton("vendors", "거래처등록")}
-                {menuButton("warehouse_groups", "창고등록")}
-                {menuButton("items", "품목등록")}
+                {menuButton("vendors", "嫄곕옒泥섎벑濡?)}
+                {menuButton("warehouse_groups", "李쎄퀬?깅줉")}
+                {menuButton("items", "?덈ぉ?깅줉")}
               </div>
             </div>
           )}
 
-          {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
-          {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
-          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
+          {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>?덇?愿由?/button>}
+          {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>諛깆뾽/沅뚰븳愿由?/button>}
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " 쨌 愿由ъ옄" : currentRole === "office" ? " 쨌 ?щТ?ㅼ쭅?? : " 쨌 ?꾩옣吏곸썝"}</span><button onClick={logout}>濡쒓렇?꾩썐</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
             <div className="notice-pro-left">
               <div className="notice-pro-head">
                 <div>
-                  <h2>📢 공지</h2>
-                  <p>시스템 업데이트 및 중요 안내사항을 확인하세요.</p>
+                  <h2>?뱼 怨듭?</h2>
+                  <p>?쒖뒪???낅뜲?댄듃 諛?以묒슂 ?덈궡?ы빆???뺤씤?섏꽭??</p>
                 </div>
-                <div className="notice-pin">꼭<br />확인!</div>
+                <div className="notice-pin">瑗?br />?뺤씤!</div>
               </div>
 
               <div className="notice-pro-tabs">
-                <button className="active">전체</button>
-                <button>오늘</button>
-                <button>어제</button>
-                <button>이번주</button>
-                <button>이전</button>
+                <button className="active">?꾩껜</button>
+                <button>?ㅻ뒛</button>
+                <button>?댁젣</button>
+                <button>?대쾲二?/button>
+                <button>?댁쟾</button>
               </div>
 
               {updateNoticeError && (
                 <div className="notice-pro-error">
-                  공지 불러오기 실패: {updateNoticeError}
+                  怨듭? 遺덈윭?ㅺ린 ?ㅽ뙣: {updateNoticeError}
                 </div>
               )}
 
               <div className="notice-pro-list">
                 {(updateNotices || []).length === 0 ? (
-                  <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
+                  <div className="notice-pro-empty">?깅줉??怨듭?媛 ?놁뒿?덈떎.</div>
                 ) : (
                   updateNotices.map((notice) => (
                     <article className="notice-pro-item" key={notice.id}>
@@ -3620,7 +3620,7 @@ export default function App() {
 
                       <div className="notice-pro-body">
                         <div className="notice-pro-badge-row">
-                          <span className={isRecentNotice(notice) ? "hot" : ""}>업데이트</span>
+                          <span className={isRecentNotice(notice) ? "hot" : ""}>?낅뜲?댄듃</span>
                         </div>
                         <h3>{notice.content}</h3>
                       </div>
@@ -3629,7 +3629,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="notice-pro-bottom">더 이상 공지가 없습니다.</div>
+              <div className="notice-pro-bottom">???댁긽 怨듭?媛 ?놁뒿?덈떎.</div>
             </div>
           </section>
         )}
@@ -3639,39 +3639,39 @@ export default function App() {
             <div className="notice-pro-left">
               <div className="notice-pro-head">
                 <div>
-                  <h2>{editingUpdateNoticeId ? "공지 수정" : "새 공지 등록"}</h2>
-                  <p>저장하면 모든 사용자에게 인터넷으로 공지가 공유됩니다.</p>
+                  <h2>{editingUpdateNoticeId ? "怨듭? ?섏젙" : "??怨듭? ?깅줉"}</h2>
+                  <p>??ν븯硫?紐⑤뱺 ?ъ슜?먯뿉寃??명꽣?룹쑝濡?怨듭?媛 怨듭쑀?⑸땲??</p>
                 </div>
               </div>
 
               {updateNoticeError && (
                 <div className="notice-pro-error notice-pro-manage-error">
-                  공지 불러오기 실패: {updateNoticeError}
+                  怨듭? 遺덈윭?ㅺ린 ?ㅽ뙣: {updateNoticeError}
                 </div>
               )}
 
               <div className="notice-form-grid">
-                <Field label="공지 날짜">
+                <Field label="怨듭? ?좎쭨">
                   <input
                     type="text"
-                    placeholder="20260512 또는 260512"
+                    placeholder="20260512 ?먮뒗 260512"
                     value={updateNoticeForm.notice_date}
                     onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, notice_date: formatInputDate(e.target.value) })}
                   />
                 </Field>
 
-                <Field label="업데이트 내용">
+                <Field label="?낅뜲?댄듃 ?댁슜">
                   <input
                     value={updateNoticeForm.content}
                     onChange={(e) => setUpdateNoticeForm({ ...updateNoticeForm, content: e.target.value })}
-                    placeholder="예: 카드사용 영수증 여러 장 업로드 기능 추가"
+                    placeholder="?? 移대뱶?ъ슜 ?곸닔利??щ윭 ???낅줈??湲곕뒫 異붽?"
                   />
                 </Field>
               </div>
 
               <div className="actions right-actions">
                 <button className="primary" onClick={saveUpdateNotice}>
-                  {editingUpdateNoticeId ? "수정저장" : "공지등록"}
+                  {editingUpdateNoticeId ? "?섏젙??? : "怨듭??깅줉"}
                 </button>
                 <button
                   onClick={() => {
@@ -3679,36 +3679,35 @@ export default function App() {
                     setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
                   }}
                 >
-                  초기화
-                </button>
-                <button onClick={() => setMenuTab("update_history")}>공지 목록</button>
+                  珥덇린??                </button>
+                <button onClick={() => setMenuTab("update_history")}>怨듭? 紐⑸줉</button>
               </div>
             </div>
 
             <aside className="notice-pro-right">
               <div className="notice-pro-admin-head">
-                <h2>등록된 공지</h2>
-                <button onClick={loadUpdateNotices}>새로고침</button>
-                <button onClick={cleanupDuplicateUpdateNotices}>중복정리</button>
+                <h2>?깅줉??怨듭?</h2>
+                <button onClick={loadUpdateNotices}>?덈줈怨좎묠</button>
+                <button onClick={cleanupDuplicateUpdateNotices}>以묐났?뺣━</button>
               </div>
 
               <div className="notice-pro-table compact">
                 <div className="notice-pro-table-head">
-                  <span>날짜</span>
-                  <span>제목</span>
-                  <span>관리</span>
+                  <span>?좎쭨</span>
+                  <span>?쒕ぉ</span>
+                  <span>愿由?/span>
                 </div>
 
                 {!updateNotices.length ? (
-                  <div className="notice-pro-empty">등록된 공지가 없습니다.</div>
+                  <div className="notice-pro-empty">?깅줉??怨듭?媛 ?놁뒿?덈떎.</div>
                 ) : (
                   updateNotices.map((notice) => (
                     <div className="notice-pro-table-row" key={notice.id}>
                       <span>{notice.notice_date}</span>
                       <span>{notice.content}</span>
                       <span className="notice-pro-actions">
-                        <button onClick={() => editUpdateNotice(notice)}>수정</button>
-                        <button className="danger" onClick={() => deleteUpdateNotice(notice.id)}>삭제</button>
+                        <button onClick={() => editUpdateNotice(notice)}>?섏젙</button>
+                        <button className="danger" onClick={() => deleteUpdateNotice(notice.id)}>??젣</button>
                       </span>
                     </div>
                   ))
@@ -3723,12 +3722,12 @@ export default function App() {
           <section className="card permit-page">
             <div className="permit-head">
               <div>
-                <h2>허가/갱신관리</h2>
-                <p>만료일과 갱신 업무를 한눈에 관리합니다.</p>
+                <h2>?덇?/媛깆떊愿由?/h2>
+                <p>留뚮즺?쇨낵 媛깆떊 ?낅Т瑜??쒕늿??愿由ы빀?덈떎.</p>
               </div>
               <div className="permit-summary">
-                <span>전체 <b>{filteredPermits.length}</b></span>
-                <span>30일 이내 <b>{filteredPermits.filter((p: PermitRenewal) => {
+                <span>?꾩껜 <b>{filteredPermits.length}</b></span>
+                <span>30???대궡 <b>{filteredPermits.filter((p: PermitRenewal) => {
                   const d = getDday(p.expiry_date);
                   return d !== null && d >= 0 && d <= 30;
                 }).length}</b></span>
@@ -3738,26 +3737,25 @@ export default function App() {
                   className={!permitSearch.company ? "active" : ""}
                   onClick={() => setPermitSearch({ ...permitSearch, company: "" })}
                 >
-                  전체
+                  ?꾩껜
                 </button>
                 <button
-                  className={permitSearch.company === "태명" ? "active" : ""}
-                  onClick={() => setPermitSearch({ ...permitSearch, company: "태명" })}
+                  className={permitSearch.company === "?쒕챸" ? "active" : ""}
+                  onClick={() => setPermitSearch({ ...permitSearch, company: "?쒕챸" })}
                 >
-                  태명
+                  ?쒕챸
                 </button>
                 <button
-                  className={permitSearch.company === "유강" ? "active" : ""}
-                  onClick={() => setPermitSearch({ ...permitSearch, company: "유강" })}
+                  className={permitSearch.company === "?좉컯" ? "active" : ""}
+                  onClick={() => setPermitSearch({ ...permitSearch, company: "?좉컯" })}
                 >
-                  유강
+                  ?좉컯
                 </button>
               </div>
 
               <div className="actions">
                 <label className="upload">
-                  <Upload size={16} /> 엑셀 업로드
-                  <input
+                  <Upload size={16} /> ?묒? ?낅줈??                  <input
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={async (e) => {
@@ -3766,71 +3764,71 @@ export default function App() {
                     }}
                   />
                 </label>
-                <button onClick={loadPermits}>새로고침</button>
+                <button onClick={loadPermits}>?덈줈怨좎묠</button>
               </div>
             </div>
 
             <div className="grid5">
-              <Field label="회사/구분">
+              <Field label="?뚯궗/援щ텇">
                 <input
                   value={permitForm.company}
                   onChange={(e) => setPermitForm({ ...permitForm, company: e.target.value })}
-                  placeholder="예: 태명산업개발"
+                  placeholder="?? ?쒕챸?곗뾽媛쒕컻"
                 />
               </Field>
-              <Field label="허가/신고명">
+              <Field label="?덇?/?좉퀬紐?>
                 <input
                   value={permitForm.title}
                   onChange={(e) => setPermitForm({ ...permitForm, title: e.target.value })}
                 />
               </Field>
-              <Field label="허가관청">
+              <Field label="?덇?愿泥?>
                 <input
                   value={permitForm.agency}
                   onChange={(e) => setPermitForm({ ...permitForm, agency: e.target.value })}
                 />
               </Field>
-              <Field label="담당/연락처">
+              <Field label="?대떦/?곕씫泥?>
                 <input
                   value={permitForm.contact}
                   onChange={(e) => setPermitForm({ ...permitForm, contact: e.target.value })}
                 />
               </Field>
-              <Field label="만료일">
+              <Field label="留뚮즺??>
                 <input
                   value={permitForm.expiry_date}
                   onChange={(e) => setPermitForm({ ...permitForm, expiry_date: formatInputDate(e.target.value) })}
-                  placeholder="20260512 또는 260512"
+                  placeholder="20260512 ?먮뒗 260512"
                 />
               </Field>
             </div>
 
             <div className="grid3">
-              <Field label="확인사항">
+              <Field label="?뺤씤?ы빆">
                 <input
                   value={permitForm.check_note}
                   onChange={(e) => setPermitForm({ ...permitForm, check_note: e.target.value })}
                 />
               </Field>
-              <Field label="주기">
+              <Field label="二쇨린">
                 <input
                   value={permitForm.cycle}
                   onChange={(e) => setPermitForm({ ...permitForm, cycle: e.target.value })}
                 />
               </Field>
-              <Field label="상태">
+              <Field label="?곹깭">
                 <select
                   value={permitForm.status}
                   onChange={(e) => setPermitForm({ ...permitForm, status: e.target.value })}
                 >
-                  <option value="진행">진행</option>
-                  <option value="완료">완료</option>
-                  <option value="보류">보류</option>
+                  <option value="吏꾪뻾">吏꾪뻾</option>
+                  <option value="?꾨즺">?꾨즺</option>
+                  <option value="蹂대쪟">蹂대쪟</option>
                 </select>
               </Field>
             </div>
 
-            <Field label="비고">
+            <Field label="鍮꾧퀬">
               <input
                 value={permitForm.memo}
                 onChange={(e) => setPermitForm({ ...permitForm, memo: e.target.value })}
@@ -3839,24 +3837,24 @@ export default function App() {
 
             <div className="actions right-actions">
               <button className="primary" onClick={savePermit}>
-                {editingPermitId ? "수정저장" : "허가 등록"}
+                {editingPermitId ? "?섏젙??? : "?덇? ?깅줉"}
               </button>
-              <button onClick={resetPermitForm}>초기화</button>
+              <button onClick={resetPermitForm}>珥덇린??/button>
             </div>
 
             <div className="grid3">
-              <Field label="회사 검색">
+              <Field label="?뚯궗 寃??>
                 <input value={permitSearch.company} onChange={(e) => setPermitSearch({ ...permitSearch, company: e.target.value })} />
               </Field>
-              <Field label="키워드 검색">
+              <Field label="?ㅼ썙??寃??>
                 <input value={permitSearch.keyword} onChange={(e) => setPermitSearch({ ...permitSearch, keyword: e.target.value })} />
               </Field>
-              <Field label="상태 검색">
+              <Field label="?곹깭 寃??>
                 <select value={permitSearch.status} onChange={(e) => setPermitSearch({ ...permitSearch, status: e.target.value })}>
-                  <option value="">전체</option>
-                  <option value="진행">진행</option>
-                  <option value="완료">완료</option>
-                  <option value="보류">보류</option>
+                  <option value="">?꾩껜</option>
+                  <option value="吏꾪뻾">吏꾪뻾</option>
+                  <option value="?꾨즺">?꾨즺</option>
+                  <option value="蹂대쪟">蹂대쪟</option>
                 </select>
               </Field>
             </div>
@@ -3865,19 +3863,19 @@ export default function App() {
               <table>
                 <thead>
                   <tr>
-                    <th>회사</th>
-                    <th>허가/신고명</th>
-                    <th>허가관청</th>
-                    <th>담당/연락처</th>
-                    <th>만료일</th>
+                    <th>?뚯궗</th>
+                    <th>?덇?/?좉퀬紐?/th>
+                    <th>?덇?愿泥?/th>
+                    <th>?대떦/?곕씫泥?/th>
+                    <th>留뚮즺??/th>
                     <th>D-day</th>
-                    <th>상태</th>
-                    <th>관리</th>
+                    <th>?곹깭</th>
+                    <th>愿由?/th>
                   </tr>
                 </thead>
                 <tbody>
                   {!filteredPermits.length ? (
-                    <tr><td colSpan={8} className="empty">등록된 허가/갱신 업무가 없습니다.</td></tr>
+                    <tr><td colSpan={8} className="empty">?깅줉???덇?/媛깆떊 ?낅Т媛 ?놁뒿?덈떎.</td></tr>
                   ) : (
                     filteredPermits.map((permit: PermitRenewal) => {
                       const dday = getDday(permit.expiry_date) ?? 999999;
@@ -3891,7 +3889,7 @@ export default function App() {
                           <td className={dday <= 7 ? "danger-text" : dday <= 30 ? "warn-text" : ""}>
                             {permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "-"}
                           </td>
-                          <td>{permit.status || "진행"}</td>
+                          <td>{permit.status || "吏꾪뻾"}</td>
                           <td>
                             <button className="icon" onClick={() => editPermit(permit)}><Pencil size={16} /></button>
                             <button className="icon" onClick={() => deletePermit(permit.id)}><Trash2 size={16} /></button>
@@ -3906,52 +3904,52 @@ export default function App() {
 
             <div className="permit-card-list">
               {!filteredPermits.length ? (
-                <div className="empty">등록된 허가/갱신 업무가 없습니다.</div>
+                <div className="empty">?깅줉???덇?/媛깆떊 ?낅Т媛 ?놁뒿?덈떎.</div>
               ) : (
                 filteredPermits.map((permit: PermitRenewal) => {
                   const dday = getDday(permit.expiry_date) ?? 999999;
-                  const ddayText = permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "미정";
+                  const ddayText = permit.expiry_date ? (dday >= 0 ? `D-${dday}` : `D+${Math.abs(dday)}`) : "誘몄젙";
                   const ddayClass = dday <= 7 ? "danger" : dday <= 30 ? "warn" : "";
 
                   return (
                     <div className="permit-card" key={permit.id}>
                       <div className="permit-card-main">
                         <div className="permit-title-area">
-                          <span className="permit-company">{permit.company || "회사 미입력"}</span>
-                          <b>{permit.title || "허가/신고명 미입력"}</b>
-                          <p>{permit.agency || "허가관청 미입력"}</p>
+                          <span className="permit-company">{permit.company || "?뚯궗 誘몄엯??}</span>
+                          <b>{permit.title || "?덇?/?좉퀬紐?誘몄엯??}</b>
+                          <p>{permit.agency || "?덇?愿泥?誘몄엯??}</p>
                         </div>
 
                         <div className="permit-dday-box">
                           <span className={ddayClass}>{ddayText}</span>
-                          <small>{permit.expiry_date || "만료일 없음"}</small>
+                          <small>{permit.expiry_date || "留뚮즺???놁쓬"}</small>
                         </div>
                       </div>
 
                       <div className="permit-info-grid">
                         <div>
-                          <label>담당/연락처</label>
+                          <label>?대떦/?곕씫泥?/label>
                           <p>{permit.contact || "-"}</p>
                         </div>
                         <div>
-                          <label>확인사항</label>
+                          <label>?뺤씤?ы빆</label>
                           <p>{permit.check_note || "-"}</p>
                         </div>
                         <div>
-                          <label>주기</label>
+                          <label>二쇨린</label>
                           <p>{permit.cycle || "-"}</p>
                         </div>
                         <div>
-                          <label>상태</label>
-                          <p>{permit.status || "진행"}</p>
+                          <label>?곹깭</label>
+                          <p>{permit.status || "吏꾪뻾"}</p>
                         </div>
                       </div>
 
                       {permit.memo && <div className="permit-memo">{permit.memo}</div>}
 
                       <div className="permit-card-actions">
-                        <button onClick={() => editPermit(permit)}>수정</button>
-                        <button className="danger-btn" onClick={() => deletePermit(permit.id)}>삭제</button>
+                        <button onClick={() => editPermit(permit)}>?섏젙</button>
+                        <button className="danger-btn" onClick={() => deletePermit(permit.id)}>??젣</button>
                       </div>
                     </div>
                   );
@@ -3968,54 +3966,54 @@ export default function App() {
         {menuTab === "maintenance_photos" && (
           <section className="card receipt-photo-page receipt-photo-page-clean maintenance-photo-page-clean">
             <div className="receipt-clean-title">
-              <div className="receipt-clean-icon maint">🛠️</div>
+              <div className="receipt-clean-icon maint">?썱截?/div>
               <div>
-                <h2>정비사진등록</h2>
-                <p>현장 직원은 정비 사진과 내용을 등록하고, 관리자는 확인 후 정비등록에 반영합니다.</p>
+                <h2>?뺣퉬?ъ쭊?깅줉</h2>
+                <p>?꾩옣 吏곸썝? ?뺣퉬 ?ъ쭊怨??댁슜???깅줉?섍퀬, 愿由ъ옄???뺤씤 ???뺣퉬?깅줉??諛섏쁺?⑸땲??</p>
               </div>
-              <button className="receipt-refresh-btn" onClick={loadMaintenancePhotos}>새로고침</button>
+              <button className="receipt-refresh-btn" onClick={loadMaintenancePhotos}>?덈줈怨좎묠</button>
             </div>
 
             <div className="receipt-clean-form-wrap">
               <div className="receipt-clean-form-card">
-                <div className="receipt-card-section-title">정비 정보</div>
+                <div className="receipt-card-section-title">?뺣퉬 ?뺣낫</div>
 
                 <div className="receipt-clean-grid">
-                  <Field label="일자">
+                  <Field label="?쇱옄">
                     <div className="date-input-wrap">
                       <input
                         className="date-text-input"
                         value={maintenancePhotoForm.maint_date}
                         onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, maint_date: formatInputDate(e.target.value) })}
-                        placeholder="20260513 또는 260513"
+                        placeholder="20260513 ?먮뒗 260513"
                       />
                       <input
                         className="date-picker-input"
                         type="date"
                         value={maintenancePhotoForm.maint_date}
                         onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, maint_date: e.target.value })}
-                        aria-label="정비일자 선택"
+                        aria-label="?뺣퉬?쇱옄 ?좏깮"
                       />
-                      <span className="date-picker-icon">📅</span>
+                      <span className="date-picker-icon">?뱟</span>
                     </div>
                   </Field>
 
-                  <Field label="설비명">
+                  <Field label="?ㅻ퉬紐?>
                     <SearchSelect
                       value={maintenancePhotoForm.equipment_name}
                       options={warehouseNames}
                       onChange={(value) => setMaintenancePhotoForm({ ...maintenancePhotoForm, equipment_name: value })}
-                      placeholder="설비/창고 검색 또는 입력"
+                      placeholder="?ㅻ퉬/李쎄퀬 寃???먮뒗 ?낅젰"
                     />
                   </Field>
                 </div>
 
-                <Field label="정비내용">
+                <Field label="?뺣퉬?댁슜">
                   <textarea
                     className="receipt-clean-textarea"
                     value={maintenancePhotoForm.memo}
                     onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, memo: e.target.value })}
-                    placeholder="예: 2470 스크린 스프링 교체 / 컨베이어 벨트 찢어짐 / 로더 오일 누유"
+                    placeholder="?? 2470 ?ㅽ겕由??ㅽ봽留?援먯껜 / 而⑤쿋?댁뼱 踰⑦듃 李?뼱吏?/ 濡쒕뜑 ?ㅼ씪 ?꾩쑀"
                     rows={5}
                   />
                 </Field>
@@ -4026,14 +4024,14 @@ export default function App() {
                     checked={maintenancePhotoForm.is_urgent}
                     onChange={(e) => setMaintenancePhotoForm({ ...maintenancePhotoForm, is_urgent: e.target.checked })}
                   />
-                  긴급 정비로 표시
+                  湲닿툒 ?뺣퉬濡??쒖떆
                 </label>
 
 
               </div>
 
               <div className="receipt-clean-upload-card">
-                <div className="receipt-card-section-title">정비 사진 첨부</div>
+                <div className="receipt-card-section-title">?뺣퉬 ?ъ쭊 泥⑤?</div>
 
                 <label className="receipt-dropzone maintenance-dropzone">
                   <input
@@ -4048,13 +4046,13 @@ export default function App() {
                     );
                   }}
                   />
-                  <div className="receipt-drop-icon">⬆</div>
-                  <strong>정비 사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · 현장 사진 그대로 업로드</span>
+                  <div className="receipt-drop-icon">燧?/div>
+                  <strong>?뺣퉬 ?ъ쭊???좏깮?섏꽭??/strong>
+                  <span>?щ윭 ???좏깮 媛??쨌 ?꾩옣 ?ъ쭊 洹몃?濡??낅줈??/span>
                 </label>
 
                 <div className="receipt-file-count">
-                  {maintenancePhotoFiles.length ? `${maintenancePhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                  {maintenancePhotoFiles.length ? `${maintenancePhotoFiles.length}???좏깮?? : "?좏깮???ъ쭊 ?놁쓬"}
                 </div>
 
                 {!!maintenanceUploadPreviewUrls.length && (
@@ -4066,7 +4064,7 @@ export default function App() {
                         className="upload-preview-thumb"
                         onClick={() => window.open(url, "_blank")}
                       >
-                        <img src={url} alt={`정비사진 미리보기 ${idx + 1}`} />
+                        <img src={url} alt={`?뺣퉬?ъ쭊 誘몃━蹂닿린 ${idx + 1}`} />
                       </button>
                     ))}
                   </div>
@@ -4077,53 +4075,53 @@ export default function App() {
                   onClick={saveMaintenancePhoto}
                   disabled={maintenancePhotoSaving}
                 >
-                  {maintenancePhotoSaving ? "저장 중..." : "정비사진 등록"}
+                  {maintenancePhotoSaving ? "???以?.." : "?뺣퉬?ъ쭊 ?깅줉"}
                 </button>
               </div>
             </div>
 
             <div className="receipt-list-head">
               <div>
-                <h3>등록된 정비사진</h3>
-                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건</p>
+                <h3>?깅줉???뺣퉬?ъ쭊</h3>
+                <p>誘몄쿂由?{maintenancePhotos.filter((item) => !item.is_processed).length}嫄?쨌 泥섎━?꾨즺 {maintenancePhotos.filter((item) => item.is_processed).length}嫄?/p>
               </div>
             </div>
 
             <div className="receipt-clean-list">
               {!maintenancePhotos.length ? (
-                <div className="receipt-clean-empty">등록된 정비사진이 없습니다.</div>
+                <div className="receipt-clean-empty">?깅줉???뺣퉬?ъ쭊???놁뒿?덈떎.</div>
               ) : (
                 maintenancePhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
-                        {item.is_processed ? "처리완료" : "미처리"}
+                        {item.is_processed ? "泥섎━?꾨즺" : "誘몄쿂由?}
                       </span>
                       <small>{item.maint_date}</small>
                     </div>
 
                     <strong className="receipt-vendor-name">{item.equipment_name}</strong>
-                    <p className="receipt-created-by">{item.created_by || "등록자 미입력"}</p>
-                    {item.is_urgent && <div className="maintenance-urgent-badge">긴급</div>}
+                    <p className="receipt-created-by">{item.created_by || "?깅줉??誘몄엯??}</p>
+                    {item.is_urgent && <div className="maintenance-urgent-badge">湲닿툒</div>}
 
                     {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
 
                     <div className="receipt-clean-thumbs">
                       {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => setMaintenancePhotoPreviewOpen(item)} />
+                        <img key={`${item.id}-${idx}`} src={url} alt="?뺣퉬?ъ쭊" onClick={() => setMaintenancePhotoPreviewOpen(item)} />
                       ))}
-                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">?ъ쭊 ?놁쓬</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
                                         <div className="receipt-clean-actions">
-                      <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>사진보기</button>
-                      {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>정비등록 반영</button>}
-                      {isAdmin && <button className="link secondary" onClick={() => openMaintRecordPickerFromMaintenancePhoto(item)}>기존정비 연결</button>}
+                      <button onClick={() => setMaintenancePhotoPreviewOpen(item)}>?ъ쭊蹂닿린</button>
+                      {isAdmin && <button className="link" onClick={() => applyMaintenancePhotoToMaint(item)}>?뺣퉬?깅줉 諛섏쁺</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => openMaintRecordPickerFromMaintenancePhoto(item)}>湲곗〈?뺣퉬 ?곌껐</button>}
                       <button className="complete" onClick={() => toggleMaintenancePhotoProcessed(item)}>
-                        {item.is_processed ? "미처리로 변경" : "처리완료"}
+                        {item.is_processed ? "誘몄쿂由щ줈 蹂寃? : "泥섎━?꾨즺"}
                       </button>
-                      {isAdmin && <button className="delete" onClick={() => deleteMaintenancePhoto(item.id)}>삭제</button>}
+                      {isAdmin && <button className="delete" onClick={() => deleteMaintenancePhoto(item.id)}>??젣</button>}
                     </div>
                   </div>
                 ))
@@ -4141,19 +4139,19 @@ export default function App() {
                   <p>{maintenancePhotoPreviewOpen.maint_date}</p>
                   {maintenancePhotoPreviewOpen.memo && <span>{maintenancePhotoPreviewOpen.memo}</span>}
                 </div>
-                <button onClick={() => setMaintenancePhotoPreviewOpen(null)}>닫기</button>
+                <button onClick={() => setMaintenancePhotoPreviewOpen(null)}>?リ린</button>
               </div>
 
               {(maintenancePhotoPreviewOpen.image_urls || []).length ? (
                 <div className="receipt-photo-preview-images">
                   {(maintenancePhotoPreviewOpen.image_urls || []).map((url, idx) => (
                     <a key={idx} href={url} target="_blank" rel="noreferrer">
-                      <img src={url} alt="정비사진 확대" />
+                      <img src={url} alt="?뺣퉬?ъ쭊 ?뺣?" />
                     </a>
                   ))}
                 </div>
               ) : (
-                <div className="receipt-photo-no-image">등록된 사진이 없습니다.</div>
+                <div className="receipt-photo-no-image">?깅줉???ъ쭊???놁뒿?덈떎.</div>
               )}
             </div>
           </div>
@@ -4163,54 +4161,54 @@ export default function App() {
         {menuTab === "receipt_photos" && (
           <section className="card receipt-photo-page receipt-photo-page-clean">
             <div className="receipt-clean-title">
-              <div className="receipt-clean-icon">📷</div>
+              <div className="receipt-clean-icon">?벜</div>
               <div>
-                <h2>입고사진등록</h2>
-                <p>직원은 자재 입고 사진과 내용을 등록하고, 관리자는 확인 후 처리완료로 변경합니다.</p>
+                <h2>?낃퀬?ъ쭊?깅줉</h2>
+                <p>吏곸썝? ?먯옱 ?낃퀬 ?ъ쭊怨??댁슜???깅줉?섍퀬, 愿由ъ옄???뺤씤 ??泥섎━?꾨즺濡?蹂寃쏀빀?덈떎.</p>
               </div>
-              <button className="receipt-refresh-btn" onClick={loadReceiptPhotos}>새로고침</button>
+              <button className="receipt-refresh-btn" onClick={loadReceiptPhotos}>?덈줈怨좎묠</button>
             </div>
 
             <div className="receipt-clean-form-wrap">
               <div className="receipt-clean-form-card">
-                <div className="receipt-card-section-title">입고 정보</div>
+                <div className="receipt-card-section-title">?낃퀬 ?뺣낫</div>
 
                 <div className="receipt-clean-grid">
-                  <Field label="일자">
+                  <Field label="?쇱옄">
                     <div className="date-input-wrap">
                       <input
                         className="date-text-input"
                         value={receiptPhotoForm.receipt_date}
                         onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: formatInputDate(e.target.value) })}
-                        placeholder="20260513 또는 260513"
+                        placeholder="20260513 ?먮뒗 260513"
                       />
                       <input
                         className="date-picker-input"
                         type="date"
                         value={receiptPhotoForm.receipt_date}
                         onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, receipt_date: e.target.value })}
-                        aria-label="입고일자 선택"
+                        aria-label="?낃퀬?쇱옄 ?좏깮"
                       />
-                      <span className="date-picker-icon">📅</span>
+                      <span className="date-picker-icon">?뱟</span>
                     </div>
                   </Field>
 
-                  <Field label="거래처">
+                  <Field label="嫄곕옒泥?>
                     <SearchSelect
                       value={receiptPhotoForm.vendor_name}
                       options={vendorOptions}
                       onChange={(value) => setReceiptPhotoForm({ ...receiptPhotoForm, vendor_name: value })}
-                      placeholder="거래처 검색 또는 입력"
+                      placeholder="嫄곕옒泥?寃???먮뒗 ?낅젰"
                     />
                   </Field>
                 </div>
 
-                <Field label="내용">
+                <Field label="?댁슜">
                   <textarea
                     className="receipt-clean-textarea"
                     value={receiptPhotoForm.memo}
                     onChange={(e) => setReceiptPhotoForm({ ...receiptPhotoForm, memo: e.target.value })}
-                    placeholder="예: 베어링 입고 / 로더 부품 도착 / 납품사진"
+                    placeholder="?? 踰좎뼱留??낃퀬 / 濡쒕뜑 遺???꾩갑 / ?⑺뭹?ъ쭊"
                     rows={5}
                   />
                 </Field>
@@ -4219,7 +4217,7 @@ export default function App() {
               </div>
 
               <div className="receipt-clean-upload-card">
-                <div className="receipt-card-section-title">사진 첨부</div>
+                <div className="receipt-card-section-title">?ъ쭊 泥⑤?</div>
 
                 <label className="receipt-dropzone">
                   <input
@@ -4234,13 +4232,13 @@ export default function App() {
                     );
                   }}
                   />
-                  <div className="receipt-drop-icon">⬆</div>
-                  <strong>사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · JPG / PNG / HEIC</span>
+                  <div className="receipt-drop-icon">燧?/div>
+                  <strong>?ъ쭊???좏깮?섏꽭??/strong>
+                  <span>?щ윭 ???좏깮 媛??쨌 JPG / PNG / HEIC</span>
                 </label>
 
                 <div className="receipt-file-count">
-                  {receiptPhotoFiles.length ? `${receiptPhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                  {receiptPhotoFiles.length ? `${receiptPhotoFiles.length}???좏깮?? : "?좏깮???ъ쭊 ?놁쓬"}
                 </div>
 
                 {!!receiptUploadPreviewUrls.length && (
@@ -4252,7 +4250,7 @@ export default function App() {
                         className="upload-preview-thumb"
                         onClick={() => window.open(url, "_blank")}
                       >
-                        <img src={url} alt={`입고사진 미리보기 ${idx + 1}`} />
+                        <img src={url} alt={`?낃퀬?ъ쭊 誘몃━蹂닿린 ${idx + 1}`} />
                       </button>
                     ))}
                   </div>
@@ -4263,52 +4261,52 @@ export default function App() {
                   onClick={saveReceiptPhoto}
                   disabled={receiptPhotoSaving}
                 >
-                  {receiptPhotoSaving ? "저장 중..." : "입고사진 등록"}
+                  {receiptPhotoSaving ? "???以?.." : "?낃퀬?ъ쭊 ?깅줉"}
                 </button>
               </div>
             </div>
 
             <div className="receipt-list-head">
               <div>
-                <h3>등록된 입고사진</h3>
-                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건</p>
+                <h3>?깅줉???낃퀬?ъ쭊</h3>
+                <p>誘몄쿂由?{receiptPhotos.filter((item) => !item.is_processed).length}嫄?쨌 泥섎━?꾨즺 {receiptPhotos.filter((item) => item.is_processed).length}嫄?/p>
               </div>
             </div>
 
             <div className="receipt-clean-list">
               {!receiptPhotos.length ? (
-                <div className="receipt-clean-empty">등록된 입고사진이 없습니다.</div>
+                <div className="receipt-clean-empty">?깅줉???낃퀬?ъ쭊???놁뒿?덈떎.</div>
               ) : (
                 receiptPhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
-                        {item.is_processed ? "처리완료" : "미처리"}
+                        {item.is_processed ? "泥섎━?꾨즺" : "誘몄쿂由?}
                       </span>
                       <small>{item.receipt_date}</small>
                     </div>
 
                     <strong className="receipt-vendor-name">{item.vendor_name}</strong>
-                    <p className="receipt-created-by">{item.created_by || "등록자 미입력"}</p>
+                    <p className="receipt-created-by">{item.created_by || "?깅줉??誘몄엯??}</p>
 
                     {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
 
                     <div className="receipt-clean-thumbs">
                       {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => setReceiptPhotoPreviewOpen(item)} />
+                        <img key={`${item.id}-${idx}`} src={url} alt="?낃퀬?ъ쭊" onClick={() => setReceiptPhotoPreviewOpen(item)} />
                       ))}
-                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">?ъ쭊 ?놁쓬</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
                                         <div className="receipt-clean-actions">
-                      <button onClick={() => setReceiptPhotoPreviewOpen(item)}>사진보기</button>
-                      {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>구매입력 반영</button>}
-                      {isAdmin && <button className="link secondary" onClick={() => openPurchaseRecordPickerFromReceiptPhoto(item)}>기존구매 연결</button>}
+                      <button onClick={() => setReceiptPhotoPreviewOpen(item)}>?ъ쭊蹂닿린</button>
+                      {isAdmin && <button className="link" onClick={() => applyReceiptPhotoToPurchase(item)}>援щℓ?낅젰 諛섏쁺</button>}
+                      {isAdmin && <button className="link secondary" onClick={() => openPurchaseRecordPickerFromReceiptPhoto(item)}>湲곗〈援щℓ ?곌껐</button>}
                       <button className="complete" onClick={() => toggleReceiptPhotoProcessed(item)}>
-                        {item.is_processed ? "미처리로 변경" : "처리완료"}
+                        {item.is_processed ? "誘몄쿂由щ줈 蹂寃? : "泥섎━?꾨즺"}
                       </button>
-                      {isAdmin && <button className="delete" onClick={() => deleteReceiptPhoto(item.id)}>삭제</button>}
+                      {isAdmin && <button className="delete" onClick={() => deleteReceiptPhoto(item.id)}>??젣</button>}
                     </div>
                   </div>
                 ))
@@ -4326,20 +4324,20 @@ export default function App() {
                   <p>{receiptPhotoPreviewOpen.receipt_date}</p>
                   {receiptPhotoPreviewOpen.memo && <span>{receiptPhotoPreviewOpen.memo}</span>}
                 </div>
-                <button onClick={() => setReceiptPhotoPreviewOpen(null)}>닫기</button>
+                <button onClick={() => setReceiptPhotoPreviewOpen(null)}>?リ린</button>
               </div>
 
               {(receiptPhotoPreviewOpen.image_urls || []).length ? (
                 <div className="receipt-photo-preview-images">
                   {(receiptPhotoPreviewOpen.image_urls || []).map((url, idx) => (
                     <a key={idx} href={url} target="_blank" rel="noreferrer">
-                      <img src={url} alt="입고사진 확대" />
+                      <img src={url} alt="?낃퀬?ъ쭊 ?뺣?" />
                     </a>
                   ))}
                 </div>
               ) : (
                 <div className="receipt-photo-no-image">
-                  등록된 사진이 없습니다.
+                  ?깅줉???ъ쭊???놁뒿?덈떎.
                 </div>
               )}
             </div>
@@ -4351,14 +4349,13 @@ export default function App() {
           <section className="card vendor-account-page">
             <div className="vendor-account-head">
               <div>
-                <h2>업체계좌관리</h2>
-                <p>거래처 계좌 및 고객관리성명을 영구 저장합니다.</p>
+                <h2>?낆껜怨꾩쥖愿由?/h2>
+                <p>嫄곕옒泥?怨꾩쥖 諛?怨좉컼愿由ъ꽦紐낆쓣 ?곴뎄 ??ν빀?덈떎.</p>
               </div>
 
               <div className="actions">
                 <label className="upload">
-                  <Upload size={16} /> 계좌 엑셀 업로드
-                  <input
+                  <Upload size={16} /> 怨꾩쥖 ?묒? ?낅줈??                  <input
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={async (e) => {
@@ -4368,13 +4365,13 @@ export default function App() {
                   />
                 </label>
 
-                <button onClick={loadVendorAccounts}>새로고침</button>
+                <button onClick={loadVendorAccounts}>?덈줈怨좎묠</button>
               </div>
             </div>
 
             <div className="vendor-account-list">
               {!vendorAccounts.length ? (
-                <div className="empty">등록된 거래처 계좌가 없습니다.</div>
+                <div className="empty">?깅줉??嫄곕옒泥?怨꾩쥖媛 ?놁뒿?덈떎.</div>
               ) : (
                 vendorAccounts.map((account) => (
                   <div className="vendor-account-card" key={account.id}>
@@ -4383,7 +4380,7 @@ export default function App() {
                     </div>
 
                     <div className="vendor-account-grid">
-                      <Field label="은행명">
+                      <Field label="??됰챸">
                         <input
                           value={account.bank_name || ""}
                           onChange={(e) =>
@@ -4398,7 +4395,7 @@ export default function App() {
                         />
                       </Field>
 
-                      <Field label="은행코드">
+                      <Field label="??됱퐫??>
                         <input
                           value={account.bank_code || ""}
                           onChange={(e) =>
@@ -4413,7 +4410,7 @@ export default function App() {
                         />
                       </Field>
 
-                      <Field label="예금주">
+                      <Field label="?덇툑二?>
                         <input
                           value={account.account_name || ""}
                           onChange={(e) =>
@@ -4428,7 +4425,7 @@ export default function App() {
                         />
                       </Field>
 
-                      <Field label="고객관리성명">
+                      <Field label="怨좉컼愿由ъ꽦紐?>
                         <input
                           value={account.customer_display_name || ""}
                           onChange={(e) =>
@@ -4443,7 +4440,7 @@ export default function App() {
                         />
                       </Field>
 
-                      <Field label="계좌번호">
+                      <Field label="怨꾩쥖踰덊샇">
                         <input
                           value={account.account_number || ""}
                           onChange={(e) =>
@@ -4468,16 +4465,15 @@ export default function App() {
                             .upsert(account, { onConflict: "id" });
 
                           if (error) {
-                            alert(`저장 실패: ${error.message}`);
+                            alert(`????ㅽ뙣: ${error.message}`);
                             return;
                           }
 
-                          alert("저장되었습니다.");
+                          alert("??λ릺?덉뒿?덈떎.");
                           await loadVendorAccounts();
                         }}
                       >
-                        저장
-                      </button>
+                        ???                      </button>
                     </div>
                   </div>
                 ))
@@ -4491,13 +4487,12 @@ export default function App() {
           <section className="card bulk-transfer-page">
             <div className="bulk-transfer-head">
               <div>
-                <h2>대량이체 생성</h2>
-                <p>구매내역을 거래처별로 합산하고 계좌정보를 매칭해 은행 업로드용 엑셀을 만듭니다.</p>
+                <h2>??됱씠泥??앹꽦</h2>
+                <p>援щℓ?댁뿭??嫄곕옒泥섎퀎濡??⑹궛?섍퀬 怨꾩쥖?뺣낫瑜?留ㅼ묶??????낅줈?쒖슜 ?묒???留뚮벊?덈떎.</p>
               </div>
               <div className="actions">
                 <label className="upload">
-                  <Upload size={16} /> 업체 계좌 업로드
-                  <input
+                  <Upload size={16} /> ?낆껜 怨꾩쥖 ?낅줈??                  <input
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={async (e) => {
@@ -4506,61 +4501,61 @@ export default function App() {
                     }}
                   />
                 </label>
-                <button onClick={loadVendorAccounts}>계좌 새로고침</button>
-                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
+                <button onClick={loadVendorAccounts}>怨꾩쥖 ?덈줈怨좎묠</button>
+                <button className="primary" onClick={openBulkTransferDownloadPopup}>??됱씠泥??묒? ?ㅼ슫濡쒕뱶</button>
               </div>
             </div>
 
             <div className="bulk-transfer-filter">
-              <Field label="지급월">
+              <Field label="吏湲됱썡">
                 <input
                   value={transferMonth}
                   onChange={(e) => setTransferMonth(e.target.value)}
                   placeholder="2026-04"
                 />
               </Field>
-              <Field label="거래처 검색">
+              <Field label="嫄곕옒泥?寃??>
                 <input
                   value={transferVendorSearch}
                   onChange={(e) => setTransferVendorSearch(e.target.value)}
-                  placeholder="거래처명"
+                  placeholder="嫄곕옒泥섎챸"
                 />
               </Field>
               <div className="bulk-summary">
-                <span>대상 거래처 <b>{bulkTransferRows.length}</b></span>
-                <span>계좌 미매칭 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
-                <span>합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
+                <span>???嫄곕옒泥?<b>{bulkTransferRows.length}</b></span>
+                <span>怨꾩쥖 誘몃ℓ移?<b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
+                <span>?⑷퀎 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
               </div>
             </div>
 
             <div className="bulk-transfer-list">
               {!bulkTransferRows.length ? (
-                <div className="empty">대량이체로 만들 구매내역이 없습니다.</div>
+                <div className="empty">??됱씠泥대줈 留뚮뱾 援щℓ?댁뿭???놁뒿?덈떎.</div>
               ) : (
                 bulkTransferRows.map((row) => (
                   <div className={row.matched ? "bulk-transfer-card" : "bulk-transfer-card missing"} key={row.id}>
                     <div className="bulk-card-main">
                       <div>
-                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
+                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "怨꾩쥖留ㅼ묶" : "怨꾩쥖?뺤씤?꾩슂"}</span>
                         <b>{row.vendor}</b>
                       </div>
-                      <strong>{money(row.amount)}원</strong>
+                      <strong>{money(row.amount)}??/strong>
                     </div>
 
                     <div className="bulk-edit-grid">
-                      <Field label="입금은행">
+                      <Field label="?낃툑???>
                         <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} />
                       </Field>
-                      <Field label="입금계좌">
+                      <Field label="?낃툑怨꾩쥖">
                         <input value={row.account_number} onChange={(e) => updateBulkTransferEdit(row.id, "account_number", e.target.value)} />
                       </Field>
-                      <Field label="입금액">
+                      <Field label="?낃툑??>
                         <input value={String(row.amount || "")} onChange={(e) => updateBulkTransferEdit(row.id, "amount", e.target.value)} />
                       </Field>
-                      <Field label="고객관리성명">
+                      <Field label="怨좉컼愿由ъ꽦紐?>
                         <input value={row.customer_display_name || row.account_name || row.vendor} onChange={(e) => updateBulkTransferEdit(row.id, "customer_display_name", e.target.value)} />
                       </Field>
-                      <Field label="출금통장표시내용">
+                      <Field label="異쒓툑?듭옣?쒖떆?댁슜">
                         <input value={row.memo} onChange={(e) => updateBulkTransferEdit(row.id, "memo", e.target.value)} />
                       </Field>
                     </div>
@@ -4626,60 +4621,60 @@ export default function App() {
         {(menuTab === "new" || purchaseEntryPopupOpen) && (
           <section className={`card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
             <div className="purchase-entry-popup-head">
-              <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
-              {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>닫기</button>}
+              <h2>{editingPurchaseId ? "援щℓ?섏젙" : "援щℓ?낅젰"}</h2>
+              {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>?リ린</button>}
             </div>
             <div className="grid3">
-              <Field label="일자">
+              <Field label="?쇱옄">
                                 <div className="date-input-wrap">
                   <input
                     className="date-text-input"
                     value={purchaseHeader.date}
                     onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })}
-                    placeholder="20260501 또는 260501"
+                    placeholder="20260501 ?먮뒗 260501"
                   />
                   <input
                     className="date-picker-input"
                     type="date"
                     value={purchaseHeader.date}
                     onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })}
-                    aria-label="일자 선택"
+                    aria-label="?쇱옄 ?좏깮"
                   />
-                  <span className="date-picker-icon">📅</span>
+                  <span className="date-picker-icon">?뱟</span>
                 </div>
               </Field>
-              <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
-              <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
+              <SearchSelect label="嫄곕옒泥? value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="嫄곕옒泥섎챸 ?쇰? ?낅젰" />
+              <SearchSelect label="李쎄퀬" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="李쎄퀬紐??쇰? ?낅젰" />
             </div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th></th></tr></thead>
+                <thead><tr><th>?덈ぉ</th><th>洹쒓꺽</th><th>?섎웾</th><th>?④?</th><th>怨듦툒媛??/th><th>遺媛?몄븸</th><th>?⑷퀎</th><th></th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, minWidth: 520 }}>
     <SearchSelect
       value={r.item}
       options={itemOptions}
       onChange={(v) => updateRow(i, "item", v)}
-      placeholder="품목 검색"
+      placeholder="?덈ぉ 寃??
     />
     <input
       value={r.item}
       onChange={(e) => updateRow(i, "item", e.target.value)}
-      placeholder="품목명 직접수정"
-      title="이번 구매입력에서만 품목명을 수정합니다. 품목등록 원본은 바뀌지 않습니다."
+      placeholder="?덈ぉ紐?吏곸젒?섏젙"
+      title="?대쾲 援щℓ?낅젰?먯꽌留??덈ぉ紐낆쓣 ?섏젙?⑸땲?? ?덈ぉ?깅줉 ?먮낯? 諛붾뚯? ?딆뒿?덈떎."
     />
     <button
       type="button"
       onClick={() => openNewItemModal(i)}
     >
-      + 신규
+      + ?좉퇋
     </button>
   </div>
 </td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" onClick={() => setRows(rows.length === 1 ? [emptyRow()] : rows.filter((_, idx) => idx !== i))}><Trash2 size={16} /></button></td></tr>)}</tbody>
               </table>
             </div>
-            <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 행추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
-            <div className="actions"><button className="primary" onClick={savePurchase}><Save size={16} /> 저장</button><button onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> ?됱텛媛</button><div className="totals"><div>怨듦툒媛???⑷퀎: <b>{money(purchaseSupplyTotal)}??/b></div><div>遺媛?몄븸 ?⑷퀎: <b>{money(purchaseVatTotal)}??/b></div><div className="big">珥앺빀: {money(purchaseTotal)}??/div></div></div>
+            <div className="actions"><button className="primary" onClick={savePurchase}><Save size={16} /> ???/button><button onClick={resetPurchaseForm}><RotateCcw size={16} /> 珥덇린??/button></div>
           </section>
         )}
 
@@ -4690,35 +4685,34 @@ export default function App() {
 
         {menuTab === "card_use" && (
           <section className="card">
-            <h2>{editingCardUseId ? "카드사용 수정" : "카드사용"}</h2>
+            <h2>{editingCardUseId ? "移대뱶?ъ슜 ?섏젙" : "移대뱶?ъ슜"}</h2>
 
             <div className="grid5">
-              <Field label="사용일자">
+              <Field label="?ъ슜?쇱옄">
                 <input
                   type="text"
-                  placeholder="240107 또는 20240107"
+                  placeholder="240107 ?먮뒗 20240107"
                   value={cardForm.date}
                   onChange={(e) => setCardForm({ ...cardForm, date: formatInputDate(e.target.value) })}
                 />
               </Field>
-              <Field label="담당자">
-                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/작업자" />
+              <Field label="?대떦??>
+                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="?ъ슜???묒뾽?? />
               </Field>
-              <Field label="사용처">
-                <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="상호/구매처" />
+              <Field label="?ъ슜泥?>
+                <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="?곹샇/援щℓ泥? />
               </Field>
-              <Field label="금액">
+              <Field label="湲덉븸">
                 <input className="right" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="0" />
               </Field>
-              <Field label="메모">
-                <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="구매내용 메모" />
+              <Field label="硫붾え">
+                <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="援щℓ?댁슜 硫붾え" />
               </Field>
             </div>
 
             <div className="between">
               <label className="upload">
-                <Upload size={16} /> 영수증 여러 장 업로드
-                <input
+                <Upload size={16} /> ?곸닔利??щ윭 ???낅줈??                <input
                   type="file"
                   accept="image/*,application/pdf"
                   capture="environment"
@@ -4738,18 +4732,18 @@ export default function App() {
                 {(cardForm.image_urls || []).length ? (
                   <div className="attachment-chips">
                     {(cardForm.image_urls || []).map((url, idx) => (
-                      <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">영수증{idx + 1}</a>
+                      <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">?곸닔利?idx + 1}</a>
                     ))}
                   </div>
                 ) : (
-                  cardForm.image_url ? <a href={cardForm.image_url} target="_blank" rel="noreferrer">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>
+                  cardForm.image_url ? <a href={cardForm.image_url} target="_blank" rel="noreferrer">?낅줈?쒗븳 ?곸닔利?蹂닿린</a> : <span>?곸닔利?誘몄꺼遺</span>
                 )}
               </div>
             </div>
 
             <div className="actions right-actions">
-              <button className="primary" onClick={saveCardUse}>{editingCardUseId ? "카드사용 수정저장" : "카드사용 저장"}</button>
-              <button onClick={resetCardForm}>초기화</button>
+              <button className="primary" onClick={saveCardUse}>{editingCardUseId ? "移대뱶?ъ슜 ?섏젙??? : "移대뱶?ъ슜 ???}</button>
+              <button onClick={resetCardForm}>珥덇린??/button>
             </div>
 
           </section>
@@ -4759,33 +4753,33 @@ export default function App() {
                 {menuTab === "card_list" && (
           <section className="card lookup-page card-lookup-page">
             <div className="between" style={{marginTop:24}}>
-              <h2>카드조회</h2>
-              <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
-  filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
-  { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 작업자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
+              <h2>移대뱶議고쉶</h2>
+              <button onClick={() => downloadExcel(`移대뱶?ъ슜_${todayText()}`, withTotalRow(
+  filteredCardUses.map((c) => ({ ?ъ슜?쇱옄: c.date, ?대떦?? c.user_name, ?ъ슜泥? c.place, 湲덉븸: c.amount, 硫붾え: c.memo || "", ?곸닔利? c.image_url || "" })),
+  { ?ъ슜?쇱옄: "珥앺빀怨?, 湲덉븸: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
+))}>?묒? ?ㅼ슫濡쒕뱶</button><button onClick={() => downloadPdf(`移대뱶?ъ슜_${todayText()}`, "移대뱶?ъ슜", withTotalRow(filteredCardUses.map((c) => ({ ?ъ슜?쇱옄: c.date, ?묒뾽?? c.user_name, ?ъ슜泥? c.place, 湲덉븸: c.amount, 硫붾え: c.memo || "" })), { ?ъ슜?쇱옄: "珥앺빀怨?, 湲덉븸: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 異쒕젰</button>
             </div>
             <div className="grid5">
-              <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
-              <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
-              <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="작업자 검색" /></Field>
-              <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
-              <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
+              <Field label="?쒖옉??><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
+              <Field label="醫낅즺??><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
+              <Field label="?대떦??><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="?묒뾽??寃?? /></Field>
+              <Field label="?ъ슜泥?><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="?ъ슜泥?寃?? /></Field>
+              <Field label="珥덇린??><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>寃??珥덇린??/button></Field>
             </div>
 
             <div className="status-cards">
-              <div><span>카드사용 건수</span><b>{filteredCardUses.length}건</b></div>
-              <div><span>카드사용 합계</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}원</b></div>
+              <div><span>移대뱶?ъ슜 嫄댁닔</span><b>{filteredCardUses.length}嫄?/b></div>
+              <div><span>移대뱶?ъ슜 ?⑷퀎</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}??/b></div>
             </div>
 
             <ScrollTable>
               <table>
                 <thead>
-                  <tr><th>관리번호</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
+                  <tr><th>愿由щ쾲??/th><th>?대떦??/th><th>?ъ슜泥?/th><th>湲덉븸</th><th>硫붾え</th><th>?곸닔利?/th><th>愿由?/th></tr>
                 </thead>
                 <tbody>
                   {!filteredCardUses.length ? (
-                    <tr><td colSpan={7} className="empty">저장된 카드사용 내역 없음</td></tr>
+                    <tr><td colSpan={7} className="empty">??λ맂 移대뱶?ъ슜 ?댁뿭 ?놁쓬</td></tr>
                   ) : (
                     filteredCardUses.map((c, index) => {
                       const sameDateBeforeCount = filteredCardUses
@@ -4819,13 +4813,13 @@ export default function App() {
                   <div className="mobile-list-card" key={c.id}>
                     <div className="mobile-list-top mobile-maint-card-top">
                       <b>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</b>
-                      <span>{money(c.amount)}원</span>
+                      <span>{money(c.amount)}??/span>
                     </div>
 
                     <div className="mobile-list-body">
-                      <div><label>사용처</label><p>{c.place}</p></div>
-                      <div><label>담당자</label><p>{c.user_name || "-"}</p></div>
-                      <div><label>메모</label><p>{c.memo || "-"}</p></div>
+                      <div><label>?ъ슜泥?/label><p>{c.place}</p></div>
+                      <div><label>?대떦??/label><p>{c.user_name || "-"}</p></div>
+                      <div><label>硫붾え</label><p>{c.memo || "-"}</p></div>
                     </div>
 
                     <div className="mobile-list-attachment">
@@ -4835,8 +4829,8 @@ export default function App() {
                     <div className="mobile-card-actions">
                       {isAdmin ? (
                         <>
-                          <button onClick={() => editCardUse(c)}>수정</button>
-                          <button onClick={() => deleteCardUse(c.id)}>삭제</button>
+                          <button onClick={() => editCardUse(c)}>?섏젙</button>
+                          <button onClick={() => deleteCardUse(c.id)}>??젣</button>
                         </>
                       ) : null}
                     </div>
@@ -4852,57 +4846,57 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>嫄곕옒泥섎벑濡?/h2><div className="between"><span>{vendorImportMessage || `?꾩옱 ${vendors.length}媛?嫄곕옒泥??깅줉??}</span><label className="upload"><Upload size={16} /> 嫄곕옒泥??묒? ?낅줈??input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="嫄곕옒泥섏퐫??><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="?곹샇"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="??쒖옄"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="?꾪솕踰덊샇"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="紐⑤컮??><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>?꾩껜??젣</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "嫄곕옒泥??섏젙??? : "嫄곕옒泥????}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
-          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveGroup}>{editingGroupId ? "대분류 수정저장" : "대분류 저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "세부창고 수정저장" : "세부 창고 저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
+          <section className="card"><h2>李쎄퀬?깅줉</h2><div className="two"><div><h3>?遺꾨쪟 李쎄퀬</h3><Field label="?遺꾨쪟 肄붾뱶"><input value={groupForm.code} readOnly /></Field><Field label="?遺꾨쪟 ?대쫫"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveGroup}>{editingGroupId ? "?遺꾨쪟 ?섏젙??? : "?遺꾨쪟 ???}</button>}<ScrollTable><table><thead><tr><th>肄붾뱶</th><th>?대쫫</th><th>愿由?/th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>?몃? 李쎄퀬</h3><SearchSelect label="?곸쐞 遺꾨쪟" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="?щ씪???낅젰" /><Field label="?몃? 肄붾뱶"><input value={warehouseForm.code} readOnly /></Field><Field label="?몃? ?대쫫"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "?몃?李쎄퀬 ?섏젙??? : "?몃? 李쎄퀬 ???}</button>}<ScrollTable><table><thead><tr><th>肄붾뱶</th><th>?遺꾨쪟</th><th>李쎄퀬紐?/th><th>愿由?/th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "품목 수정저장" : "품목 저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>?덈ぉ?깅줉</h2><div className="between"><span>{itemImportMessage || `?꾩옱 ${items.length}媛??덈ぉ ?깅줉??}</span><label className="upload"><Upload size={16} /> ?덈ぉ ?묒? ?낅줈??input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="?덈ぉ肄붾뱶 / ?덈ぉ紐?/ 洹쒓꺽 / ?⑥쐞 寃?? value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}嫄??쒖떆</span></div><div className="grid5"><Field label="?덈ぉ肄붾뱶"><input value={itemForm.code} readOnly /></Field><Field label="?덈ぉ紐?><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="洹쒓꺽?뺣낫"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="?⑥쐞"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="?낃퀬?④?"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>?꾩껜??젣</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "?덈ぉ ?섏젙??? : "?덈ぉ ???}</button>}</div><ScrollTable><table><thead><tr><th>?덈ぉ肄붾뱶</th><th>?덈ぉ紐?/th><th>洹쒓꺽?뺣낫</th><th>?⑥쐞</th><th>?낃퀬?④?</th><th>愿由?/th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
           <section className="card">
-            <h2>{editingMaintId ? "정비수정" : "정비등록"}</h2>
+            <h2>{editingMaintId ? "?뺣퉬?섏젙" : "?뺣퉬?깅줉"}</h2>
 
             <div className="grid3">
-              <Field label="정비일자">
+              <Field label="?뺣퉬?쇱옄">
                 <input
                   type="text"
-                  placeholder="240107 또는 20240107"
+                  placeholder="240107 ?먮뒗 20240107"
                   value={maintForm.date}
                   onChange={(e) => setMaintForm({ ...maintForm, date: formatInputDate(e.target.value) })}
                 />
               </Field>
-              <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
-              <Field label="작업자">
+              <SearchSelect label="李쎄퀬" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="李쎄퀬 ?좏깮/寃?? />
+              <Field label="?묒뾽??>
                 <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
               </Field>
-              <Field label="정비제목">
+              <Field label="?뺣퉬?쒕ぉ">
                 <input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
               </Field>
-              <Field label="정비내용">
+              <Field label="?뺣퉬?댁슜">
                 <input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} />
               </Field>
-              <Field label="정비비용">
+              <Field label="?뺣퉬鍮꾩슜">
                 <input value={maintForm.cost} readOnly />
               </Field>
             </div>
 
-            <h3>사용 품목</h3>
+            <h3>?ъ슜 ?덈ぉ</h3>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>품목</th>
-                    <th>규격</th>
-                    <th>수량</th>
-                    <th>단가</th>
-                    <th>공급가액</th>
-                    <th>부가세</th>
-                    <th>합계</th>
+                    <th>?덈ぉ</th>
+                    <th>洹쒓꺽</th>
+                    <th>?섎웾</th>
+                    <th>?④?</th>
+                    <th>怨듦툒媛??/th>
+                    <th>遺媛??/th>
+                    <th>?⑷퀎</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -4915,12 +4909,12 @@ export default function App() {
                             value={r.item}
                             options={itemOptions}
                             onChange={(v) => updateMaintItem(i, "item", v)}
-                            placeholder="품목 검색"
+                            placeholder="?덈ぉ 寃??
                           />
                           <input
                             value={r.item}
                             onChange={(e) => updateMaintItem(i, "item", e.target.value)}
-                            placeholder="품목명 직접수정"
+                            placeholder="?덈ぉ紐?吏곸젒?섏젙"
                           />
                         </div>
                       </td>
@@ -4947,18 +4941,17 @@ export default function App() {
             </div>
 
             <div className="between">
-              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목행 추가</button>
+              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> ?덈ぉ??異붽?</button>
               <div className="totals">
-                <div>공급가액 합계: <b>{money(maintSupplyTotal)}원</b></div>
-                <div>부가세 합계: <b>{money(maintVatTotal)}원</b></div>
-                <div className="big">정비비 총합: {money(maintGrandTotal)}원</div>
+                <div>怨듦툒媛???⑷퀎: <b>{money(maintSupplyTotal)}??/b></div>
+                <div>遺媛???⑷퀎: <b>{money(maintVatTotal)}??/b></div>
+                <div className="big">?뺣퉬鍮?珥앺빀: {money(maintGrandTotal)}??/div>
               </div>
             </div>
 
             <div className="between">
               <label className="upload">
-                <Upload size={16} /> 정비 사진/PDF 여러 장 업로드
-                <input
+                <Upload size={16} /> ?뺣퉬 ?ъ쭊/PDF ?щ윭 ???낅줈??                <input
                   type="file"
                   accept="image/*,application/pdf"
                   multiple
@@ -4976,10 +4969,10 @@ export default function App() {
               <div className="attachment-chips">
                 {(maintForm.image_urls || []).length ? (
                   (maintForm.image_urls || []).map((url, idx) => (
-                    <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">첨부{idx + 1}</a>
+                    <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">泥⑤?{idx + 1}</a>
                   ))
                 ) : (
-                  <span>첨부파일 없음</span>
+                  <span>泥⑤??뚯씪 ?놁쓬</span>
                 )}
               </div>
             </div>
@@ -4988,11 +4981,11 @@ export default function App() {
 
             <div className="actions right-actions">
               <button className="primary" disabled={maintSaving} onClick={saveMaint}>
-                {maintSaving ? "저장 중..." : "정비 저장"}
+                {maintSaving ? "???以?.." : "?뺣퉬 ???}
               </button>
-              <button disabled={maintSaving} onClick={resetMaintForm}>초기화</button>
+              <button disabled={maintSaving} onClick={resetMaintForm}>珥덇린??/button>
             </div>
-            <p className="draft-help-text">작성 중인 정비등록 내용은 자동 임시저장됩니다. 저장 실패나 메뉴 이동 후에도 다시 정비등록에 들어오면 복원됩니다.</p>
+            <p className="draft-help-text">?묒꽦 以묒씤 ?뺣퉬?깅줉 ?댁슜? ?먮룞 ?꾩떆??λ맗?덈떎. ????ㅽ뙣??硫붾돱 ?대룞 ?꾩뿉???ㅼ떆 ?뺣퉬?깅줉???ㅼ뼱?ㅻ㈃ 蹂듭썝?⑸땲??</p>
           </section>
         )}
 
@@ -5005,32 +4998,32 @@ export default function App() {
             <div className="schedule-pro-hero">
               <div>
                 <span className="schedule-pro-eyebrow">Maintenance Schedule</span>
-                <h2>{editingMaintenanceScheduleId ? "정비일정 수정" : "정비일정등록"}</h2>
-                <p>예정일 기준으로 하루에 여러 작업을 등록하고, 조회 화면과 홈 대시보드에서 한눈에 확인합니다.</p>
+                <h2>{editingMaintenanceScheduleId ? "?뺣퉬?쇱젙 ?섏젙" : "?뺣퉬?쇱젙?깅줉"}</h2>
+                <p>?덉젙??湲곗??쇰줈 ?섎（???щ윭 ?묒뾽???깅줉?섍퀬, 議고쉶 ?붾㈃怨?????쒕낫?쒖뿉???쒕늿???뺤씤?⑸땲??</p>
               </div>
-              <button className="schedule-pro-ghost" onClick={() => setMenuTab("maintenance_schedules")}>일정조회로 이동</button>
+              <button className="schedule-pro-ghost" onClick={() => setMenuTab("maintenance_schedules")}>?쇱젙議고쉶濡??대룞</button>
             </div>
 
             <div className="schedule-pro-layout">
               <div className="schedule-pro-form-card">
                 <div className="schedule-pro-card-title modern">
                   <div>
-                    <b>일정 정보</b>
-                    <small>창고/설비를 선택하고 작업 내용을 등록하세요.</small>
+                    <b>?쇱젙 ?뺣낫</b>
+                    <small>李쎄퀬/?ㅻ퉬瑜??좏깮?섍퀬 ?묒뾽 ?댁슜???깅줉?섏꽭??</small>
                   </div>
                   <span>{maintenanceScheduleForm.schedule_date || getTodayKey()}</span>
                 </div>
 
                 <div className="schedule-pro-grid">
-                  <Field label="예정일">
+                  <Field label="?덉젙??>
                     <input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} />
                   </Field>
-                  <Field label="장비/창고 선택">
+                  <Field label="?λ퉬/李쎄퀬 ?좏깮">
                     <input
                       list="maintenance-equipment-options"
                       value={maintenanceScheduleForm.equipment_name}
                       onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, equipment_name: e.target.value })}
-                      placeholder="창고/설비 검색 또는 직접 입력"
+                      placeholder="李쎄퀬/?ㅻ퉬 寃???먮뒗 吏곸젒 ?낅젰"
                     />
                     <datalist id="maintenance-equipment-options">
                       {maintenanceEquipmentOptions.map((name) => (
@@ -5038,26 +5031,26 @@ export default function App() {
                       ))}
                     </datalist>
                   </Field>
-                  <Field label="작업내용">
-                    <input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="예: 라이너 교체" />
+                  <Field label="?묒뾽?댁슜">
+                    <input value={maintenanceScheduleForm.work_detail} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, work_detail: e.target.value })} placeholder="?? ?쇱씠??援먯껜" />
                   </Field>
-                  <Field label="작업자">
-                    <input value={maintenanceScheduleForm.worker_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, worker_name: e.target.value })} placeholder="작업자" />
+                  <Field label="?묒뾽??>
+                    <input value={maintenanceScheduleForm.worker_name} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, worker_name: e.target.value })} placeholder="?묒뾽?? />
                   </Field>
-                  <Field label="우선순위">
+                  <Field label="?곗꽑?쒖쐞">
                     <select value={maintenanceScheduleForm.priority} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, priority: e.target.value })}>
-                      <option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
+                      <option>湲닿툒</option><option>?믪쓬</option><option>蹂댄넻</option><option>??쓬</option>
                     </select>
                   </Field>
-                  <Field label="상태">
+                  <Field label="?곹깭">
                     <select value={maintenanceScheduleForm.status} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, status: e.target.value })}>
-                      <option>예정</option><option>진행중</option><option>완료</option>
+                      <option>?덉젙</option><option>吏꾪뻾以?/option><option>?꾨즺</option>
                     </select>
                   </Field>
                 </div>
 
                 <div className="schedule-equipment-chips">
-                  <span>빠른 선택</span>
+                  <span>鍮좊Ⅸ ?좏깮</span>
                   {(maintenanceEquipmentOptions || []).slice(0, 10).map((name) => (
                     <button
                       type="button"
@@ -5069,36 +5062,36 @@ export default function App() {
                   ))}
                 </div>
 
-                <Field label="메모">
-                  <textarea value={maintenanceScheduleForm.memo} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, memo: e.target.value })} placeholder="특이사항 / 준비물 / 참고사항" />
+                <Field label="硫붾え">
+                  <textarea value={maintenanceScheduleForm.memo} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, memo: e.target.value })} placeholder="?뱀씠?ы빆 / 以鍮꾨Ъ / 李멸퀬?ы빆" />
                 </Field>
 
                 <div className="schedule-pro-actions">
-                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정저장" : "일정저장"}</button>
-                  <button onClick={resetMaintenanceScheduleForm}>초기화</button>
+                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "?섏젙??? : "?쇱젙???}</button>
+                  <button onClick={resetMaintenanceScheduleForm}>珥덇린??/button>
                 </div>
               </div>
 
               <div className="schedule-pro-side">
                 <div className="schedule-pro-mini-card blue">
-                  <span>오늘 일정</span>
-                  <b>{maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).length}건</b>
-                  <small>오늘 등록된 정비 작업</small>
+                  <span>?ㅻ뒛 ?쇱젙</span>
+                  <b>{maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).length}嫄?/b>
+                  <small>?ㅻ뒛 ?깅줉???뺣퉬 ?묒뾽</small>
                 </div>
                 <div className="schedule-pro-mini-card red">
-                  <span>긴급 일정</span>
-                  <b>{maintenanceSchedules.filter((x) => x.priority === "긴급" && x.status !== "완료").length}건</b>
-                  <small>완료되지 않은 긴급 작업</small>
+                  <span>湲닿툒 ?쇱젙</span>
+                  <b>{maintenanceSchedules.filter((x) => x.priority === "湲닿툒" && x.status !== "?꾨즺").length}嫄?/b>
+                  <small>?꾨즺?섏? ?딆? 湲닿툒 ?묒뾽</small>
                 </div>
                 <div className="schedule-pro-mini-card green">
-                  <span>완료 일정</span>
-                  <b>{maintenanceSchedules.filter((x) => x.status === "완료").length}건</b>
-                  <small>누적 완료 작업</small>
+                  <span>?꾨즺 ?쇱젙</span>
+                  <b>{maintenanceSchedules.filter((x) => x.status === "?꾨즺").length}嫄?/b>
+                  <small>?꾩쟻 ?꾨즺 ?묒뾽</small>
                 </div>
 
                 <div className="schedule-pro-preview">
                   <div className="schedule-pro-card-title">
-                    <b>오늘 작업 미리보기</b>
+                    <b>?ㅻ뒛 ?묒뾽 誘몃━蹂닿린</b>
                     <span>{getTodayKey()}</span>
                   </div>
                   {maintenanceSchedules.filter((x) => x.schedule_date === getTodayKey()).slice(0, 5).length ? (
@@ -5108,11 +5101,11 @@ export default function App() {
                           <strong>{x.equipment_name}</strong>
                           <p>{x.work_detail}</p>
                         </div>
-                        <span className={`schedule-status ${x.status || "예정"}`}>{x.status || "예정"}</span>
+                        <span className={`schedule-status ${x.status || "?덉젙"}`}>{x.status || "?덉젙"}</span>
                       </div>
                     ))
                   ) : (
-                    <div className="schedule-pro-empty">오늘 등록된 정비일정이 없습니다.</div>
+                    <div className="schedule-pro-empty">?ㅻ뒛 ?깅줉???뺣퉬?쇱젙???놁뒿?덈떎.</div>
                   )}
                 </div>
               </div>
@@ -5133,24 +5126,24 @@ export default function App() {
         {newItemModal.open && (
           <div className="modal-backdrop">
             <div className="modal-box">
-              <h2>신규 품목 추가</h2>
+              <h2>?좉퇋 ?덈ぉ 異붽?</h2>
               <div className="grid2">
-                <Field label="품목명">
+                <Field label="?덈ぉ紐?>
                   <input value={newItemForm.name} onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })} autoFocus />
                 </Field>
-                <Field label="규격정보">
+                <Field label="洹쒓꺽?뺣낫">
                   <input value={newItemForm.spec} onChange={(e) => setNewItemForm({ ...newItemForm, spec: e.target.value })} />
                 </Field>
-                <Field label="단위">
+                <Field label="?⑥쐞">
                   <input value={newItemForm.unit} onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value })} placeholder="ea" />
                 </Field>
-                <Field label="입고단가">
+                <Field label="?낃퀬?④?">
                   <input value={newItemForm.price} onChange={(e) => setNewItemForm({ ...newItemForm, price: e.target.value })} placeholder="0" />
                 </Field>
               </div>
               <div className="actions right-actions">
-                <button onClick={closeNewItemModal}>취소</button>
-                <button className="primary" onClick={saveNewItemFromModal}>저장</button>
+                <button onClick={closeNewItemModal}>痍⑥냼</button>
+                <button className="primary" onClick={saveNewItemFromModal}>???/button>
               </div>
             </div>
           </div>
@@ -5163,31 +5156,31 @@ export default function App() {
                 <div>
                   <h2>
                     {photoLinkModal.mode === "purchase"
-                      ? "입고사진 선택"
+                      ? "?낃퀬?ъ쭊 ?좏깮"
                       : photoLinkModal.mode === "maint"
-                        ? "정비사진 선택"
+                        ? "?뺣퉬?ъ쭊 ?좏깮"
                         : photoLinkModal.mode === "recordPurchase"
-                          ? "구매내역 선택"
-                          : "정비내역 선택"}
+                          ? "援щℓ?댁뿭 ?좏깮"
+                          : "?뺣퉬?댁뿭 ?좏깮"}
                   </h2>
                   <p>
                     {photoLinkModal.mode === "purchase"
-                      ? "구매조회 내역에 연결할 입고사진을 선택하세요."
+                      ? "援щℓ議고쉶 ?댁뿭???곌껐???낃퀬?ъ쭊???좏깮?섏꽭??"
                       : photoLinkModal.mode === "maint"
-                        ? "정비조회 내역에 연결할 정비사진을 선택하세요."
+                        ? "?뺣퉬議고쉶 ?댁뿭???곌껐???뺣퉬?ъ쭊???좏깮?섏꽭??"
                         : photoLinkModal.mode === "recordPurchase"
-                          ? "입고사진을 연결할 기존 구매내역을 선택하세요."
-                          : "정비사진을 연결할 기존 정비내역을 선택하세요."}
+                          ? "?낃퀬?ъ쭊???곌껐??湲곗〈 援щℓ?댁뿭???좏깮?섏꽭??"
+                          : "?뺣퉬?ъ쭊???곌껐??湲곗〈 ?뺣퉬?댁뿭???좏깮?섏꽭??"}
                   </p>
                 </div>
-                <button onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>닫기</button>
+                <button onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>?リ린</button>
               </div>
 
               <input
                 className="photo-link-search"
                 value={photoLinkModal.search}
                 onChange={(e) => setPhotoLinkModal({ ...photoLinkModal, search: e.target.value })}
-                placeholder="거래처/날짜/품목/창고 검색, 비우면 전체 표시"
+                placeholder="嫄곕옒泥??좎쭨/?덈ぉ/李쎄퀬 寃?? 鍮꾩슦硫??꾩껜 ?쒖떆"
               />
 
               <div className="photo-link-list">
@@ -5200,8 +5193,8 @@ export default function App() {
                   .map((photo) => (
                     <button className="photo-link-item" key={photo.id} onClick={() => connectReceiptPhotoToPurchase(photo, photoLinkModal.targetId)}>
                       <div>
-                        <strong>{photo.vendor_name || "거래처 미입력"}</strong>
-                        <span>{photo.receipt_date} · {photo.is_processed ? "처리완료" : "미처리"}</span>
+                        <strong>{photo.vendor_name || "嫄곕옒泥?誘몄엯??}</strong>
+                        <span>{photo.receipt_date} 쨌 {photo.is_processed ? "泥섎━?꾨즺" : "誘몄쿂由?}</span>
                         <p>{photo.memo || "-"}</p>
                       </div>
                       <AttachmentGroup urls={photo.image_urls || []} />
@@ -5217,8 +5210,8 @@ export default function App() {
                   .map((photo) => (
                     <button className="photo-link-item" key={photo.id} onClick={() => connectMaintenancePhotoToMaint(photo, photoLinkModal.targetId)}>
                       <div>
-                        <strong>{photo.equipment_name || "설비 미입력"}</strong>
-                        <span>{photo.maint_date} · {photo.is_processed ? "처리완료" : "미처리"}</span>
+                        <strong>{photo.equipment_name || "?ㅻ퉬 誘몄엯??}</strong>
+                        <span>{photo.maint_date} 쨌 {photo.is_processed ? "泥섎━?꾨즺" : "誘몄쿂由?}</span>
                         <p>{photo.memo || "-"}</p>
                       </div>
                       <AttachmentGroup urls={photo.image_urls || []} />
@@ -5233,9 +5226,9 @@ export default function App() {
                   .map((purchase) => (
                     <button className="photo-link-item" key={purchase.id} onClick={() => connectPurchaseRecordToReceiptPhoto(purchase, photoLinkModal.targetId)}>
                       <div>
-                        <strong>{purchase.vendor || "거래처 미입력"}</strong>
-                        <span>{purchase.date || "-"} · {purchase.warehouse || "-"}</span>
-                        <p>{getPurchaseItemSummary(purchase)} / {money(purchase.total)}원</p>
+                        <strong>{purchase.vendor || "嫄곕옒泥?誘몄엯??}</strong>
+                        <span>{purchase.date || "-"} 쨌 {purchase.warehouse || "-"}</span>
+                        <p>{getPurchaseItemSummary(purchase)} / {money(purchase.total)}??/p>
                       </div>
                       <AttachmentGroup urls={purchase.image_urls || (purchase.image_url ? [purchase.image_url] : [])} />
                     </button>
@@ -5249,8 +5242,8 @@ export default function App() {
                   .map((maint) => (
                     <button className="photo-link-item" key={maint.id} onClick={() => connectMaintRecordToMaintenancePhoto(maint, photoLinkModal.targetId)}>
                       <div>
-                        <strong>{maint.title || "제목 미입력"}</strong>
-                        <span>{maint.date || "-"} · {maint.warehouse || "-"}</span>
+                        <strong>{maint.title || "?쒕ぉ 誘몄엯??}</strong>
+                        <span>{maint.date || "-"} 쨌 {maint.warehouse || "-"}</span>
                         <p>{maint.detail || "-"}</p>
                       </div>
                       <AttachmentGroup urls={maint.image_urls || (maint.image_url ? [maint.image_url] : [])} />
@@ -5265,52 +5258,52 @@ export default function App() {
           <div className="role-mobile-sheet-card">
             <div className="role-mobile-sheet-head">
               <strong>
-                {mobileSheet === "buy" ? "구매 메뉴" : mobileSheet === "card" ? "카드 메뉴" : mobileSheet === "maint" ? "정비 메뉴" : "더보기"}
+                {mobileSheet === "buy" ? "援щℓ 硫붾돱" : mobileSheet === "card" ? "移대뱶 硫붾돱" : mobileSheet === "maint" ? "?뺣퉬 硫붾돱" : "?붾낫湲?}
               </strong>
-              <button onClick={() => setMobileSheet("")}>닫기</button>
+              <button onClick={() => setMobileSheet("")}>?リ린</button>
             </div>
 
             <div className="role-mobile-sheet-grid">
               {mobileSheet === "buy" && (
                 <>
-                  {canAccessTab("new") && <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>구매입력</button>}
-                  {canAccessTab("list") && <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>구매조회</button>}
-                  {canAccessTab("status") && <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>구매현황</button>}
-                  {canAccessTab("bulk_transfer") && <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>대량이체</button>}
-                  {canAccessTab("receipt_photos") && <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진등록</button>}
-                  {canAccessTab("vendor_accounts") && <button onClick={() => { setMenuTab("vendor_accounts"); setMobileSheet(""); }}>업체계좌관리</button>}
+                  {canAccessTab("new") && <button onClick={() => { setMenuTab("new"); setMobileSheet(""); }}>援щℓ?낅젰</button>}
+                  {canAccessTab("list") && <button onClick={() => { setMenuTab("list"); setMobileSheet(""); }}>援щℓ議고쉶</button>}
+                  {canAccessTab("status") && <button onClick={() => { setMenuTab("status"); setMobileSheet(""); }}>援щℓ?꾪솴</button>}
+                  {canAccessTab("bulk_transfer") && <button onClick={() => { setMenuTab("bulk_transfer"); setMobileSheet(""); }}>??됱씠泥?/button>}
+                  {canAccessTab("receipt_photos") && <button onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>?낃퀬?ъ쭊?깅줉</button>}
+                  {canAccessTab("vendor_accounts") && <button onClick={() => { setMenuTab("vendor_accounts"); setMobileSheet(""); }}>?낆껜怨꾩쥖愿由?/button>}
                 </>
               )}
 
               {mobileSheet === "card" && (
                 <>
-                  {canAccessTab("card_use") && <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>카드사용</button>}
-                  {canAccessTab("card_list") && <button onClick={() => { setMenuTab("card_list"); setMobileSheet(""); }}>카드조회</button>}
-                  {canAccessTab("card_stats") && <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>카드통계</button>}
+                  {canAccessTab("card_use") && <button onClick={() => { setMenuTab("card_use"); setMobileSheet(""); }}>移대뱶?ъ슜</button>}
+                  {canAccessTab("card_list") && <button onClick={() => { setMenuTab("card_list"); setMobileSheet(""); }}>移대뱶議고쉶</button>}
+                  {canAccessTab("card_stats") && <button onClick={() => { setMenuTab("card_stats"); setMobileSheet(""); }}>移대뱶?듦퀎</button>}
                 </>
               )}
 
               {mobileSheet === "maint" && (
                 <>
-                  {canAccessTab("maint_new") && <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>}
-                  {canAccessTab("maint_list") && <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>}
-                  {canAccessTab("maint_stats") && <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>}
-                  {canAccessTab("maintenance_photos") && <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>}
-                  {canAccessTab("maintenance_schedule_new") && <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>}
-                  {canAccessTab("maintenance_schedules") && <button onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>정비일정조회</button>}
+                  {canAccessTab("maint_new") && <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>?뺣퉬?깅줉</button>}
+                  {canAccessTab("maint_list") && <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>?뺣퉬議고쉶</button>}
+                  {canAccessTab("maint_stats") && <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>?뺣퉬?듦퀎</button>}
+                  {canAccessTab("maintenance_photos") && <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>?뺣퉬?ъ쭊?깅줉</button>}
+                  {canAccessTab("maintenance_schedule_new") && <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>?뺣퉬?쇱젙?깅줉</button>}
+                  {canAccessTab("maintenance_schedules") && <button onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>?뺣퉬?쇱젙議고쉶</button>}
                 </>
               )}
 
               {mobileSheet === "more" && (
                 <>
-                  {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
-                  {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
-                  {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
-                  {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
-                  {canAccessTab("items") && <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>}
-                  {canAccessTab("permits") && <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
-                  <button className="role-mobile-logout" onClick={logout}>로그아웃</button>
+                  {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>怨듭??ы빆</button>}
+                  {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>?앹궛?쇱씤</button>}
+                  {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>嫄곕옒泥섎벑濡?/button>}
+                  {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>李쎄퀬?깅줉</button>}
+                  {canAccessTab("items") && <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>?덈ぉ?깅줉</button>}
+                  {canAccessTab("permits") && <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>?덇?愿由?/button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>諛깆뾽/沅뚰븳愿由?/button>}
+                  <button className="role-mobile-logout" onClick={logout}>濡쒓렇?꾩썐</button>
                 </>
               )}
             </div>
@@ -5320,19 +5313,19 @@ export default function App() {
         <div className="mobile-bottom-nav permission-aware-mobile-nav role-aware-bottom-nav">
           {currentRole === "field" ? (
             <>
-              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
-              {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
-              {canAccessTab("maintenance_photos") && <button className={menuTab === "maintenance_photos" ? "active" : ""} onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진</button>}
-              {canAccessTab("maintenance_schedules") && <button className={["maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>일정</button>}
-              <button className={mobileSheet === "more" || menuTab === "site_notices" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>??/button>
+              {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>?낃퀬?ъ쭊</button>}
+              {canAccessTab("maintenance_photos") && <button className={menuTab === "maintenance_photos" ? "active" : ""} onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>?뺣퉬?ъ쭊</button>}
+              {canAccessTab("maintenance_schedules") && <button className={["maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>?쇱젙</button>}
+              <button className={mobileSheet === "more" || menuTab === "site_notices" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>?붾낫湲?/button>
             </>
           ) : (
             <>
-              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
-              <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
-              <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>??/button>
+              <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>援щℓ</button>
+              <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>移대뱶</button>
+              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>?뺣퉬</button>
+              <button className={mobileSheet === "more" || ["site_notices","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>?붾낫湲?/button>
             </>
           )}
         </div>
@@ -5359,53 +5352,53 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   };
 
   return <>
-    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
-  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
-  { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
+    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>援щℓ議고쉶</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>援щℓ?낅젰</button><button onClick={() => downloadExcel(`援щℓ議고쉶_${todayText()}`, withTotalRow(
+  purchases.map((p: Purchase) => ({ ?쇱옄: p.date, 嫄곕옒泥? p.vendor, 李쎄퀬: p.warehouse, ??쒗뭹紐? getPurchaseItemSummary(p), 怨듦툒媛?? p.supplyTotal, 遺媛?몄븸: p.vatTotal, ?⑷퀎: p.total })),
+  { ?쇱옄: "珥앺빀怨?, 怨듦툒媛?? purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 遺媛?몄븸: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), ?⑷퀎: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
+))}>?묒? ?ㅼ슫濡쒕뱶</button><button onClick={() => downloadPdf(`援щℓ議고쉶_${todayText()}`, "援щℓ議고쉶", withTotalRow(purchases.map((p: Purchase) => ({ ?쇱옄: p.date, 嫄곕옒泥? p.vendor, 李쎄퀬: p.warehouse, ??쒗뭹紐? getPurchaseItemSummary(p), 怨듦툒媛?? p.supplyTotal, 遺媛?몄븸: p.vatTotal, ?⑷퀎: p.total })), { ?쇱옄: "珥앺빀怨?, 怨듦툒媛?? purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 遺媛?몄븸: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), ?⑷퀎: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 異쒕젰</button></div></div><div className="grid5"><input placeholder="?쒖옉??240107 ?먮뒗 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="醫낅즺??240107 ?먮뒗 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="嫄곕옒泥?寃?? value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="李쎄퀬 寃?? value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="?덈ぉ 寃?? value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
   {!purchases.length ? (
-    <div className="empty">저장된 구매내역 없음</div>
+    <div className="empty">??λ맂 援щℓ?댁뿭 ?놁쓬</div>
   ) : purchases.map((p: Purchase, index: number) => {
     const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
     const seq = sameDateBeforeCount + 1;
     return (
       <div className="mobile-purchase-card" key={`mobile-${p.id}`}>
         <div className="mobile-purchase-card-head">
-          <strong>{p.vendor || "거래처 미입력"}</strong>
+          <strong>{p.vendor || "嫄곕옒泥?誘몄엯??}</strong>
           <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
         </div>
-        <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
-        <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
-        <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
-        <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
+        <div className="mobile-purchase-card-row"><span>李쎄퀬</span><b>{p.warehouse || "-"}</b></div>
+        <div className="mobile-purchase-card-row"><span>?덈ぉ</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
+        <div className="mobile-purchase-card-row"><span>?⑷퀎</span><b>{money(p.total)}??/b></div>
+        <div className="mobile-purchase-card-row"><span>?ъ쭊</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
           <div className="mobile-purchase-card-actions">
-            <button onClick={() => onLinkPhoto(p)}>사진연결</button>
-            <button onClick={() => editPurchase(p)}>수정</button>
-            <button onClick={() => deletePurchase(p.id)}>삭제</button>
+            <button onClick={() => onLinkPhoto(p)}>?ъ쭊?곌껐</button>
+            <button onClick={() => editPurchase(p)}>?섏젙</button>
+            <button onClick={() => deletePurchase(p.id)}>??젣</button>
           </div>
         )}
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+</div><ScrollTable><table><thead><tr><th>愿由щ쾲??/th><th>嫄곕옒泥?/th><th>李쎄퀬</th><th>?덈ぉ</th><th>?⑷퀎</th><th>?ъ쭊</th><th>愿由?/th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">??λ맂 援щℓ?댁뿭 ?놁쓬</td></tr> : purchases.map((p: Purchase, index: number) => {
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>?ъ쭊</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>
     {detailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
           <div className="purchase-detail-modal-head">
             <div>
-              <h2>상세 품목</h2>
-              <p>{detailPurchase.vendor || "거래처 미입력"} · {detailPurchase.date || "날짜 없음"}</p>
+              <h2>?곸꽭 ?덈ぉ</h2>
+              <p>{detailPurchase.vendor || "嫄곕옒泥?誘몄엯??} 쨌 {detailPurchase.date || "?좎쭨 ?놁쓬"}</p>
             </div>
-            <button onClick={() => setDetailPurchase(null)}>닫기</button>
+            <button onClick={() => setDetailPurchase(null)}>?リ린</button>
           </div>
           <ScrollTable>
             <table className="purchase-detail-table">
               <thead>
-                <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr>
+                <tr><th>?덈ぉ</th><th>洹쒓꺽</th><th>?섎웾</th><th>?④?</th><th>怨듦툒媛??/th><th>遺媛?몄븸</th><th>?⑷퀎</th></tr>
               </thead>
               <tbody>
                 {(detailPurchase.rows || []).map((row) => (
@@ -5423,9 +5416,9 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
             </table>
           </ScrollTable>
           <div className="purchase-detail-total">
-            <span>공급가액 {money(detailPurchase.supplyTotal)}원</span>
-            <span>부가세 {money(detailPurchase.vatTotal)}원</span>
-            <b>합계 {money(detailPurchase.total)}원</b>
+            <span>怨듦툒媛??{money(detailPurchase.supplyTotal)}??/span>
+            <span>遺媛??{money(detailPurchase.vatTotal)}??/span>
+            <b>?⑷퀎 {money(detailPurchase.total)}??/b>
           </div>
         </div>
       </div>
@@ -5461,7 +5454,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   const monthly = useMemo(() => {
     const map = new Map<string, { month: string; count: number; supply: number; vat: number; total: number }>();
     filtered.forEach((p) => {
-      const month = (p.date || "미지정").slice(0, 7) || "미지정";
+      const month = (p.date || "誘몄???).slice(0, 7) || "誘몄???;
       const cur = map.get(month) || { month, count: 0, supply: 0, vat: 0, total: 0 };
       cur.count += 1;
       cur.supply += Number(p.supplyTotal || 0);
@@ -5475,7 +5468,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   const byVendor = useMemo(() => {
     const map = new Map<string, { vendor: string; count: number; total: number }>();
     filtered.forEach((p) => {
-      const name = p.vendor || "미지정";
+      const name = p.vendor || "誘몄???;
       const cur = map.get(name) || { vendor: name, count: 0, total: 0 };
       cur.count += 1;
       cur.total += Number(p.total || 0);
@@ -5486,54 +5479,54 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
 
   return (
     <section className="card">
-      <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, withTotalRow(
-  filtered.flatMap((p) => (p.rows || []).map((r) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 품목: r.item, 규격: r.spec, 수량: r.qty, 단가: r.price, 공급가액: r.supply, 부가세액: r.vat, 합계: r.total }))),
+      <div className="between"><h2>援щℓ?꾪솴</h2><button onClick={() => downloadExcel(`援щℓ?꾪솴_${todayText()}`, withTotalRow(
+  filtered.flatMap((p) => (p.rows || []).map((r) => ({ ?쇱옄: p.date, 嫄곕옒泥? p.vendor, 李쎄퀬: p.warehouse, ?덈ぉ: r.item, 洹쒓꺽: r.spec, ?섎웾: r.qty, ?④?: r.price, 怨듦툒媛?? r.supply, 遺媛?몄븸: r.vat, ?⑷퀎: r.total }))),
   {
-    일자: "총합계",
-    수량: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.qty || 0), 0), 0),
-    단가: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.price || 0), 0), 0),
-    공급가액: filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0),
-    부가세액: filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0),
-    합계: filtered.reduce((sum, p) => sum + Number(p.total || 0), 0)
+    ?쇱옄: "珥앺빀怨?,
+    ?섎웾: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.qty || 0), 0), 0),
+    ?④?: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.price || 0), 0), 0),
+    怨듦툒媛?? filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0),
+    遺媛?몄븸: filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0),
+    ?⑷퀎: filtered.reduce((sum, p) => sum + Number(p.total || 0), 0)
   }
-))}>엑셀 다운로드</button></div>
+))}>?묒? ?ㅼ슫濡쒕뱶</button></div>
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
-        <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
+        <Field label="?쒖옉??><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="醫낅즺??><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="嫄곕옒泥?><input placeholder="嫄곕옒泥??쇰? 寃?? value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
+        <Field label="?덈ぉ"><input placeholder="?덈ぉ ?쇰? 寃?? value={item} onChange={(e) => setItem(e.target.value)} /></Field>
+        <Field label="珥덇린??><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>寃??珥덇린??/button></Field>
       </div>
 
       <div className="status-cards">
-        <div><span>구매건수</span><b>{filtered.length}건</b></div>
-        <div><span>품목행수</span><b>{summary.rowCount}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.totalSupply)}원</b></div>
-        <div><span>부가세액</span><b>{money(summary.totalVat)}원</b></div>
-        <div><span>총합계</span><b>{money(summary.total)}원</b></div>
+        <div><span>援щℓ嫄댁닔</span><b>{filtered.length}嫄?/b></div>
+        <div><span>?덈ぉ?됱닔</span><b>{summary.rowCount}嫄?/b></div>
+        <div><span>怨듦툒媛??/span><b>{money(summary.totalSupply)}??/b></div>
+        <div><span>遺媛?몄븸</span><b>{money(summary.totalVat)}??/b></div>
+        <div><span>珥앺빀怨?/span><b>{money(summary.total)}??/b></div>
       </div>
 
-      <h3>월별 구매현황</h3>
+      <h3>?붾퀎 援щℓ?꾪솴</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>월</th><th>구매건수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!monthly.length ? <tr><td colSpan={5} className="empty">조회된 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.count}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
+          <thead><tr><th>??/th><th>援щℓ嫄댁닔</th><th>怨듦툒媛??/th><th>遺媛?몄븸</th><th>?⑷퀎</th></tr></thead>
+          <tbody>{!monthly.length ? <tr><td colSpan={5} className="empty">議고쉶??援щℓ?꾪솴 ?놁쓬</td></tr> : monthly.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.count}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
 
-      <h3>거래처별 구매현황</h3>
+      <h3>嫄곕옒泥섎퀎 援щℓ?꾪솴</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>거래처</th><th>구매건수</th><th>합계</th></tr></thead>
-          <tbody>{!byVendor.length ? <tr><td colSpan={3} className="empty">조회된 거래처 없음</td></tr> : byVendor.map((v) => <tr key={v.vendor}><td>{v.vendor}</td><td>{v.count}</td><td className="right bold">{money(v.total)}</td></tr>)}</tbody>
+          <thead><tr><th>嫄곕옒泥?/th><th>援щℓ嫄댁닔</th><th>?⑷퀎</th></tr></thead>
+          <tbody>{!byVendor.length ? <tr><td colSpan={3} className="empty">議고쉶??嫄곕옒泥??놁쓬</td></tr> : byVendor.map((v) => <tr key={v.vendor}><td>{v.vendor}</td><td>{v.count}</td><td className="right bold">{money(v.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
 
-      <h3>상세 구매내역</h3>
+      <h3>?곸꽭 援щℓ?댁뿭</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
+          <thead><tr><th>?쇱옄</th><th>嫄곕옒泥?/th><th>李쎄퀬</th><th>??쒗뭹紐?/th><th>?섎웾</th><th>怨듦툒媛??/th><th>遺媛?몄븸</th><th>?⑷퀎</th></tr></thead>
+          <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">議고쉶??援щℓ?댁뿭 ?놁쓬</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
     </section>
@@ -5570,76 +5563,76 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
   }, [schedules, from, to, keyword, status, priority]);
 
   const todayItems = (schedules || []).filter((x: MaintenanceSchedule) => x.schedule_date === today);
-  const progressItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "진행중");
-  const doneItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "완료");
-  const urgentItems = (schedules || []).filter((x: MaintenanceSchedule) => x.priority === "긴급" && x.status !== "완료");
+  const progressItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "吏꾪뻾以?);
+  const doneItems = (schedules || []).filter((x: MaintenanceSchedule) => x.status === "?꾨즺");
+  const urgentItems = (schedules || []).filter((x: MaintenanceSchedule) => x.priority === "湲닿툒" && x.status !== "?꾨즺");
 
   return (
     <section className="maintenance-schedule-pro-list">
       <div className="schedule-list-head">
         <div>
           <span className="schedule-pro-eyebrow">Schedule Lookup</span>
-          <h2>정비일정조회</h2>
-          <p>등록한 정비일정을 날짜, 상태, 우선순위별로 확인합니다.</p>
+          <h2>?뺣퉬?쇱젙議고쉶</h2>
+          <p>?깅줉???뺣퉬?쇱젙???좎쭨, ?곹깭, ?곗꽑?쒖쐞蹂꾨줈 ?뺤씤?⑸땲??</p>
         </div>
-        <button onClick={() => downloadExcel(`정비일정_${todayText()}`, filtered.map((item: MaintenanceSchedule) => ({
-          예정일: item.schedule_date,
-          장비명: item.equipment_name,
-          작업내용: item.work_detail,
-          작업자: item.worker_name || "",
-          우선순위: item.priority || "",
-          상태: item.status || "",
-          메모: item.memo || "",
-        })))}>엑셀 다운로드</button>
+        <button onClick={() => downloadExcel(`?뺣퉬?쇱젙_${todayText()}`, filtered.map((item: MaintenanceSchedule) => ({
+          ?덉젙?? item.schedule_date,
+          ?λ퉬紐? item.equipment_name,
+          ?묒뾽?댁슜: item.work_detail,
+          ?묒뾽?? item.worker_name || "",
+          ?곗꽑?쒖쐞: item.priority || "",
+          ?곹깭: item.status || "",
+          硫붾え: item.memo || "",
+        })))}>?묒? ?ㅼ슫濡쒕뱶</button>
       </div>
 
       <div className="schedule-summary-grid">
-        <div className="schedule-summary-card blue"><span>오늘 일정</span><b>{todayItems.length}</b><small>오늘 예정/진행/완료</small></div>
-        <div className="schedule-summary-card purple"><span>진행중</span><b>{progressItems.length}</b><small>현재 진행 작업</small></div>
-        <div className="schedule-summary-card green"><span>완료</span><b>{doneItems.length}</b><small>완료된 작업</small></div>
-        <div className="schedule-summary-card red"><span>긴급</span><b>{urgentItems.length}</b><small>미완료 긴급 작업</small></div>
+        <div className="schedule-summary-card blue"><span>?ㅻ뒛 ?쇱젙</span><b>{todayItems.length}</b><small>?ㅻ뒛 ?덉젙/吏꾪뻾/?꾨즺</small></div>
+        <div className="schedule-summary-card purple"><span>吏꾪뻾以?/span><b>{progressItems.length}</b><small>?꾩옱 吏꾪뻾 ?묒뾽</small></div>
+        <div className="schedule-summary-card green"><span>?꾨즺</span><b>{doneItems.length}</b><small>?꾨즺???묒뾽</small></div>
+        <div className="schedule-summary-card red"><span>湲닿툒</span><b>{urgentItems.length}</b><small>誘몄셿猷?湲닿툒 ?묒뾽</small></div>
       </div>
 
       <div className="schedule-filter-card">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <Field label="검색"><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="장비/작업내용/작업자 검색" /></Field>
-        <Field label="상태">
+        <Field label="?쒖옉??><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="醫낅즺??><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="寃??><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="?λ퉬/?묒뾽?댁슜/?묒뾽??寃?? /></Field>
+        <Field label="?곹깭">
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">전체</option><option>예정</option><option>진행중</option><option>완료</option>
+            <option value="">?꾩껜</option><option>?덉젙</option><option>吏꾪뻾以?/option><option>?꾨즺</option>
           </select>
         </Field>
-        <Field label="우선순위">
+        <Field label="?곗꽑?쒖쐞">
           <select value={priority} onChange={(e) => setPriority(e.target.value)}>
-            <option value="">전체</option><option>긴급</option><option>높음</option><option>보통</option><option>낮음</option>
+            <option value="">?꾩껜</option><option>湲닿툒</option><option>?믪쓬</option><option>蹂댄넻</option><option>??쓬</option>
           </select>
         </Field>
-        <button className="schedule-reset-btn" onClick={() => { setFrom(""); setTo(""); setKeyword(""); setStatus(""); setPriority(""); }}>초기화</button>
+        <button className="schedule-reset-btn" onClick={() => { setFrom(""); setTo(""); setKeyword(""); setStatus(""); setPriority(""); }}>珥덇린??/button>
       </div>
 
       <div className="schedule-table-card">
         <ScrollTable>
           <table>
             <thead>
-              <tr><th>예정일</th><th>장비명</th><th>작업내용</th><th>작업자</th><th>우선순위</th><th>상태</th><th>메모</th><th>관리</th></tr>
+              <tr><th>?덉젙??/th><th>?λ퉬紐?/th><th>?묒뾽?댁슜</th><th>?묒뾽??/th><th>?곗꽑?쒖쐞</th><th>?곹깭</th><th>硫붾え</th><th>愿由?/th></tr>
             </thead>
             <tbody>
               {!filtered.length ? (
-                <tr><td colSpan={8} className="empty">등록된 정비일정이 없습니다.</td></tr>
+                <tr><td colSpan={8} className="empty">?깅줉???뺣퉬?쇱젙???놁뒿?덈떎.</td></tr>
               ) : filtered.map((item: MaintenanceSchedule) => (
                 <tr key={item.id}>
                   <td className="bold">{item.schedule_date || "-"}</td>
                   <td>{item.equipment_name || "-"}</td>
                   <td>{item.work_detail || "-"}</td>
                   <td>{item.worker_name || "-"}</td>
-                  <td><span className={`schedule-priority ${item.priority || "보통"}`}>{item.priority || "보통"}</span></td>
-                  <td><span className={`schedule-status ${item.status || "예정"}`}>{item.status || "예정"}</span></td>
+                  <td><span className={`schedule-priority ${item.priority || "蹂댄넻"}`}>{item.priority || "蹂댄넻"}</span></td>
+                  <td><span className={`schedule-status ${item.status || "?덉젙"}`}>{item.status || "?덉젙"}</span></td>
                   <td>{item.memo || "-"}</td>
                   <td>{isAdmin ? (
                     <div className="schedule-row-actions">
-                      <button onClick={() => editSchedule(item)}>수정</button>
-                      <button onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
-                      <button className="danger" onClick={() => deleteSchedule(item.id)}>삭제</button>
+                      <button onClick={() => editSchedule(item)}>?섏젙</button>
+                      <button onClick={() => updateStatus(item, item.status === "?꾨즺" ? "?덉젙" : "?꾨즺")}>{item.status === "?꾨즺" ? "?덉젙" : "?꾨즺"}</button>
+                      <button className="danger" onClick={() => deleteSchedule(item.id)}>??젣</button>
                     </div>
                   ) : "-"}</td>
                 </tr>
@@ -5657,16 +5650,16 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
               <span>{item.schedule_date}</span>
             </div>
             <div className="mobile-list-body">
-              <div><label>작업내용</label><p>{item.work_detail}</p></div>
-              <div><label>작업자</label><p>{item.worker_name || "-"}</p></div>
-              <div><label>우선순위/상태</label><p>{item.priority || "보통"} / {item.status || "예정"}</p></div>
-              <div><label>메모</label><p>{item.memo || "-"}</p></div>
+              <div><label>?묒뾽?댁슜</label><p>{item.work_detail}</p></div>
+              <div><label>?묒뾽??/label><p>{item.worker_name || "-"}</p></div>
+              <div><label>?곗꽑?쒖쐞/?곹깭</label><p>{item.priority || "蹂댄넻"} / {item.status || "?덉젙"}</p></div>
+              <div><label>硫붾え</label><p>{item.memo || "-"}</p></div>
             </div>
             {isAdmin && (
               <div className="mobile-card-actions">
-                <button onClick={() => editSchedule(item)}>수정</button>
-                <button onClick={() => updateStatus(item, item.status === "완료" ? "예정" : "완료")}>{item.status === "완료" ? "예정" : "완료"}</button>
-                <button onClick={() => deleteSchedule(item.id)}>삭제</button>
+                <button onClick={() => editSchedule(item)}>?섏젙</button>
+                <button onClick={() => updateStatus(item, item.status === "?꾨즺" ? "?덉젙" : "?꾨즺")}>{item.status === "?꾨즺" ? "?덉젙" : "?꾨즺"}</button>
+                <button onClick={() => deleteSchedule(item.id)}>??젣</button>
               </div>
             )}
           </div>
@@ -5690,7 +5683,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     });
 
     orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
+      const date = m.date || "?좎쭨?놁쓬";
       const nextNo = (dateCounts.get(date) || 0) + 1;
       dateCounts.set(date, nextNo);
     });
@@ -5699,10 +5692,10 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
     const map = new Map<string, string>();
 
     orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
+      const date = m.date || "?좎쭨?놁쓬";
       const nextNo = (running.get(date) || 0) + 1;
       running.set(date, nextNo);
-      const displayDate = date === "날짜없음" ? "날짜없음" : date;
+      const displayDate = date === "?좎쭨?놁쓬" ? "?좎쭨?놁쓬" : date;
       map.set(m.id, `${displayDate}-${String(nextNo).padStart(2, "0")}`);
     });
 
@@ -5712,43 +5705,43 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
   return (
     <section className="card lookup-page maint-lookup-page">
       <div className="between" style={{marginBottom:16}}>
-        <h2 style={{margin:0}}>정비조회</h2>
+        <h2 style={{margin:0}}>?뺣퉬議고쉶</h2>
         <div style={{display:"flex", gap:8}}>
-          <button onClick={() => downloadExcel(`정비조회_${todayText()}`, withTotalRow(
+          <button onClick={() => downloadExcel(`?뺣퉬議고쉶_${todayText()}`, withTotalRow(
             maints.map((m: Maint) => {
               const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
               const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
               const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
+              return { 愿由щ쾲?? maintNoMap.get(m.id) || "", ?쇱옄: m.date, 李쎄퀬: m.warehouse, ?쒕ぉ: m.title, ?댁슜: m.detail, ?묒뾽?? m.manager, 怨듦툒媛?? supply, 遺媛?? vat, ?⑷퀎: total };
             }),
             {
-              관리번호: "총합계",
-              공급가액: maints.reduce((sum: number, m: Maint) => sum + Number(m.supplyTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.supply || 0), 0)), 0),
-              부가세: maints.reduce((sum: number, m: Maint) => sum + Number(m.vatTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.vat || 0), 0)), 0),
-              합계: maints.reduce((sum: number, m: Maint) => sum + Number(m.total || m.cost || (m.items || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0)), 0)
+              愿由щ쾲?? "珥앺빀怨?,
+              怨듦툒媛?? maints.reduce((sum: number, m: Maint) => sum + Number(m.supplyTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.supply || 0), 0)), 0),
+              遺媛?? maints.reduce((sum: number, m: Maint) => sum + Number(m.vatTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.vat || 0), 0)), 0),
+              ?⑷퀎: maints.reduce((sum: number, m: Maint) => sum + Number(m.total || m.cost || (m.items || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0)), 0)
             }
-          ))}>엑셀 다운로드</button>
+          ))}>?묒? ?ㅼ슫濡쒕뱶</button>
           <button className="primary" onClick={() => setMenuTab("maint_new")}>
-            <Plus size={16} /> 정비등록
+            <Plus size={16} /> ?뺣퉬?깅줉
           </button>
         </div>
       </div>
 
       <div className="maint-filter">
-        <Field label="시작일">
+        <Field label="?쒖옉??>
           <input type="date" value={search.from || ""} onChange={(e) => setSearch({ ...search, from: e.target.value })} />
         </Field>
-        <Field label="종료일">
+        <Field label="醫낅즺??>
           <input type="date" value={search.to || ""} onChange={(e) => setSearch({ ...search, to: e.target.value })} />
         </Field>
-        <Field label="창고">
-          <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
+        <Field label="李쎄퀬">
+          <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="李쎄퀬 ?좏깮/寃?? />
         </Field>
-        <Field label="제목/내용/작업자">
-          <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
+        <Field label="?쒕ぉ/?댁슜/?묒뾽??>
+          <input placeholder="寃?됱뼱 ?낅젰" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
         </Field>
-        <Field label="초기화">
-          <button onClick={() => setSearch({ ...search, from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
+        <Field label="珥덇린??>
+          <button onClick={() => setSearch({ ...search, from: "", to: "", warehouse: "", keyword: "" })}>寃??珥덇린??/button>
         </Field>
       </div>
 
@@ -5756,21 +5749,21 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <table>
           <thead>
             <tr>
-              <th>관리번호</th>
-              <th>창고</th>
-              <th>작업자</th>
-              <th>제목</th>
-              <th>내용</th>
-              <th>공급가액</th>
-              <th>부가세</th>
-              <th>합계</th>
-              <th>첨부</th>
-              <th>관리</th>
+              <th>愿由щ쾲??/th>
+              <th>李쎄퀬</th>
+              <th>?묒뾽??/th>
+              <th>?쒕ぉ</th>
+              <th>?댁슜</th>
+              <th>怨듦툒媛??/th>
+              <th>遺媛??/th>
+              <th>?⑷퀎</th>
+              <th>泥⑤?</th>
+              <th>愿由?/th>
             </tr>
           </thead>
           <tbody>
             {!maints.length ? (
-              <tr><td colSpan={10} className="empty">저장된 정비내역 없음</td></tr>
+              <tr><td colSpan={10} className="empty">??λ맂 ?뺣퉬?댁뿭 ?놁쓬</td></tr>
             ) : (
               maints.map((m: Maint) => {
                 const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
@@ -5791,7 +5784,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     </td>
                     <td>
                       {isAdmin ? <>
-                        <button className="icon" onClick={() => onLinkPhoto(m)}>사진</button>
+                        <button className="icon" onClick={() => onLinkPhoto(m)}>?ъ쭊</button>
                         <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
                         <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
                       </> : "-"}
@@ -5818,15 +5811,15 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
             <div className="mobile-list-card" key={m.id}>
               <div className="mobile-list-top">
                 <b>{`${m.date || ""}-${String(seq).padStart(2, "0")}`}</b>
-                <span>{money(total)}원</span>
+                <span>{money(total)}??/span>
               </div>
 
               <div className="mobile-list-body">
-                <div><label>창고</label><p>{m.warehouse}</p></div>
-                <div><label>작업자</label><p>{m.manager || "-"}</p></div>
-                <div><label>제목</label><p>{m.title}</p></div>
-                <div><label>내용</label><p>{m.detail || "-"}</p></div>
-                <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
+                <div><label>李쎄퀬</label><p>{m.warehouse}</p></div>
+                <div><label>?묒뾽??/label><p>{m.manager || "-"}</p></div>
+                <div><label>?쒕ぉ</label><p>{m.title}</p></div>
+                <div><label>?댁슜</label><p>{m.detail || "-"}</p></div>
+                <div><label>怨듦툒媛??/ 遺媛??/label><p>{money(supply)}??/ {money(vat)}??/p></div>
               </div>
 
               <div className="mobile-list-attachment">
@@ -5836,9 +5829,9 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               <div className="mobile-card-actions">
                 {isAdmin ? (
                   <>
-                    <button onClick={() => onLinkPhoto(m)}>사진연결</button>
-                    <button onClick={() => editMaint(m)}>수정</button>
-                    <button onClick={() => deleteMaint(m.id)}>삭제</button>
+                    <button onClick={() => onLinkPhoto(m)}>?ъ쭊?곌껐</button>
+                    <button onClick={() => editMaint(m)}>?섏젙</button>
+                    <button onClick={() => deleteMaint(m.id)}>??젣</button>
                   </>
                 ) : null}
               </div>
@@ -5852,18 +5845,18 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
           <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{selected.title}</h2>
-            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>작업자:</b> {selected.manager || "-"}</p>
-            <p><b>내용:</b> {selected.detail || "-"}</p>
+            <p><b>愿由щ쾲??</b> {maintNoMap.get(selected.id) || "-"} / <b>?쇱옄:</b> {selected.date} / <b>李쎄퀬:</b> {selected.warehouse} / <b>?묒뾽??</b> {selected.manager || "-"}</p>
+            <p><b>?댁슜:</b> {selected.detail || "-"}</p>
             <div className="maint-modal-attachments">
-              <b>첨부:</b>
+              <b>泥⑤?:</b>
               <AttachmentGroup urls={selected.image_urls || (selected.image_url ? [selected.image_url] : [])} />
             </div>
             <ScrollTable>
               <table>
-                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+                <thead><tr><th>?덈ぉ</th><th>洹쒓꺽</th><th>?섎웾</th><th>?④?</th><th>怨듦툒媛??/th><th>遺媛??/th><th>?⑷퀎</th></tr></thead>
                 <tbody>
                   {!(selected.items || []).length ? (
-                    <tr><td colSpan={7} className="empty">사용 품목 없음</td></tr>
+                    <tr><td colSpan={7} className="empty">?ъ슜 ?덈ぉ ?놁쓬</td></tr>
                   ) : (
                     (selected.items || []).map((r: any) => (
                       <tr key={r.id || `${r.item}-${r.spec}`}>
@@ -5880,7 +5873,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                 </tbody>
               </table>
             </ScrollTable>
-            <div className="actions right-actions"><button onClick={() => setSelected(null)}>닫기</button></div>
+            <div className="actions right-actions"><button onClick={() => setSelected(null)}>?リ린</button></div>
           </div>
         </div>
       )}
@@ -5908,7 +5901,7 @@ function AttachmentPreview({ url }: { url?: string }) {
       {isPdf ? (
         <div className="pdf-thumb">PDF</div>
       ) : (
-        <img src={cleanUrl} alt="첨부파일" />
+        <img src={cleanUrl} alt="泥⑤??뚯씪" />
       )}
     </a>
   );
@@ -5953,7 +5946,7 @@ function Home({
   const [layoutMessage, setLayoutMessage] = useState("");
 
   const crusherWarehouses = (warehouses || [])
-    .filter((w) => w.group === "크라샤")
+    .filter((w) => w.group === "?щ씪??)
     .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
 
   const defaultHotspots = crusherWarehouses.map((w, index) => {
@@ -5994,7 +5987,7 @@ function Home({
       .order("name", { ascending: true });
 
     if (error) {
-      setLayoutMessage(`좌표 불러오기 실패: ${error.message}`);
+      setLayoutMessage(`醫뚰몴 遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`);
       return;
     }
 
@@ -6013,7 +6006,7 @@ function Home({
       return [...otherDevice, ...loaded];
     });
 
-    setLayoutMessage(`${device === "mobile" ? "모바일" : "PC"} 좌표 불러오기 완료`);
+    setLayoutMessage(`${device === "mobile" ? "紐⑤컮?? : "PC"} 醫뚰몴 遺덈윭?ㅺ린 ?꾨즺`);
   };
 
   useEffect(() => {
@@ -6109,7 +6102,7 @@ function Home({
 
   const resizeSelectedHotspot = (mode: "w+" | "w-" | "h+" | "h-") => {
     if (!selectedHotspot) {
-      alert("먼저 조정할 칸을 선택하세요.");
+      alert("癒쇱? 議곗젙??移몄쓣 ?좏깮?섏꽭??");
       return;
     }
 
@@ -6143,12 +6136,12 @@ function Home({
       .upsert(rows, { onConflict: "page,device,name" });
 
     if (error) {
-      alert(`좌표 저장 실패: ${error.message}`);
+      alert(`醫뚰몴 ????ㅽ뙣: ${error.message}`);
       return;
     }
 
-    setLayoutMessage(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표 DB 저장 완료`);
-    alert("생산라인 클릭영역 좌표를 DB에 저장했습니다.");
+    setLayoutMessage(`${layoutDevice === "mobile" ? "紐⑤컮?? : "PC"} 醫뚰몴 DB ????꾨즺`);
+    alert("?앹궛?쇱씤 ?대┃?곸뿭 醫뚰몴瑜?DB????ν뻽?듬땲??");
   };
 
   const copyPcToMobile = async () => {
@@ -6159,7 +6152,7 @@ function Home({
       .eq("device", "pc");
 
     if (error) {
-      alert(`PC 좌표 불러오기 실패: ${error.message}`);
+      alert(`PC 醫뚰몴 遺덈윭?ㅺ린 ?ㅽ뙣: ${error.message}`);
       return;
     }
 
@@ -6179,17 +6172,17 @@ function Home({
       .upsert(rows, { onConflict: "page,device,name" });
 
     if (saveError) {
-      alert(`모바일 좌표 저장 실패: ${saveError.message}`);
+      alert(`紐⑤컮??醫뚰몴 ????ㅽ뙣: ${saveError.message}`);
       return;
     }
 
     setLayoutDevice("mobile");
     await loadHotspotLayout("mobile");
-    setLayoutMessage("PC 좌표를 모바일 좌표로 복사했습니다.");
+    setLayoutMessage("PC 醫뚰몴瑜?紐⑤컮??醫뚰몴濡?蹂듭궗?덉뒿?덈떎.");
   };
 
   const resetHotspotLayout = async () => {
-    if (!confirm(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표를 초기화할까요?`)) return;
+    if (!confirm(`${layoutDevice === "mobile" ? "紐⑤컮?? : "PC"} 醫뚰몴瑜?珥덇린?뷀븷源뚯슂?`)) return;
 
     const { error } = await supabase
       .from(hotspotTableName)
@@ -6198,37 +6191,37 @@ function Home({
       .eq("device", layoutDevice);
 
     if (error) {
-      alert(`좌표 초기화 실패: ${error.message}`);
+      alert(`醫뚰몴 珥덇린???ㅽ뙣: ${error.message}`);
       return;
     }
 
     setHotspotLinks((prev: any[]) => (prev || []).filter((x: any) => x.device !== layoutDevice));
     setSelectedHotspot("");
-    setLayoutMessage(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표 초기화 완료`);
+    setLayoutMessage(`${layoutDevice === "mobile" ? "紐⑤컮?? : "PC"} 醫뚰몴 珥덇린???꾨즺`);
   };
 
   return (
     <section className="card">
       <div className="between">
-        <h2>생산라인 구성도</h2>
+        <h2>?앹궛?쇱씤 援ъ꽦??/h2>
 
         {isAdmin && (
           <div className="layout-edit-actions">
             <button onClick={() => setEditLayout((v) => !v)}>
-              {editLayout ? "위치조정 끄기" : "위치조정"}
+              {editLayout ? "?꾩튂議곗젙 ?꾧린" : "?꾩튂議곗젙"}
             </button>
 
             {editLayout && (
               <>
                 <button onClick={() => setLayoutDevice("pc")}>PC</button>
-                <button onClick={() => setLayoutDevice("mobile")}>모바일</button>
-                <button onClick={() => resizeSelectedHotspot("w+")}>가로 +</button>
-                <button onClick={() => resizeSelectedHotspot("w-")}>가로 -</button>
-                <button onClick={() => resizeSelectedHotspot("h+")}>세로 +</button>
-                <button onClick={() => resizeSelectedHotspot("h-")}>세로 -</button>
-                <button onClick={copyPcToMobile}>PC→모바일 복사</button>
-                <button className="primary" onClick={saveHotspotLayout}>DB 저장</button>
-                <button onClick={resetHotspotLayout}>초기화</button>
+                <button onClick={() => setLayoutDevice("mobile")}>紐⑤컮??/button>
+                <button onClick={() => resizeSelectedHotspot("w+")}>媛濡?+</button>
+                <button onClick={() => resizeSelectedHotspot("w-")}>媛濡?-</button>
+                <button onClick={() => resizeSelectedHotspot("h+")}>?몃줈 +</button>
+                <button onClick={() => resizeSelectedHotspot("h-")}>?몃줈 -</button>
+                <button onClick={copyPcToMobile}>PC?믩え諛붿씪 蹂듭궗</button>
+                <button className="primary" onClick={saveHotspotLayout}>DB ???/button>
+                <button onClick={resetHotspotLayout}>珥덇린??/button>
               </>
             )}
           </div>
@@ -6237,15 +6230,15 @@ function Home({
 
       {editLayout && (
         <div className="layout-edit-guide">
-          현재 <b>{layoutDevice === "mobile" ? "모바일용" : "PC용"}</b> 좌표를 조정 중입니다.
-          네모를 드래그해서 위치를 맞추고, 선택 후 가로/세로 버튼으로 크기를 조정하세요.
-          {selectedHotspot ? <b> 선택됨: {selectedHotspot}</b> : null}
+          ?꾩옱 <b>{layoutDevice === "mobile" ? "紐⑤컮?쇱슜" : "PC??}</b> 醫뚰몴瑜?議곗젙 以묒엯?덈떎.
+          ?ㅻえ瑜??쒕옒洹명빐???꾩튂瑜?留욎텛怨? ?좏깮 ??媛濡??몃줈 踰꾪듉?쇰줈 ?ш린瑜?議곗젙?섏꽭??
+          {selectedHotspot ? <b> ?좏깮?? {selectedHotspot}</b> : null}
           {layoutMessage ? <strong>{layoutMessage}</strong> : null}
         </div>
       )}
 
       <div className={editLayout ? "layout-map editing" : "layout-map"}>
-        <img src="/line-layout.png" alt="생산라인 구성도" />
+        <img src="/line-layout.png" alt="?앹궛?쇱씤 援ъ꽦?? />
 
         {activeHotspots.map((spot: any) => (
           <button
@@ -6257,7 +6250,7 @@ function Home({
               width: `${spot.width}%`,
               height: `${spot.height}%`,
             }}
-            title={`${spot.name} 정비이력 보기`}
+            title={`${spot.name} ?뺣퉬?대젰 蹂닿린`}
             onPointerDown={(e) => {
               if (editLayout) {
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -6344,7 +6337,7 @@ function SiteNoticePage({
 }: any) {
   const canWriteNotice = isAdmin || currentRole === "office";
   const activeNotices = isAdmin ? (allSiteNotices || siteNotices || []) : (siteNotices || []);
-  const urgentCount = activeNotices.filter((n: SiteNotice) => n.priority === "긴급").length;
+  const urgentCount = activeNotices.filter((n: SiteNotice) => n.priority === "湲닿툒").length;
   const noticeTargetRoles = siteNoticeForm.target_roles || ["all"];
   const noticeTargetEmails = siteNoticeForm.target_emails || [];
   const noticeEmployees = (userPermissions || []).filter((u: UserPermission) => !!u.email);
@@ -6373,9 +6366,9 @@ function SiteNoticePage({
   const targetLabel = (notice: SiteNotice) => {
     const roles = notice.target_roles || ["all"];
     const emails = notice.target_emails || [];
-    if (roles.includes("all") || (!roles.length && !emails.length)) return "전체 직원";
-    const roleLabels = roles.map((role) => role === "office" ? "사무실직원" : role === "field" ? "현장직원" : role).filter(Boolean);
-    return [...roleLabels, ...emails].join(", ") || "전체 직원";
+    if (roles.includes("all") || (!roles.length && !emails.length)) return "?꾩껜 吏곸썝";
+    const roleLabels = roles.map((role) => role === "office" ? "?щТ?ㅼ쭅?? : role === "field" ? "?꾩옣吏곸썝" : role).filter(Boolean);
+    return [...roleLabels, ...emails].join(", ") || "?꾩껜 吏곸썝";
   };
 
   return (
@@ -6383,21 +6376,21 @@ function SiteNoticePage({
       <div className="site-notice-modern-head">
         <div>
           <span>NOTICE</span>
-          <h2>공지</h2>
-          <p>관리자와 사무실직원은 공지를 등록할 수 있고, 현장직원은 공지를 확인할 수 있습니다.</p>
+          <h2>怨듭?</h2>
+          <p>愿由ъ옄? ?щТ?ㅼ쭅?먯? 怨듭?瑜??깅줉?????덇퀬, ?꾩옣吏곸썝? 怨듭?瑜??뺤씤?????덉뒿?덈떎.</p>
         </div>
         <div className="site-notice-modern-summary">
           <b>{activeNotices.length}</b>
-          <em>공지</em>
-          <strong>{urgentCount} 긴급</strong>
+          <em>怨듭?</em>
+          <strong>{urgentCount} 湲닿툒</strong>
         </div>
       </div>
 
       {siteNoticeError && (
         <div className="site-notice-error">
-          공지 불러오기 실패: {siteNoticeError}
+          怨듭? 遺덈윭?ㅺ린 ?ㅽ뙣: {siteNoticeError}
           <br />
-          Supabase에 site_notices 테이블을 먼저 만들어야 합니다.
+          Supabase??site_notices ?뚯씠釉붿쓣 癒쇱? 留뚮뱾?댁빞 ?⑸땲??
         </div>
       )}
 
@@ -6405,13 +6398,13 @@ function SiteNoticePage({
         <div className="site-notice-editor-card">
           <div className="site-notice-editor-title">
             <div>
-              <h3>{editingSiteNoticeId ? "공지 수정" : "공지 등록"}</h3>
-              <p>내리지 않는 이상 계속 표시됩니다. 날짜는 입력하지 않아도 됩니다.</p>
+              <h3>{editingSiteNoticeId ? "怨듭? ?섏젙" : "怨듭? ?깅줉"}</h3>
+              <p>?대━吏 ?딅뒗 ?댁긽 怨꾩냽 ?쒖떆?⑸땲?? ?좎쭨???낅젰?섏? ?딆븘???⑸땲??</p>
             </div>
             <select value={siteNoticeForm.priority} onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, priority: e.target.value })}>
-              <option>긴급</option>
-              <option>중요</option>
-              <option>보통</option>
+              <option>湲닿툒</option>
+              <option>以묒슂</option>
+              <option>蹂댄넻</option>
             </select>
           </div>
 
@@ -6419,30 +6412,30 @@ function SiteNoticePage({
             className="site-notice-title-input"
             value={siteNoticeForm.title}
             onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, title: e.target.value })}
-            placeholder="공지 제목"
+            placeholder="怨듭? ?쒕ぉ"
           />
 
           <textarea
             className="site-notice-content-input"
             value={siteNoticeForm.content}
             onChange={(e) => setSiteNoticeForm({ ...siteNoticeForm, content: e.target.value })}
-            placeholder="공지 내용을 입력하세요. 예: 내일 오전 세륜기 점검 / 전 직원 출차 전 세륜 필수"
+            placeholder="怨듭? ?댁슜???낅젰?섏꽭?? ?? ?댁씪 ?ㅼ쟾 ?몃쪣湲??먭? / ??吏곸썝 異쒖감 ???몃쪣 ?꾩닔"
           />
 
           <div className="site-notice-target-box">
-            <strong>공지 볼 직원 선택</strong>
+            <strong>怨듭? 蹂?吏곸썝 ?좏깮</strong>
             <div className="site-notice-target-checks">
               <label>
                 <input type="checkbox" checked={noticeTargetRoles.includes("all")} onChange={() => toggleNoticeTargetRole("all")} />
-                <span>전체 직원</span>
+                <span>?꾩껜 吏곸썝</span>
               </label>
               <label>
                 <input type="checkbox" checked={noticeTargetRoles.includes("office")} onChange={() => toggleNoticeTargetRole("office")} />
-                <span>사무실직원</span>
+                <span>?щТ?ㅼ쭅??/span>
               </label>
               <label>
                 <input type="checkbox" checked={noticeTargetRoles.includes("field")} onChange={() => toggleNoticeTargetRole("field")} />
-                <span>현장직원</span>
+                <span>?꾩옣吏곸썝</span>
               </label>
 
               {!!receiptUploadPreviewUrls.length && (
@@ -6466,7 +6459,7 @@ function SiteNoticePage({
                   <label key={user.email}>
                     <input type="checkbox" checked={noticeTargetEmails.includes(user.email)} onChange={() => toggleNoticeTargetEmail(user.email)} />
                     <span>{toLoginId(user.email)}</span>
-                    <em>{user.role === "field" ? "현장" : "사무실"}</em>
+                    <em>{user.role === "field" ? "?꾩옣" : "?щТ??}</em>
                   </label>
                 ))}
               </div>
@@ -6474,29 +6467,29 @@ function SiteNoticePage({
           </div>
 
           <div className="site-notice-editor-actions">
-            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정 저장" : "공지 저장"}</button>
-            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] })}>초기화</button>
+            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "?섏젙 ??? : "怨듭? ???}</button>
+            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "蹂댄넻", is_active: true, target_roles: ["all"], target_emails: [] })}>珥덇린??/button>
           </div>
         </div>
       )}
 
       <div className="site-notice-modern-list">
         {activeNotices.length ? activeNotices.map((notice: SiteNotice) => (
-          <article className={`site-notice-modern-card ${notice.priority || "보통"}`} key={notice.id}>
+          <article className={`site-notice-modern-card ${notice.priority || "蹂댄넻"}`} key={notice.id}>
             <div className="site-notice-modern-card-top">
-              {canWriteNotice && <small>대상: {targetLabel(notice)}</small>}
+              {canWriteNotice && <small>??? {targetLabel(notice)}</small>}
             </div>
             <h3>{notice.title}</h3>
             <p>{notice.content}</p>
             {canWriteNotice && (
               <div className="site-notice-modern-actions">
-                <button onClick={() => editSiteNotice(notice)}>수정</button>
-                {isAdmin && <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>내리기</button>}
+                <button onClick={() => editSiteNotice(notice)}>?섏젙</button>
+                {isAdmin && <button className="danger" onClick={() => deleteSiteNotice(notice.id)}>?대━湲?/button>}
               </div>
             )}
           </article>
         )) : (
-          <div className="site-notice-modern-empty">등록된 공지가 없습니다.</div>
+          <div className="site-notice-modern-empty">?깅줉??怨듭?媛 ?놁뒿?덈떎.</div>
         )}
       </div>
     </section>
@@ -6567,26 +6560,26 @@ function BackupPermissionPage({
   };
 
   const downloadExcelBackup = () => {
-    downloadExcel(`전체백업_${todayText()}`, [
-      { 구분: "구매", 건수: purchases.length },
-      { 구분: "정비", 건수: maints.length },
-      { 구분: "카드", 건수: cardUses.length },
-      { 구분: "거래처", 건수: vendors.length },
-      { 구분: "창고대분류", 건수: groups.length },
-      { 구분: "창고", 건수: warehouses.length },
-      { 구분: "품목", 건수: items.length },
-      { 구분: "허가관리", 건수: permits.length },
-      { 구분: "업체계좌", 건수: vendorAccounts.length },
-      { 구분: "입고사진", 건수: receiptPhotos.length },
-      { 구분: "정비사진", 건수: maintenancePhotos.length },
-      { 구분: "정비일정", 건수: maintenanceSchedules.length },
-      { 구분: "권한", 건수: userPermissions.length },
+    downloadExcel(`?꾩껜諛깆뾽_${todayText()}`, [
+      { 援щ텇: "援щℓ", 嫄댁닔: purchases.length },
+      { 援щ텇: "?뺣퉬", 嫄댁닔: maints.length },
+      { 援щ텇: "移대뱶", 嫄댁닔: cardUses.length },
+      { 援щ텇: "嫄곕옒泥?, 嫄댁닔: vendors.length },
+      { 援щ텇: "李쎄퀬?遺꾨쪟", 嫄댁닔: groups.length },
+      { 援щ텇: "李쎄퀬", 嫄댁닔: warehouses.length },
+      { 援щ텇: "?덈ぉ", 嫄댁닔: items.length },
+      { 援щ텇: "?덇?愿由?, 嫄댁닔: permits.length },
+      { 援щ텇: "?낆껜怨꾩쥖", 嫄댁닔: vendorAccounts.length },
+      { 援щ텇: "?낃퀬?ъ쭊", 嫄댁닔: receiptPhotos.length },
+      { 援щ텇: "?뺣퉬?ъ쭊", 嫄댁닔: maintenancePhotos.length },
+      { 援щ텇: "?뺣퉬?쇱젙", 嫄댁닔: maintenanceSchedules.length },
+      { 援щ텇: "沅뚰븳", 嫄댁닔: userPermissions.length },
     ]);
   };
 
   const restoreJsonBackup = async () => {
-    if (!restoreFile) return alert("복구할 JSON 백업 파일을 선택하세요.");
-    if (!confirm("선택한 백업 파일로 복구합니다. 같은 id 데이터는 덮어씁니다. 진행할까요?")) return;
+    if (!restoreFile) return alert("蹂듦뎄??JSON 諛깆뾽 ?뚯씪???좏깮?섏꽭??");
+    if (!confirm("?좏깮??諛깆뾽 ?뚯씪濡?蹂듦뎄?⑸땲?? 媛숈? id ?곗씠?곕뒗 ??뼱?곷땲?? 吏꾪뻾?좉퉴??")) return;
 
     setRestoreBusy(true);
 
@@ -6615,7 +6608,7 @@ function BackupPermissionPage({
       for (const [table, rows] of restoreMap) {
         if (!Array.isArray(rows) || !rows.length) continue;
         const { error } = await supabase.from(table).upsert(rows);
-        if (error) throw new Error(`${table} 복구 실패: ${error.message}`);
+        if (error) throw new Error(`${table} 蹂듦뎄 ?ㅽ뙣: ${error.message}`);
       }
 
       await Promise.all([
@@ -6628,10 +6621,10 @@ function BackupPermissionPage({
         loadUserPermissions(),
       ]);
 
-      alert("백업 복구가 완료되었습니다.");
+      alert("諛깆뾽 蹂듦뎄媛 ?꾨즺?섏뿀?듬땲??");
       setRestoreFile(null);
     } catch (error: any) {
-      alert(error?.message || "백업 복구 중 오류가 발생했습니다.");
+      alert(error?.message || "諛깆뾽 蹂듦뎄 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
     } finally {
       setRestoreBusy(false);
     }
@@ -6659,33 +6652,33 @@ function BackupPermissionPage({
       <div className="backup-permission-hero">
         <div>
           <span>System Control</span>
-          <h2>백업 / 권한관리</h2>
-          <p>전체 데이터를 인터넷 저장 기준으로 백업하고, 직원 권한과 공지 접근을 관리합니다.</p>
+          <h2>諛깆뾽 / 沅뚰븳愿由?/h2>
+          <p>?꾩껜 ?곗씠?곕? ?명꽣?????湲곗??쇰줈 諛깆뾽?섍퀬, 吏곸썝 沅뚰븳怨?怨듭? ?묎렐??愿由ы빀?덈떎.</p>
         </div>
       </div>
 
       <div className="backup-permission-grid">
         <div className="backup-card">
-          <h3>전체 백업</h3>
-          <p>현재 ERP 주요 데이터를 JSON 파일로 내려받습니다. 복구용은 JSON을 사용하세요.</p>
+          <h3>?꾩껜 諛깆뾽</h3>
+          <p>?꾩옱 ERP 二쇱슂 ?곗씠?곕? JSON ?뚯씪濡??대젮諛쏆뒿?덈떎. 蹂듦뎄?⑹? JSON???ъ슜?섏꽭??</p>
           <div className="backup-stat-grid">
-            <div><b>{purchases.length}</b><span>구매</span></div>
-            <div><b>{maints.length}</b><span>정비</span></div>
-            <div><b>{cardUses.length}</b><span>카드</span></div>
-            <div><b>{maintenanceSchedules.length}</b><span>정비일정</span></div>
+            <div><b>{purchases.length}</b><span>援щℓ</span></div>
+            <div><b>{maints.length}</b><span>?뺣퉬</span></div>
+            <div><b>{cardUses.length}</b><span>移대뱶</span></div>
+            <div><b>{maintenanceSchedules.length}</b><span>?뺣퉬?쇱젙</span></div>
           </div>
           <div className="backup-actions">
-            <button className="primary" onClick={downloadJsonBackup}>JSON 백업 다운로드</button>
-            <button onClick={downloadExcelBackup}>백업 요약 엑셀</button>
+            <button className="primary" onClick={downloadJsonBackup}>JSON 諛깆뾽 ?ㅼ슫濡쒕뱶</button>
+            <button onClick={downloadExcelBackup}>諛깆뾽 ?붿빟 ?묒?</button>
           </div>
         </div>
 
         <div className="backup-card danger-zone">
-          <h3>백업 복구</h3>
-          <p>JSON 백업 파일을 선택하면 같은 ID 데이터는 덮어씁니다. 실행 전 한 번 더 백업하세요.</p>
+          <h3>諛깆뾽 蹂듦뎄</h3>
+          <p>JSON 諛깆뾽 ?뚯씪???좏깮?섎㈃ 媛숈? ID ?곗씠?곕뒗 ??뼱?곷땲?? ?ㅽ뻾 ????踰???諛깆뾽?섏꽭??</p>
           <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] || null)} />
           <button className="danger" disabled={restoreBusy} onClick={restoreJsonBackup}>
-            {restoreBusy ? "복구 중..." : "JSON 백업 복구"}
+            {restoreBusy ? "蹂듦뎄 以?.." : "JSON 諛깆뾽 蹂듦뎄"}
           </button>
         </div>
       </div>
@@ -6693,22 +6686,22 @@ function BackupPermissionPage({
       <div className="permission-card">
         <div className="permission-head">
           <div>
-            <h3>직원 권한관리</h3>
-            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능. 직원 아이디는 field01처럼 입력하면 내부에서 field01@tm.local로 저장됩니다.</p>
+            <h3>吏곸썝 沅뚰븳愿由?/h3>
+            <p>愿由ъ옄: ?꾩껜 媛??/ ?щТ?ㅼ쭅?? ?섏젙쨌??젣 ?쒖쇅 ?遺遺?媛??/ ?꾩옣吏곸썝: 泥댄겕??硫붾돱留?媛?? 吏곸썝 ?꾩씠?붾뒗 field01泥섎읆 ?낅젰?섎㈃ ?대??먯꽌 field01@tm.local濡???λ맗?덈떎.</p>
           </div>
         </div>
 
         <div className="permission-form">
-          <Field label="직원 아이디">
-            <input value={permissionForm.email} onChange={(e) => setPermissionForm({ ...permissionForm, email: e.target.value })} placeholder="예: field01" />
+          <Field label="吏곸썝 ?꾩씠??>
+            <input value={permissionForm.email} onChange={(e) => setPermissionForm({ ...permissionForm, email: e.target.value })} placeholder="?? field01" />
           </Field>
-          <Field label="권한 단계">
+          <Field label="沅뚰븳 ?④퀎">
             <select value={permissionForm.role} onChange={(e) => setPermissionForm({ ...permissionForm, role: e.target.value as UserRole })}>
-              <option value="office">사무실직원</option>
-              <option value="field">현장직원</option>
+              <option value="office">?щТ?ㅼ쭅??/option>
+              <option value="field">?꾩옣吏곸썝</option>
             </select>
           </Field>
-          <button className="primary" onClick={() => saveUserPermission()}>권한 저장</button>
+          <button className="primary" onClick={() => saveUserPermission()}>沅뚰븳 ???/button>
         </div>
 
         {permissionForm.role === "field" && (
@@ -6727,11 +6720,11 @@ function BackupPermissionPage({
             <div className="permission-row" key={item.email}>
               <div>
                 <b>{toLoginId(item.email)}</b>
-                <span>{item.role === "office" ? "사무실직원" : item.role === "field" ? "현장직원" : "관리자"}</span>
+                <span>{item.role === "office" ? "?щТ?ㅼ쭅?? : item.role === "field" ? "?꾩옣吏곸썝" : "愿由ъ옄"}</span>
               </div>
-              <em>{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
-              <button onClick={() => editPermission(item)}>수정</button>
-              <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
+              <em>{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}媛?硫붾돱 ?덉슜` : "?섏젙쨌??젣 ?쒖쇅 媛??}</em>
+              <button onClick={() => editPermission(item)}>?섏젙</button>
+              <button className="danger" onClick={() => deleteUserPermission(item.email)}>??젣</button>
             </div>
           ))}
         </div>
@@ -6770,7 +6763,7 @@ function HomeDashboard({
   const monthPurchases = purchases.filter((p) => String(p.date || "").startsWith(monthKey));
   const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
   const todayMaints = maints.filter((m) => m.date === today);
-  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
+  const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "?꾨즺");
   const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
@@ -6780,20 +6773,20 @@ function HomeDashboard({
     ...receiptPhotos.map((p) => ({
       id: `receipt-${p.id}`,
       date: p.created_at || p.receipt_date || "",
-      title: p.vendor_name || "입고사진",
+      title: p.vendor_name || "?낃퀬?ъ쭊",
       memo: p.memo || "",
       urls: p.image_urls || [],
       tab: "receipt_photos",
-      label: "입고",
+      label: "?낃퀬",
     })),
     ...maintenancePhotos.map((p) => ({
       id: `maintenance-${p.id}`,
       date: p.created_at || p.maint_date || "",
-      title: p.equipment_name || "정비사진",
+      title: p.equipment_name || "?뺣퉬?ъ쭊",
       memo: p.memo || "",
       urls: p.image_urls || [],
       tab: "maintenance_photos",
-      label: p.is_urgent ? "긴급" : "정비",
+      label: p.is_urgent ? "湲닿툒" : "?뺣퉬",
     })),
   ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
 
@@ -6821,108 +6814,108 @@ function HomeDashboard({
       <section className="field-app-home">
         <div className="field-app-topbar">
           <div>
-            <strong>태명산업개발</strong>
-            <span>현장직원 전용</span>
+            <strong>?쒕챸?곗뾽媛쒕컻</strong>
+            <span>?꾩옣吏곸썝 ?꾩슜</span>
           </div>
-          <button onClick={logout}>로그아웃</button>
+          <button onClick={logout}>濡쒓렇?꾩썐</button>
         </div>
 
         <div className="field-app-hero">
-          <small>안녕하세요, 현장팀 님!</small>
-          <h2>오늘도 안전이 최우선입니다!</h2>
-          <p>공지 확인, 사진 등록, 정비일정을 빠르게 처리하세요.</p>
+          <small>?덈뀞?섏꽭?? ?꾩옣? ??</small>
+          <h2>?ㅻ뒛???덉쟾??理쒖슦?좎엯?덈떎!</h2>
+          <p>怨듭? ?뺤씤, ?ъ쭊 ?깅줉, ?뺣퉬?쇱젙??鍮좊Ⅴ寃?泥섎━?섏꽭??</p>
           <div className="field-app-hero-tags">
-            <span>📅 {today}</span>
-            <span>정비일정 {todaySchedules.length}건</span>
+            <span>?뱟 {today}</span>
+            <span>?뺣퉬?쇱젙 {todaySchedules.length}嫄?/span>
           </div>
         </div>
 
         <div className="field-app-notice" onClick={() => setMenuTab?.("site_notices")}>
           <div>
-            <b>📢 공지사항</b>
+            <b>?뱼 怨듭??ы빆</b>
             {activeNotices[0] ? (
               <>
-                <strong>{activeNotices[0].title || "제목 없음"}</strong>
+                <strong>{activeNotices[0].title || "?쒕ぉ ?놁쓬"}</strong>
                 <span>{(activeNotices[0].created_at || activeNotices[0].notice_date || "").slice(0, 10)}</span>
               </>
             ) : (
-              <strong>등록된 공지가 없습니다.</strong>
+              <strong>?깅줉??怨듭?媛 ?놁뒿?덈떎.</strong>
             )}
           </div>
-          <em>더보기 ›</em>
+          <em>?붾낫湲???/em>
         </div>
 
         <div className="field-app-actions">
           <button className="blue" onClick={() => setMenuTab?.("receipt_photos")}>
-            <i>📷</i>
-            <b>입고사진 등록</b>
-            <span>자재 입고 사진과 내용을 등록합니다.</span>
-            <em>›</em>
+            <i>?벜</i>
+            <b>?낃퀬?ъ쭊 ?깅줉</b>
+            <span>?먯옱 ?낃퀬 ?ъ쭊怨??댁슜???깅줉?⑸땲??</span>
+            <em>??/em>
           </button>
 
           <button className="green" onClick={() => setMenuTab?.("maintenance_photos")}>
-            <i>🔧</i>
-            <b>정비사진 등록</b>
-            <span>정비 작업 사진과 내용을 등록합니다.</span>
-            <em>›</em>
+            <i>?뵩</i>
+            <b>?뺣퉬?ъ쭊 ?깅줉</b>
+            <span>?뺣퉬 ?묒뾽 ?ъ쭊怨??댁슜???깅줉?⑸땲??</span>
+            <em>??/em>
           </button>
 
           <button className="orange" onClick={() => setMenuTab?.("maintenance_schedules")}>
-            <i>📅</i>
-            <b>정비 일정</b>
-            <span>예정된 정비일정을 확인합니다.</span>
-            <em>›</em>
+            <i>?뱟</i>
+            <b>?뺣퉬 ?쇱젙</b>
+            <span>?덉젙???뺣퉬?쇱젙???뺤씤?⑸땲??</span>
+            <em>??/em>
           </button>
 
           <button className="purple" onClick={() => setMenuTab?.("maint_list")}>
-            <i>📄</i>
-            <b>작업 내역 조회</b>
-            <span>등록한 작업 내역을 확인합니다.</span>
-            <em>›</em>
+            <i>?뱞</i>
+            <b>?묒뾽 ?댁뿭 議고쉶</b>
+            <span>?깅줉???묒뾽 ?댁뿭???뺤씤?⑸땲??</span>
+            <em>??/em>
           </button>
         </div>
 
         <div className="field-app-summary">
           <div className="field-app-panel-head">
-            <h3>오늘의 현황</h3>
-            <span>{today} 기준</span>
+            <h3>?ㅻ뒛???꾪솴</h3>
+            <span>{today} 湲곗?</span>
           </div>
           <div className="field-app-summary-grid">
-            <div><i>📷</i><b>{receiptPhotos.length}</b><span>입고 사진</span></div>
-            <div><i>🔧</i><b>{maintenancePhotos.length}</b><span>정비 사진</span></div>
-            <div><i>📅</i><b>{todaySchedules.length}</b><span>정비 일정</span></div>
-            <div><i>📢</i><b>{activeNotices.length}</b><span>공지</span></div>
+            <div><i>?벜</i><b>{receiptPhotos.length}</b><span>?낃퀬 ?ъ쭊</span></div>
+            <div><i>?뵩</i><b>{maintenancePhotos.length}</b><span>?뺣퉬 ?ъ쭊</span></div>
+            <div><i>?뱟</i><b>{todaySchedules.length}</b><span>?뺣퉬 ?쇱젙</span></div>
+            <div><i>?뱼</i><b>{activeNotices.length}</b><span>怨듭?</span></div>
           </div>
         </div>
 
         <div className="field-app-panels">
           <div className="field-app-panel">
             <div className="field-app-panel-head">
-              <h3>오늘의 일정</h3>
-              <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기</button>
+              <h3>?ㅻ뒛???쇱젙</h3>
+              <button onClick={() => setMenuTab?.("maintenance_schedules")}>?붾낫湲?/button>
             </div>
             <div className="field-app-list">
               {todaySchedules.length ? todaySchedules.slice(0, 3).map((s) => (
                 <button key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
-                  <b>{s.equipment_name || "장비명 없음"}</b>
-                  <span>{s.work_detail || "작업내용 없음"}</span>
+                  <b>{s.equipment_name || "?λ퉬紐??놁쓬"}</b>
+                  <span>{s.work_detail || "?묒뾽?댁슜 ?놁쓬"}</span>
                 </button>
-              )) : <div className="field-app-empty">오늘 등록된 일정이 없습니다.</div>}
+              )) : <div className="field-app-empty">?ㅻ뒛 ?깅줉???쇱젙???놁뒿?덈떎.</div>}
             </div>
           </div>
 
           <div className="field-app-panel">
             <div className="field-app-panel-head">
-              <h3>최근 공지</h3>
-              <button onClick={() => setMenuTab?.("site_notices")}>더보기</button>
+              <h3>理쒓렐 怨듭?</h3>
+              <button onClick={() => setMenuTab?.("site_notices")}>?붾낫湲?/button>
             </div>
             <div className="field-app-list">
               {activeNotices.length ? activeNotices.slice(0, 3).map((notice) => (
                 <button key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
-                  <b>{notice.title || "제목 없음"}</b>
+                  <b>{notice.title || "?쒕ぉ ?놁쓬"}</b>
                   <span>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</span>
                 </button>
-              )) : <div className="field-app-empty">등록된 공지가 없습니다.</div>}
+              )) : <div className="field-app-empty">?깅줉??怨듭?媛 ?놁뒿?덈떎.</div>}
             </div>
           </div>
         </div>
@@ -6932,22 +6925,22 @@ function HomeDashboard({
 
   const kpiCards = [
     {
-      label: "오늘 구매 금액",
-      value: `${todayPurchases.length}건 · ${money(todayPurchaseTotal)}원`,
-      sub: `이번달 구매금액 ${money(monthPurchaseTotal)}원`,
-      icon: "🛒",
+      label: "?ㅻ뒛 援щℓ 湲덉븸",
+      value: `${todayPurchases.length}嫄?쨌 ${money(todayPurchaseTotal)}??,
+      sub: `?대쾲??援щℓ湲덉븸 ${money(monthPurchaseTotal)}??,
+      icon: "?썟",
       tone: "blue",
       tab: "new",
     },
     {
-      label: "이번달 카드사용",
-      value: `${monthCards.length}건 · ${money(monthCardTotal)}원`,
+      label: "?대쾲??移대뱶?ъ슜",
+      value: `${monthCards.length}嫄?쨌 ${money(monthCardTotal)}??,
       sub: "",
-      icon: "💳",
+      icon: "?뮩",
       tone: "green",
       tab: "card_use",
     },
-    { label: "오늘 정비 등록", value: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: "🔧", tone: "purple", tab: "maint_new" },
+    { label: "?ㅻ뒛 ?뺣퉬 ?깅줉", value: `${todayMaints.length}嫄?, sub: `?쇱젙 ${todaySchedules.length}嫄?, icon: "?뵩", tone: "purple", tab: "maint_new" },
   ];
 
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<{
@@ -6959,10 +6952,10 @@ function HomeDashboard({
     <section className="modern-home-shell">
       <div className="modern-home-intro">
         <div>
-          <h2>관리자님, 오늘도 안전한 하루 되세요!</h2>
-          <p>구매 · 카드 · 정비 · 공지 현황을 한 화면에서 확인합니다.</p>
+          <h2>愿由ъ옄?? ?ㅻ뒛???덉쟾???섎（ ?섏꽭??</h2>
+          <p>援щℓ 쨌 移대뱶 쨌 ?뺣퉬 쨌 怨듭? ?꾪솴?????붾㈃?먯꽌 ?뺤씤?⑸땲??</p>
         </div>
-        <button onClick={() => window.location.reload()}>↻ 새로고침</button>
+        <button onClick={() => window.location.reload()}>???덈줈怨좎묠</button>
       </div>
 
       <div className="modern-home-kpis">
@@ -6974,7 +6967,7 @@ function HomeDashboard({
               <b>{card.value}</b>
               <small>{card.sub}</small>
             </span>
-            <i>자세히 보기 ›</i>
+            <i>?먯꽭??蹂닿린 ??/i>
           </button>
         ))}
       </div>
@@ -6982,50 +6975,50 @@ function HomeDashboard({
       <div className="modern-home-grid middle">
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>공지사항</h3>
-            <button onClick={() => setMenuTab?.("site_notices")}>더보기 ›</button>
+            <h3>怨듭??ы빆</h3>
+            <button onClick={() => setMenuTab?.("site_notices")}>?붾낫湲???/button>
           </div>
           <div className="modern-home-list">
             {activeNotices.length ? activeNotices.map((notice) => (
               <button className="modern-home-notice-row" key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
                 <span>NEW</span>
-                <b>{notice.title || "제목 없음"}</b>
+                <b>{notice.title || "?쒕ぉ ?놁쓬"}</b>
                 <em>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</em>
               </button>
-            )) : <div className="modern-home-empty">등록된 공지가 없습니다.</div>}
+            )) : <div className="modern-home-empty">?깅줉??怨듭?媛 ?놁뒿?덈떎.</div>}
           </div>
         </div>
 
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>오늘 정비 일정</h3>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기 ›</button>
+            <h3>?ㅻ뒛 ?뺣퉬 ?쇱젙</h3>
+            <button onClick={() => setMenuTab?.("maintenance_schedules")}>?붾낫湲???/button>
           </div>
           <div className="modern-home-schedule-list">
             {todaySchedules.length ? todaySchedules.slice(0, 4).map((s) => (
               <button className="modern-home-schedule-row" key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
-                <span>◷</span>
+                <span>??/span>
                 <div>
-                  <b>{s.equipment_name || "장비명 없음"}</b>
-                  <p>{s.work_detail || "작업내용 없음"}{s.worker_name ? ` / 정비담당: ${s.worker_name}` : ""}</p>
+                  <b>{s.equipment_name || "?λ퉬紐??놁쓬"}</b>
+                  <p>{s.work_detail || "?묒뾽?댁슜 ?놁쓬"}{s.worker_name ? ` / ?뺣퉬?대떦: ${s.worker_name}` : ""}</p>
                 </div>
               </button>
-            )) : <div className="modern-home-empty">오늘 등록된 정비일정이 없습니다.</div>}
+            )) : <div className="modern-home-empty">?ㅻ뒛 ?깅줉???뺣퉬?쇱젙???놁뒿?덈떎.</div>}
           </div>
         </div>
 
         <div className="modern-home-panel modern-home-mini-calendar-panel">
           <div className="modern-home-panel-head">
-            <h3>정비 캘린더</h3>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기 ›</button>
+            <h3>?뺣퉬 罹섎┛??/h3>
+            <button onClick={() => setMenuTab?.("maintenance_schedules")}>?붾낫湲???/button>
           </div>
           <div className="mini-calendar-title">
-            <button onClick={() => setMenuTab?.("maintenance_schedule_new")}>+ 일정등록</button>
+            <button onClick={() => setMenuTab?.("maintenance_schedule_new")}>+ ?쇱젙?깅줉</button>
             <b>{monthKey}</b>
-            <span>{monthSchedules.length}건</span>
+            <span>{monthSchedules.length}嫄?/span>
           </div>
           <div className="mini-calendar-week">
-            {["일", "월", "화", "수", "목", "금", "토"].map((d) => <span key={d}>{d}</span>)}
+            {["??, "??, "??, "??, "紐?, "湲?, "??].map((d) => <span key={d}>{d}</span>)}
           </div>
           <div className="mini-calendar-grid">
             {maintenanceCalendarDays.map((cell, index) => (
@@ -7037,16 +7030,16 @@ function HomeDashboard({
                     if (cell.schedules.length) setSelectedCalendarDate({ dateKey: cell.dateKey, schedules: cell.schedules });
                     else setMenuTab?.("maintenance_schedule_new");
                   }}
-                  title={cell.schedules.map((s) => `${s.equipment_name || "장비"} / ${s.work_detail || "작업내용 없음"} / ${s.worker_name || "담당자 미지정"} / ${s.status || "예정"}`).join("\n")}
+                  title={cell.schedules.map((s) => `${s.equipment_name || "?λ퉬"} / ${s.work_detail || "?묒뾽?댁슜 ?놁쓬"} / ${s.worker_name || "?대떦??誘몄???} / ${s.status || "?덉젙"}`).join("\n")}
                 >
                   {cell.day}
                   {cell.schedules.length > 0 && <i>{cell.schedules.length}</i>}
                   {cell.schedules.length > 0 && (
                     <span className="mini-calendar-tooltip">
                       {cell.schedules.slice(0, 3).map((s) => (
-                        <em key={s.id}>{s.equipment_name || "장비명 없음"} / {s.work_detail || "작업내용 없음"}</em>
+                        <em key={s.id}>{s.equipment_name || "?λ퉬紐??놁쓬"} / {s.work_detail || "?묒뾽?댁슜 ?놁쓬"}</em>
                       ))}
-                      {cell.schedules.length > 3 && <em>외 {cell.schedules.length - 3}건</em>}
+                      {cell.schedules.length > 3 && <em>??{cell.schedules.length - 3}嫄?/em>}
                     </span>
                   )}
                 </button>
@@ -7056,15 +7049,15 @@ function HomeDashboard({
             ))}
           </div>
           <div className="mini-calendar-legend">
-            <span><i className="today-dot" />오늘</span>
-            <span><i className="work-dot" />정비일정</span>
+            <span><i className="today-dot" />?ㅻ뒛</span>
+            <span><i className="work-dot" />?뺣퉬?쇱젙</span>
           </div>
         </div>
 
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>최근 등록사진</h3>
-            <button onClick={() => setMenuTab?.("maintenance_photos")}>더보기 ›</button>
+            <h3>理쒓렐 ?깅줉?ъ쭊</h3>
+            <button onClick={() => setMenuTab?.("maintenance_photos")}>?붾낫湲???/button>
           </div>
           <div className="modern-home-photo-list">
             {recentPhotos.length ? recentPhotos.slice(0, 3).map((photo) => (
@@ -7072,15 +7065,15 @@ function HomeDashboard({
                 {photo.urls[0] ? (
                   <span className="modern-home-photo-thumb" style={{ backgroundImage: `url(${photo.urls[0]})` }} />
                 ) : (
-                  <span className="modern-home-photo-thumb empty">사진</span>
+                  <span className="modern-home-photo-thumb empty">?ъ쭊</span>
                 )}
                 <div>
                   <b>{photo.title}</b>
-                  <p>{photo.memo || `${photo.label} 사진`}</p>
+                  <p>{photo.memo || `${photo.label} ?ъ쭊`}</p>
                 </div>
                 <em>{String(photo.date || "").slice(5, 10) || "-"}</em>
               </button>
-            )) : <div className="modern-home-empty">최근 등록사진이 없습니다.</div>}
+            )) : <div className="modern-home-empty">理쒓렐 ?깅줉?ъ쭊???놁뒿?덈떎.</div>}
           </div>
         </div>
       </div>
@@ -7088,20 +7081,20 @@ function HomeDashboard({
       <div className="modern-home-grid bottom">
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>최근 구매 내역</h3>
-            <button onClick={() => setMenuTab?.("list")}>더보기 ›</button>
+            <h3>理쒓렐 援щℓ ?댁뿭</h3>
+            <button onClick={() => setMenuTab?.("list")}>?붾낫湲???/button>
           </div>
           <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>거래처</th><th>품목</th><th>금액</th></tr></thead>
+            <thead><tr><th>?좎쭨</th><th>嫄곕옒泥?/th><th>?덈ぉ</th><th>湲덉븸</th></tr></thead>
             <tbody>
               {recentPurchases.length ? recentPurchases.map((p) => (
                 <tr key={p.id}>
                   <td>{(p.date || "").slice(5) || "-"}</td>
                   <td>{p.vendor || "-"}</td>
                   <td>{getPurchaseItemSummary(p)}</td>
-                  <td>{money(p.total)}원</td>
+                  <td>{money(p.total)}??/td>
                 </tr>
-              )) : <tr><td colSpan={4}>구매내역이 없습니다.</td></tr>}
+              )) : <tr><td colSpan={4}>援щℓ?댁뿭???놁뒿?덈떎.</td></tr>}
             </tbody>
           </table>
 
@@ -7118,8 +7111,7 @@ function HomeDashboard({
                 </div>
 
                 <div className="mobile-history-amount">
-                  {money(p.total)}원
-                </div>
+                  {money(p.total)}??                </div>
               </button>
             ))}
           </div>
@@ -7127,20 +7119,20 @@ function HomeDashboard({
 
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>최근 카드사용 내역</h3>
-            <button onClick={() => setMenuTab?.("card_list")}>더보기 ›</button>
+            <h3>理쒓렐 移대뱶?ъ슜 ?댁뿭</h3>
+            <button onClick={() => setMenuTab?.("card_list")}>?붾낫湲???/button>
           </div>
           <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>사용처</th><th>내역</th><th>금액</th></tr></thead>
+            <thead><tr><th>?좎쭨</th><th>?ъ슜泥?/th><th>?댁뿭</th><th>湲덉븸</th></tr></thead>
             <tbody>
               {recentCards.length ? recentCards.map((c) => (
                 <tr key={c.id}>
                   <td>{(c.date || "").slice(5) || "-"}</td>
                   <td>{c.place || "-"}</td>
                   <td>{c.memo || c.user_name || "-"}</td>
-                  <td>{money(c.amount)}원</td>
+                  <td>{money(c.amount)}??/td>
                 </tr>
-              )) : <tr><td colSpan={4}>카드사용 내역이 없습니다.</td></tr>}
+              )) : <tr><td colSpan={4}>移대뱶?ъ슜 ?댁뿭???놁뒿?덈떎.</td></tr>}
             </tbody>
           </table>
 
@@ -7157,8 +7149,7 @@ function HomeDashboard({
                 </div>
 
                 <div className="mobile-history-amount">
-                  {money(c.amount)}원
-                </div>
+                  {money(c.amount)}??                </div>
               </button>
             ))}
           </div>
@@ -7166,20 +7157,20 @@ function HomeDashboard({
 
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>최근 정비 내역</h3>
-            <button onClick={() => setMenuTab?.("maint_list")}>더보기 ›</button>
+            <h3>理쒓렐 ?뺣퉬 ?댁뿭</h3>
+            <button onClick={() => setMenuTab?.("maint_list")}>?붾낫湲???/button>
           </div>
           <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>장비명 / 작업내용</th><th>구분</th><th>금액</th></tr></thead>
+            <thead><tr><th>?좎쭨</th><th>?λ퉬紐?/ ?묒뾽?댁슜</th><th>援щ텇</th><th>湲덉븸</th></tr></thead>
             <tbody>
               {recentMaints.length ? recentMaints.map((m) => (
                 <tr key={m.id}>
                   <td>{(m.date || "").slice(5) || "-"}</td>
                   <td>{m.warehouse || "-"}</td>
-                  <td>{m.title || "정비"}</td>
-                  <td>{money(m.total || m.cost)}원</td>
+                  <td>{m.title || "?뺣퉬"}</td>
+                  <td>{money(m.total || m.cost)}??/td>
                 </tr>
-              )) : <tr><td colSpan={4}>정비내역이 없습니다.</td></tr>}
+              )) : <tr><td colSpan={4}>?뺣퉬?댁뿭???놁뒿?덈떎.</td></tr>}
             </tbody>
           </table>
 
@@ -7191,13 +7182,12 @@ function HomeDashboard({
                 </div>
 
                 <div className="mobile-history-main">
-                  <strong>{m.title || "정비"}</strong>
+                  <strong>{m.title || "?뺣퉬"}</strong>
                   <span>{m.warehouse || "-"}</span>
                 </div>
 
                 <div className="mobile-history-amount">
-                  {money(m.total || m.cost)}원
-                </div>
+                  {money(m.total || m.cost)}??                </div>
               </button>
             ))}
           </div>
@@ -7209,32 +7199,32 @@ function HomeDashboard({
           <div className="calendar-detail-modal" onClick={(e) => e.stopPropagation()}>
             <div className="calendar-detail-head">
               <div>
-                <span>정비일정 상세</span>
+                <span>?뺣퉬?쇱젙 ?곸꽭</span>
                 <h3>{selectedCalendarDate.dateKey}</h3>
               </div>
-              <button onClick={() => setSelectedCalendarDate(null)}>×</button>
+              <button onClick={() => setSelectedCalendarDate(null)}>횞</button>
             </div>
 
             <div className="calendar-detail-list">
               {selectedCalendarDate.schedules.map((s) => (
                 <div className="calendar-detail-item" key={s.id}>
                   <div className="calendar-detail-item-top">
-                    <b>{s.equipment_name || "장비명 없음"}</b>
-                    <span className={`calendar-detail-badge ${s.priority === "긴급" ? "urgent" : ""}`}>{s.priority || "보통"}</span>
+                    <b>{s.equipment_name || "?λ퉬紐??놁쓬"}</b>
+                    <span className={`calendar-detail-badge ${s.priority === "湲닿툒" ? "urgent" : ""}`}>{s.priority || "蹂댄넻"}</span>
                   </div>
-                  <p>{s.work_detail || "작업내용 없음"}</p>
+                  <p>{s.work_detail || "?묒뾽?댁슜 ?놁쓬"}</p>
                   <dl>
-                    <div><dt>담당자</dt><dd>{s.worker_name || "미지정"}</dd></div>
-                    <div><dt>상태</dt><dd>{s.status || "예정"}</dd></div>
-                    <div><dt>메모</dt><dd>{s.memo || "-"}</dd></div>
+                    <div><dt>?대떦??/dt><dd>{s.worker_name || "誘몄???}</dd></div>
+                    <div><dt>?곹깭</dt><dd>{s.status || "?덉젙"}</dd></div>
+                    <div><dt>硫붾え</dt><dd>{s.memo || "-"}</dd></div>
                   </dl>
                 </div>
               ))}
             </div>
 
             <div className="calendar-detail-actions">
-              <button onClick={() => setSelectedCalendarDate(null)}>닫기</button>
-              <button className="primary" onClick={() => { setSelectedCalendarDate(null); setMenuTab?.("maintenance_schedules"); }}>정비일정조회로 이동</button>
+              <button onClick={() => setSelectedCalendarDate(null)}>?リ린</button>
+              <button className="primary" onClick={() => { setSelectedCalendarDate(null); setMenuTab?.("maintenance_schedules"); }}>?뺣퉬?쇱젙議고쉶濡??대룞</button>
             </div>
           </div>
         </div>
@@ -7267,8 +7257,8 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
     const byPlace = new Map<string, number>();
 
     filtered.forEach((c) => {
-      const u = c.user_name || "미지정";
-      const p = c.place || "미지정";
+      const u = c.user_name || "誘몄???;
+      const p = c.place || "誘몄???;
       byUser.set(u, (byUser.get(u) || 0) + Number(c.amount || 0));
       byPlace.set(p, (byPlace.get(p) || 0) + Number(c.amount || 0));
     });
@@ -7290,7 +7280,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const byMonth = useMemo(() => {
     const map = new Map<string, { month: string; count: number; total: number }>();
     filtered.forEach((c) => {
-      const month = (c.date || "미지정").slice(0, 7) || "미지정";
+      const month = (c.date || "誘몄???).slice(0, 7) || "誘몄???;
       const cur = map.get(month) || { month, count: 0, total: 0 };
       cur.count += 1;
       cur.total += Number(c.amount || 0);
@@ -7302,7 +7292,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const byUser = useMemo(() => {
     const map = new Map<string, { user_name: string; count: number; total: number }>();
     filtered.forEach((c) => {
-      const name = c.user_name || "미지정";
+      const name = c.user_name || "誘몄???;
       const cur = map.get(name) || { user_name: name, count: 0, total: 0 };
       cur.count += 1;
       cur.total += Number(c.amount || 0);
@@ -7314,7 +7304,7 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
   const byPlace = useMemo(() => {
     const map = new Map<string, { place: string; count: number; total: number }>();
     filtered.forEach((c) => {
-      const name = c.place || "미지정";
+      const name = c.place || "誘몄???;
       const cur = map.get(name) || { place: name, count: 0, total: 0 };
       cur.count += 1;
       cur.total += Number(c.amount || 0);
@@ -7329,33 +7319,33 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
 
   return (
     <section className="card">
-      <div className="between"><h2>카드통계</h2><button onClick={() => downloadExcel(`카드통계_${todayText()}`, withTotalRow(
-  filtered.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
-  { 사용일자: "총합계", 금액: filtered.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button></div>
+      <div className="between"><h2>移대뱶?듦퀎</h2><button onClick={() => downloadExcel(`移대뱶?듦퀎_${todayText()}`, withTotalRow(
+  filtered.map((c) => ({ ?ъ슜?쇱옄: c.date, ?대떦?? c.user_name, ?ъ슜泥? c.place, 湲덉븸: c.amount, 硫붾え: c.memo || "", ?곸닔利? c.image_url || "" })),
+  { ?ъ슜?쇱옄: "珥앺빀怨?, 湲덉븸: filtered.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
+))}>?묒? ?ㅼ슫濡쒕뱶</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
-        <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
+        <Field label="?쒖옉??><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="醫낅즺??><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="?대떦??><input placeholder="?대떦??寃?? value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
+        <Field label="?ъ슜泥?><input placeholder="?ъ슜泥?寃?? value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
+        <Field label="珥덇린??><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>寃??珥덇린??/button></Field>
       </div>
 
       <div className="status-cards">
-        <div><span>카드사용 건수</span><b>{summary.count}건</b></div>
-        <div><span>총 사용금액</span><b>{money(summary.total)}원</b></div>
-        <div><span>건당 평균</span><b>{money(summary.avg)}원</b></div>
-        <div><span>최고 사용 담당자</span><b>{summary.topUserName}<br />{money(summary.topUserTotal)}원</b></div>
-        <div><span>최고 사용처</span><b>{summary.topPlaceName}<br />{money(summary.topPlaceTotal)}원</b></div>
+        <div><span>移대뱶?ъ슜 嫄댁닔</span><b>{summary.count}嫄?/b></div>
+        <div><span>珥??ъ슜湲덉븸</span><b>{money(summary.total)}??/b></div>
+        <div><span>嫄대떦 ?됯퇏</span><b>{money(summary.avg)}??/b></div>
+        <div><span>理쒓퀬 ?ъ슜 ?대떦??/span><b>{summary.topUserName}<br />{money(summary.topUserTotal)}??/b></div>
+        <div><span>理쒓퀬 ?ъ슜泥?/span><b>{summary.topPlaceName}<br />{money(summary.topPlaceTotal)}??/b></div>
       </div>
 
-      <h3>월별 카드사용</h3>
+      <h3>?붾퀎 移대뱶?ъ슜</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>월</th><th>건수</th><th>합계</th></tr></thead>
+          <thead><tr><th>??/th><th>嫄댁닔</th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 카드사용 없음</td></tr> : byMonth.map((m) => (
+            {!byMonth.length ? <tr><td colSpan={3} className="empty">議고쉶???붾퀎 移대뱶?ъ슜 ?놁쓬</td></tr> : byMonth.map((m) => (
               <tr key={m.month}>
                 <td>{m.month}</td>
                 <td>{m.count}</td>
@@ -7366,12 +7356,12 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
         </table>
       </ScrollTable>
 
-      <h3>담당자별 카드사용</h3>
+      <h3>?대떦?먮퀎 移대뱶?ъ슜</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>순위</th><th>작업자</th><th>건수</th><th>합계</th></tr></thead>
+          <thead><tr><th>?쒖쐞</th><th>?묒뾽??/th><th>嫄댁닔</th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!byUser.length ? <tr><td colSpan={4} className="empty">조회된 담당자별 카드사용 없음</td></tr> : byUser.map((u, i) => (
+            {!byUser.length ? <tr><td colSpan={4} className="empty">議고쉶???대떦?먮퀎 移대뱶?ъ슜 ?놁쓬</td></tr> : byUser.map((u, i) => (
               <tr key={u.user_name}>
                 <td>{i + 1}</td>
                 <td>{u.user_name}</td>
@@ -7383,12 +7373,12 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
         </table>
       </ScrollTable>
 
-      <h3>사용처별 카드사용 TOP 30</h3>
+      <h3>?ъ슜泥섎퀎 移대뱶?ъ슜 TOP 30</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>순위</th><th>사용처</th><th>건수</th><th>합계</th></tr></thead>
+          <thead><tr><th>?쒖쐞</th><th>?ъ슜泥?/th><th>嫄댁닔</th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!byPlace.length ? <tr><td colSpan={4} className="empty">조회된 사용처별 카드사용 없음</td></tr> : byPlace.map((p, i) => (
+            {!byPlace.length ? <tr><td colSpan={4} className="empty">議고쉶???ъ슜泥섎퀎 移대뱶?ъ슜 ?놁쓬</td></tr> : byPlace.map((p, i) => (
               <tr key={p.place}>
                 <td>{i + 1}</td>
                 <td>{p.place}</td>
@@ -7400,12 +7390,12 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
         </table>
       </ScrollTable>
 
-      <h3>최근 카드사용 내역</h3>
+      <h3>理쒓렐 移대뱶?ъ슜 ?댁뿭</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>영수증</th></tr></thead>
+          <thead><tr><th>?쇱옄</th><th>?대떦??/th><th>?ъ슜泥?/th><th>湲덉븸</th><th>?곸닔利?/th></tr></thead>
           <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 카드사용 없음</td></tr> : recent.map((c) => (
+            {!recent.length ? <tr><td colSpan={5} className="empty">理쒓렐 移대뱶?ъ슜 ?놁쓬</td></tr> : recent.map((c) => (
               <tr key={c.id}>
                 <td>{c.date || "-"}</td>
                 <td>{c.user_name || "-"}</td>
@@ -7450,7 +7440,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 
     const byWh = new Map<string, number>();
     filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
+      const name = m.warehouse || "誘몄???;
       byWh.set(name, (byWh.get(name) || 0) + getTotal(m));
     });
 
@@ -7469,7 +7459,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
   const byWarehouse = useMemo(() => {
     const map = new Map<string, { warehouse: string; count: number; supply: number; vat: number; total: number }>();
     filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
+      const name = m.warehouse || "誘몄???;
       const cur = map.get(name) || { warehouse: name, count: 0, supply: 0, vat: 0, total: 0 };
       cur.count += 1;
       cur.supply += getSupply(m);
@@ -7483,7 +7473,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
   const byMonth = useMemo(() => {
     const map = new Map<string, { month: string; count: number; total: number }>();
     filtered.forEach((m) => {
-      const month = (m.date || "미지정").slice(0, 7) || "미지정";
+      const month = (m.date || "誘몄???).slice(0, 7) || "誘몄???;
       const cur = map.get(month) || { month, count: 0, total: 0 };
       cur.count += 1;
       cur.total += getTotal(m);
@@ -7496,7 +7486,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
     const map = new Map<string, { item: string; count: number; qty: number; total: number }>();
     filtered.forEach((m) => {
       (m.items || []).forEach((r: any) => {
-        const name = r.item || "미지정";
+        const name = r.item || "誘몄???;
         const cur = map.get(name) || { item: name, count: 0, qty: 0, total: 0 };
         cur.count += 1;
         cur.qty += Number(r.qty || 0);
@@ -7513,33 +7503,33 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 
   return (
     <section className="card">
-      <div className="between"><h2>정비통계</h2><button onClick={() => downloadExcel(`정비통계_${todayText()}`, withTotalRow(
-  filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })),
-  { 일자: "총합계", 공급가액: filtered.reduce((sum, m) => sum + getSupply(m), 0), 부가세: filtered.reduce((sum, m) => sum + getVat(m), 0), 합계: filtered.reduce((sum, m) => sum + getTotal(m), 0) }
-))}>엑셀 다운로드</button></div>
+      <div className="between"><h2>?뺣퉬?듦퀎</h2><button onClick={() => downloadExcel(`?뺣퉬?듦퀎_${todayText()}`, withTotalRow(
+  filtered.map((m) => ({ ?쇱옄: m.date, 李쎄퀬: m.warehouse, ?쒕ぉ: m.title, ?댁슜: m.detail, ?묒뾽?? m.manager, 怨듦툒媛?? getSupply(m), 遺媛?? getVat(m), ?⑷퀎: getTotal(m) })),
+  { ?쇱옄: "珥앺빀怨?, 怨듦툒媛?? filtered.reduce((sum, m) => sum + getSupply(m), 0), 遺媛?? filtered.reduce((sum, m) => sum + getVat(m), 0), ?⑷퀎: filtered.reduce((sum, m) => sum + getTotal(m), 0) }
+))}>?묒? ?ㅼ슫濡쒕뱶</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
-        <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
-        <Field label="제목/내용/작업자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
+        <Field label="?쒖옉??><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="醫낅즺??><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="李쎄퀬"><input placeholder="李쎄퀬 ?쇰? 寃?? value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
+        <Field label="?쒕ぉ/?댁슜/?묒뾽??><input placeholder="寃?됱뼱 ?낅젰" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
+        <Field label="珥덇린??><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>寃??珥덇린??/button></Field>
       </div>
 
       <div className="status-cards">
-        <div><span>정비건수</span><b>{summary.count}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.supply)}원</b></div>
-        <div><span>부가세</span><b>{money(summary.vat)}원</b></div>
-        <div><span>총 정비비</span><b>{money(summary.total)}원</b></div>
-        <div><span>최고 지출 창고</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}원</b></div>
+        <div><span>?뺣퉬嫄댁닔</span><b>{summary.count}嫄?/b></div>
+        <div><span>怨듦툒媛??/span><b>{money(summary.supply)}??/b></div>
+        <div><span>遺媛??/span><b>{money(summary.vat)}??/b></div>
+        <div><span>珥??뺣퉬鍮?/span><b>{money(summary.total)}??/b></div>
+        <div><span>理쒓퀬 吏異?李쎄퀬</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}??/b></div>
       </div>
 
-      <h3>창고별 정비비</h3>
+      <h3>李쎄퀬蹂??뺣퉬鍮?/h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+          <thead><tr><th>?쒖쐞</th><th>李쎄퀬</th><th>?뺣퉬嫄댁닔</th><th>怨듦툒媛??/th><th>遺媛??/th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
+            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">議고쉶??李쎄퀬蹂??뺣퉬鍮??놁쓬</td></tr> : byWarehouse.map((w, i) => (
               <tr key={w.warehouse}>
                 <td>{i + 1}</td>
                 <td>{w.warehouse}</td>
@@ -7553,12 +7543,12 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
         </table>
       </ScrollTable>
 
-      <h3>월별 정비비</h3>
+      <h3>?붾퀎 ?뺣퉬鍮?/h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
+          <thead><tr><th>??/th><th>?뺣퉬嫄댁닔</th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
+            {!byMonth.length ? <tr><td colSpan={3} className="empty">議고쉶???붾퀎 ?뺣퉬鍮??놁쓬</td></tr> : byMonth.map((m) => (
               <tr key={m.month}>
                 <td>{m.month}</td>
                 <td>{m.count}</td>
@@ -7569,12 +7559,12 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
         </table>
       </ScrollTable>
 
-      <h3>품목별 사용금액 TOP 20</h3>
+      <h3>?덈ぉ蹂??ъ슜湲덉븸 TOP 20</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
+          <thead><tr><th>?쒖쐞</th><th>?덈ぉ</th><th>?ъ슜?잛닔</th><th>?섎웾?⑷퀎</th><th>湲덉븸?⑷퀎</th></tr></thead>
           <tbody>
-            {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
+            {!byItem.length ? <tr><td colSpan={5} className="empty">議고쉶???덈ぉ ?ъ슜?댁뿭 ?놁쓬</td></tr> : byItem.map((it, i) => (
               <tr key={it.item}>
                 <td>{i + 1}</td>
                 <td>{it.item}</td>
@@ -7587,12 +7577,12 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
         </table>
       </ScrollTable>
 
-      <h3>최근 정비내역</h3>
+      <h3>理쒓렐 ?뺣퉬?댁뿭</h3>
       <ScrollTable>
         <table>
-          <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
+          <thead><tr><th>?쇱옄</th><th>李쎄퀬</th><th>?쒕ぉ</th><th>?댁슜</th><th>?⑷퀎</th></tr></thead>
           <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
+            {!recent.length ? <tr><td colSpan={5} className="empty">理쒓렐 ?뺣퉬?댁뿭 ?놁쓬</td></tr> : recent.map((m) => (
               <tr key={m.id}>
                 <td>{m.date || "-"}</td>
                 <td>{m.warehouse || "-"}</td>
@@ -7610,7 +7600,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 
 
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
-  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
+  return <ScrollTable><table><thead><tr><th>肄붾뱶</th><th>?곹샇</th><th>??쒖옄</th><th>?꾪솕踰덊샇</th><th>紐⑤컮??/th><th>愿由?/th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
 }
 
 /*
@@ -12068,7 +12058,7 @@ td .icon{
   }
 }
 
-/* PC에서는 구매조회 모바일 카드 숨김 유지 */
+/* PC?먯꽌??援щℓ議고쉶 紐⑤컮??移대뱶 ?④? ?좎? */
 @media (min-width:901px){
   .mobile-purchase-cards{
     display:none !important;
@@ -12250,7 +12240,7 @@ button[class*="download"]{
   }
 }
 
-/* 구매조회 필터와 표 간격 정리 */
+/* 援щℓ議고쉶 ?꾪꽣? ??媛꾧꺽 ?뺣━ */
 .card > .grid5 + .mobile-purchase-cards,
 .card > .grid5 + .scroll-table{
   margin-top:12px !important;
@@ -12535,7 +12525,7 @@ button[class*="download"]{
   padding-bottom:20px !important;
 }
 
-/* 정비 드롭다운 글씨를 다른 메뉴와 동일하게 */
+/* ?뺣퉬 ?쒕∼?ㅼ슫 湲?⑤? ?ㅻⅨ 硫붾돱? ?숈씪?섍쾶 */
 .menu .maint-menu-group .maint-sub button,
 .menu-group .sub button{
   font-size:12px !important;
@@ -12670,7 +12660,7 @@ button[onclick*="downloadPdf"]{
   }
 }
 
-/* 정비조회 상단 버튼 묶음 통일 */
+/* ?뺣퉬議고쉶 ?곷떒 踰꾪듉 臾띠쓬 ?듭씪 */
 .maint-lookup-page > .between:first-child > div{
   display:flex !important;
   gap:10px !important;
@@ -12752,13 +12742,13 @@ button[onclick*="downloadPdf"]{
   font-weight:1000;
   font-size:12px;
 }
-.schedule-priority.긴급{ background:#fee2e2; color:#b91c1c; }
-.schedule-priority.높음{ background:#ffedd5; color:#c2410c; }
-.schedule-priority.보통{ background:#e0f2fe; color:#0369a1; }
-.schedule-priority.낮음{ background:#dcfce7; color:#15803d; }
-.schedule-status.예정{ background:#ffedd5; color:#c2410c; }
-.schedule-status.진행중{ background:#dbeafe; color:#1d4ed8; }
-.schedule-status.완료{ background:#dcfce7; color:#15803d; }
+.schedule-priority.湲닿툒{ background:#fee2e2; color:#b91c1c; }
+.schedule-priority.?믪쓬{ background:#ffedd5; color:#c2410c; }
+.schedule-priority.蹂댄넻{ background:#e0f2fe; color:#0369a1; }
+.schedule-priority.??쓬{ background:#dcfce7; color:#15803d; }
+.schedule-status.?덉젙{ background:#ffedd5; color:#c2410c; }
+.schedule-status.吏꾪뻾以? background:#dbeafe; color:#1d4ed8; }
+.schedule-status.?꾨즺{ background:#dcfce7; color:#15803d; }
 .maintenance-schedule-page,
 .maintenance-schedule-list-page{
   min-height:calc(100vh - 215px) !important;
@@ -13050,13 +13040,13 @@ button[onclick*="downloadPdf"]{
   font-size:12px;
 }
 
-.schedule-priority.긴급{ background:#fee2e2; color:#b91c1c; }
-.schedule-priority.높음{ background:#ffedd5; color:#c2410c; }
-.schedule-priority.보통{ background:#dbeafe; color:#1d4ed8; }
-.schedule-priority.낮음{ background:#dcfce7; color:#15803d; }
-.schedule-status.예정{ background:#ffedd5; color:#c2410c; }
-.schedule-status.진행중{ background:#dbeafe; color:#1d4ed8; }
-.schedule-status.완료{ background:#dcfce7; color:#15803d; }
+.schedule-priority.湲닿툒{ background:#fee2e2; color:#b91c1c; }
+.schedule-priority.?믪쓬{ background:#ffedd5; color:#c2410c; }
+.schedule-priority.蹂댄넻{ background:#dbeafe; color:#1d4ed8; }
+.schedule-priority.??쓬{ background:#dcfce7; color:#15803d; }
+.schedule-status.?덉젙{ background:#ffedd5; color:#c2410c; }
+.schedule-status.吏꾪뻾以? background:#dbeafe; color:#1d4ed8; }
+.schedule-status.?꾨즺{ background:#dcfce7; color:#15803d; }
 
 @media (max-width:1100px){
   .schedule-pro-layout{grid-template-columns:1fr;}
@@ -14000,7 +13990,7 @@ button[onclick*="downloadPdf"]{
     border-radius:14px;
   }
 
-  /* 전체 메뉴 UI 통일 */
+  /* ?꾩껜 硫붾돱 UI ?듭씪 */
   .excel-download-btn,
   .pdf-download-btn{
     min-height:34px !important;
@@ -14029,7 +14019,7 @@ button[onclick*="downloadPdf"]{
 
 /* ===== Mobile Lookup Cards: Maintenance / Card Use Match Purchase Style ===== */
 @media (max-width:900px){
-  /* 정비조회/카드조회 공통 카드화 */
+  /* ?뺣퉬議고쉶/移대뱶議고쉶 怨듯넻 移대뱶??*/
   .mobile-card-list,
   .mobile-card-list-maints,
   .mobile-card-list-cards{
@@ -14168,7 +14158,7 @@ button[onclick*="downloadPdf"]{
     color:#b91c1c !important;
   }
 
-  /* 정비조회/카드조회는 모바일에서 PC 표 숨기고 카드 우선 */
+  /* ?뺣퉬議고쉶/移대뱶議고쉶??紐⑤컮?쇱뿉??PC ???④린怨?移대뱶 ?곗꽑 */
   .maint-lookup-page .scroll-table,
   .card-lookup-page .scroll-table{
     display:none !important;
@@ -14179,7 +14169,7 @@ button[onclick*="downloadPdf"]{
     display:grid !important;
   }
 
-  /* 금액/합계 강조 */
+  /* 湲덉븸/?⑷퀎 媛뺤“ */
   .mobile-card-use-body p.amount,
   .mobile-list-body p.amount,
   .mobile-maint-card-body p.amount{
@@ -14188,7 +14178,7 @@ button[onclick*="downloadPdf"]{
     font-weight:1000 !important;
   }
 
-  /* 사진 첨부 썸네일 */
+  /* ?ъ쭊 泥⑤? ?몃꽕??*/
   .mobile-maint-card .attachment-group,
   .mobile-list-card .attachment-group{
     justify-content:flex-start !important;
@@ -14578,12 +14568,12 @@ button[onclick*="downloadPdf"]{
   color:#1d4ed8;
 }
 
-.site-notice-card.긴급 .site-notice-card-top em{
+.site-notice-card.湲닿툒 .site-notice-card-top em{
   background:#fee2e2;
   color:#b91c1c;
 }
 
-.site-notice-card.중요 .site-notice-card-top em{
+.site-notice-card.以묒슂 .site-notice-card-top em{
   background:#ffedd5;
   color:#c2410c;
 }
@@ -14819,12 +14809,12 @@ button[onclick*="downloadPdf"]{
   border-left:8px solid #3b82f6;
 }
 
-.site-notice-modern-card.긴급{
+.site-notice-modern-card.湲닿툒{
   border-left-color:#ef4444;
   background:linear-gradient(135deg,#fff,#fff1f2);
 }
 
-.site-notice-modern-card.중요{
+.site-notice-modern-card.以묒슂{
   border-left-color:#f97316;
   background:linear-gradient(135deg,#fff,#fff7ed);
 }
@@ -14847,12 +14837,12 @@ button[onclick*="downloadPdf"]{
   font-weight:1000;
 }
 
-.site-notice-modern-card.긴급 .site-notice-modern-card-top em{
+.site-notice-modern-card.湲닿툒 .site-notice-modern-card-top em{
   background:#fee2e2;
   color:#b91c1c;
 }
 
-.site-notice-modern-card.중요 .site-notice-modern-card-top em{
+.site-notice-modern-card.以묒슂 .site-notice-modern-card-top em{
   background:#ffedd5;
   color:#c2410c;
 }
