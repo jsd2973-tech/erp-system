@@ -1091,6 +1091,7 @@ export default function App() {
   const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
+  const [receiptUploadPreviewUrls, setReceiptUploadPreviewUrls] = useState<string[]>([]);
   const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
   const [maintenancePhotos, setMaintenancePhotos] = useState<MaintenancePhoto[]>([]);
   const [maintenancePhotoForm, setMaintenancePhotoForm] = useState({
@@ -1100,6 +1101,7 @@ export default function App() {
     is_urgent: false,
   });
   const [maintenancePhotoFiles, setMaintenancePhotoFiles] = useState<File[]>([]);
+  const [maintenanceUploadPreviewUrls, setMaintenanceUploadPreviewUrls] = useState<string[]>([]);
   const [maintenancePhotoPreviewOpen, setMaintenancePhotoPreviewOpen] = useState<MaintenancePhoto | null>(null);
   const [linkingReceiptPhotoId, setLinkingReceiptPhotoId] = useState("");
   const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
@@ -2055,6 +2057,7 @@ export default function App() {
 
       setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
       setMaintenancePhotoFiles([]);
+      setMaintenanceUploadPreviewUrls([]);
       await loadMaintenancePhotos();
       alert("정비사진이 등록되었습니다.");
     } finally {
@@ -2433,6 +2436,7 @@ export default function App() {
 
       setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
       setReceiptPhotoFiles([]);
+      setReceiptUploadPreviewUrls([]);
       await loadReceiptPhotos();
       alert("입고사진이 등록되었습니다.");
     } finally {
@@ -4038,7 +4042,13 @@ export default function App() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => setMaintenancePhotoFiles(Array.from(e.target.files || []))}
+                    onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setMaintenancePhotoFiles(files);
+                    setMaintenanceUploadPreviewUrls(
+                      files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
+                    );
+                  }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>정비 사진을 선택하세요</strong>
@@ -4197,7 +4207,13 @@ export default function App() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => setReceiptPhotoFiles(Array.from(e.target.files || []))}
+                    onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setReceiptPhotoFiles(files);
+                    setReceiptUploadPreviewUrls(
+                      files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
+                    );
+                  }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>사진을 선택하세요</strong>
@@ -6386,6 +6402,21 @@ function SiteNoticePage({
                 <input type="checkbox" checked={noticeTargetRoles.includes("field")} onChange={() => toggleNoticeTargetRole("field")} />
                 <span>현장직원</span>
               </label>
+
+              {!!receiptUploadPreviewUrls.length && (
+                <div className="upload-preview-grid">
+                  {receiptUploadPreviewUrls.map((url, idx) => (
+                    <button
+                      type="button"
+                      key={idx}
+                      className="upload-preview-thumb"
+                      onClick={() => window.open(url, "_blank")}
+                    >
+                      <img src={url} alt={`receipt-preview-${idx}`} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {!!noticeEmployees.length && (
               <div className="site-notice-target-emails">
@@ -15375,6 +15406,29 @@ button:disabled{
     font-size:13px;
     border-radius:15px;
   }
+}
+
+
+.upload-preview-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.upload-preview-thumb{
+  overflow:hidden;
+  aspect-ratio:1/1;
+  border:1px solid #dbe3ee;
+  border-radius:18px;
+  padding:0;
+  background:#fff;
+  box-shadow:0 8px 22px rgba(15,23,42,.06);
+}
+.upload-preview-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
 }
 
 
