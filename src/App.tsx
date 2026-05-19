@@ -1125,14 +1125,28 @@ export default function App() {
     search: string;
   }>({ mode: "", targetId: "", search: "" });
   const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; title: string } | null>(null);
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
+
+  const isPdfUrl = (url: string) => String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
+  const isImageUrl = (url: string) => {
+    const target = String(url || "").toLowerCase().split("?")[0];
+    return target.match(/\.(jpg|jpeg|png|webp|gif|heic)$/) || String(url || "").startsWith("blob:") || (!isPdfUrl(url) && String(url || "").includes("/storage/"));
+  };
 
   const openPhotoViewer = (urls: string[], index = 0, title = "사진 보기") => {
-    const imageUrls = (urls || []).filter((url) => String(url || "").match(/\.(jpg|jpeg|png|webp|gif|heic)(\?|$)/i) || String(url || "").startsWith("blob:") || String(url || "").includes("/storage/"));
+    const imageUrls = (urls || []).filter((url) => isImageUrl(url));
     if (!imageUrls.length) return;
-    setPhotoViewer({ urls: imageUrls, index, title });
+    const safeIndex = Math.min(Math.max(index, 0), imageUrls.length - 1);
+    setPhotoViewer({ urls: imageUrls, index: safeIndex, title });
+  };
+
+  const openPdfViewer = (url: string, title = "PDF 보기") => {
+    if (!url) return;
+    setPdfViewer({ url, title });
   };
 
   const closePhotoViewer = () => setPhotoViewer(null);
+  const closePdfViewer = () => setPdfViewer(null);
 
   const movePhotoViewer = (direction: number) => {
     setPhotoViewer((prev) => {
@@ -4055,7 +4069,7 @@ export default function App() {
                 <label className="receipt-dropzone maintenance-dropzone">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     multiple
                     onChange={(e) => {
                     const files = Array.from(e.target.files || []);
@@ -4067,7 +4081,7 @@ export default function App() {
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>정비 사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · 현장 사진 그대로 업로드</span>
+                  <span>여러 장 선택 가능 · 사진/PDF 업로드</span>
                 </label>
 
                 <div className="receipt-file-count">
@@ -4081,11 +4095,31 @@ export default function App() {
                         type="button"
                         key={`${url}-${idx}`}
                         className="upload-preview-thumb"
-                        onClick={() => openPhotoViewer(receiptUploadPreviewUrls, idx, "입고사진 미리보기")}
+                        onClick={() => openPhotoViewer(maintenanceUploadPreviewUrls, idx, "정비사진 미리보기")}
                       >
                         <img src={url} alt={`정비사진 미리보기 ${idx + 1}`} />
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {!!maintenancePhotoFiles.filter((file) => file.type === "application/pdf").length && (
+                  <div className="upload-pdf-list">
+                    {maintenancePhotoFiles.filter((file) => file.type === "application/pdf").map((file, idx) => {
+                      const url = URL.createObjectURL(file);
+                      return (
+                        <button
+                          type="button"
+                          key={`${file.name}-${idx}`}
+                          className="upload-pdf-chip"
+                          onClick={() => openPdfViewer(url, file.name || "정비 PDF")}
+                        >
+                          <span>PDF</span>
+                          <b>{file.name || `정비 PDF ${idx + 1}`}</b>
+                          <em>보기</em>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -4126,10 +4160,15 @@ export default function App() {
                     {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
 
                     <div className="receipt-clean-thumbs">
-                      {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => openPhotoViewer(item.image_urls || [], idx, `${item.equipment_name || "정비사진"}`)} />
+                      {(item.image_urls || []).filter((url) => isImageUrl(url)).slice(0, 3).map((url, idx) => (
+                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => openPhotoViewer((item.image_urls || []).filter((x) => isImageUrl(x)), idx, `${item.equipment_name || "정비사진"}`)} />
                       ))}
-                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {(item.image_urls || []).filter((url) => isPdfUrl(url)).slice(0, 2).map((url, idx) => (
+                        <button key={`${item.id}-pdf-${idx}`} className="receipt-pdf-thumb" onClick={() => openPdfViewer(url, `${item.equipment_name || "정비"} PDF`)}>
+                          <span>PDF</span>
+                        </button>
+                      ))}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">첨부 없음</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
@@ -4241,7 +4280,7 @@ export default function App() {
                 <label className="receipt-dropzone">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     multiple
                     onChange={(e) => {
                     const files = Array.from(e.target.files || []);
@@ -4253,7 +4292,7 @@ export default function App() {
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · JPG / PNG / HEIC</span>
+                  <span>여러 장 선택 가능 · JPG / PNG / PDF</span>
                 </label>
 
                 <div className="receipt-file-count">
@@ -4267,11 +4306,31 @@ export default function App() {
                         type="button"
                         key={`${url}-${idx}`}
                         className="upload-preview-thumb"
-                        onClick={() => openPhotoViewer(maintenanceUploadPreviewUrls, idx, "정비사진 미리보기")}
+                        onClick={() => openPhotoViewer(receiptUploadPreviewUrls, idx, "입고사진 미리보기")}
                       >
                         <img src={url} alt={`입고사진 미리보기 ${idx + 1}`} />
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {!!receiptPhotoFiles.filter((file) => file.type === "application/pdf").length && (
+                  <div className="upload-pdf-list">
+                    {receiptPhotoFiles.filter((file) => file.type === "application/pdf").map((file, idx) => {
+                      const url = URL.createObjectURL(file);
+                      return (
+                        <button
+                          type="button"
+                          key={`${file.name}-${idx}`}
+                          className="upload-pdf-chip"
+                          onClick={() => openPdfViewer(url, file.name || "입고 PDF")}
+                        >
+                          <span>PDF</span>
+                          <b>{file.name || `입고 PDF ${idx + 1}`}</b>
+                          <em>보기</em>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -4311,10 +4370,15 @@ export default function App() {
                     {item.memo && <div className="receipt-clean-memo">{item.memo}</div>}
 
                     <div className="receipt-clean-thumbs">
-                      {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => openPhotoViewer(item.image_urls || [], idx, `${item.vendor_name || "입고사진"}`)} />
+                      {(item.image_urls || []).filter((url) => isImageUrl(url)).slice(0, 3).map((url, idx) => (
+                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => openPhotoViewer((item.image_urls || []).filter((x) => isImageUrl(x)), idx, `${item.vendor_name || "입고사진"}`)} />
                       ))}
-                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
+                      {(item.image_urls || []).filter((url) => isPdfUrl(url)).slice(0, 2).map((url, idx) => (
+                        <button key={`${item.id}-pdf-${idx}`} className="receipt-pdf-thumb" onClick={() => openPdfViewer(url, `${item.vendor_name || "입고"} PDF`)}>
+                          <span>PDF</span>
+                        </button>
+                      ))}
+                      {!(item.image_urls || []).length && <div className="receipt-no-thumb">첨부 없음</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
                     </div>
 
@@ -5314,6 +5378,24 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {pdfViewer && (
+          <div className="photo-viewer-backdrop" onClick={closePdfViewer}>
+            <div className="pdf-viewer-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="photo-viewer-head">
+                <div>
+                  <strong>{pdfViewer.title}</strong>
+                  <span>PDF 문서</span>
+                </div>
+                <button onClick={closePdfViewer}>닫기</button>
+              </div>
+              <iframe src={pdfViewer.url} title={pdfViewer.title} />
+              <div className="pdf-viewer-actions">
+                <a href={pdfViewer.url} target="_blank" rel="noreferrer">새 창으로 열기</a>
+              </div>
             </div>
           </div>
         )}
@@ -15673,6 +15755,98 @@ button:disabled{
     height:58px;
     font-size:36px;
     border-radius:16px;
+  }
+}
+
+
+.upload-pdf-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:12px;
+}
+.upload-pdf-chip{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:10px;
+  border:1px solid #fecaca;
+  background:#fff7f7;
+  border-radius:16px;
+  padding:11px 12px;
+  text-align:left;
+}
+.upload-pdf-chip span,
+.receipt-pdf-thumb span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#ef4444;
+  color:#fff;
+  border-radius:9px;
+  padding:5px 7px;
+  font-size:12px;
+  font-weight:1000;
+}
+.upload-pdf-chip b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#0f172a;
+  font-size:13px;
+  font-weight:900;
+}
+.upload-pdf-chip em{
+  color:#ef4444;
+  font-style:normal;
+  font-size:12px;
+  font-weight:950;
+}
+.receipt-pdf-thumb{
+  width:58px;
+  height:58px;
+  border:1px solid #fecaca;
+  background:#fff7f7;
+  border-radius:14px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.pdf-viewer-modal{
+  width:min(980px,96vw);
+  height:min(860px,94vh);
+  background:#0f172a;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:24px;
+  overflow:hidden;
+  box-shadow:0 30px 100px rgba(0,0,0,.45);
+  display:flex;
+  flex-direction:column;
+}
+.pdf-viewer-modal iframe{
+  flex:1;
+  width:100%;
+  border:0;
+  background:#fff;
+}
+.pdf-viewer-actions{
+  padding:10px 14px;
+  background:#111827;
+  text-align:right;
+}
+.pdf-viewer-actions a{
+  color:#dbeafe;
+  font-size:13px;
+  font-weight:950;
+  text-decoration:none;
+}
+@media(max-width:760px){
+  .pdf-viewer-modal{
+    width:100vw;
+    height:100vh;
+    border-radius:0;
   }
 }
 
