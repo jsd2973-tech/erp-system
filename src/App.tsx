@@ -146,7 +146,6 @@ const KEY = {
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
 const MAINT_DRAFT_KEY = "erp_maint_draft_v1";
-const RECENT_ITEMS_KEY = "erp_recent_items_v1";
 const INTERNAL_LOGIN_DOMAIN = "tm.local";
 
 const toLoginEmail = (value: string) => {
@@ -667,22 +666,6 @@ const getChosung = (value: string) =>
 const normalizeSearchText = (value: string) =>
   String(value || "").replace(/\s/g, "").toLowerCase();
 
-const readRecentItems = () => {
-  try {
-    const saved = localStorage.getItem(RECENT_ITEMS_KEY);
-    return saved ? JSON.parse(saved) as string[] : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveRecentItem = (itemName: string) => {
-  const name = String(itemName || "").trim();
-  if (!name) return;
-  const next = [name, ...readRecentItems().filter((item) => item !== name)].slice(0, 12);
-  localStorage.setItem(RECENT_ITEMS_KEY, JSON.stringify(next));
-};
-
 
 
 
@@ -734,9 +717,9 @@ function SearchSelect({
     return normalized
       .filter((o) => o.search.includes(q) || o.exact.includes(compactQ) || o.chosung.includes(chosungQ))
       .sort((a, b) => {
-        const aExact = a.exact === compactQ ? 0 : a.exact.startsWith(compactQ) ? 1 : a.chosung.startsWith(chosungQ) ? 2 : 3;
-        const bExact = b.exact === compactQ ? 0 : b.exact.startsWith(compactQ) ? 1 : b.chosung.startsWith(chosungQ) ? 2 : 3;
-        return aExact - bExact || a.label.localeCompare(b.label);
+        const aScore = a.exact === compactQ ? 0 : a.exact.startsWith(compactQ) ? 1 : a.chosung.startsWith(chosungQ) ? 2 : 3;
+        const bScore = b.exact === compactQ ? 0 : b.exact.startsWith(compactQ) ? 1 : b.chosung.startsWith(chosungQ) ? 2 : 3;
+        return aScore - bScore || a.label.localeCompare(b.label);
       })
       .slice(0, 80);
   }, [query, normalized]);
@@ -1801,23 +1784,10 @@ export default function App() {
       .filter(Boolean);
     return Array.from(new Set(values));
   }, [groups, warehouses]);
-  const itemOptions = useMemo(() => {
-    const recentItems = readRecentItems();
-    const recentRank = new Map(recentItems.map((name, index) => [name, index]));
-
-    return items
-      .map((i) => ({
-        label: recentRank.has(i.name) ? `최근 · ${i.name}` : i.name,
-        value: i.name,
-        code: i.code,
-        name: i.name,
-        spec: i.spec || "",
-        unit: i.unit || "",
-        recentOrder: recentRank.has(i.name) ? recentRank.get(i.name) : 999,
-      }))
-      .filter((i) => i.name)
-      .sort((a, b) => Number(a.recentOrder ?? 999) - Number(b.recentOrder ?? 999) || String(a.name).localeCompare(String(b.name)));
-  }, [items]);
+  const itemOptions = useMemo(
+    () => items.map((i) => ({ label: i.name, value: i.name, code: i.code, name: i.name, spec: i.spec || "", unit: i.unit || "" })).filter((i) => i.name),
+    [items]
+  );
 
   const filteredItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
@@ -1841,7 +1811,6 @@ export default function App() {
       if (item) {
         next[index].spec = item.spec || "";
         next[index].price = item.price || 0;
-        saveRecentItem(item.name);
       }
     }
     if (["item", "qty", "price"].includes(key)) {
