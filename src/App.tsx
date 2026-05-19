@@ -1166,6 +1166,8 @@ export default function App() {
   const [maintSaving, setMaintSaving] = useState(false);
   const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
+  const [showAllMaintSuggestions, setShowAllMaintSuggestions] = useState(false);
+  const [showAllRecentMaintItems, setShowAllRecentMaintItems] = useState(false);
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
@@ -3143,8 +3145,7 @@ export default function App() {
     });
 
     return Array.from(rows.values())
-      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")))
-      .slice(0, 8);
+      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
   }, [maints, maintTitleKeyword, editingMaintId]);
 
   const recentMaintUsedItems = useMemo(() => {
@@ -3187,9 +3188,17 @@ export default function App() {
       });
 
     return Array.from(rows.values())
-      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")))
-      .slice(0, 10);
+      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
   }, [maints]);
+
+  const visibleMaintSuggestedItems = showAllMaintSuggestions ? maintSuggestedItems : maintSuggestedItems.slice(0, 8);
+  const visibleRecentMaintUsedItems = showAllRecentMaintItems ? recentMaintUsedItems : recentMaintUsedItems.slice(0, 8);
+
+  useEffect(() => {
+    setShowAllMaintSuggestions(false);
+  }, [maintTitleKeyword]);
+
+
 
   const clearMaintDraft = () => {
     try {
@@ -5813,13 +5822,17 @@ export default function App() {
               <div className="maint-suggest-box">
                 <div className="maint-suggest-head">
                   <div>
-                    <strong>추천 품목</strong>
+                    <strong>
+                      추천 품목
+                      {maintSuggestedItems.length > 0 && <em>{maintSuggestedItems.length}개</em>}
+                    </strong>
                     <span>
                       {maintSuggestedItems.length
                         ? `"${maintForm.title}" 작업에서 자주 사용된 품목입니다.`
-                        : "최근 정비에서 자주 사용한 품목입니다."}
+                        : "같은 작업 이력이 없어 최근 정비에서 자주 사용한 품목을 보여줍니다."}
                     </span>
                   </div>
+
                   {!!maintSuggestedItems.length && (
                     <button className="primary" onClick={() => addMaintSuggestedItems(maintSuggestedItems)}>
                       추천 품목 전체 추가
@@ -5828,25 +5841,50 @@ export default function App() {
                 </div>
 
                 {!!maintSuggestedItems.length && (
-                  <div className="maint-suggest-chips">
-                    {maintSuggestedItems.map((item) => (
-                      <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
-                        <b>{item.item}</b>
-                        <span>{item.count}회 사용</span>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div className="maint-suggest-chips">
+                      {visibleMaintSuggestedItems.map((item) => (
+                        <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
+                          <b>{item.item}</b>
+                          <span>{item.count}회 사용</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {maintSuggestedItems.length > 8 && (
+                      <div className="maint-suggest-more">
+                        <button onClick={() => setShowAllMaintSuggestions((value) => !value)}>
+                          {showAllMaintSuggestions ? "접기" : `더보기 ${maintSuggestedItems.length - 8}개`}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {!maintSuggestedItems.length && !!recentMaintUsedItems.length && (
-                  <div className="maint-suggest-chips muted">
-                    {recentMaintUsedItems.slice(0, 8).map((item) => (
-                      <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
-                        <b>{item.item}</b>
-                        <span>최근 {item.count}회</span>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div className="maint-suggest-subhead">
+                      <strong>최근 사용 품목</strong>
+                      <span>{recentMaintUsedItems.length}개</span>
+                    </div>
+
+                    <div className="maint-suggest-chips muted">
+                      {visibleRecentMaintUsedItems.map((item) => (
+                        <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
+                          <b>{item.item}</b>
+                          <span>최근 {item.count}회</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {recentMaintUsedItems.length > 8 && (
+                      <div className="maint-suggest-more">
+                        <button onClick={() => setShowAllRecentMaintItems((value) => !value)}>
+                          {showAllRecentMaintItems ? "접기" : `더보기 ${recentMaintUsedItems.length - 8}개`}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -17398,6 +17436,63 @@ button:disabled{
   .maint-suggest-chips button{
     width:100%;
     justify-content:space-between;
+    border-radius:14px;
+  }
+}
+
+
+.maint-suggest-head strong em{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-left:8px;
+  min-width:30px;
+  height:20px;
+  padding:0 7px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1d4ed8;
+  font-style:normal;
+  font-size:11px;
+  font-weight:1000;
+}
+.maint-suggest-subhead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:4px 0 10px;
+  color:#334155;
+}
+.maint-suggest-subhead strong{
+  font-size:13px;
+  font-weight:1000;
+}
+.maint-suggest-subhead span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+}
+.maint-suggest-more{
+  margin-top:10px;
+  display:flex;
+  justify-content:center;
+}
+.maint-suggest-more button{
+  border:1px solid #dbeafe;
+  background:#fff;
+  color:#2563eb;
+  border-radius:999px;
+  padding:8px 16px;
+  font-size:13px;
+  font-weight:1000;
+  cursor:pointer;
+}
+.maint-suggest-more button:hover{
+  background:#eff6ff;
+}
+@media(max-width:900px){
+  .maint-suggest-more button{
+    width:100%;
     border-radius:14px;
   }
 }
