@@ -7739,16 +7739,16 @@ function HomeDashboard({
   const kpiCards = [
     {
       label: "오늘 구매금액",
-      value: `${todayPurchases.length}건 · ${money(todayPurchaseTotal)}원`,
-      sub: `이번달 ${money(monthPurchaseTotal)}원`,
+      value: `${money(todayPurchaseTotal)}원`,
+      sub: `오늘 ${todayPurchases.length}건 · 이번달 ${money(monthPurchaseTotal)}원`,
       icon: "🛒",
       tone: "blue",
       tab: "list",
     },
     {
       label: "이번달 카드사용",
-      value: `${monthCards.length}건 · ${money(monthCardTotal)}원`,
-      sub: "카드사용 현황",
+      value: `${money(monthCardTotal)}원`,
+      sub: `이번달 ${monthCards.length}건`,
       icon: "💳",
       tone: "green",
       tab: "card_list",
@@ -16855,6 +16855,179 @@ button:disabled{
   }
   .modern-home-kpis-pro .modern-home-kpi{
     min-height:105px;
+  }
+}
+
+
+/* Home dashboard final optimization - safe CSS only */
+.modern-home-shell-pro{
+  padding:22px 24px 34px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(37,99,235,.08), transparent 28%),
+    radial-gradient(circle at 92% 8%, rgba(99,102,241,.08), transparent 26%),
+    linear-gradient(180deg,#f8fbff 0%,#f3f6fb 100%);
+}
+.modern-home-intro-pro{
+  margin-bottom:18px;
+}
+.modern-home-intro-pro h2{
+  margin-top:2px;
+}
+.modern-home-intro-pro p{
+  max-width:760px;
+  line-height:1.55;
+}
+.modern-home-kpis-pro{
+  align-items:stretch;
+}
+.modern-home-kpis-pro .modern-home-kpi{
+  min-height:118px;
+  height:100%;
+  align-content:center;
+  box-shadow:0 8px 22px rgba(15,23,42,.055);
+}
+.modern-home-kpis-pro .modern-home-kpi:hover{
+  transform:translateY(-1px);
+}
+.modern-home-kpis-pro .modern-home-kpi b{
+  font-size:22px;
+  line-height:1.2;
+  word-break:keep-all;
+}
+.modern-home-kpis-pro .modern-home-kpi small{
+  min-height:16px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.modern-home-kpis-pro .modern-home-kpi>i{
+  align-self:end;
+}
+.modern-home-alert-strip{
+  gap:10px;
+}
+.modern-home-alert-strip button{
+  min-height:48px;
+  padding:12px 14px;
+}
+.modern-home-alert-strip span{
+  white-space:nowrap;
+}
+.modern-home-alert-strip b{
+  font-size:18px;
+}
+.modern-home-grid.middle{
+  grid-template-columns:1.08fr 1.08fr .82fr .96fr;
+  align-items:stretch;
+}
+.modern-home-grid.bottom{
+  align-items:stretch;
+}
+.modern-home-panel{
+  border-radius:18px;
+  box-shadow:0 8px 24px rgba(15,23,42,.055);
+}
+.modern-home-panel-head{
+  min-height:28px;
+}
+.modern-home-panel-head h3{
+  font-size:18px;
+}
+.modern-home-panel-head button{
+  padding:4px 2px;
+}
+.modern-home-empty{
+  min-height:70px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px dashed #dbe4f0;
+  border-radius:14px;
+  background:#fbfdff;
+  color:#94a3b8;
+  font-weight:950;
+}
+.modern-home-table{
+  table-layout:fixed;
+}
+.modern-home-table th{
+  white-space:nowrap;
+}
+.modern-home-table td{
+  height:34px;
+  vertical-align:middle;
+}
+.modern-home-table td:nth-child(2),
+.modern-home-table td:nth-child(3),
+.modern-home-table td:nth-child(4){
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.modern-home-log-panel .modern-home-table td{
+  height:32px;
+  font-size:12px;
+}
+.modern-home-photo-row{
+  min-height:64px;
+}
+.modern-home-photo-thumb{
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);
+}
+.modern-home-pdf-mini{
+  border-top-style:dashed;
+}
+.mini-calendar-day{
+  height:26px;
+}
+.mini-calendar-tooltip{
+  pointer-events:none;
+}
+@media(max-width:1500px){
+  .modern-home-kpis-pro .modern-home-kpi{
+    padding:16px;
+    grid-template-columns:50px 1fr;
+  }
+  .modern-home-kpis-pro .modern-home-kpi-icon{
+    width:46px;
+    height:46px;
+  }
+  .modern-home-kpis-pro .modern-home-kpi b{
+    font-size:20px;
+  }
+}
+@media(max-width:1200px){
+  .modern-home-grid.middle{
+    grid-template-columns:1fr 1fr;
+  }
+  .modern-home-grid.bottom{
+    grid-template-columns:1fr;
+  }
+}
+@media(max-width:900px){
+  .modern-home-intro-pro{
+    gap:12px;
+  }
+  .modern-home-intro-pro p{
+    font-size:13px;
+  }
+  .modern-home-kpis-pro{
+    gap:10px;
+  }
+  .modern-home-kpis-pro .modern-home-kpi{
+    grid-template-columns:50px 1fr auto;
+    min-height:82px;
+    padding:14px;
+  }
+  .modern-home-kpis-pro .modern-home-kpi-icon{
+    grid-row:auto;
+  }
+  .modern-home-kpis-pro .modern-home-kpi>i{
+    grid-column:auto;
+    align-self:center;
+  }
+  .modern-home-alert-strip button{
+    min-height:44px;
   }
 }
 
