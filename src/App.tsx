@@ -7370,24 +7370,6 @@ function BackupPermissionPage({
     URL.revokeObjectURL(url);
   };
 
-  const downloadExcelBackup = () => {
-    downloadExcel(`전체백업_${todayText()}`, [
-      { 구분: "구매", 건수: purchases.length },
-      { 구분: "정비", 건수: maints.length },
-      { 구분: "카드", 건수: cardUses.length },
-      { 구분: "거래처", 건수: vendors.length },
-      { 구분: "창고대분류", 건수: groups.length },
-      { 구분: "창고", 건수: warehouses.length },
-      { 구분: "품목", 건수: items.length },
-      { 구분: "허가관리", 건수: permits.length },
-      { 구분: "업체계좌", 건수: vendorAccounts.length },
-      { 구분: "입고사진", 건수: receiptPhotos.length },
-      { 구분: "정비사진", 건수: maintenancePhotos.length },
-      { 구분: "정비일정", 건수: maintenanceSchedules.length },
-      { 구분: "권한", 건수: userPermissions.length },
-    ]);
-  };
-
   const restoreJsonBackup = async () => {
     if (!restoreFile) return alert("복구할 JSON 백업 파일을 선택하세요.");
     if (!confirm("선택한 백업 파일로 복구합니다. 같은 id 데이터는 덮어씁니다. 진행할까요?")) return;
