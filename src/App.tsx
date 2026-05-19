@@ -17052,4 +17052,51 @@ button:disabled{
 }
 
 
+/* Mobile calendar/photo layout fix */
+@media(max-width:900px){
+  .modern-home-grid.middle{
+    grid-template-columns:1fr !important;
+  }
+
+  .modern-home-mini-calendar-panel{
+    width:100%;
+  }
+
+  .mini-calendar-grid{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:5px;
+  }
+
+  .mini-calendar-week{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:5px;
+  }
+
+  .mini-calendar-day{
+    min-height:34px !important;
+    height:34px !important;
+    font-size:12px;
+    overflow:visible;
+  }
+
+  .mini-calendar-day.today{
+    border-radius:10px;
+  }
+
+  .mini-calendar-day i{
+    right:3px;
+    bottom:3px;
+  }
+
+  .modern-home-photo-row{
+    min-height:70px;
+  }
+
+  .modern-home-photo-thumb{
+    width:54px;
+    height:54px;
+  }
+}
+
+
 `;
