@@ -146,6 +146,7 @@ const KEY = {
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
 const MAINT_DRAFT_KEY = "erp_maint_draft_v1";
+const RECENT_ITEMS_KEY = "erp_recent_items_v1";
 const INTERNAL_LOGIN_DOMAIN = "tm.local";
 
 const toLoginEmail = (value: string) => {
@@ -651,6 +652,37 @@ const dedupeUpdateNotices = (notices: UpdateNotice[]) => {
   });
 };
 
+const CHOSUNG_LIST = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+
+const getChosung = (value: string) =>
+  String(value || "")
+    .split("")
+    .map((char) => {
+      const code = char.charCodeAt(0) - 44032;
+      if (code < 0 || code > 11171) return char.toLowerCase();
+      return CHOSUNG_LIST[Math.floor(code / 588)] || char;
+    })
+    .join("");
+
+const normalizeSearchText = (value: string) =>
+  String(value || "").replace(/\s/g, "").toLowerCase();
+
+const readRecentItems = () => {
+  try {
+    const saved = localStorage.getItem(RECENT_ITEMS_KEY);
+    return saved ? JSON.parse(saved) as string[] : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecentItem = (itemName: string) => {
+  const name = String(itemName || "").trim();
+  if (!name) return;
+  const next = [name, ...readRecentItems().filter((item) => item !== name)].slice(0, 12);
+  localStorage.setItem(RECENT_ITEMS_KEY, JSON.stringify(next));
+};
+
 
 
 
@@ -676,22 +708,37 @@ function SearchSelect({
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
-          return { label: text, value: text, search: text.toLowerCase() };
+          const searchBase = `${text} ${normalizeSearchText(text)} ${getChosung(text)}`;
+          return { label: text, value: text, search: searchBase.toLowerCase(), chosung: getChosung(text), exact: normalizeSearchText(text) };
         }
         const label = String(o?.label || o?.name || o?.value || "").trim();
         const value = String(o?.value || o?.name || o?.label || "").trim();
         const code = String(o?.code || "").trim();
         const name = String(o?.name || "").trim();
-        const search = `${label} ${value} ${code} ${name}`.toLowerCase();
-        return { label, value, search };
+        const spec = String(o?.spec || "").trim();
+        const unit = String(o?.unit || "").trim();
+        const searchBase = `${label} ${value} ${code} ${name} ${spec} ${unit} ${normalizeSearchText(label)} ${normalizeSearchText(value)} ${getChosung(label)} ${getChosung(name)}`;
+        return { label, value, search: searchBase.toLowerCase(), chosung: getChosung(`${label} ${name}`), exact: normalizeSearchText(`${label}${value}${code}${name}${spec}${unit}`) };
       })
       .filter((o) => o.label || o.value);
   }, [options]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const rawQuery = query.trim();
+    const q = rawQuery.toLowerCase();
+    const compactQ = normalizeSearchText(rawQuery);
+    const chosungQ = getChosung(rawQuery);
+
     if (!q) return normalized.slice(0, 50);
-    return normalized.filter((o) => o.search.includes(q)).slice(0, 80);
+
+    return normalized
+      .filter((o) => o.search.includes(q) || o.exact.includes(compactQ) || o.chosung.includes(chosungQ))
+      .sort((a, b) => {
+        const aExact = a.exact === compactQ ? 0 : a.exact.startsWith(compactQ) ? 1 : a.chosung.startsWith(chosungQ) ? 2 : 3;
+        const bExact = b.exact === compactQ ? 0 : b.exact.startsWith(compactQ) ? 1 : b.chosung.startsWith(chosungQ) ? 2 : 3;
+        return aExact - bExact || a.label.localeCompare(b.label);
+      })
+      .slice(0, 80);
   }, [query, normalized]);
 
   return (
@@ -1754,17 +1801,36 @@ export default function App() {
       .filter(Boolean);
     return Array.from(new Set(values));
   }, [groups, warehouses]);
-  const itemOptions = useMemo(
-    () => items.map((i) => ({ label: i.name, value: i.name, code: i.code, name: i.name })).filter((i) => i.name),
-    [items]
-  );
+  const itemOptions = useMemo(() => {
+    const recentItems = readRecentItems();
+    const recentRank = new Map(recentItems.map((name, index) => [name, index]));
+
+    return items
+      .map((i) => ({
+        label: recentRank.has(i.name) ? `최근 · ${i.name}` : i.name,
+        value: i.name,
+        code: i.code,
+        name: i.name,
+        spec: i.spec || "",
+        unit: i.unit || "",
+        recentOrder: recentRank.has(i.name) ? recentRank.get(i.name) : 999,
+      }))
+      .filter((i) => i.name)
+      .sort((a, b) => Number(a.recentOrder ?? 999) - Number(b.recentOrder ?? 999) || String(a.name).localeCompare(String(b.name)));
+  }, [items]);
 
   const filteredItems = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
+    const compactQ = normalizeSearchText(itemSearch);
+    const chosungQ = getChosung(itemSearch);
     if (!q) return items;
-    return items.filter((it) =>
-      `${it.code || ""} ${it.name || ""} ${it.spec || ""} ${it.unit || ""}`.toLowerCase().includes(q)
-    );
+
+    return items.filter((it) => {
+      const target = `${it.code || ""} ${it.name || ""} ${it.spec || ""} ${it.unit || ""}`.toLowerCase();
+      const compactTarget = normalizeSearchText(target);
+      const chosungTarget = getChosung(`${it.name || ""} ${it.spec || ""}`);
+      return target.includes(q) || compactTarget.includes(compactQ) || chosungTarget.includes(chosungQ);
+    });
   }, [items, itemSearch]);
 
   const updateRow = (index: number, key: keyof PurchaseRow, value: any) => {
@@ -1775,6 +1841,7 @@ export default function App() {
       if (item) {
         next[index].spec = item.spec || "";
         next[index].price = item.price || 0;
+        saveRecentItem(item.name);
       }
     }
     if (["item", "qty", "price"].includes(key)) {
