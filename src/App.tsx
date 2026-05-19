@@ -184,6 +184,14 @@ const read = <T,>(key: string, fallback: T): T => {
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
+const nextItemCode = (arr: { code?: string }[]) => {
+  const maxCode = (arr || []).reduce((max, item) => {
+    const numericCode = Number(String(item.code || "").replace(/\D/g, ""));
+    return Number.isFinite(numericCode) ? Math.max(max, numericCode) : max;
+  }, 0);
+
+  return String(maxCode + 1).padStart(4, "0");
+};
 
 const formatInputDate = (value: string) => {
   const numbers = value.replace(/\D/g, "").slice(0, 8);
@@ -1156,7 +1164,7 @@ export default function App() {
   const [warehouseForm, setWarehouseForm] = useState({ group: "", code: nextCode(warehouses), name: "" });
   const [editingGroupId, setEditingGroupId] = useState("");
   const [editingWarehouseId, setEditingWarehouseId] = useState("");
-  const [itemForm, setItemForm] = useState({ code: nextCode(items), name: "", spec: "", unit: "", price: "" });
+  const [itemForm, setItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
@@ -1723,7 +1731,7 @@ export default function App() {
     setVendorForm({ code: `V${String(nextVendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
-    setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
+    setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
     setLoading(false);
   };
 
@@ -2880,14 +2888,27 @@ export default function App() {
   const saveItem = async () => {
     if (editingItemId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!itemForm.name) return;
-    const existing = editingItemId ? items.find((i) => i.id === editingItemId) : items.find((i) => i.code === itemForm.code || i.name === itemForm.name);
-    const payload = { id: existing?.id || uid(), ...itemForm, price: Number(itemForm.price || 0) };
+
+    const code = String(itemForm.code || "").trim();
+    const name = String(itemForm.name || "").trim();
+    if (!code) return alert("품목코드를 입력하세요.");
+    if (!name) return alert("품목명을 입력하세요.");
+
+    const latestRes = await fetchAllRows("items", "code", 1000);
+    if (latestRes.error) return alert(`품목 최신자료 불러오기 실패: ${latestRes.error.message}`);
+
+    const latestItems = ((latestRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
+    const duplicateCode = latestItems.find((i) => i.code === code && i.id !== editingItemId);
+    if (duplicateCode) return alert("이미 사용 중인 품목코드입니다.");
+
+    const existing = editingItemId ? latestItems.find((i) => i.id === editingItemId) : undefined;
+    const payload = { id: existing?.id || uid(), ...itemForm, code, name, price: Number(itemForm.price || 0) };
     const { error } = await supabase.from("items").upsert(payload);
     if (error) return alert(`품목 저장 실패: ${error.message}`);
-    const next = existing ? items.map((i) => (i.id === existing.id ? payload : i)) : [...items, payload];
+
+    const next = existing ? latestItems.map((i) => (i.id === existing.id ? payload : i)) : [...latestItems, payload];
     setItems(next);
-    setItemForm({ code: nextCode(next), name: "", spec: "", unit: "", price: "" });
+    setItemForm({ code: nextItemCode(next), name: "", spec: "", unit: "", price: "" });
     setEditingItemId("");
   };
 
@@ -2899,17 +2920,21 @@ export default function App() {
 
     const existingItems = ((existingRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
 
+    const tempImportedCodes: { code?: string }[] = [];
     const imported = rows
-      .map((r, idx) => {
+      .map((r) => {
         const rawCode = String(pick(r, ["품목코드", "코드"]) || "").trim();
         const name = String(pick(r, ["품목명", "품명"]) || "").trim();
         const spec = String(pick(r, ["규격정보", "규격"]) || "").trim();
         const unit = String(pick(r, ["단위"]) || "").trim();
         const price = Number(pick(r, ["단가", "입고단가", "매입단가"]) || 0);
+        const code = rawCode || nextItemCode([...existingItems, ...tempImportedCodes]);
+
+        tempImportedCodes.push({ code });
 
         return {
           id: uid(),
-          code: rawCode || String(existingItems.length + idx + 1).padStart(5, "0"),
+          code,
           name,
           spec,
           unit,
@@ -2938,7 +2963,7 @@ export default function App() {
     const nextItems = ((reloadRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
     setItems(nextItems);
     setItemImportMessage(`${imported.length}건 업로드 / 현재 ${nextItems.length}건 표시`);
-    setItemForm({ code: nextCode(nextItems), name: "", spec: "", unit: "", price: "" });
+    setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
   };
 
   const openNewItemModal = (rowIndex: number) => {
@@ -2961,7 +2986,7 @@ export default function App() {
 
     const newItem = {
       id: uid(),
-      code: nextCode(items),
+      code: nextItemCode(items),
       name,
       spec,
       unit,
@@ -5787,7 +5812,7 @@ export default function App() {
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} readOnly /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "품목 수정저장" : "품목 저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "품목 수정저장" : "품목 저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
