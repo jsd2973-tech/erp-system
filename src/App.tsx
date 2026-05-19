@@ -5372,7 +5372,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} activityLogs={activityLogs} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -7540,6 +7540,8 @@ function HomeDashboard({
   receiptPhotos = [],
   maintenancePhotos = [],
   siteNotices = [],
+  activityLogs = [],
+  deletedRecords = [],
   setMenuTab,
   currentRole,
   logout,
@@ -7551,6 +7553,8 @@ function HomeDashboard({
   receiptPhotos?: ReceiptPhoto[];
   maintenancePhotos?: MaintenancePhoto[];
   siteNotices?: SiteNotice[];
+  activityLogs?: ActivityLog[];
+  deletedRecords?: DeletedRecord[];
   setMenuTab?: (tab: string) => void;
   currentRole?: UserRole;
   logout?: () => void;
@@ -7606,6 +7610,17 @@ function HomeDashboard({
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = monthCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const monthMaintTotal = maints
+    .filter((m) => String(m.date || "").startsWith(monthKey))
+    .reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
+  const pendingReceiptPhotos = receiptPhotos.filter((item) => !item.is_processed);
+  const pendingMaintenancePhotos = maintenancePhotos.filter((item) => !item.is_processed);
+  const urgentMaintenancePhotos = maintenancePhotos.filter((item) => item.is_urgent && !item.is_processed);
+  const todayActivityLogs = activityLogs.filter((log) => String(log.created_at || "").startsWith(today));
+  const recentActivityLogs = [...activityLogs].slice(0, 5);
+  const recentPdfFiles = recentPhotos
+    .flatMap((photo) => (photo.urls || []).filter((url) => String(url || "").toLowerCase().split("?")[0].endsWith(".pdf")).map((url) => ({ ...photo, url })))
+    .slice(0, 4);
 
   if (currentRole === "field") {
     return (
@@ -7723,22 +7738,53 @@ function HomeDashboard({
 
   const kpiCards = [
     {
-      label: "오늘 구매 금액",
+      label: "오늘 구매금액",
       value: `${todayPurchases.length}건 · ${money(todayPurchaseTotal)}원`,
-      sub: `이번달 구매금액 ${money(monthPurchaseTotal)}원`,
+      sub: `이번달 ${money(monthPurchaseTotal)}원`,
       icon: "🛒",
       tone: "blue",
-      tab: "new",
+      tab: "list",
     },
     {
       label: "이번달 카드사용",
       value: `${monthCards.length}건 · ${money(monthCardTotal)}원`,
-      sub: "",
+      sub: "카드사용 현황",
       icon: "💳",
       tone: "green",
-      tab: "card_use",
+      tab: "card_list",
     },
-    { label: "오늘 정비 등록", value: `${todayMaints.length}건`, sub: `일정 ${todaySchedules.length}건`, icon: "🔧", tone: "purple", tab: "maint_new" },
+    {
+      label: "이번달 정비비",
+      value: `${money(monthMaintTotal)}원`,
+      sub: `오늘 정비 ${todayMaints.length}건`,
+      icon: "🔧",
+      tone: "orange",
+      tab: "maint_list",
+    },
+    {
+      label: "미처리 입고사진",
+      value: `${pendingReceiptPhotos.length}건`,
+      sub: `전체 ${receiptPhotos.length}건 중`,
+      icon: "🖼️",
+      tone: "purple",
+      tab: "receipt_photos",
+    },
+    {
+      label: "미처리 정비사진",
+      value: `${pendingMaintenancePhotos.length}건`,
+      sub: `전체 ${maintenancePhotos.length}건 중`,
+      icon: "🧰",
+      tone: "red",
+      tab: "maintenance_photos",
+    },
+    {
+      label: "긴급 정비건",
+      value: `${urgentMaintenancePhotos.length}건`,
+      sub: "미처리 긴급 기준",
+      icon: "⚠️",
+      tone: "amber",
+      tab: "maintenance_photos",
+    },
   ];
 
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<{
@@ -7747,16 +7793,20 @@ function HomeDashboard({
   } | null>(null);
 
   return (
-    <section className="modern-home-shell">
-      <div className="modern-home-intro">
+    <section className="modern-home-shell modern-home-shell-pro">
+      <div className="modern-home-intro modern-home-intro-pro">
         <div>
-          <h2>관리자님, 오늘도 안전한 하루 되세요!</h2>
-          <p>구매 · 카드 · 정비 · 공지 현황을 한 화면에서 확인합니다.</p>
+          <span className="modern-home-eyebrow">TAEMYUNG ERP DASHBOARD</span>
+          <h2>대시보드</h2>
+          <p>관리자님, 오늘도 안전한 하루 되세요. 구매 · 정비 · 카드 · 사진 · 로그를 한 화면에서 확인합니다.</p>
         </div>
-        <button onClick={() => window.location.reload()}>↻ 새로고침</button>
+        <div className="modern-home-intro-actions">
+          <span>📅 {today}</span>
+          <button onClick={() => window.location.reload()}>↻ 새로고침</button>
+        </div>
       </div>
 
-      <div className="modern-home-kpis">
+      <div className="modern-home-kpis modern-home-kpis-pro">
         {kpiCards.map((card) => (
           <button className={`modern-home-kpi ${card.tone}`} key={card.label} onClick={() => setMenuTab?.(card.tab)}>
             <span className="modern-home-kpi-icon">{card.icon}</span>
@@ -7768,6 +7818,29 @@ function HomeDashboard({
             <i>자세히 보기 ›</i>
           </button>
         ))}
+      </div>
+
+      <div className="modern-home-alert-strip">
+        <button onClick={() => setMenuTab?.("receipt_photos")}>
+          <span>입고 처리대기</span>
+          <b>{pendingReceiptPhotos.length}건</b>
+        </button>
+        <button onClick={() => setMenuTab?.("maintenance_photos")}>
+          <span>정비 처리대기</span>
+          <b>{pendingMaintenancePhotos.length}건</b>
+        </button>
+        <button onClick={() => setMenuTab?.("maintenance_schedules")}>
+          <span>오늘 정비일정</span>
+          <b>{todaySchedules.length}건</b>
+        </button>
+        <button onClick={() => setMenuTab?.("activity_logs")}>
+          <span>오늘 작업로그</span>
+          <b>{todayActivityLogs.length}건</b>
+        </button>
+        <button onClick={() => setMenuTab?.("trash_bin")}>
+          <span>휴지통 보관</span>
+          <b>{deletedRecords.length}건</b>
+        </button>
       </div>
 
       <div className="modern-home-grid middle">
@@ -7860,19 +7933,52 @@ function HomeDashboard({
           <div className="modern-home-photo-list">
             {recentPhotos.length ? recentPhotos.slice(0, 3).map((photo) => (
               <button className="modern-home-photo-row" key={photo.id} onClick={() => setMenuTab?.(photo.tab)}>
-                {photo.urls[0] ? (
-                  <span className="modern-home-photo-thumb" style={{ backgroundImage: `url(${photo.urls[0]})` }} />
+                {photo.urls.find((url) => !String(url || "").toLowerCase().split("?")[0].endsWith(".pdf")) ? (
+                  <span className="modern-home-photo-thumb" style={{ backgroundImage: `url(${photo.urls.find((url) => !String(url || "").toLowerCase().split("?")[0].endsWith(".pdf"))})` }} />
                 ) : (
-                  <span className="modern-home-photo-thumb empty">사진</span>
+                  <span className="modern-home-photo-thumb empty">PDF</span>
                 )}
                 <div>
                   <b>{photo.title}</b>
-                  <p>{photo.memo || `${photo.label} 사진`}</p>
+                  <p>{photo.memo || `${photo.label} 첨부`}</p>
                 </div>
                 <em>{String(photo.date || "").slice(5, 10) || "-"}</em>
               </button>
             )) : <div className="modern-home-empty">최근 등록사진이 없습니다.</div>}
+            {!!recentPdfFiles.length && (
+              <div className="modern-home-pdf-mini">
+                <strong>최근 PDF</strong>
+                {recentPdfFiles.map((file, idx) => (
+                  <button key={`${file.id}-${idx}`} onClick={() => setMenuTab?.(file.tab)}>
+                    <span>PDF</span>
+                    <b>{file.title}</b>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
+      </div>
+
+      <div className="modern-home-grid logs">
+        <div className="modern-home-panel modern-home-log-panel">
+          <div className="modern-home-panel-head">
+            <h3>최근 작업로그</h3>
+            <button onClick={() => setMenuTab?.("activity_logs")}>더보기 ›</button>
+          </div>
+          <table className="modern-home-table desktop-only-table">
+            <thead><tr><th>시간</th><th>작업자</th><th>작업</th><th>상세</th></tr></thead>
+            <tbody>
+              {recentActivityLogs.length ? recentActivityLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</td>
+                  <td>{toLoginId(log.user_email || "") || "-"}</td>
+                  <td>{log.module} · {log.action}</td>
+                  <td>{log.target_title || log.detail || "-"}</td>
+                </tr>
+              )) : <tr><td colSpan={4}>최근 작업로그가 없습니다.</td></tr>}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -16557,6 +16663,199 @@ button:disabled{
 .backup-actions button:disabled{
   opacity:.55;
   cursor:not-allowed;
+}
+
+
+/* Home dashboard pro upgrade - scoped to home only */
+.modern-home-shell-pro{
+  background:linear-gradient(180deg,#f8fbff 0%,#f3f6fb 100%);
+  border:1px solid #e7eef8;
+  border-radius:22px;
+  padding:24px;
+}
+.modern-home-intro-pro{
+  padding:2px 2px 8px;
+  align-items:center;
+}
+.modern-home-eyebrow{
+  display:inline-flex;
+  margin-bottom:8px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:#eaf2ff;
+  color:#2563eb;
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:.7px;
+}
+.modern-home-intro-pro h2{
+  font-size:34px;
+  line-height:1.1;
+  letter-spacing:-1.2px;
+}
+.modern-home-intro-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.modern-home-intro-actions span{
+  display:inline-flex;
+  align-items:center;
+  height:40px;
+  padding:0 14px;
+  border:1px solid #dbe7f5;
+  border-radius:12px;
+  background:#fff;
+  color:#334155;
+  font-size:13px;
+  font-weight:950;
+  box-shadow:0 8px 20px rgba(15,23,42,.04);
+}
+.modern-home-kpis-pro{
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:14px;
+}
+.modern-home-kpis-pro .modern-home-kpi{
+  min-height:122px;
+  grid-template-columns:54px 1fr;
+  gap:8px 13px;
+  padding:18px;
+  border-radius:18px;
+}
+.modern-home-kpis-pro .modern-home-kpi-icon{
+  width:50px;
+  height:50px;
+  border-radius:15px;
+  font-size:24px;
+}
+.modern-home-kpis-pro .modern-home-kpi em{
+  font-size:13px;
+}
+.modern-home-kpis-pro .modern-home-kpi b{
+  font-size:24px;
+  letter-spacing:-.7px;
+  white-space:normal;
+}
+.modern-home-kpis-pro .modern-home-kpi small{
+  font-size:12px;
+  margin-top:8px;
+}
+.modern-home-kpi.orange .modern-home-kpi-icon{background:linear-gradient(135deg,#f97316,#fb923c)}
+.modern-home-kpi.orange b{color:#ea580c}
+.modern-home-kpi.amber{background:#fffaf0;border-color:#fde68a}
+.modern-home-kpi.amber .modern-home-kpi-icon{background:linear-gradient(135deg,#f59e0b,#fbbf24)}
+.modern-home-kpi.amber b{color:#d97706}
+.modern-home-alert-strip{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:12px;
+  margin:-4px 0 18px;
+}
+.modern-home-alert-strip button{
+  border:1px solid #e2e8f0;
+  border-radius:16px;
+  background:#fff;
+  padding:15px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  box-shadow:0 8px 20px rgba(15,23,42,.045);
+  cursor:pointer;
+}
+.modern-home-alert-strip span{
+  color:#475569;
+  font-size:13px;
+  font-weight:900;
+}
+.modern-home-alert-strip b{
+  color:#2563eb;
+  font-size:20px;
+  font-weight:1000;
+}
+.modern-home-grid.logs{
+  grid-template-columns:1fr;
+  margin-bottom:18px;
+}
+.modern-home-log-panel{
+  padding-bottom:18px;
+}
+.modern-home-pdf-mini{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #edf2f7;
+  display:grid;
+  gap:7px;
+}
+.modern-home-pdf-mini strong{
+  color:#111827;
+  font-size:13px;
+  font-weight:1000;
+}
+.modern-home-pdf-mini button{
+  border:0;
+  background:#fff;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  gap:9px;
+  padding:5px 0;
+  text-align:left;
+  cursor:pointer;
+}
+.modern-home-pdf-mini span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:22px;
+  padding:0 7px;
+  border-radius:7px;
+  background:#ef4444;
+  color:#fff;
+  font-size:10px;
+  font-weight:1000;
+}
+.modern-home-pdf-mini b{
+  color:#334155;
+  font-size:13px;
+  font-weight:900;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.modern-home-table td:last-child{
+  font-weight:900;
+}
+@media(max-width:1400px){
+  .modern-home-kpis-pro{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .modern-home-alert-strip{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+@media(max-width:900px){
+  .modern-home-shell-pro{
+    padding:14px;
+    border-radius:18px;
+  }
+  .modern-home-intro-pro{
+    align-items:flex-start;
+  }
+  .modern-home-intro-pro h2{
+    font-size:28px;
+  }
+  .modern-home-intro-actions{
+    width:100%;
+    justify-content:space-between;
+  }
+  .modern-home-kpis-pro,
+  .modern-home-alert-strip{
+    grid-template-columns:1fr;
+  }
+  .modern-home-kpis-pro .modern-home-kpi{
+    min-height:105px;
+  }
 }
 
 
