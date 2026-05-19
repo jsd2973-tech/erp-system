@@ -804,6 +804,37 @@ function SearchSelect({
   );
 }
 
+function DateInput({
+  value,
+  onChange,
+  placeholder = "20260519 또는 260519",
+  ariaLabel = "날짜 선택",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className="date-input-wrap">
+      <input
+        className="date-text-input"
+        value={value || ""}
+        onChange={(e) => onChange(formatInputDate(e.target.value))}
+        placeholder={placeholder}
+      />
+      <input
+        className="date-picker-input"
+        type="date"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+      />
+      <span className="date-picker-icon">📅</span>
+    </div>
+  );
+}
+
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
 
@@ -5519,8 +5550,8 @@ export default function App() {
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 작업자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
             </div>
             <div className="grid5">
-              <Field label="시작일"><input type="date" value={cardSearch.from} onChange={(e) => setCardSearch({ ...cardSearch, from: e.target.value })} /></Field>
-              <Field label="종료일"><input type="date" value={cardSearch.to} onChange={(e) => setCardSearch({ ...cardSearch, to: e.target.value })} /></Field>
+              <Field label="시작일"><DateInput value={cardSearch.from} onChange={(value) => setCardSearch({ ...cardSearch, from: value })} /></Field>
+              <Field label="종료일"><DateInput value={cardSearch.to} onChange={(value) => setCardSearch({ ...cardSearch, to: value })} /></Field>
               <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="작업자 검색" /></Field>
               <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
               <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
@@ -5776,7 +5807,7 @@ export default function App() {
 
                 <div className="schedule-pro-grid">
                   <Field label="예정일">
-                    <input type="date" value={maintenanceScheduleForm.schedule_date} onChange={(e) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: e.target.value })} />
+                    <DateInput value={maintenanceScheduleForm.schedule_date} onChange={(value) => setMaintenanceScheduleForm({ ...maintenanceScheduleForm, schedule_date: value })} ariaLabel="예정일 선택" />
                   </Field>
                   <Field label="장비/창고 선택">
                     <input
@@ -6311,8 +6342,8 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   }
 ))}>엑셀 다운로드</button></div>
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
+        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
         <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
         <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
@@ -6414,8 +6445,8 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
       </div>
 
       <div className="schedule-filter-card">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
+        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
         <Field label="검색"><input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="장비/작업내용/작업자 검색" /></Field>
         <Field label="상태">
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -6549,10 +6580,10 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
       <div className="maint-filter">
         <Field label="시작일">
-          <input type="date" value={search.from || ""} onChange={(e) => setSearch({ ...search, from: e.target.value })} />
+          <DateInput value={search.from || ""} onChange={(value) => setSearch({ ...search, from: value })} />
         </Field>
         <Field label="종료일">
-          <input type="date" value={search.to || ""} onChange={(e) => setSearch({ ...search, to: e.target.value })} />
+          <DateInput value={search.to || ""} onChange={(value) => setSearch({ ...search, to: value })} />
         </Field>
         <Field label="창고">
           <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
@@ -8252,8 +8283,8 @@ function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
+        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
         <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
         <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
@@ -8436,8 +8467,8 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 ))}>엑셀 다운로드</button></div>
 
       <div className="grid5">
-        <Field label="시작일"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
-        <Field label="종료일"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
+        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
         <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
         <Field label="제목/내용/작업자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
         <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
@@ -17095,6 +17126,29 @@ button:disabled{
   .modern-home-photo-thumb{
     width:54px;
     height:54px;
+  }
+}
+
+
+/* Unified ERP date input */
+.date-input-wrap{
+  width:100%;
+}
+.date-input-wrap .date-text-input{
+  min-width:0;
+}
+.date-input-wrap .date-picker-input{
+  min-width:44px;
+}
+@media(max-width:900px){
+  .date-input-wrap{
+    grid-template-columns:1fr 46px;
+  }
+  .date-input-wrap .date-text-input{
+    height:46px;
+  }
+  .date-input-wrap .date-picker-input{
+    height:46px;
   }
 }
 
