@@ -185,12 +185,22 @@ const read = <T,>(key: string, fallback: T): T => {
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
 const nextItemCode = (arr: { code?: string }[]) => {
-  const maxCode = (arr || []).reduce((max, item) => {
-    const numericCode = Number(String(item.code || "").replace(/\D/g, ""));
-    return Number.isFinite(numericCode) ? Math.max(max, numericCode) : max;
-  }, 0);
+  const used = new Set<number>();
 
-  return String(maxCode + 1).padStart(4, "0");
+  (arr || []).forEach((item) => {
+    const code = String(item.code || "").trim();
+    if (!/^\d{1,6}$/.test(code)) return;
+
+    const numericCode = Number(code);
+    if (Number.isFinite(numericCode) && numericCode > 0) {
+      used.add(numericCode);
+    }
+  });
+
+  let next = 1;
+  while (used.has(next)) next += 1;
+
+  return String(next).padStart(4, "0");
 };
 
 const formatInputDate = (value: string) => {
