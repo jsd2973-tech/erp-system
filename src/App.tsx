@@ -608,6 +608,18 @@ type ActivityLog = {
   created_at?: string;
 };
 
+type DeletedRecord = {
+  id: string;
+  source_table: string;
+  module: string;
+  record_id: string;
+  title?: string;
+  detail?: string;
+  data: any;
+  deleted_by?: string;
+  deleted_at?: string;
+};
+
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayKey = () => {
@@ -629,6 +641,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
   { key: "site_notices", label: "공지" },
   { key: "activity_logs", label: "작업로그" },
+  { key: "trash_bin", label: "휴지통" },
   { key: "layout", label: "생산라인" },
   { key: "new", label: "구매입력" },
   { key: "list", label: "구매조회" },
@@ -1033,6 +1046,8 @@ export default function App() {
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [activityLogSearch, setActivityLogSearch] = useState({ module: "", keyword: "" });
+  const [deletedRecords, setDeletedRecords] = useState<DeletedRecord[]>([]);
+  const [trashSearch, setTrashSearch] = useState({ module: "", keyword: "" });
   const [permissionForm, setPermissionForm] = useState<UserPermission>({
     id: uid(),
     email: "",
@@ -1048,6 +1063,7 @@ export default function App() {
     if (tab === "home") return true;
     if (tab === "site_notices") return true;
     if (tab === "activity_logs") return isAdmin;
+    if (tab === "trash_bin") return isAdmin;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
     const permissions = currentUserPermission?.permissions || {};
@@ -1706,6 +1722,7 @@ export default function App() {
       loadSiteNotices();
       loadUserPermissions();
       loadActivityLogs();
+      loadDeletedRecords();
     }
   }, [session]);
 
@@ -1738,6 +1755,10 @@ export default function App() {
 
     if (menuTab === "activity_logs") {
       loadActivityLogs();
+    }
+
+    if (menuTab === "trash_bin") {
+      loadDeletedRecords();
     }
   }, [menuTab, session]);
 
@@ -2155,15 +2176,26 @@ export default function App() {
 
   const deleteMaintenancePhoto = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("정비사진 등록건을 삭제할까요?")) return;
-
     const target = maintenancePhotos.find((item) => item.id === id);
+    if (!target) return alert("삭제할 정비사진 등록건을 찾지 못했습니다.");
+    if (!confirm("정비사진 등록건을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "maintenance_photos",
+      module: "정비사진",
+      record_id: id,
+      title: target.equipment_name || "",
+      detail: target.memo || "",
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("maintenance_photos").delete().eq("id", id);
     if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
 
     await addActivityLog({
       module: "정비사진",
-      action: "삭제",
+      action: "휴지통 이동",
       target_id: id,
       target_title: target?.equipment_name || "",
       detail: target?.memo || "",
@@ -2559,15 +2591,26 @@ export default function App() {
 
   const deleteReceiptPhoto = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("입고사진 등록건을 삭제할까요?")) return;
-
     const target = receiptPhotos.find((item) => item.id === id);
+    if (!target) return alert("삭제할 입고사진 등록건을 찾지 못했습니다.");
+    if (!confirm("입고사진 등록건을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "receipt_photos",
+      module: "입고사진",
+      record_id: id,
+      title: target.vendor_name || "",
+      detail: target.memo || "",
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("receipt_photos").delete().eq("id", id);
     if (error) return alert(`입고사진 삭제 실패: ${error.message}`);
 
     await addActivityLog({
       module: "입고사진",
-      action: "삭제",
+      action: "휴지통 이동",
       target_id: id,
       target_title: target?.vendor_name || "",
       detail: target?.memo || "",
@@ -2640,12 +2683,25 @@ export default function App() {
   const deleteCardUse = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = cardUses.find((item) => item.id === id);
+    if (!target) return alert("삭제할 카드사용내역을 찾지 못했습니다.");
+    if (!confirm("카드사용내역을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "card_uses",
+      module: "카드",
+      record_id: id,
+      title: target.place || "",
+      detail: `${target.date || "-"} · ${money(target.amount || 0)}원`,
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("card_uses").delete().eq("id", id);
     if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
     setCardUses((prev) => prev.filter((c) => c.id !== id));
     await addActivityLog({
       module: "카드",
-      action: "삭제",
+      action: "휴지통 이동",
       target_id: id,
       target_title: target?.place || "",
       detail: `${target?.date || "-"} · ${money(target?.amount || 0)}원`,
@@ -3104,9 +3160,24 @@ export default function App() {
 
   const deletePurchase = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = purchases.find((p) => p.id === id);
+    if (!target) return alert("삭제할 구매내역을 찾지 못했습니다.");
+    if (!confirm("구매내역을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "purchases",
+      module: "구매",
+      record_id: id,
+      title: `${target.vendor || "-"} / ${getPurchaseItemSummary(target)}`,
+      detail: `${target.date || "-"} · ${target.warehouse || "-"} · ${money(target.total)}원`,
+      data: fromPurchase(target),
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("purchases").delete().eq("id", id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
+    await addActivityLog({ module: "구매", action: "휴지통 이동", target_id: id, target_title: target.vendor || "", detail: getPurchaseItemSummary(target) });
   };
 
   const deleteVendor = async (id: string) => {
@@ -3149,12 +3220,25 @@ export default function App() {
   const deleteMaint = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = maints.find((item) => item.id === id);
+    if (!target) return alert("삭제할 정비내역을 찾지 못했습니다.");
+    if (!confirm("정비내역을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "maints",
+      module: "정비",
+      record_id: id,
+      title: target.title || "",
+      detail: `${target.date || "-"} · ${target.warehouse || "-"}`,
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("maints").delete().eq("id", id);
     if (error) return alert(`정비 삭제 실패: ${error.message}`);
     setMaints((prev) => prev.filter((m) => m.id !== id));
     await addActivityLog({
       module: "정비",
-      action: "삭제",
+      action: "휴지통 이동",
       target_id: id,
       target_title: target?.title || "",
       detail: `${target?.date || "-"} · ${target?.warehouse || "-"}`,
@@ -3173,6 +3257,13 @@ export default function App() {
     const moduleOk = !activityLogSearch.module || log.module === activityLogSearch.module;
     const keyword = activityLogSearch.keyword.trim().toLowerCase();
     const target = `${log.module || ""} ${log.action || ""} ${log.target_title || ""} ${log.detail || ""} ${log.user_email || ""}`.toLowerCase();
+    return moduleOk && (!keyword || target.includes(keyword));
+  });
+
+  const filteredDeletedRecords = deletedRecords.filter((record) => {
+    const moduleOk = !trashSearch.module || record.module === trashSearch.module;
+    const keyword = trashSearch.keyword.trim().toLowerCase();
+    const target = `${record.module || ""} ${record.title || ""} ${record.detail || ""} ${record.deleted_by || ""}`.toLowerCase();
     return moduleOk && (!keyword || target.includes(keyword));
   });
 
@@ -3324,6 +3415,104 @@ export default function App() {
       user_role: row.user_role || "",
       created_at: row.created_at || "",
     })) as ActivityLog[]);
+  };
+
+  const loadDeletedRecords = async () => {
+    const { data, error } = await supabase
+      .from("deleted_records")
+      .select("*")
+      .order("deleted_at", { ascending: false })
+      .limit(300);
+
+    if (error) {
+      console.error(error);
+      setDeletedRecords([]);
+      return;
+    }
+
+    setDeletedRecords(((data || []) as any[]).map((row) => ({
+      ...row,
+      id: String(row.id),
+      source_table: row.source_table || "",
+      module: row.module || "",
+      record_id: row.record_id || "",
+      title: row.title || "",
+      detail: row.detail || "",
+      data: row.data || {},
+      deleted_by: row.deleted_by || "",
+      deleted_at: row.deleted_at || "",
+    })) as DeletedRecord[]);
+  };
+
+  const moveToTrash = async ({
+    source_table,
+    module,
+    record_id,
+    title = "",
+    detail = "",
+    data,
+  }: {
+    source_table: string;
+    module: string;
+    record_id: string;
+    title?: string;
+    detail?: string;
+    data: any;
+  }) => {
+    const trashPayload: DeletedRecord = {
+      id: `trash-${source_table}-${record_id}-${Date.now()}`,
+      source_table,
+      module,
+      record_id,
+      title,
+      detail,
+      data,
+      deleted_by: userEmail || "",
+      deleted_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("deleted_records").insert(trashPayload);
+    if (error) {
+      alert(`휴지통 저장 실패: ${error.message}`);
+      return false;
+    }
+
+    return true;
+  };
+
+  const restoreDeletedRecord = async (record: DeletedRecord) => {
+    if (!isAdmin) return alert("관리자만 복구할 수 있습니다.");
+    if (!confirm(`${record.title || record.module} 항목을 복구할까요?`)) return;
+
+    const { error: restoreError } = await supabase.from(record.source_table).upsert(record.data);
+    if (restoreError) return alert(`복구 실패: ${restoreError.message}`);
+
+    const { error: deleteTrashError } = await supabase.from("deleted_records").delete().eq("id", record.id);
+    if (deleteTrashError) return alert(`휴지통 정리 실패: ${deleteTrashError.message}`);
+
+    await addActivityLog({
+      module: record.module,
+      action: "복구",
+      target_id: record.record_id,
+      target_title: record.title || "",
+      detail: record.detail || "",
+    });
+
+    await loadDeletedRecords();
+    await loadAll();
+    await loadReceiptPhotos();
+    await loadMaintenancePhotos();
+    alert("복구되었습니다.");
+  };
+
+  const permanentlyDeleteTrashRecord = async (id: string) => {
+    if (!isAdmin) return alert("관리자만 완전삭제할 수 있습니다.");
+    if (!confirm("휴지통에서 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+
+    const { error } = await supabase.from("deleted_records").delete().eq("id", id);
+    if (error) return alert(`완전삭제 실패: ${error.message}`);
+
+    await loadDeletedRecords();
   };
 
   const loadSiteNotices = async () => {
@@ -3784,6 +3973,7 @@ export default function App() {
 
           {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
           {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => setMenuTab("activity_logs")}>작업로그</button>}
+          {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => setMenuTab("trash_bin")}>휴지통</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
           <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
@@ -4858,6 +5048,89 @@ export default function App() {
           />
         )}
 
+        {menuTab === "trash_bin" && isAdmin && (
+          <section className="card trash-page">
+            <div className="between">
+              <div>
+                <h2>휴지통</h2>
+                <p className="muted">삭제된 구매/카드/정비/사진 등록건을 복구하거나 완전삭제합니다.</p>
+              </div>
+              <button onClick={loadDeletedRecords}>새로고침</button>
+            </div>
+
+            <div className="grid3">
+              <Field label="구분">
+                <select value={trashSearch.module} onChange={(e) => setTrashSearch({ ...trashSearch, module: e.target.value })}>
+                  <option value="">전체</option>
+                  <option value="구매">구매</option>
+                  <option value="카드">카드</option>
+                  <option value="정비">정비</option>
+                  <option value="입고사진">입고사진</option>
+                  <option value="정비사진">정비사진</option>
+                </select>
+              </Field>
+              <Field label="검색">
+                <input value={trashSearch.keyword} onChange={(e) => setTrashSearch({ ...trashSearch, keyword: e.target.value })} placeholder="제목/내용/삭제자 검색" />
+              </Field>
+            </div>
+
+            <ScrollTable>
+              <table>
+                <thead>
+                  <tr>
+                    <th>삭제일시</th>
+                    <th>구분</th>
+                    <th>대상</th>
+                    <th>내용</th>
+                    <th>삭제자</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDeletedRecords.map((record) => (
+                    <tr key={record.id}>
+                      <td>{String(record.deleted_at || "").slice(0, 19).replace("T", " ")}</td>
+                      <td>{record.module}</td>
+                      <td><b>{record.title || "-"}</b></td>
+                      <td>{record.detail || "-"}</td>
+                      <td>{toLoginId(record.deleted_by || "") || "-"}</td>
+                      <td>
+                        <button onClick={() => restoreDeletedRecord(record)}>복구</button>
+                        <button className="danger" onClick={() => permanentlyDeleteTrashRecord(record.id)}>완전삭제</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!filteredDeletedRecords.length && (
+                    <tr>
+                      <td colSpan={6} className="center">휴지통이 비어 있습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+
+            <div className="mobile-card-list">
+              {filteredDeletedRecords.map((record) => (
+                <div className="mobile-list-card" key={record.id}>
+                  <div className="mobile-list-top">
+                    <b>{record.module}</b>
+                    <span>{String(record.deleted_at || "").slice(5, 16).replace("T", " ")}</span>
+                  </div>
+                  <div className="mobile-list-body">
+                    <p><b>대상</b> {record.title || "-"}</p>
+                    <p><b>내용</b> {record.detail || "-"}</p>
+                    <p><b>삭제자</b> {toLoginId(record.deleted_by || "") || "-"}</p>
+                  </div>
+                  <div className="mobile-list-actions">
+                    <button onClick={() => restoreDeletedRecord(record)}>복구</button>
+                    <button className="danger" onClick={() => permanentlyDeleteTrashRecord(record.id)}>완전삭제</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {menuTab === "activity_logs" && isAdmin && (
           <section className="card activity-log-page">
             <div className="between">
@@ -5695,6 +5968,7 @@ export default function App() {
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
+                  {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
                   {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
                   {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
@@ -5723,7 +5997,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","activity_logs","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
@@ -16117,6 +16391,26 @@ button:disabled{
   color:#94a3b8;
   font-weight:900;
   padding:28px;
+}
+
+
+.trash-page .muted{
+  margin:4px 0 0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:750;
+}
+.trash-page td.center{
+  text-align:center;
+  color:#94a3b8;
+  font-weight:900;
+  padding:28px;
+}
+.trash-page button.danger,
+.mobile-list-actions button.danger{
+  background:#fee2e2;
+  color:#b91c1c;
+  border-color:#fecaca;
 }
 
 
