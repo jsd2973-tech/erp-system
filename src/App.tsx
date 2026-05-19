@@ -3016,6 +3016,45 @@ export default function App() {
     setMaintForm((prev) => ({ ...prev, cost: String(total) }));
   };
 
+  const makeMaintItemFromSuggestion = (source: Partial<MaintItem>): MaintItem => {
+    const itemName = String(source.item || "").trim();
+    const master = items.find((it) => it.name === itemName);
+    const qty = Number(source.qty || 1) || 1;
+    const price = Number(source.price || master?.price || 0);
+    const supply = qty * price;
+    const vat = Math.round(supply * 0.1);
+
+    return {
+      id: uid(),
+      item: itemName,
+      spec: String(source.spec || master?.spec || ""),
+      qty,
+      price,
+      supply,
+      vat,
+      total: supply + vat,
+    };
+  };
+
+  const applyMaintItems = (nextItems: MaintItem[]) => {
+    setMaintItems(nextItems.length ? nextItems : [emptyMaintItem()]);
+    const total = nextItems.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+  };
+
+  const addMaintSuggestedItems = (suggestions: { item: string; spec?: string; qty?: number | string; price?: number | string }[]) => {
+    const current = maintItems.filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total);
+    const existingNames = new Set(current.map((row) => String(row.item || "").trim()).filter(Boolean));
+
+    const nextSuggested = suggestions
+      .filter((suggestion) => String(suggestion.item || "").trim() && !existingNames.has(String(suggestion.item || "").trim()))
+      .map((suggestion) => makeMaintItemFromSuggestion(suggestion));
+
+    if (!nextSuggested.length) return alert("추가할 추천 품목이 없습니다.");
+
+    applyMaintItems([...current, ...nextSuggested]);
+  };
+
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
 
@@ -3056,6 +3095,101 @@ export default function App() {
   const maintSupplyTotal = maintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
   const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
+
+  const maintTitleKeyword = maintForm.title.trim().toLowerCase();
+  const maintSuggestedItems = useMemo(() => {
+    if (!maintTitleKeyword) return [];
+
+    const rows = new Map<string, {
+      item: string;
+      spec: string;
+      qty: number;
+      price: number;
+      count: number;
+      lastDate: string;
+    }>();
+
+    maints.forEach((record) => {
+      if (editingMaintId && record.id === editingMaintId) return;
+
+      const title = String(record.title || "").toLowerCase();
+      const detail = String(record.detail || "").toLowerCase();
+      const keywordMatch = title.includes(maintTitleKeyword) || maintTitleKeyword.includes(title) || detail.includes(maintTitleKeyword);
+      if (!keywordMatch) return;
+
+      (record.items || []).forEach((row) => {
+        const itemName = String(row.item || "").trim();
+        if (!itemName) return;
+
+        const prev = rows.get(itemName) || {
+          item: itemName,
+          spec: String(row.spec || ""),
+          qty: Number(row.qty || 1) || 1,
+          price: Number(row.price || 0),
+          count: 0,
+          lastDate: "",
+        };
+
+        prev.count += 1;
+        if (String(record.date || "") >= String(prev.lastDate || "")) {
+          prev.spec = String(row.spec || prev.spec || "");
+          prev.qty = Number(row.qty || prev.qty || 1) || 1;
+          prev.price = Number(row.price || prev.price || 0);
+          prev.lastDate = String(record.date || "");
+        }
+
+        rows.set(itemName, prev);
+      });
+    });
+
+    return Array.from(rows.values())
+      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")))
+      .slice(0, 8);
+  }, [maints, maintTitleKeyword, editingMaintId]);
+
+  const recentMaintUsedItems = useMemo(() => {
+    const rows = new Map<string, {
+      item: string;
+      spec: string;
+      qty: number;
+      price: number;
+      count: number;
+      lastDate: string;
+    }>();
+
+    [...maints]
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 30)
+      .forEach((record) => {
+        (record.items || []).forEach((row) => {
+          const itemName = String(row.item || "").trim();
+          if (!itemName) return;
+
+          const prev = rows.get(itemName) || {
+            item: itemName,
+            spec: String(row.spec || ""),
+            qty: Number(row.qty || 1) || 1,
+            price: Number(row.price || 0),
+            count: 0,
+            lastDate: "",
+          };
+
+          prev.count += 1;
+          if (String(record.date || "") >= String(prev.lastDate || "")) {
+            prev.spec = String(row.spec || prev.spec || "");
+            prev.qty = Number(row.qty || prev.qty || 1) || 1;
+            prev.price = Number(row.price || prev.price || 0);
+            prev.lastDate = String(record.date || "");
+          }
+
+          rows.set(itemName, prev);
+        });
+      });
+
+    return Array.from(rows.values())
+      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")))
+      .slice(0, 10);
+  }, [maints]);
 
   const clearMaintDraft = () => {
     try {
@@ -5674,6 +5808,48 @@ export default function App() {
                 <input value={maintForm.cost} readOnly />
               </Field>
             </div>
+
+            {(maintSuggestedItems.length > 0 || recentMaintUsedItems.length > 0) && (
+              <div className="maint-suggest-box">
+                <div className="maint-suggest-head">
+                  <div>
+                    <strong>추천 품목</strong>
+                    <span>
+                      {maintSuggestedItems.length
+                        ? `"${maintForm.title}" 작업에서 자주 사용된 품목입니다.`
+                        : "최근 정비에서 자주 사용한 품목입니다."}
+                    </span>
+                  </div>
+                  {!!maintSuggestedItems.length && (
+                    <button className="primary" onClick={() => addMaintSuggestedItems(maintSuggestedItems)}>
+                      추천 품목 전체 추가
+                    </button>
+                  )}
+                </div>
+
+                {!!maintSuggestedItems.length && (
+                  <div className="maint-suggest-chips">
+                    {maintSuggestedItems.map((item) => (
+                      <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
+                        <b>{item.item}</b>
+                        <span>{item.count}회 사용</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!maintSuggestedItems.length && !!recentMaintUsedItems.length && (
+                  <div className="maint-suggest-chips muted">
+                    {recentMaintUsedItems.slice(0, 8).map((item) => (
+                      <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
+                        <b>{item.item}</b>
+                        <span>최근 {item.count}회</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <h3>사용 품목</h3>
             <div className="table-wrap">
@@ -17149,6 +17325,80 @@ button:disabled{
   }
   .date-input-wrap .date-picker-input{
     height:46px;
+  }
+}
+
+
+/* Maintenance recommended items */
+.maint-suggest-box{
+  margin:16px 0 18px;
+  padding:16px;
+  border:1px solid #dbeafe;
+  border-radius:18px;
+  background:linear-gradient(180deg,#f8fbff,#ffffff);
+  box-shadow:0 8px 22px rgba(15,23,42,.045);
+}
+.maint-suggest-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:12px;
+}
+.maint-suggest-head strong{
+  display:block;
+  color:#0f172a;
+  font-size:16px;
+  font-weight:1000;
+}
+.maint-suggest-head span{
+  display:block;
+  margin-top:4px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+.maint-suggest-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.maint-suggest-chips button{
+  border:1px solid #bfdbfe;
+  background:#eff6ff;
+  color:#1d4ed8;
+  border-radius:999px;
+  padding:8px 11px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  cursor:pointer;
+}
+.maint-suggest-chips button b{
+  font-size:13px;
+  font-weight:1000;
+}
+.maint-suggest-chips button span{
+  color:#475569;
+  font-size:11px;
+  font-weight:900;
+}
+.maint-suggest-chips.muted button{
+  border-color:#e2e8f0;
+  background:#f8fafc;
+  color:#334155;
+}
+@media(max-width:900px){
+  .maint-suggest-head{
+    flex-direction:column;
+  }
+  .maint-suggest-head button{
+    width:100%;
+  }
+  .maint-suggest-chips button{
+    width:100%;
+    justify-content:space-between;
+    border-radius:14px;
   }
 }
 
