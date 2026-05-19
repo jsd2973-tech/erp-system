@@ -1124,6 +1124,23 @@ export default function App() {
     targetId: string;
     search: string;
   }>({ mode: "", targetId: "", search: "" });
+  const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; title: string } | null>(null);
+
+  const openPhotoViewer = (urls: string[], index = 0, title = "사진 보기") => {
+    const imageUrls = (urls || []).filter((url) => String(url || "").match(/\.(jpg|jpeg|png|webp|gif|heic)(\?|$)/i) || String(url || "").startsWith("blob:") || String(url || "").includes("/storage/"));
+    if (!imageUrls.length) return;
+    setPhotoViewer({ urls: imageUrls, index, title });
+  };
+
+  const closePhotoViewer = () => setPhotoViewer(null);
+
+  const movePhotoViewer = (direction: number) => {
+    setPhotoViewer((prev) => {
+      if (!prev) return prev;
+      const nextIndex = (prev.index + direction + prev.urls.length) % prev.urls.length;
+      return { ...prev, index: nextIndex };
+    });
+  };
 
 
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
@@ -4064,7 +4081,7 @@ export default function App() {
                         type="button"
                         key={`${url}-${idx}`}
                         className="upload-preview-thumb"
-                        onClick={() => window.open(url, "_blank")}
+                        onClick={() => openPhotoViewer(receiptUploadPreviewUrls, idx, "입고사진 미리보기")}
                       >
                         <img src={url} alt={`정비사진 미리보기 ${idx + 1}`} />
                       </button>
@@ -4110,7 +4127,7 @@ export default function App() {
 
                     <div className="receipt-clean-thumbs">
                       {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => setMaintenancePhotoPreviewOpen(item)} />
+                        <img key={`${item.id}-${idx}`} src={url} alt="정비사진" onClick={() => openPhotoViewer(item.image_urls || [], idx, `${item.equipment_name || "정비사진"}`)} />
                       ))}
                       {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
@@ -4250,7 +4267,7 @@ export default function App() {
                         type="button"
                         key={`${url}-${idx}`}
                         className="upload-preview-thumb"
-                        onClick={() => window.open(url, "_blank")}
+                        onClick={() => openPhotoViewer(maintenanceUploadPreviewUrls, idx, "정비사진 미리보기")}
                       >
                         <img src={url} alt={`입고사진 미리보기 ${idx + 1}`} />
                       </button>
@@ -4295,7 +4312,7 @@ export default function App() {
 
                     <div className="receipt-clean-thumbs">
                       {(item.image_urls || []).slice(0, 3).map((url, idx) => (
-                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => setReceiptPhotoPreviewOpen(item)} />
+                        <img key={`${item.id}-${idx}`} src={url} alt="입고사진" onClick={() => openPhotoViewer(item.image_urls || [], idx, `${item.vendor_name || "입고사진"}`)} />
                       ))}
                       {!(item.image_urls || []).length && <div className="receipt-no-thumb">사진 없음</div>}
                       {(item.image_urls || []).length > 3 && <div className="receipt-more-thumb">+{(item.image_urls || []).length - 3}</div>}
@@ -5257,6 +5274,46 @@ export default function App() {
                     </button>
                   ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {photoViewer && (
+          <div className="photo-viewer-backdrop" onClick={closePhotoViewer}>
+            <div className="photo-viewer-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="photo-viewer-head">
+                <div>
+                  <strong>{photoViewer.title}</strong>
+                  <span>{photoViewer.index + 1} / {photoViewer.urls.length}</span>
+                </div>
+                <button onClick={closePhotoViewer}>닫기</button>
+              </div>
+
+              <div className="photo-viewer-body">
+                {photoViewer.urls.length > 1 && (
+                  <button className="photo-viewer-nav prev" onClick={() => movePhotoViewer(-1)}>‹</button>
+                )}
+
+                <img src={photoViewer.urls[photoViewer.index]} alt="확대사진" />
+
+                {photoViewer.urls.length > 1 && (
+                  <button className="photo-viewer-nav next" onClick={() => movePhotoViewer(1)}>›</button>
+                )}
+              </div>
+
+              {photoViewer.urls.length > 1 && (
+                <div className="photo-viewer-thumbs">
+                  {photoViewer.urls.map((url, idx) => (
+                    <button
+                      key={`${url}-${idx}`}
+                      className={idx === photoViewer.index ? "active" : ""}
+                      onClick={() => setPhotoViewer((prev) => prev ? { ...prev, index: idx } : prev)}
+                    >
+                      <img src={url} alt={`썸네일 ${idx + 1}`} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -15480,6 +15537,142 @@ button:disabled{
     font-size:18px;
     font-weight:1000;
     border-radius:18px;
+  }
+}
+
+
+.photo-viewer-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:100000;
+  background:rgba(15,23,42,.82);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.photo-viewer-modal{
+  width:min(980px,96vw);
+  max-height:94vh;
+  background:#0f172a;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:24px;
+  overflow:hidden;
+  box-shadow:0 30px 100px rgba(0,0,0,.45);
+  display:flex;
+  flex-direction:column;
+}
+.photo-viewer-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  color:#fff;
+  background:rgba(15,23,42,.92);
+}
+.photo-viewer-head strong{
+  display:block;
+  font-size:16px;
+  font-weight:1000;
+}
+.photo-viewer-head span{
+  display:block;
+  margin-top:3px;
+  color:#cbd5e1;
+  font-size:12px;
+  font-weight:850;
+}
+.photo-viewer-head button{
+  border:0;
+  background:#fff;
+  color:#0f172a;
+  border-radius:999px;
+  padding:8px 13px;
+  font-size:13px;
+  font-weight:950;
+}
+.photo-viewer-body{
+  position:relative;
+  min-height:360px;
+  max-height:70vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#020617;
+}
+.photo-viewer-body img{
+  max-width:100%;
+  max-height:70vh;
+  object-fit:contain;
+  display:block;
+}
+.photo-viewer-nav{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  width:48px;
+  height:64px;
+  border:0;
+  border-radius:18px;
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  font-size:42px;
+  line-height:1;
+  cursor:pointer;
+}
+.photo-viewer-nav.prev{left:12px}
+.photo-viewer-nav.next{right:12px}
+.photo-viewer-thumbs{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:12px;
+  background:#111827;
+}
+.photo-viewer-thumbs button{
+  flex:0 0 58px;
+  width:58px;
+  height:58px;
+  border:2px solid transparent;
+  border-radius:12px;
+  padding:0;
+  overflow:hidden;
+  background:#1f2937;
+}
+.photo-viewer-thumbs button.active{
+  border-color:#60a5fa;
+}
+.photo-viewer-thumbs img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+@media(max-width:760px){
+  .photo-viewer-backdrop{
+    padding:0;
+    align-items:stretch;
+  }
+  .photo-viewer-modal{
+    width:100vw;
+    max-height:100vh;
+    height:100vh;
+    border-radius:0;
+  }
+  .photo-viewer-body{
+    flex:1;
+    min-height:0;
+    max-height:none;
+  }
+  .photo-viewer-body img{
+    max-height:100%;
+  }
+  .photo-viewer-nav{
+    width:42px;
+    height:58px;
+    font-size:36px;
+    border-radius:16px;
   }
 }
 
