@@ -620,6 +620,25 @@ type DeletedRecord = {
   deleted_at?: string;
 };
 
+type BackupExport = {
+  exported_at: string;
+  exported_by: string;
+  vendors: Vendor[];
+  warehouse_groups: Group[];
+  warehouses: Warehouse[];
+  items: Item[];
+  purchases: Purchase[];
+  maints: Maint[];
+  card_uses: CardUse[];
+  receipt_photos: ReceiptPhoto[];
+  maintenance_photos: MaintenancePhoto[];
+  maintenance_schedules: MaintenanceSchedule[];
+  vendor_accounts: VendorAccount[];
+  permits: PermitRenewal[];
+  activity_logs: ActivityLog[];
+  deleted_records: DeletedRecord[];
+};
+
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayKey = () => {
@@ -1048,6 +1067,7 @@ export default function App() {
   const [activityLogSearch, setActivityLogSearch] = useState({ module: "", keyword: "" });
   const [deletedRecords, setDeletedRecords] = useState<DeletedRecord[]>([]);
   const [trashSearch, setTrashSearch] = useState({ module: "", keyword: "" });
+  const [backupSaving, setBackupSaving] = useState(false);
   const [permissionForm, setPermissionForm] = useState<UserPermission>({
     id: uid(),
     email: "",
@@ -3515,6 +3535,129 @@ export default function App() {
     await loadDeletedRecords();
   };
 
+  const fetchBackupTable = async (table: string, orderColumn = "id") => {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order(orderColumn, { ascending: false });
+
+    if (error) {
+      console.error(`backup ${table} failed`, error);
+      return [];
+    }
+
+    return data || [];
+  };
+
+  const downloadTextFile = (fileName: string, content: string, type = "application/json") => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportFullBackup = async () => {
+    if (!isAdmin) return alert("관리자만 백업할 수 있습니다.");
+    if (backupSaving) return;
+
+    setBackupSaving(true);
+
+    try {
+      const [
+        backupVendors,
+        backupGroups,
+        backupWarehouses,
+        backupItems,
+        backupPurchases,
+        backupMaints,
+        backupCardUses,
+        backupReceiptPhotos,
+        backupMaintenancePhotos,
+        backupMaintenanceSchedules,
+        backupVendorAccounts,
+        backupPermits,
+        backupActivityLogs,
+        backupDeletedRecords,
+      ] = await Promise.all([
+        fetchBackupTable("vendors", "code"),
+        fetchBackupTable("warehouse_groups", "code"),
+        fetchBackupTable("warehouses", "code"),
+        fetchBackupTable("items", "code"),
+        fetchBackupTable("purchases", "date"),
+        fetchBackupTable("maints", "date"),
+        fetchBackupTable("card_uses", "date"),
+        fetchBackupTable("receipt_photos", "receipt_date"),
+        fetchBackupTable("maintenance_photos", "maint_date"),
+        fetchBackupTable("maintenance_schedules", "schedule_date"),
+        fetchBackupTable("vendor_accounts", "vendor_name"),
+        fetchBackupTable("permit_renewals", "expiry_date"),
+        fetchBackupTable("activity_logs", "created_at"),
+        fetchBackupTable("deleted_records", "deleted_at"),
+      ]);
+
+      const backup: BackupExport = {
+        exported_at: new Date().toISOString(),
+        exported_by: userEmail || "",
+        vendors: backupVendors as Vendor[],
+        warehouse_groups: backupGroups as Group[],
+        warehouses: backupWarehouses as Warehouse[],
+        items: backupItems as Item[],
+        purchases: (backupPurchases as any[]).map(toPurchase),
+        maints: backupMaints as Maint[],
+        card_uses: backupCardUses as CardUse[],
+        receipt_photos: backupReceiptPhotos as ReceiptPhoto[],
+        maintenance_photos: backupMaintenancePhotos as MaintenancePhoto[],
+        maintenance_schedules: backupMaintenanceSchedules as MaintenanceSchedule[],
+        vendor_accounts: backupVendorAccounts as VendorAccount[],
+        permits: backupPermits as PermitRenewal[],
+        activity_logs: backupActivityLogs as ActivityLog[],
+        deleted_records: backupDeletedRecords as DeletedRecord[],
+      };
+
+      const fileName = `ERP_전체백업_${getTodayKey()}_${new Date().toTimeString().slice(0, 5).replace(":", "")}.json`;
+      downloadTextFile(fileName, JSON.stringify(backup, null, 2));
+
+      await addActivityLog({
+        module: "백업",
+        action: "전체백업 다운로드",
+        target_title: fileName,
+        detail: `구매 ${backup.purchases.length}건 · 정비 ${backup.maints.length}건 · 카드 ${backup.card_uses.length}건 · 휴지통 ${backup.deleted_records.length}건`,
+      });
+
+      alert("전체 백업 파일을 다운로드했습니다.");
+    } finally {
+      setBackupSaving(false);
+    }
+  };
+
+  const exportBackupSummaryExcel = async () => {
+    if (!isAdmin) return alert("관리자만 백업할 수 있습니다.");
+
+    const rows = [
+      { 구분: "거래처", 건수: vendors.length },
+      { 구분: "창고대분류", 건수: groups.length },
+      { 구분: "창고", 건수: warehouses.length },
+      { 구분: "품목", 건수: items.length },
+      { 구분: "구매", 건수: purchases.length },
+      { 구분: "정비", 건수: maints.length },
+      { 구분: "카드사용", 건수: cardUses.length },
+      { 구분: "입고사진", 건수: receiptPhotos.length },
+      { 구분: "정비사진", 건수: maintenancePhotos.length },
+      { 구분: "정비일정", 건수: maintenanceSchedules.length },
+      { 구분: "거래처계좌", 건수: vendorAccounts.length },
+      { 구분: "허가관리", 건수: permits.length },
+      { 구분: "작업로그", 건수: activityLogs.length },
+      { 구분: "휴지통", 건수: deletedRecords.length },
+    ];
+
+    downloadExcel(`ERP_백업현황_${getTodayKey()}`, rows);
+  };
+
   const loadSiteNotices = async () => {
     setSiteNoticeError("");
 
@@ -5034,6 +5177,8 @@ export default function App() {
             maintenanceSchedules={maintenanceSchedules}
             updateNotices={updateNotices}
             userPermissions={userPermissions}
+            activityLogs={activityLogs}
+            deletedRecords={deletedRecords}
             permissionForm={permissionForm}
             setPermissionForm={setPermissionForm}
             saveUserPermission={saveUserPermission}
@@ -5045,6 +5190,9 @@ export default function App() {
             loadMaintenancePhotos={loadMaintenancePhotos}
             loadMaintenanceSchedules={loadMaintenanceSchedules}
             loadUserPermissions={loadUserPermissions}
+            backupSaving={backupSaving}
+            exportFullBackup={exportFullBackup}
+            exportBackupSummaryExcel={exportBackupSummaryExcel}
           />
         )}
 
@@ -7171,6 +7319,8 @@ function BackupPermissionPage({
   maintenanceSchedules,
   updateNotices,
   userPermissions,
+  activityLogs,
+  deletedRecords,
   permissionForm,
   setPermissionForm,
   saveUserPermission,
@@ -7182,6 +7332,9 @@ function BackupPermissionPage({
   loadMaintenancePhotos,
   loadMaintenanceSchedules,
   loadUserPermissions,
+  backupSaving,
+  exportFullBackup,
+  exportBackupSummaryExcel,
 }: any) {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
@@ -7324,10 +7477,15 @@ function BackupPermissionPage({
             <div><b>{maints.length}</b><span>정비</span></div>
             <div><b>{cardUses.length}</b><span>카드</span></div>
             <div><b>{maintenanceSchedules.length}</b><span>정비일정</span></div>
+            <div><b>{activityLogs?.length || 0}</b><span>작업로그</span></div>
+            <div><b>{deletedRecords?.length || 0}</b><span>휴지통</span></div>
           </div>
           <div className="backup-actions">
-            <button className="primary" onClick={downloadJsonBackup}>JSON 백업 다운로드</button>
-            <button onClick={downloadExcelBackup}>백업 요약 엑셀</button>
+            <button className="primary" disabled={backupSaving} onClick={exportFullBackup}>
+              {backupSaving ? "백업 생성 중..." : "전체 백업 다운로드"}
+            </button>
+            <button onClick={exportBackupSummaryExcel}>백업 요약 엑셀</button>
+            <button onClick={downloadJsonBackup}>화면 데이터 간단 백업</button>
           </div>
         </div>
 
@@ -16411,6 +16569,12 @@ button:disabled{
   background:#fee2e2;
   color:#b91c1c;
   border-color:#fecaca;
+}
+
+
+.backup-actions button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 
