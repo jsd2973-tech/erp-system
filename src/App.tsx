@@ -3783,6 +3783,7 @@ export default function App() {
           )}
 
           {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
+          {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => setMenuTab("activity_logs")}>작업로그</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
           <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
