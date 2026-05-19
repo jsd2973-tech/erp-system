@@ -7833,14 +7833,19 @@ function HomeDashboard({
           <span>오늘 정비일정</span>
           <b>{todaySchedules.length}건</b>
         </button>
-        <button onClick={() => setMenuTab?.("activity_logs")}>
-          <span>오늘 작업로그</span>
-          <b>{todayActivityLogs.length}건</b>
-        </button>
-        <button onClick={() => setMenuTab?.("trash_bin")}>
-          <span>휴지통 보관</span>
-          <b>{deletedRecords.length}건</b>
-        </button>
+        {currentRole === "admin" && (
+          <>
+            <button onClick={() => setMenuTab?.("activity_logs")}>
+              <span>오늘 작업로그</span>
+              <b>{todayActivityLogs.length}건</b>
+            </button>
+
+            <button onClick={() => setMenuTab?.("trash_bin")}>
+              <span>휴지통 보관</span>
+              <b>{deletedRecords.length}건</b>
+            </button>
+          </>
+        )}
       </div>
 
       <div className="modern-home-grid middle">
@@ -7960,27 +7965,42 @@ function HomeDashboard({
         </div>
       </div>
 
-      <div className="modern-home-grid logs">
-        <div className="modern-home-panel modern-home-log-panel">
-          <div className="modern-home-panel-head">
-            <h3>최근 작업로그</h3>
-            <button onClick={() => setMenuTab?.("activity_logs")}>더보기 ›</button>
-          </div>
-          <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>시간</th><th>작업자</th><th>작업</th><th>상세</th></tr></thead>
-            <tbody>
-              {recentActivityLogs.length ? recentActivityLogs.map((log) => (
-                <tr key={log.id}>
-                  <td>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</td>
-                  <td>{toLoginId(log.user_email || "") || "-"}</td>
-                  <td>{log.module} · {log.action}</td>
-                  <td>{log.target_title || log.detail || "-"}</td>
+      {currentRole === "admin" && (
+        <div className="modern-home-grid logs">
+          <div className="modern-home-panel modern-home-log-panel">
+            <div className="modern-home-panel-head">
+              <h3>최근 작업로그</h3>
+              <button onClick={() => setMenuTab?.("activity_logs")}>더보기 ›</button>
+            </div>
+
+            <table className="modern-home-table desktop-only-table">
+              <thead>
+                <tr>
+                  <th>시간</th>
+                  <th>작업자</th>
+                  <th>작업</th>
+                  <th>상세</th>
                 </tr>
-              )) : <tr><td colSpan={4}>최근 작업로그가 없습니다.</td></tr>}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {recentActivityLogs.length ? recentActivityLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</td>
+                    <td>{toLoginId(log.user_email || "") || "-"}</td>
+                    <td>{log.module} · {log.action}</td>
+                    <td>{log.target_title || log.detail || "-"}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={4}>최근 작업로그가 없습니다.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="modern-home-grid bottom">
         <div className="modern-home-panel">
