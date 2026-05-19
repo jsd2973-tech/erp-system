@@ -5478,11 +5478,11 @@ export default function App() {
 
             <div className="grid5">
               <Field label="사용일자">
-                <input
-                  type="text"
-                  placeholder="240107 또는 20240107"
+                <DateInput
                   value={cardForm.date}
-                  onChange={(e) => setCardForm({ ...cardForm, date: formatInputDate(e.target.value) })}
+                  onChange={(value) => setCardForm({ ...cardForm, date: value })}
+                  placeholder="20260519 또는 260519"
+                  ariaLabel="사용일자 선택"
                 />
               </Field>
               <Field label="담당자">
@@ -5653,11 +5653,11 @@ export default function App() {
 
             <div className="grid3">
               <Field label="정비일자">
-                <input
-                  type="text"
-                  placeholder="240107 또는 20240107"
+                <DateInput
                   value={maintForm.date}
-                  onChange={(e) => setMaintForm({ ...maintForm, date: formatInputDate(e.target.value) })}
+                  onChange={(value) => setMaintForm({ ...maintForm, date: value })}
+                  placeholder="20260519 또는 260519"
+                  ariaLabel="정비일자 선택"
                 />
               </Field>
               <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
