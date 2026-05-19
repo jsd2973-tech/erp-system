@@ -596,6 +596,18 @@ type UserPermission = {
   updated_at?: string;
 };
 
+type ActivityLog = {
+  id: string;
+  module: string;
+  action: string;
+  target_id?: string;
+  target_title?: string;
+  detail?: string;
+  user_email?: string;
+  user_role?: string;
+  created_at?: string;
+};
+
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayKey = () => {
@@ -616,6 +628,7 @@ const updateNoticeHideValue = () => getTodayKey();
 const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
   { key: "site_notices", label: "공지" },
+  { key: "activity_logs", label: "작업로그" },
   { key: "layout", label: "생산라인" },
   { key: "new", label: "구매입력" },
   { key: "list", label: "구매조회" },
@@ -1018,6 +1031,8 @@ export default function App() {
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [updateNoticeError, setUpdateNoticeError] = useState("");
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityLogSearch, setActivityLogSearch] = useState({ module: "", keyword: "" });
   const [permissionForm, setPermissionForm] = useState<UserPermission>({
     id: uid(),
     email: "",
@@ -1032,6 +1047,7 @@ export default function App() {
     if (!tab) return true;
     if (tab === "home") return true;
     if (tab === "site_notices") return true;
+    if (tab === "activity_logs") return isAdmin;
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
     const permissions = currentUserPermission?.permissions || {};
@@ -1689,6 +1705,7 @@ export default function App() {
       loadMaintenanceSchedules();
       loadSiteNotices();
       loadUserPermissions();
+      loadActivityLogs();
     }
   }, [session]);
 
@@ -1717,6 +1734,10 @@ export default function App() {
 
     if (menuTab === "maintenance_schedule_new" || menuTab === "maintenance_schedules") {
       loadMaintenanceSchedules();
+    }
+
+    if (menuTab === "activity_logs") {
+      loadActivityLogs();
     }
   }, [menuTab, session]);
 
@@ -1861,6 +1882,13 @@ export default function App() {
     const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
     if (error) return alert(`구매 저장 실패: ${error.message}`);
     setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
+    await addActivityLog({
+      module: "구매",
+      action: editingPurchaseId ? "수정" : "등록",
+      target_id: payload.id,
+      target_title: `${payload.vendor || "-"} / ${getPurchaseItemSummary(payload)}`,
+      detail: `${payload.date || "-"} · ${payload.warehouse || "-"} · ${money(payload.total)}원`,
+    });
     if (linkingReceiptPhotoId) {
       await markReceiptPhotoProcessed(linkingReceiptPhotoId);
       setLinkingReceiptPhotoId("");
@@ -2086,6 +2114,14 @@ export default function App() {
       const { error } = await supabase.from("maintenance_photos").insert(payload);
       if (error) return alert(`정비사진 저장 실패: ${error.message}`);
 
+      await addActivityLog({
+        module: "정비사진",
+        action: "등록",
+        target_id: payload.id,
+        target_title: equipmentName,
+        detail: `${payload.maint_date} · ${memo || "내용 없음"} · 첨부 ${imageUrls.length}개${payload.is_urgent ? " · 긴급" : ""}`,
+      });
+
       setMaintenancePhotoForm({ maint_date: getTodayKey(), equipment_name: "", memo: "", is_urgent: false });
       setMaintenancePhotoFiles([]);
       setMaintenanceUploadPreviewUrls([]);
@@ -2106,6 +2142,14 @@ export default function App() {
 
     if (error) return alert(`처리상태 변경 실패: ${error.message}`);
 
+    await addActivityLog({
+      module: "정비사진",
+      action: item.is_processed ? "미처리 변경" : "처리완료",
+      target_id: item.id,
+      target_title: item.equipment_name || "",
+      detail: item.memo || "",
+    });
+
     await loadMaintenancePhotos();
   };
 
@@ -2113,8 +2157,17 @@ export default function App() {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("정비사진 등록건을 삭제할까요?")) return;
 
+    const target = maintenancePhotos.find((item) => item.id === id);
     const { error } = await supabase.from("maintenance_photos").delete().eq("id", id);
     if (error) return alert(`정비사진 삭제 실패: ${error.message}`);
+
+    await addActivityLog({
+      module: "정비사진",
+      action: "삭제",
+      target_id: id,
+      target_title: target?.equipment_name || "",
+      detail: target?.memo || "",
+    });
 
     await loadMaintenancePhotos();
   };
@@ -2465,6 +2518,14 @@ export default function App() {
       const { error } = await supabase.from("receipt_photos").insert(payload);
       if (error) return alert(`입고사진 저장 실패: ${error.message}`);
 
+      await addActivityLog({
+        module: "입고사진",
+        action: "등록",
+        target_id: payload.id,
+        target_title: vendorName,
+        detail: `${payload.receipt_date} · ${memo || "내용 없음"} · 첨부 ${imageUrls.length}개`,
+      });
+
       setReceiptPhotoForm({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
       setReceiptPhotoFiles([]);
       setReceiptUploadPreviewUrls([]);
@@ -2485,6 +2546,14 @@ export default function App() {
 
     if (error) return alert(`처리상태 변경 실패: ${error.message}`);
 
+    await addActivityLog({
+      module: "입고사진",
+      action: item.is_processed ? "미처리 변경" : "처리완료",
+      target_id: item.id,
+      target_title: item.vendor_name || "",
+      detail: item.memo || "",
+    });
+
     await loadReceiptPhotos();
   };
 
@@ -2492,8 +2561,17 @@ export default function App() {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     if (!confirm("입고사진 등록건을 삭제할까요?")) return;
 
+    const target = receiptPhotos.find((item) => item.id === id);
     const { error } = await supabase.from("receipt_photos").delete().eq("id", id);
     if (error) return alert(`입고사진 삭제 실패: ${error.message}`);
+
+    await addActivityLog({
+      module: "입고사진",
+      action: "삭제",
+      target_id: id,
+      target_title: target?.vendor_name || "",
+      detail: target?.memo || "",
+    });
 
     await loadReceiptPhotos();
   };
@@ -2531,6 +2609,14 @@ export default function App() {
         : [payload, ...prev]
     );
 
+    await addActivityLog({
+      module: "카드",
+      action: editingCardUseId ? "수정" : "등록",
+      target_id: payload.id,
+      target_title: payload.place || "",
+      detail: `${payload.date || "-"} · ${money(payload.amount)}원 · ${payload.memo || ""}`,
+    });
+
     resetCardForm();
     alert(editingCardUseId ? "카드사용 수정 완료" : "카드사용 저장 완료");
     setMenuTab("card_list");
@@ -2553,9 +2639,17 @@ export default function App() {
 
   const deleteCardUse = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = cardUses.find((item) => item.id === id);
     const { error } = await supabase.from("card_uses").delete().eq("id", id);
     if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
     setCardUses((prev) => prev.filter((c) => c.id !== id));
+    await addActivityLog({
+      module: "카드",
+      action: "삭제",
+      target_id: id,
+      target_title: target?.place || "",
+      detail: `${target?.date || "-"} · ${money(target?.amount || 0)}원`,
+    });
   };
 
   const filteredCardUses = cardUses
@@ -2953,6 +3047,14 @@ export default function App() {
 
       setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
 
+      await addActivityLog({
+        module: "정비",
+        action: editingMaintId ? "수정" : "등록",
+        target_id: payload.id,
+        target_title: payload.title || "",
+        detail: `${payload.date || "-"} · ${payload.warehouse || "-"} · ${money(payload.cost)}원`,
+      });
+
       if (linkingMaintenancePhotoId) {
         await markMaintenancePhotoProcessed(linkingMaintenancePhotoId);
         setLinkingMaintenancePhotoId("");
@@ -3046,9 +3148,17 @@ export default function App() {
 
   const deleteMaint = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = maints.find((item) => item.id === id);
     const { error } = await supabase.from("maints").delete().eq("id", id);
     if (error) return alert(`정비 삭제 실패: ${error.message}`);
     setMaints((prev) => prev.filter((m) => m.id !== id));
+    await addActivityLog({
+      module: "정비",
+      action: "삭제",
+      target_id: id,
+      target_title: target?.title || "",
+      detail: `${target?.date || "-"} · ${target?.warehouse || "-"}`,
+    });
   };
 
   const filteredMaints = maints
@@ -3058,6 +3168,13 @@ export default function App() {
       if (dateCompare !== 0) return dateCompare;
       return String(b.id || "").localeCompare(String(a.id || ""));
     });
+
+  const filteredActivityLogs = activityLogs.filter((log) => {
+    const moduleOk = !activityLogSearch.module || log.module === activityLogSearch.module;
+    const keyword = activityLogSearch.keyword.trim().toLowerCase();
+    const target = `${log.module || ""} ${log.action || ""} ${log.target_title || ""} ${log.detail || ""} ${log.user_email || ""}`.toLowerCase();
+    return moduleOk && (!keyword || target.includes(keyword));
+  });
 
   const login = async () => {
     setLoginError("");
@@ -3150,6 +3267,63 @@ export default function App() {
     setUpdateNotices(dedupedNotices);
 
     setShowUpdateNotice(false);
+  };
+
+  const addActivityLog = async ({
+    module,
+    action,
+    target_id = "",
+    target_title = "",
+    detail = "",
+  }: {
+    module: string;
+    action: string;
+    target_id?: string;
+    target_title?: string;
+    detail?: string;
+  }) => {
+    try {
+      await supabase.from("activity_logs").insert({
+        id: uid(),
+        module,
+        action,
+        target_id,
+        target_title,
+        detail,
+        user_email: userEmail || "",
+        user_role: currentRole,
+        created_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("activity log failed", error);
+    }
+  };
+
+  const loadActivityLogs = async () => {
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error) {
+      console.error(error);
+      setActivityLogs([]);
+      return;
+    }
+
+    setActivityLogs(((data || []) as any[]).map((row) => ({
+      ...row,
+      id: String(row.id),
+      module: row.module || "",
+      action: row.action || "",
+      target_id: row.target_id || "",
+      target_title: row.target_title || "",
+      detail: row.detail || "",
+      user_email: row.user_email || "",
+      user_role: row.user_role || "",
+      created_at: row.created_at || "",
+    })) as ActivityLog[]);
   };
 
   const loadSiteNotices = async () => {
@@ -4683,6 +4857,82 @@ export default function App() {
           />
         )}
 
+        {menuTab === "activity_logs" && isAdmin && (
+          <section className="card activity-log-page">
+            <div className="between">
+              <div>
+                <h2>작업로그</h2>
+                <p className="muted">관리자 전용 화면입니다. 등록, 수정, 삭제, 처리완료 변경 이력을 최근 300건까지 확인합니다.</p>
+              </div>
+              <button onClick={loadActivityLogs}>새로고침</button>
+            </div>
+
+            <div className="grid3">
+              <Field label="구분">
+                <select value={activityLogSearch.module} onChange={(e) => setActivityLogSearch({ ...activityLogSearch, module: e.target.value })}>
+                  <option value="">전체</option>
+                  <option value="구매">구매</option>
+                  <option value="카드">카드</option>
+                  <option value="정비">정비</option>
+                  <option value="입고사진">입고사진</option>
+                  <option value="정비사진">정비사진</option>
+                </select>
+              </Field>
+              <Field label="검색">
+                <input value={activityLogSearch.keyword} onChange={(e) => setActivityLogSearch({ ...activityLogSearch, keyword: e.target.value })} placeholder="작업자/내용/제목 검색" />
+              </Field>
+            </div>
+
+            <ScrollTable>
+              <table>
+                <thead>
+                  <tr>
+                    <th>시간</th>
+                    <th>구분</th>
+                    <th>작업</th>
+                    <th>대상</th>
+                    <th>내용</th>
+                    <th>작업자</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredActivityLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td>{String(log.created_at || "").slice(0, 19).replace("T", " ")}</td>
+                      <td>{log.module}</td>
+                      <td><b>{log.action}</b></td>
+                      <td>{log.target_title || "-"}</td>
+                      <td>{log.detail || "-"}</td>
+                      <td>{toLoginId(log.user_email || "") || "-"}</td>
+                    </tr>
+                  ))}
+                  {!filteredActivityLogs.length && (
+                    <tr>
+                      <td colSpan={6} className="center">표시할 작업로그가 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+
+            <div className="mobile-card-list">
+              {filteredActivityLogs.map((log) => (
+                <div className="mobile-list-card" key={log.id}>
+                  <div className="mobile-list-top">
+                    <b>{log.module} · {log.action}</b>
+                    <span>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</span>
+                  </div>
+                  <div className="mobile-list-body">
+                    <p><b>대상</b> {log.target_title || "-"}</p>
+                    <p><b>내용</b> {log.detail || "-"}</p>
+                    <p><b>작업자</b> {toLoginId(log.user_email || "") || "-"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {menuTab === "site_notices" && (
           <SiteNoticePage
             siteNotices={visibleSiteNotices}
@@ -5443,6 +5693,7 @@ export default function App() {
               {mobileSheet === "more" && (
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
+                  {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
                   {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
                   {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
@@ -5471,7 +5722,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","activity_logs","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
@@ -15848,6 +16099,23 @@ button:disabled{
     height:100vh;
     border-radius:0;
   }
+}
+
+
+.activity-log-page .muted{
+  margin:4px 0 0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:750;
+}
+.activity-log-page table td{
+  vertical-align:middle;
+}
+.activity-log-page td.center{
+  text-align:center;
+  color:#94a3b8;
+  font-weight:900;
+  padding:28px;
 }
 
 
