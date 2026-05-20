@@ -5911,7 +5911,13 @@ export default function App() {
               <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
             </div>
 
-            <div className="status-cards">
+            <div className="purchase-status-period">
+        <b>
+          조회기간 : {from || to ? `${from || "처음"} ~ ${to || "현재"}` : "전체기간"}
+        </b>
+      </div>
+
+      <div className="status-cards">
               <div><span>카드사용 건수</span><b>{filteredCardUses.length}건</b></div>
               <div><span>카드사용 합계</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}원</b></div>
             </div>
