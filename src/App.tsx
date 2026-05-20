@@ -3311,6 +3311,28 @@ export default function App() {
   const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
   const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
+  const getRecentPurchaseInfo = (itemName: string) => {
+    const keyword = String(itemName || "").trim();
+    if (!keyword) return null;
+
+    const candidates = purchases
+      .flatMap((purchase) =>
+        (purchase.rows || [])
+          .filter((row) => String(row.item || "").trim() === keyword)
+          .map((row) => ({
+            date: purchase.date || "",
+            vendor: purchase.vendor || "",
+            warehouse: purchase.warehouse || "",
+            item: row.item || "",
+            spec: row.spec || "",
+            price: Number(row.price || 0),
+          }))
+      )
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+
+    return candidates[0] || null;
+  };
+
   const maintTitleKeyword = maintForm.title.trim().toLowerCase();
   const maintSuggestedItems = useMemo(() => {
     if (!maintTitleKeyword) return [];
@@ -6221,41 +6243,50 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {maintItems.map((r, i) => (
-                    <tr key={r.id}>
-                      <td>
-                        <div style={{ display: "grid", gridTemplateColumns: "220px 220px", gap: 6, minWidth: 460 }}>
-                          <SearchSelect
-                            value={r.item}
-                            options={itemOptions}
-                            onChange={(v) => updateMaintItem(i, "item", v)}
-                            placeholder="품목 검색"
-                          />
-                          <input
-                            value={r.item}
-                            onChange={(e) => updateMaintItem(i, "item", e.target.value)}
-                            placeholder="품목명 직접수정"
-                          />
-                        </div>
-                      </td>
-                      <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
-                      <td><input className="right" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
-                      <td><input className="right" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
-                      <td><input className="right" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
-                      <td><input className="right" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
-                      <td className="right bold">{money(r.total)}</td>
-                      <td>
-                        <button className="icon" onClick={() => {
-                          const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, idx) => idx !== i);
-                          setMaintItems(next);
-                          const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-                          setMaintForm((prev) => ({ ...prev, cost: String(total) }));
-                        }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {maintItems.map((r, i) => {
+                    const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
+
+                    return (
+                      <tr key={r.id}>
+                        <td>
+                          <div style={{ display: "grid", gridTemplateColumns: "220px 220px", gap: 6, minWidth: 460 }}>
+                            <SearchSelect
+                              value={r.item}
+                              options={itemOptions}
+                              onChange={(v) => updateMaintItem(i, "item", v)}
+                              placeholder="품목 검색"
+                            />
+                            <input
+                              value={r.item}
+                              onChange={(e) => updateMaintItem(i, "item", e.target.value)}
+                              placeholder="품목명 직접수정"
+                            />
+                          </div>
+                          {recentPurchaseInfo && (
+                            <div style={{ marginTop: 6, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                              최근구매: {recentPurchaseInfo.date || "-"} / {recentPurchaseInfo.vendor || "거래처 미입력"} / 단가 {money(recentPurchaseInfo.price)}원
+                            </div>
+                          )}
+                        </td>
+                        <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
+                        <td><input className="right" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
+                        <td><input className="right" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
+                        <td><input className="right" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
+                        <td><input className="right" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
+                        <td className="right bold">{money(r.total)}</td>
+                        <td>
+                          <button className="icon" onClick={() => {
+                            const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, idx) => idx !== i);
+                            setMaintItems(next);
+                            const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
+                            setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+                          }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
