@@ -553,7 +553,7 @@ const upsertInChunks = async (table: string, rows: any[], chunkSize = 500) => {
 };
 
 
-const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000) => {
+const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000, ascending = true) => {
   let allRows: any[] = [];
   let from = 0;
 
@@ -563,7 +563,7 @@ const fetchAllRows = async (table: string, orderColumn = "code", pageSize = 1000
     const { data, error } = await supabase
       .from(table)
       .select("*")
-      .order(orderColumn, { ascending: true })
+      .order(orderColumn, { ascending })
       .range(from, to);
 
     if (error) return { data: allRows, error };
@@ -1711,7 +1711,7 @@ export default function App() {
       supabase.from("vendors").select("*").order("code", { ascending: true }),
       supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
       supabase.from("warehouses").select("*").order("code", { ascending: true }),
-      supabase.from("purchases").select("*").order("date", { ascending: false }),
+      fetchAllRows("purchases", "date", 1000, false),
       supabase.from("maints").select("*").order("date", { ascending: false }),
       supabase.from("card_uses").select("*").order("date", { ascending: false }),
     ]);
