@@ -6739,7 +6739,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
       cur.total += Number(p.total || 0);
       map.set(month, cur);
     });
-    return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
+    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
   }, [filtered]);
 
   const byVendor = useMemo(() => {
