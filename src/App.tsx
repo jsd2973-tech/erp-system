@@ -1186,6 +1186,8 @@ export default function App() {
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [showAllMaintSuggestions, setShowAllMaintSuggestions] = useState(false);
   const [showAllRecentMaintItems, setShowAllRecentMaintItems] = useState(false);
+  const [maintTemplateOpen, setMaintTemplateOpen] = useState(false);
+  const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
@@ -3409,6 +3411,70 @@ export default function App() {
     setShowAllMaintSuggestions(false);
   }, [maintTitleKeyword]);
 
+
+  const maintTemplateRecords = useMemo(() => {
+    const keyword = maintTemplateSearch.trim().toLowerCase();
+
+    return [...maints]
+      .filter((record) => !editingMaintId || record.id !== editingMaintId)
+      .filter((record) => {
+        if (!keyword) return true;
+
+        const target = [
+          record.date,
+          record.warehouse,
+          record.manager,
+          record.title,
+          record.detail,
+          ...(record.items || []).map((item) => `${item.item || ""} ${item.spec || ""}`),
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return target.includes(keyword);
+      })
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 50);
+  }, [maints, maintTemplateSearch, editingMaintId]);
+
+  const applyMaintTemplate = (record: Maint) => {
+    const copiedItems = (record.items || [])
+      .filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total)
+      .map((row) => {
+        const qty = Number(row.qty || 0);
+        const price = Number(row.price || 0);
+        const supply = Number(row.supply || qty * price || 0);
+        const vat = Number(row.vat || Math.round(supply * 0.1) || 0);
+        const total = Number(row.total || supply + vat || 0);
+
+        return {
+          ...row,
+          id: uid(),
+          qty: row.qty || "",
+          price: row.price || "",
+          supply,
+          vat,
+          total,
+        };
+      });
+
+    const nextItems = copiedItems.length ? copiedItems : [emptyMaintItem()];
+    const nextTotal = nextItems.reduce((sum, row) => sum + Number(row.total || 0), 0);
+
+    setMaintForm((prev) => ({
+      ...prev,
+      warehouse: record.warehouse || prev.warehouse,
+      title: record.title || "",
+      detail: record.detail || "",
+      cost: String(nextTotal),
+      date: prev.date,
+      manager: prev.manager,
+      image_urls: prev.image_urls || [],
+    }));
+    setMaintItems(nextItems);
+    setMaintTemplateOpen(false);
+    setMaintTemplateSearch("");
+  };
 
 
   const clearMaintDraft = () => {
@@ -6003,7 +6069,46 @@ export default function App() {
 
         {menuTab === "maint_new" && (
           <section className="card">
-            <h2>{editingMaintId ? "정비수정" : "정비등록"}</h2>
+            <div className="between">
+              <h2>{editingMaintId ? "정비수정" : "정비등록"}</h2>
+              <button onClick={() => setMaintTemplateOpen((value) => !value)}>이전 작업 불러오기</button>
+            </div>
+
+            {maintTemplateOpen && (
+              <div className="subcard" style={{ marginBottom: 14 }}>
+                <div className="between">
+                  <strong>이전 정비작업 선택</strong>
+                  <input
+                    style={{ maxWidth: 320 }}
+                    value={maintTemplateSearch}
+                    onChange={(e) => setMaintTemplateSearch(e.target.value)}
+                    placeholder="작업명/창고/품목 검색"
+                  />
+                </div>
+                <ScrollTable>
+                  <table>
+                    <thead>
+                      <tr><th>정비일자</th><th>창고</th><th>정비제목</th><th>품목</th><th>합계</th><th>불러오기</th></tr>
+                    </thead>
+                    <tbody>
+                      {!maintTemplateRecords.length ? (
+                        <tr><td colSpan={6} className="empty">불러올 정비 이력이 없습니다.</td></tr>
+                      ) : maintTemplateRecords.map((record) => (
+                        <tr key={`maint-template-${record.id}`}>
+                          <td>{record.date || "-"}</td>
+                          <td>{record.warehouse || "-"}</td>
+                          <td className="bold">{record.title || "-"}</td>
+                          <td>{(record.items || []).map((item) => item.item).filter(Boolean).slice(0, 3).join(", ") || "-"}</td>
+                          <td className="right bold">{money(record.total || record.cost || 0)}</td>
+                          <td><button className="primary" onClick={() => applyMaintTemplate(record)}>선택</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollTable>
+                <p className="draft-help-text">날짜, 작업자, 사진은 복사하지 않고 제목/내용/창고/품목/수량/단가만 현재 정비등록에 채웁니다.</p>
+              </div>
+            )}
 
             <div className="grid3">
               <Field label="정비일자">
