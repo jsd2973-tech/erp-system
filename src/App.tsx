@@ -17937,31 +17937,31 @@ button:disabled{
 
 /* ===== Purchase Lookup Compact Rows ===== */
 .purchase-lookup-page .scroll-table table{
-  font-size:12px !important;
-  line-height:1.25 !important;
+  font-size:13px !important;
+  line-height:1.22 !important;
 }
 .purchase-lookup-page .scroll-table th{
-  padding:7px 8px !important;
-  font-size:12px !important;
+  padding:6px 8px !important;
+  font-size:13px !important;
   font-weight:900 !important;
 }
 .purchase-lookup-page .scroll-table td{
   padding:6px 8px !important;
-  font-size:12px !important;
-  line-height:1.25 !important;
+  font-size:13px !important;
+  line-height:1.22 !important;
   vertical-align:middle !important;
 }
 .purchase-lookup-page .purchase-item-detail-button{
-  font-size:12px !important;
-  line-height:1.25 !important;
+  font-size:13px !important;
+  line-height:1.22 !important;
 }
 .purchase-lookup-page .attachment-preview,
 .purchase-lookup-page .attachment-file-button{
-  font-size:11px !important;
+  font-size:13px !important;
 }
 .purchase-lookup-page .icon{
   padding:4px 6px !important;
-  font-size:11px !important;
+  font-size:12px !important;
   min-height:28px !important;
 }
 .purchase-lookup-page .icon svg{
@@ -17969,7 +17969,7 @@ button:disabled{
   height:14px !important;
 }
 .purchase-lookup-page .purchase-page-summary{
-  font-size:12px !important;
+  font-size:13px !important;
   margin:8px 0 6px !important;
 }
 .purchase-lookup-page .purchase-pagination{
@@ -17979,7 +17979,7 @@ button:disabled{
   min-width:32px !important;
   height:30px !important;
   border-radius:9px !important;
-  font-size:12px !important;
+  font-size:13px !important;
 }
 
 @media (max-width:900px){
@@ -17995,21 +17995,21 @@ button:disabled{
     margin-bottom:7px !important;
   }
   .purchase-lookup-page .mobile-purchase-card-head strong{
-    font-size:14px !important;
-    line-height:1.25 !important;
+    font-size:15px !important;
+    line-height:1.22 !important;
   }
   .purchase-lookup-page .mobile-purchase-card-head span{
-    font-size:11px !important;
+    font-size:12px !important;
   }
   .purchase-lookup-page .mobile-purchase-card-row{
     padding:5px 0 !important;
-    font-size:12px !important;
-    line-height:1.25 !important;
+    font-size:13px !important;
+    line-height:1.22 !important;
   }
   .purchase-lookup-page .mobile-purchase-card-row b,
   .purchase-lookup-page .mobile-purchase-card-row .purchase-item-detail-button{
-    font-size:12px !important;
-    line-height:1.25 !important;
+    font-size:13px !important;
+    line-height:1.22 !important;
   }
   .purchase-lookup-page .mobile-purchase-card-actions{
     gap:6px !important;
@@ -18017,7 +18017,39 @@ button:disabled{
   }
   .purchase-lookup-page .mobile-purchase-card-actions button{
     min-height:34px !important;
-    font-size:12px !important;
+    font-size:13px !important;
+    border-radius:10px !important;
+  }
+}
+
+.purchase-lookup-page .attachment-group{
+  gap:4px !important;
+  flex-wrap:nowrap !important;
+  justify-content:center !important;
+}
+.purchase-lookup-page .attachment-group .attachment-preview{
+  width:38px !important;
+  height:38px !important;
+  border-radius:10px !important;
+}
+.purchase-lookup-page .attachment-preview img{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+}
+.purchase-lookup-page .pdf-thumb{
+  font-size:10px !important;
+}
+
+@media (max-width:900px){
+  .purchase-lookup-page .attachment-group{
+    gap:4px !important;
+    justify-content:flex-end !important;
+    flex-wrap:nowrap !important;
+  }
+  .purchase-lookup-page .attachment-group .attachment-preview{
+    width:42px !important;
+    height:42px !important;
     border-radius:10px !important;
   }
 }
