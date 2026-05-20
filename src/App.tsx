@@ -17934,4 +17934,92 @@ button:disabled{
   font-weight:900;
 }
 
+
+/* ===== Purchase Lookup Compact Rows ===== */
+.purchase-lookup-page .scroll-table table{
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+.purchase-lookup-page .scroll-table th{
+  padding:7px 8px !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+}
+.purchase-lookup-page .scroll-table td{
+  padding:6px 8px !important;
+  font-size:12px !important;
+  line-height:1.25 !important;
+  vertical-align:middle !important;
+}
+.purchase-lookup-page .purchase-item-detail-button{
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+.purchase-lookup-page .attachment-preview,
+.purchase-lookup-page .attachment-file-button{
+  font-size:11px !important;
+}
+.purchase-lookup-page .icon{
+  padding:4px 6px !important;
+  font-size:11px !important;
+  min-height:28px !important;
+}
+.purchase-lookup-page .icon svg{
+  width:14px !important;
+  height:14px !important;
+}
+.purchase-lookup-page .purchase-page-summary{
+  font-size:12px !important;
+  margin:8px 0 6px !important;
+}
+.purchase-lookup-page .purchase-pagination{
+  margin-top:10px !important;
+}
+.purchase-lookup-page .purchase-pagination button{
+  min-width:32px !important;
+  height:30px !important;
+  border-radius:9px !important;
+  font-size:12px !important;
+}
+
+@media (max-width:900px){
+  .purchase-lookup-page .mobile-purchase-cards{
+    gap:9px !important;
+    margin-top:12px !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card{
+    padding:12px !important;
+    border-radius:15px !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-head{
+    margin-bottom:7px !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-head strong{
+    font-size:14px !important;
+    line-height:1.25 !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-head span{
+    font-size:11px !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-row{
+    padding:5px 0 !important;
+    font-size:12px !important;
+    line-height:1.25 !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-row b,
+  .purchase-lookup-page .mobile-purchase-card-row .purchase-item-detail-button{
+    font-size:12px !important;
+    line-height:1.25 !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-actions{
+    gap:6px !important;
+    margin-top:8px !important;
+  }
+  .purchase-lookup-page .mobile-purchase-card-actions button{
+    min-height:34px !important;
+    font-size:12px !important;
+    border-radius:10px !important;
+  }
+}
+
 `;
