@@ -1944,6 +1944,182 @@ export default function App() {
   const purchaseVatTotal = rows.reduce((sum, r) => sum + Number(r.vat || 0), 0);
   const purchaseTotal = rows.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
+  const parsePurchaseImportDateNo = (value: any) => {
+    const raw = String(value || "").trim();
+    const match = raw.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})\s*-?\s*(\d+)?/);
+    if (!match) return { date: "", no: "" };
+
+    return {
+      date: `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`,
+      no: String(match[4] || "1").padStart(2, "0"),
+    };
+  };
+
+  const parsePurchaseImportMoney = (value: any) => {
+    const cleaned = String(value ?? "").replace(/[^0-9.-]/g, "");
+    const num = Number(cleaned || 0);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const splitImportedItemSpec = (value: any) => {
+    const raw = String(value || "").trim();
+    const match = raw.match(/^(.*?)\s*\[([^\]]*)\]\s*$/);
+    if (!match) return { item: raw, spec: "" };
+    return { item: match[1].trim(), spec: match[2].trim() };
+  };
+
+  const normalizeWarehouseImportText = (value: any) =>
+    String(value || "")
+      .replace(/[\s()\[\]{}\-_/]/g, "")
+      .toLowerCase();
+
+  const resolveImportedWarehouseName = (rawValue: any, workingGroups: Group[], workingWarehouses: Warehouse[]) => {
+    const raw = String(rawValue || "").trim();
+    if (!raw) return "";
+
+    const normalizedRaw = normalizeWarehouseImportText(raw);
+
+    const groupMatch = workingGroups.find((group) => normalizeWarehouseImportText(group.name) === normalizedRaw);
+    if (groupMatch) return groupMatch.name;
+
+    const exactWarehouseMatch = workingWarehouses.find((warehouse) => {
+      const display = `${warehouse.group} / ${warehouse.name}`;
+      return normalizeWarehouseImportText(display) === normalizedRaw || normalizeWarehouseImportText(warehouse.name) === normalizedRaw;
+    });
+    if (exactWarehouseMatch) return `${exactWarehouseMatch.group} / ${exactWarehouseMatch.name}`;
+
+    const rawNumbers = raw.match(/\d{3,}/g) || [];
+    const numberWarehouseMatch = rawNumbers.length
+      ? workingWarehouses.find((warehouse) => {
+          const target = normalizeWarehouseImportText(`${warehouse.code || ""} ${warehouse.name || ""}`);
+          return rawNumbers.some((num) => target.includes(num));
+        })
+      : undefined;
+    if (numberWarehouseMatch) return `${numberWarehouseMatch.group} / ${numberWarehouseMatch.name}`;
+
+    const partialWarehouseMatch = workingWarehouses.find((warehouse) => {
+      const detail = normalizeWarehouseImportText(warehouse.name);
+      return detail.length >= 3 && (normalizedRaw.includes(detail) || detail.includes(normalizedRaw));
+    });
+    if (partialWarehouseMatch) return `${partialWarehouseMatch.group} / ${partialWarehouseMatch.name}`;
+
+    return raw;
+  };
+
+  const importPurchaseHistoryExcel = async (file: File) => {
+    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
+
+    const excelRows = await readExcelRows(file);
+    if (!excelRows.length) return alert("엑셀에서 구매내역을 찾지 못했습니다.");
+
+    const workingGroups = [...groups];
+    const newGroups: Group[] = [];
+
+    const ensureGroup = (name: string) => {
+      const trimmed = String(name || "").trim();
+      if (!trimmed) return;
+
+      const exists = workingGroups.some((group) => normalizeWarehouseImportText(group.name) === normalizeWarehouseImportText(trimmed));
+      if (exists) return;
+
+      const nextGroup = {
+        id: uid(),
+        code: nextCode(workingGroups),
+        name: trimmed,
+      };
+
+      workingGroups.push(nextGroup);
+      newGroups.push(nextGroup);
+    };
+
+    const grouped = new Map<string, Purchase>();
+    let skippedRows = 0;
+
+    excelRows.forEach((row) => {
+      const dateNoRaw = pick(row, ["일자-No", "일자", "날짜"]);
+      const { date, no } = parsePurchaseImportDateNo(dateNoRaw);
+      const vendor = String(pick(row, ["거래처명", "거래처", "업체명"]) || "").trim();
+      const itemRaw = String(pick(row, ["품목명(규격)", "품목명", "품목"]) || "").trim();
+      const warehouseRaw = String(pick(row, ["창고명", "창고"]) || "").trim();
+      const combined = `${dateNoRaw || ""} ${vendor} ${itemRaw} ${warehouseRaw}`;
+
+      if (!date || !vendor || !itemRaw || /(?:^|\s)(계|합계|소계)(?:\s|$)/.test(combined)) {
+        skippedRows += 1;
+        return;
+      }
+
+      const warehouse = resolveImportedWarehouseName(warehouseRaw, workingGroups, warehouses);
+      if (warehouse && !warehouse.includes(" / ")) ensureGroup(warehouse);
+
+      const { item, spec } = splitImportedItemSpec(itemRaw);
+      const qty = parsePurchaseImportMoney(pick(row, ["수량"]));
+      const price = parsePurchaseImportMoney(pick(row, ["단가"]));
+      const supply = parsePurchaseImportMoney(pick(row, ["공급가액", "공급액"]));
+      const vat = parsePurchaseImportMoney(pick(row, ["부가세", "부가세액"]));
+      const total = parsePurchaseImportMoney(pick(row, ["합계", "총액"]));
+      const memo = String(pick(row, ["적요", "비고", "메모"]) || "").trim();
+
+      const purchaseRow: PurchaseRow = {
+        id: uid(),
+        item: memo ? `${item}` : item,
+        spec,
+        qty: qty || 1,
+        price,
+        supply,
+        vat,
+        total: total || supply + vat,
+      };
+
+      const key = `${date}-${no}`;
+      const prev = grouped.get(key);
+
+      if (prev) {
+        prev.rows = [...prev.rows, purchaseRow];
+        prev.supplyTotal = prev.rows.reduce((sum, itemRow) => sum + Number(itemRow.supply || 0), 0);
+        prev.vatTotal = prev.rows.reduce((sum, itemRow) => sum + Number(itemRow.vat || 0), 0);
+        prev.total = prev.rows.reduce((sum, itemRow) => sum + Number(itemRow.total || 0), 0);
+        prev.itemSummary = getPurchaseItemSummary(prev);
+        grouped.set(key, prev);
+        return;
+      }
+
+      grouped.set(key, {
+        id: `purchase-import-${date}-${no}`,
+        date,
+        vendor,
+        warehouse,
+        rows: [purchaseRow],
+        supplyTotal: purchaseRow.supply,
+        vatTotal: purchaseRow.vat,
+        total: purchaseRow.total,
+        itemSummary: getPurchaseItemSummary({ itemSummary: purchaseRow.item, rows: [purchaseRow] }),
+        image_urls: [],
+        image_url: "",
+      });
+    });
+
+    const purchaseRows = Array.from(grouped.values());
+    if (!purchaseRows.length) return alert("등록할 구매내역이 없습니다. 합계 행이나 빈 행만 있는지 확인하세요.");
+
+    if (newGroups.length) {
+      const groupError = await upsertInChunks("warehouse_groups", newGroups);
+      if (groupError) return alert(`창고 대분류 저장 실패: ${groupError.message}`);
+    }
+
+    const purchaseError = await upsertInChunks("purchases", purchaseRows.map(fromPurchase));
+    if (purchaseError) return alert(`구매내역 업로드 실패: ${purchaseError.message}`);
+
+    await addActivityLog({
+      module: "구매",
+      action: "엑셀업로드",
+      target_title: `구매내역 ${purchaseRows.length}건`,
+      detail: `제외 ${skippedRows}행 · 새 창고 ${newGroups.length}건`,
+    });
+
+    await loadAll();
+    alert(`구매내역 ${purchaseRows.length}건을 업로드했습니다. 합계/빈 행 ${skippedRows}행은 제외했습니다.`);
+  };
+
   const resetPurchaseForm = () => {
     setPurchaseHeader({ date: "", vendor: "", warehouse: "", image_urls: [] });
     setRows([emptyRow()]);
@@ -5645,7 +5821,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -6442,8 +6618,9 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase }: any) {
+function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
+  const purchaseImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const openPurchaseDetail = (purchase: Purchase) => {
     if ((purchase.rows || []).length > 1) {
@@ -6452,7 +6629,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   };
 
   return <>
-    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
+    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
