@@ -6756,7 +6756,22 @@ function ScrollTable({ children }: { children: any }) {
 
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
+  const [purchasePage, setPurchasePage] = useState(1);
   const purchaseImportInputRef = useRef<HTMLInputElement | null>(null);
+  const purchasePageSize = 20;
+  const purchaseTotalPages = Math.max(1, Math.ceil((purchases || []).length / purchasePageSize));
+  const purchaseSafePage = Math.min(Math.max(purchasePage, 1), purchaseTotalPages);
+  const purchaseStartIndex = (purchaseSafePage - 1) * purchasePageSize;
+  const pagedPurchases = (purchases || []).slice(purchaseStartIndex, purchaseStartIndex + purchasePageSize);
+  const purchaseEndIndex = purchases.length ? Math.min(purchaseStartIndex + pagedPurchases.length, purchases.length) : 0;
+
+  useEffect(() => {
+    setPurchasePage(1);
+  }, [search.from, search.to, search.vendor, search.warehouse, search.item]);
+
+  useEffect(() => {
+    if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
+  }, [purchasePage, purchaseTotalPages]);
 
   const openPurchaseDetail = (purchase: Purchase) => {
     if ((purchase.rows || []).length > 1) {
@@ -6764,14 +6779,41 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     }
   };
 
+  const renderPurchasePages = () => {
+    if (purchaseTotalPages <= 1) return null;
+
+    const pages = Array.from({ length: purchaseTotalPages }, (_, i) => i + 1).filter((page) => {
+      return page === 1 || page === purchaseTotalPages || Math.abs(page - purchaseSafePage) <= 2;
+    });
+
+    return (
+      <div className="purchase-pagination">
+        <button disabled={purchaseSafePage <= 1} onClick={() => setPurchasePage((page) => Math.max(1, page - 1))}>이전</button>
+        {pages.map((page, index) => {
+          const prevPage = pages[index - 1];
+          return (
+            <span key={page} className="purchase-page-group">
+              {prevPage && page - prevPage > 1 && <span className="purchase-page-ellipsis">...</span>}
+              <button className={page === purchaseSafePage ? "active" : ""} onClick={() => setPurchasePage(page)}>{page}</button>
+            </span>
+          );
+        })}
+        <button disabled={purchaseSafePage >= purchaseTotalPages} onClick={() => setPurchasePage((page) => Math.min(purchaseTotalPages, page + 1))}>다음</button>
+      </div>
+    );
+  };
+
   return <>
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div><div className="mobile-purchase-cards">
-  {!purchases.length ? (
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div>
+      <div className="purchase-page-summary">전체 {money(purchases.length)}건 중 {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
+      <div className="mobile-purchase-cards">
+  {!pagedPurchases.length ? (
     <div className="empty">저장된 구매내역 없음</div>
-  ) : purchases.map((p: Purchase, index: number) => {
+  ) : pagedPurchases.map((p: Purchase, pageIndex: number) => {
+    const index = purchaseStartIndex + pageIndex;
     const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
     const seq = sameDateBeforeCount + 1;
     return (
@@ -6780,8 +6822,8 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
           <strong>{p.vendor || "거래처 미입력"}</strong>
           <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
         </div>
-        <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
+        <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
         <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
         {isAdmin && (
@@ -6794,10 +6836,11 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>창고</th><th>품목</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!purchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : purchases.map((p: Purchase, index: number) => {
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
+  const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable></section>
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
     {detailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -17845,5 +17888,50 @@ button:disabled{
   }
 }
 
+
+
+.purchase-page-summary{
+  margin:12px 0 8px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+}
+.purchase-pagination{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.purchase-pagination button{
+  min-width:36px;
+  height:34px;
+  padding:0 10px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#fff;
+  color:#334155;
+  font-weight:900;
+  cursor:pointer;
+}
+.purchase-pagination button.active{
+  background:#2563eb;
+  border-color:#2563eb;
+  color:#fff;
+}
+.purchase-pagination button:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+.purchase-page-group{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.purchase-page-ellipsis{
+  color:#94a3b8;
+  font-weight:900;
+}
 
 `;
