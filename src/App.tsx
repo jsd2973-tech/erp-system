@@ -8265,10 +8265,8 @@ function HomeDashboard({
     };
   });
 
-  const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
-  const recentCards = [...cardUses].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentMaints = [...maints].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentPhotos = [
     ...receiptPhotos.map((p) => ({
@@ -8291,21 +8289,6 @@ function HomeDashboard({
     })),
   ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
 
-  const calendarYear = Number(monthKey.slice(0, 4));
-  const calendarMonth = Number(monthKey.slice(5, 7));
-  const firstDayOfMonth = new Date(calendarYear, calendarMonth - 1, 1).getDay();
-  const daysInMonth = new Date(calendarYear, calendarMonth, 0).getDate();
-  const maintenanceCalendarDays = Array.from({ length: firstDayOfMonth + daysInMonth }, (_, index) => {
-    if (index < firstDayOfMonth) return null;
-    const day = index - firstDayOfMonth + 1;
-    const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
-    return {
-      day,
-      dateKey,
-      schedules: monthSchedules.filter((s) => s.schedule_date === dateKey),
-    };
-  });
-
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = monthCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
@@ -8317,9 +8300,6 @@ function HomeDashboard({
   const urgentMaintenancePhotos = maintenancePhotos.filter((item) => item.is_urgent && !item.is_processed);
   const todayActivityLogs = activityLogs.filter((log) => String(log.created_at || "").startsWith(today));
   const recentActivityLogs = [...activityLogs].slice(0, 5);
-  const recentPdfFiles = recentPhotos
-    .flatMap((photo) => (photo.urls || []).filter((url) => String(url || "").toLowerCase().split("?")[0].endsWith(".pdf")).map((url) => ({ ...photo, url })))
-    .slice(0, 4);
 
   if (currentRole === "field") {
     return (
