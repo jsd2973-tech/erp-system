@@ -6781,7 +6781,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     setSearch({ ...search, from, to });
   };
   const setThisWeekPeriod = () => {
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
     const day = now.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
     const monday = new Date(now);
@@ -6791,19 +6791,19 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     setPurchasePeriod(toDateKey(monday), toDateKey(sunday));
   };
   const setThisMonthPeriod = () => {
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     setPurchasePeriod(toDateKey(first), toDateKey(last));
   };
   const setLastMonthPeriod = () => {
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const last = new Date(now.getFullYear(), now.getMonth(), 0);
     setPurchasePeriod(toDateKey(first), toDateKey(last));
   };
   const setThisYearPeriod = () => {
-    const now = new Date();
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
     setPurchasePeriod(`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`);
   };
 
@@ -8279,7 +8279,7 @@ function HomeDashboard({
         url,
         type: "입고",
         title: photo.vendor_name || "입고사진",
-        meta: photo.vendor_name || "입고사진",
+        meta: photo.item_name || photo.title || "입고내역",
         date: photo.receipt_date || photo.created_at || "",
         tab: "receipt_photos",
       }))
@@ -8290,7 +8290,7 @@ function HomeDashboard({
         url,
         type: "정비",
         title: photo.equipment_name || "정비사진",
-        meta: photo.equipment_name || "정비사진",
+        meta: photo.work_detail || photo.title || "정비작업",
         date: photo.maint_date || photo.created_at || "",
         tab: "maintenance_photos",
       }))
