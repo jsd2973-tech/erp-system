@@ -1055,6 +1055,12 @@ html, body, #root {
   font-weight:900;
 }
 
+
+/* home dashboard activity + week calendar layout */
+.home-dashboard-main-row{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:18px;margin-bottom:18px}.home-dashboard-side-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}.home-panel-link-group{display:flex;gap:10px;align-items:center}.home-recent-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.home-recent-block{border:1px solid #e2e8f0;border-radius:16px;background:#fbfdff;padding:14px;min-width:0}.home-recent-block-title{display:flex;align-items:center;gap:9px;margin-bottom:12px}.home-recent-block-title span{width:32px;height:32px;border-radius:12px;background:#eaf2ff;display:grid;place-items:center}.home-recent-block-title b{font-size:16px;font-weight:950;color:#0f172a}.home-recent-list{display:flex;flex-direction:column;gap:7px}.home-recent-row{width:100%;border:0;border-bottom:1px solid #eef2f7;background:transparent;display:grid;grid-template-columns:48px minmax(0,1.2fr) minmax(0,.9fr) auto;gap:8px;align-items:center;padding:8px 2px;text-align:left;cursor:pointer}.home-recent-row em{font-style:normal;color:#64748b;font-size:12px;font-weight:850}.home-recent-row strong{color:#0f172a;font-size:13px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-row span{color:#64748b;font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-row b{color:#1455d9;font-size:13px;font-weight:950;white-space:nowrap}.home-recent-total{margin-top:12px;border-radius:12px;background:#eef6ff;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.home-recent-total span{color:#2563eb;font-size:13px;font-weight:950}.home-recent-total b{color:#1455d9;font-size:19px;font-weight:950}.home-recent-total.green{background:#ecfdf5}.home-recent-total.green span,.home-recent-total.green b{color:#059669}.home-week-range{margin:-6px 0 12px;color:#64748b;font-size:13px;font-weight:850}.home-week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.home-week-day{position:relative;min-height:170px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:7px}.home-week-day>span{color:#0f172a;font-size:13px;font-weight:950}.home-week-day>i{align-self:flex-start;border-radius:999px;background:#2563eb;color:#fff;font-style:normal;font-size:10px;font-weight:950;padding:3px 8px}.home-week-day div{display:flex;flex-direction:column;gap:5px}.home-week-day em{font-style:normal;color:#334155;font-size:12px;font-weight:850;line-height:1.32;word-break:keep-all}.home-week-day small{color:#94a3b8;font-size:12px;font-weight:850}.home-week-day>b{margin-top:auto;color:#dc2626;font-size:12px;font-weight:950}.home-week-day.today{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);background:#fbfdff}.home-week-day.has-work{background:#fffdf7}.home-shortcut-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin:0 0 18px}.home-shortcut-row button{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:14px 10px;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;box-shadow:0 8px 18px rgba(15,23,42,.045)}.home-shortcut-row span{font-size:20px}.home-shortcut-row b{font-size:14px;font-weight:950;color:#0f172a}.home-month-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}.home-month-stat{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:22px;text-align:left;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.055)}.home-month-stat span{display:block;font-size:14px;font-weight:950;color:#334155}.home-month-stat b{display:block;margin-top:16px;font-size:28px;font-weight:950;letter-spacing:-.6px}.home-month-stat small{display:block;margin-top:14px;color:#64748b;font-size:13px;font-weight:850}.home-month-stat.blue{background:#f6f9ff;border-color:#bfdbfe}.home-month-stat.blue b{color:#1455d9}.home-month-stat.purple{background:#faf7ff;border-color:#ddd6fe}.home-month-stat.purple b{color:#6d28d9}.home-month-stat.green{background:#f0fdf4;border-color:#bbf7d0}.home-month-stat.green b{color:#059669}.home-month-stat.amber{background:#fffaf0;border-color:#fde68a}.home-month-stat.amber b{color:#d97706}.home-log-list{display:flex;flex-direction:column;gap:8px}.home-log-row{border:0;border-bottom:1px solid #eef2f7;background:transparent;width:100%;display:grid;grid-template-columns:78px 1fr 1.3fr;gap:10px;align-items:center;padding:8px 0;text-align:left;cursor:pointer}.home-log-row span{color:#64748b;font-size:12px;font-weight:850}.home-log-row b{color:#0f172a;font-size:13px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-log-row em{font-style:normal;color:#475569;font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:1200px){.home-dashboard-main-row{grid-template-columns:1fr}.home-dashboard-side-row{grid-template-columns:1fr}.home-week-calendar-grid{grid-template-columns:repeat(7,minmax(120px,1fr));overflow-x:auto;padding-bottom:4px}.home-shortcut-row{grid-template-columns:repeat(3,1fr)}.home-month-stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.home-recent-activity-grid{grid-template-columns:1fr}.home-recent-row{grid-template-columns:44px minmax(0,1fr) auto}.home-recent-row span{display:none}.home-week-calendar-grid{grid-template-columns:1fr;overflow:visible}.home-week-day{min-height:auto}.home-shortcut-row{grid-template-columns:repeat(2,1fr);gap:10px}.home-shortcut-row button{justify-content:flex-start;padding:13px}.home-month-stat-grid{grid-template-columns:1fr}.home-month-stat b{font-size:24px}.home-panel-link-group{gap:4px}.home-log-row{grid-template-columns:64px minmax(0,1fr)}}
+
 `;
 
 export default function App() {
@@ -8247,6 +8253,18 @@ function HomeDashboard({
       return scheduleDate >= weekStartKey && scheduleDate <= weekEndKey && x.status !== "완료";
     })
     .sort((a, b) => String(a.schedule_date || "").localeCompare(String(b.schedule_date || "")));
+  const weekCalendarDays = Array.from({ length: 7 }, (_, index) => {
+    const d = new Date(weekMonday);
+    d.setDate(weekMonday.getDate() + index);
+    const dateKey = d.toISOString().slice(0, 10);
+    return {
+      dateKey,
+      dayLabel: ["일", "월", "화", "수", "목", "금", "토"][d.getDay()],
+      dayText: `${d.getMonth() + 1}/${d.getDate()}`,
+      schedules: weekSchedules.filter((s) => s.schedule_date === dateKey),
+    };
+  });
+
   const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
@@ -8529,80 +8547,87 @@ function HomeDashboard({
         )}
       </div>
 
-      <div className="modern-home-grid middle">
-        <div className="modern-home-panel">
+      <div className="home-dashboard-main-row">
+        <div className="modern-home-panel home-recent-activity-panel">
           <div className="modern-home-panel-head">
-            <h3>공지사항</h3>
-            <button onClick={() => setMenuTab?.("site_notices")}>더보기 ›</button>
+            <h3>최근 활동</h3>
+            <div className="home-panel-link-group">
+              <button onClick={() => setMenuTab?.("list")}>구매 전체 ›</button>
+              <button onClick={() => setMenuTab?.("maint_list")}>정비 전체 ›</button>
+            </div>
           </div>
-          <div className="modern-home-list">
-            {activeNotices.length ? activeNotices.map((notice) => (
-              <button className="modern-home-notice-row" key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
-                <span>NEW</span>
-                <b>{notice.title || "제목 없음"}</b>
-                <em>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</em>
-              </button>
-            )) : <div className="modern-home-empty">등록된 공지가 없습니다.</div>}
+
+          <div className="home-recent-activity-grid">
+            <div className="home-recent-block">
+              <div className="home-recent-block-title">
+                <span>🛒</span>
+                <b>최근 구매</b>
+              </div>
+              <div className="home-recent-list">
+                {recentPurchases.length ? recentPurchases.slice(0, 5).map((p) => (
+                  <button className="home-recent-row" key={p.id} onClick={() => setMenuTab?.("list")}>
+                    <em>{(p.date || "").slice(5) || "-"}</em>
+                    <strong>{getPurchaseItemSummary(p)}</strong>
+                    <span>{p.vendor || "-"}</span>
+                    <b>{money(p.total)}원</b>
+                  </button>
+                )) : <div className="modern-home-empty">구매내역이 없습니다.</div>}
+              </div>
+              <div className="home-recent-total">
+                <span>이번달 구매금액</span>
+                <b>{money(monthPurchaseTotal)}원</b>
+              </div>
+            </div>
+
+            <div className="home-recent-block">
+              <div className="home-recent-block-title">
+                <span>🔧</span>
+                <b>최근 정비</b>
+              </div>
+              <div className="home-recent-list">
+                {recentMaints.length ? recentMaints.slice(0, 5).map((m) => (
+                  <button className="home-recent-row" key={m.id} onClick={() => setMenuTab?.("maint_list")}>
+                    <em>{(m.date || "").slice(5) || "-"}</em>
+                    <strong>{m.title || "정비"}</strong>
+                    <span>{m.warehouse || "-"}</span>
+                    <b>{money(m.total || m.cost)}원</b>
+                  </button>
+                )) : <div className="modern-home-empty">정비내역이 없습니다.</div>}
+              </div>
+              <div className="home-recent-total green">
+                <span>이번달 정비 비용</span>
+                <b>{money(monthMaintTotal)}원</b>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="modern-home-panel">
+        <div className="modern-home-panel home-week-calendar-panel">
           <div className="modern-home-panel-head">
-            <h3>이번주 정비 일정</h3>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기 ›</button>
+            <h3>이번주 정비일정</h3>
+            <button onClick={() => setMenuTab?.("maintenance_schedules")}>전체 보기 ›</button>
           </div>
-          <div className="modern-home-schedule-list">
-            {weekSchedules.length ? weekSchedules.slice(0, 4).map((s) => (
-              <button className="modern-home-schedule-row" key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
-                <span>◷</span>
+          <div className="home-week-range">{weekStartKey} ~ {weekEndKey}</div>
+          <div className="home-week-calendar-grid">
+            {weekCalendarDays.map((day) => (
+              <button
+                key={day.dateKey}
+                className={`home-week-day ${day.dateKey === today ? "today" : ""} ${day.schedules.length ? "has-work" : ""}`}
+                onClick={() => {
+                  if (day.schedules.length) setSelectedCalendarDate({ dateKey: day.dateKey, schedules: day.schedules });
+                  else setMenuTab?.("maintenance_schedule_new");
+                }}
+              >
+                <span>{day.dayText} ({day.dayLabel})</span>
+                {day.dateKey === today && <i>오늘</i>}
                 <div>
-                  <b>{s.schedule_date || "날짜 없음"} · {s.equipment_name || "장비명 없음"}</b>
-                  <p>{s.work_detail || "작업내용 없음"}{s.worker_name ? ` / 정비담당: ${s.worker_name}` : ""}</p>
+                  {day.schedules.length ? day.schedules.slice(0, 3).map((s) => (
+                    <em key={s.id}>{s.equipment_name || "장비"} · {s.work_detail || "작업"}</em>
+                  )) : <small>-</small>}
+                  {day.schedules.length > 3 && <small>외 {day.schedules.length - 3}건</small>}
                 </div>
+                {day.schedules.length > 0 && <b>{day.schedules.length}건</b>}
               </button>
-            )) : <div className="modern-home-empty">이번주 예정된 정비일정이 없습니다.</div>}
-          </div>
-        </div>
-
-        <div className="modern-home-panel modern-home-mini-calendar-panel">
-          <div className="modern-home-panel-head">
-            <h3>정비 캘린더</h3>
-            <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기 ›</button>
-          </div>
-          <div className="mini-calendar-title">
-            <button onClick={() => setMenuTab?.("maintenance_schedule_new")}>+ 일정등록</button>
-            <b>{monthKey}</b>
-            <span>{monthSchedules.length}건</span>
-          </div>
-          <div className="mini-calendar-week">
-            {["일", "월", "화", "수", "목", "금", "토"].map((d) => <span key={d}>{d}</span>)}
-          </div>
-          <div className="mini-calendar-grid">
-            {maintenanceCalendarDays.map((cell, index) => (
-              cell ? (
-                <button
-                  key={cell.dateKey}
-                  className={`mini-calendar-day ${cell.dateKey === today ? "today" : ""} ${cell.schedules.length ? "has-work" : ""}`}
-                  onClick={() => {
-                    if (cell.schedules.length) setSelectedCalendarDate({ dateKey: cell.dateKey, schedules: cell.schedules });
-                    else setMenuTab?.("maintenance_schedule_new");
-                  }}
-                  title={cell.schedules.map((s) => `${s.equipment_name || "장비"} / ${s.work_detail || "작업내용 없음"} / ${s.worker_name || "담당자 미지정"} / ${s.status || "예정"}`).join("\n")}
-                >
-                  {cell.day}
-                  {cell.schedules.length > 0 && <i>{cell.schedules.length}</i>}
-                  {cell.schedules.length > 0 && (
-                    <span className="mini-calendar-tooltip">
-                      {cell.schedules.slice(0, 3).map((s) => (
-                        <em key={s.id}>{s.equipment_name || "장비명 없음"} / {s.work_detail || "작업내용 없음"}</em>
-                      ))}
-                      {cell.schedules.length > 3 && <em>외 {cell.schedules.length - 3}건</em>}
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <div className="mini-calendar-day blank" key={`blank-${index}`} />
-              )
             ))}
           </div>
           <div className="mini-calendar-legend">
@@ -8610,198 +8635,75 @@ function HomeDashboard({
             <span><i className="work-dot" />정비일정</span>
           </div>
         </div>
-
-        <div className="modern-home-panel">
-          <div className="modern-home-panel-head">
-            <h3>최근 등록사진</h3>
-            <button onClick={() => setMenuTab?.("maintenance_photos")}>더보기 ›</button>
-          </div>
-          <div className="modern-home-photo-list">
-            {recentPhotos.length ? recentPhotos.slice(0, 3).map((photo) => (
-              <button className="modern-home-photo-row" key={photo.id} onClick={() => setMenuTab?.(photo.tab)}>
-                {photo.urls.find((url) => !String(url || "").toLowerCase().split("?")[0].endsWith(".pdf")) ? (
-                  <span className="modern-home-photo-thumb" style={{ backgroundImage: `url(${photo.urls.find((url) => !String(url || "").toLowerCase().split("?")[0].endsWith(".pdf"))})` }} />
-                ) : (
-                  <span className="modern-home-photo-thumb empty">PDF</span>
-                )}
-                <div>
-                  <b>{photo.title}</b>
-                  <p>{photo.memo || `${photo.label} 첨부`}</p>
-                </div>
-                <em>{String(photo.date || "").slice(5, 10) || "-"}</em>
-              </button>
-            )) : <div className="modern-home-empty">최근 등록사진이 없습니다.</div>}
-            {!!recentPdfFiles.length && (
-              <div className="modern-home-pdf-mini">
-                <strong>최근 PDF</strong>
-                {recentPdfFiles.map((file, idx) => (
-                  <button key={`${file.id}-${idx}`} onClick={() => setMenuTab?.(file.tab)}>
-                    <span>PDF</span>
-                    <b>{file.title}</b>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
-      {currentRole === "admin" && (
-        <div className="modern-home-grid logs">
-          <div className="modern-home-panel modern-home-log-panel">
+      <div className="home-dashboard-side-row">
+        <div className="modern-home-panel home-notice-panel">
+          <div className="modern-home-panel-head">
+            <h3>공지사항</h3>
+            <button onClick={() => setMenuTab?.("site_notices")}>전체 보기 ›</button>
+          </div>
+          <div className="modern-home-list">
+            {activeNotices.length ? activeNotices.slice(0, 3).map((notice) => (
+              <button className="modern-home-notice-row" key={notice.id} onClick={() => setMenuTab?.("site_notices")}>
+                <span>공지</span>
+                <b>{notice.title || "제목 없음"}</b>
+                <em>{(notice.created_at || notice.notice_date || "").slice(0, 10)}</em>
+              </button>
+            )) : <div className="modern-home-empty">등록된 공지가 없습니다.</div>}
+          </div>
+        </div>
+
+        {currentRole === "admin" && (
+          <div className="modern-home-panel home-log-panel">
             <div className="modern-home-panel-head">
-              <h3>최근 작업로그</h3>
-              <button onClick={() => setMenuTab?.("activity_logs")}>더보기 ›</button>
+              <h3>작업로그</h3>
+              <button onClick={() => setMenuTab?.("activity_logs")}>전체 보기 ›</button>
             </div>
-
-            <table className="modern-home-table desktop-only-table">
-              <thead>
-                <tr>
-                  <th>시간</th>
-                  <th>작업자</th>
-                  <th>작업</th>
-                  <th>상세</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recentActivityLogs.length ? recentActivityLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</td>
-                    <td>{toLoginId(log.user_email || "") || "-"}</td>
-                    <td>{log.module} · {log.action}</td>
-                    <td>{log.target_title || log.detail || "-"}</td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={4}>최근 작업로그가 없습니다.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <div className="home-log-list">
+              {recentActivityLogs.length ? recentActivityLogs.slice(0, 5).map((log) => (
+                <button className="home-log-row" key={log.id} onClick={() => setMenuTab?.("activity_logs")}>
+                  <span>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</span>
+                  <b>{log.module} · {log.action}</b>
+                  <em>{log.target_title || log.detail || "-"}</em>
+                </button>
+              )) : <div className="modern-home-empty">최근 작업로그가 없습니다.</div>}
+            </div>
           </div>
-        </div>
-      )}
-
-      <div className="modern-home-grid bottom">
-        <div className="modern-home-panel">
-          <div className="modern-home-panel-head">
-            <h3>최근 구매 내역</h3>
-            <button onClick={() => setMenuTab?.("list")}>더보기 ›</button>
-          </div>
-          <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>거래처</th><th>품목</th><th>금액</th></tr></thead>
-            <tbody>
-              {recentPurchases.length ? recentPurchases.map((p) => (
-                <tr key={p.id}>
-                  <td>{(p.date || "").slice(5) || "-"}</td>
-                  <td>{p.vendor || "-"}</td>
-                  <td>{getPurchaseItemSummary(p)}</td>
-                  <td>{money(p.total)}원</td>
-                </tr>
-              )) : <tr><td colSpan={4}>구매내역이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-
-          <div className="mobile-history-cards">
-            {recentPurchases.map((p) => (
-              <button className="mobile-history-card" key={p.id}>
-                <div className="mobile-history-date">
-                  <b>{(p.date || "").slice(5) || "-"}</b>
-                </div>
-
-                <div className="mobile-history-main">
-                  <strong>{getPurchaseItemSummary(p)}</strong>
-                  <span>{p.vendor || "-"}</span>
-                </div>
-
-                <div className="mobile-history-amount">
-                  {money(p.total)}원
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="modern-home-panel">
-          <div className="modern-home-panel-head">
-            <h3>최근 카드사용 내역</h3>
-            <button onClick={() => setMenuTab?.("card_list")}>더보기 ›</button>
-          </div>
-          <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>사용처</th><th>내역</th><th>금액</th></tr></thead>
-            <tbody>
-              {recentCards.length ? recentCards.map((c) => (
-                <tr key={c.id}>
-                  <td>{(c.date || "").slice(5) || "-"}</td>
-                  <td>{c.place || "-"}</td>
-                  <td>{c.memo || c.user_name || "-"}</td>
-                  <td>{money(c.amount)}원</td>
-                </tr>
-              )) : <tr><td colSpan={4}>카드사용 내역이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-
-          <div className="mobile-history-cards">
-            {recentCards.map((c) => (
-              <button className="mobile-history-card" key={c.id}>
-                <div className="mobile-history-date">
-                  <b>{(c.date || "").slice(5) || "-"}</b>
-                </div>
-
-                <div className="mobile-history-main">
-                  <strong>{c.memo || c.user_name || "-"}</strong>
-                  <span>{c.place || "-"}</span>
-                </div>
-
-                <div className="mobile-history-amount">
-                  {money(c.amount)}원
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="modern-home-panel">
-          <div className="modern-home-panel-head">
-            <h3>최근 정비 내역</h3>
-            <button onClick={() => setMenuTab?.("maint_list")}>더보기 ›</button>
-          </div>
-          <table className="modern-home-table desktop-only-table">
-            <thead><tr><th>날짜</th><th>장비명 / 작업내용</th><th>구분</th><th>금액</th></tr></thead>
-            <tbody>
-              {recentMaints.length ? recentMaints.map((m) => (
-                <tr key={m.id}>
-                  <td>{(m.date || "").slice(5) || "-"}</td>
-                  <td>{m.warehouse || "-"}</td>
-                  <td>{m.title || "정비"}</td>
-                  <td>{money(m.total || m.cost)}원</td>
-                </tr>
-              )) : <tr><td colSpan={4}>정비내역이 없습니다.</td></tr>}
-            </tbody>
-          </table>
-
-          <div className="mobile-history-cards">
-            {recentMaints.map((m) => (
-              <button className="mobile-history-card" key={m.id}>
-                <div className="mobile-history-date">
-                  <b>{(m.date || "").slice(5) || "-"}</b>
-                </div>
-
-                <div className="mobile-history-main">
-                  <strong>{m.title || "정비"}</strong>
-                  <span>{m.warehouse || "-"}</span>
-                </div>
-
-                <div className="mobile-history-amount">
-                  {money(m.total || m.cost)}원
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
+      <div className="home-shortcut-row">
+        <button onClick={() => setMenuTab?.("new")}><span>🛒</span><b>구매 등록</b></button>
+        <button onClick={() => setMenuTab?.("maint_new")}><span>🔧</span><b>정비 등록</b></button>
+        <button onClick={() => setMenuTab?.("items")}><span>🔎</span><b>품목 검색</b></button>
+        <button onClick={() => setMenuTab?.("list")}><span>🏷️</span><b>최근 단가</b></button>
+        <button onClick={() => setMenuTab?.("card_use")}><span>💳</span><b>카드 사용 등록</b></button>
+        <button onClick={() => setMenuTab?.("site_notices")}><span>🔔</span><b>공지사항</b></button>
+      </div>
+
+      <div className="home-month-stat-grid">
+        <button className="home-month-stat blue" onClick={() => setMenuTab?.("status")}>
+          <span>이번달 구매금액</span>
+          <b>{money(monthPurchaseTotal)}원</b>
+          <small>{monthPurchases.length}건</small>
+        </button>
+        <button className="home-month-stat purple" onClick={() => setMenuTab?.("card_stats")}>
+          <span>이번달 카드비용</span>
+          <b>{money(monthCardTotal)}원</b>
+          <small>{monthCards.length}건</small>
+        </button>
+        <button className="home-month-stat green" onClick={() => setMenuTab?.("maint_stats")}>
+          <span>이번달 정비 비용</span>
+          <b>{money(monthMaintTotal)}원</b>
+          <small>{maints.filter((m) => String(m.date || "").startsWith(monthKey)).length}건</small>
+        </button>
+        <button className="home-month-stat amber" onClick={() => setMenuTab?.("maintenance_schedules")}>
+          <span>이번주 정비일정</span>
+          <b>{weekSchedules.length}건</b>
+          <small>{weekStartKey.slice(5)} ~ {weekEndKey.slice(5)}</small>
+        </button>
+      </div>
       {selectedCalendarDate && (
         <div className="calendar-detail-backdrop" onClick={() => setSelectedCalendarDate(null)}>
           <div className="calendar-detail-modal" onClick={(e) => e.stopPropagation()}>
