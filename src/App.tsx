@@ -5848,7 +5848,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} activityLogs={activityLogs} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
+        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
 
@@ -8210,7 +8210,6 @@ function HomeDashboard({
   receiptPhotos = [],
   maintenancePhotos = [],
   siteNotices = [],
-  activityLogs = [],
   deletedRecords = [],
   setMenuTab,
   currentRole,
@@ -8223,7 +8222,6 @@ function HomeDashboard({
   receiptPhotos?: ReceiptPhoto[];
   maintenancePhotos?: MaintenancePhoto[];
   siteNotices?: SiteNotice[];
-  activityLogs?: ActivityLog[];
   deletedRecords?: DeletedRecord[];
   setMenuTab?: (tab: string) => void;
   currentRole?: UserRole;
@@ -8274,8 +8272,6 @@ function HomeDashboard({
   const pendingReceiptPhotos = receiptPhotos.filter((item) => !item.is_processed);
   const pendingMaintenancePhotos = maintenancePhotos.filter((item) => !item.is_processed);
   const urgentMaintenancePhotos = maintenancePhotos.filter((item) => item.is_urgent && !item.is_processed);
-  const todayActivityLogs = activityLogs.filter((log) => String(log.created_at || "").startsWith(today));
-  const recentActivityLogs = [...activityLogs].slice(0, 5);
 
   if (currentRole === "field") {
     return (
@@ -8492,11 +8488,6 @@ function HomeDashboard({
             </button>
             {currentRole === "admin" && (
               <>
-                <button onClick={() => setMenuTab?.("activity_logs")}>
-                  <span>오늘 작업로그</span>
-                  <b>{todayActivityLogs.length}건</b>
-                </button>
-
                 <button onClick={() => setMenuTab?.("trash_bin")}>
                   <span>휴지통 보관</span>
                   <b>{deletedRecords.length}건</b>
@@ -8613,23 +8604,6 @@ function HomeDashboard({
         </div>
       </div>
 
-      {currentRole === "admin" && (
-        <div className="modern-home-panel home-log-panel home-log-panel-wide">
-          <div className="modern-home-panel-head">
-            <h3>작업로그</h3>
-            <button onClick={() => setMenuTab?.("activity_logs")}>전체 보기 ›</button>
-          </div>
-          <div className="home-log-list">
-            {recentActivityLogs.length ? recentActivityLogs.slice(0, 5).map((log) => (
-              <button className="home-log-row" key={log.id} onClick={() => setMenuTab?.("activity_logs")}>
-                <span>{String(log.created_at || "").slice(5, 16).replace("T", " ")}</span>
-                <b>{log.module} · {log.action}</b>
-                <em>{log.target_title || log.detail || "-"}</em>
-              </button>
-            )) : <div className="modern-home-empty">최근 작업로그가 없습니다.</div>}
-          </div>
-        </div>
-      )}
 
       <div className="home-shortcut-row">
         <button onClick={() => setMenuTab?.("new")}><span>🛒</span><b>구매 등록</b></button>
@@ -17972,9 +17946,8 @@ button:disabled{
 .home-panel-link-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.home-panel-link-group button{white-space:nowrap}
 .home-recent-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.home-recent-block{border:1px solid #e2e8f0;border-radius:16px;background:#fbfdff;padding:14px;min-width:0}.home-recent-block-title{display:flex;align-items:center;gap:9px;margin-bottom:10px}.home-recent-block-title span{width:30px;height:30px;border-radius:12px;background:#eaf2ff;display:grid;place-items:center}.home-recent-block-title b{font-size:15px;font-weight:950;color:#0f172a}.home-recent-list{display:flex;flex-direction:column;gap:2px}.home-recent-row{width:100%;border:0;border-bottom:1px solid #eef2f7;background:transparent;display:grid;grid-template-columns:44px minmax(0,1.2fr) minmax(0,.8fr) auto;gap:8px;align-items:center;padding:7px 2px;text-align:left;cursor:pointer}.home-recent-row:hover{background:#f8fafc}.home-recent-row em{font-style:normal;color:#64748b;font-size:11px;font-weight:850}.home-recent-row strong{color:#0f172a;font-size:12px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-row span{color:#64748b;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-row b{color:#1455d9;font-size:12px;font-weight:950;white-space:nowrap}.home-recent-total{margin-top:10px;border-radius:12px;background:#eef6ff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.home-recent-total span{color:#2563eb;font-size:12px;font-weight:950}.home-recent-total b{color:#1455d9;font-size:17px;font-weight:950}.home-recent-total.green{background:#ecfdf5}.home-recent-total.green span,.home-recent-total.green b{color:#059669}
 .home-week-range{margin:-4px 0 10px;color:#64748b;font-size:13px;font-weight:850}.home-week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.home-week-day{position:relative;min-height:132px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:9px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px}.home-week-day>span{color:#0f172a;font-size:12px;font-weight:950}.home-week-day>i{align-self:flex-start;border-radius:999px;background:#2563eb;color:#fff;font-style:normal;font-size:10px;font-weight:950;padding:3px 8px}.home-week-day div{display:flex;flex-direction:column;gap:4px;min-width:0}.home-week-day em{font-style:normal;color:#334155;font-size:11px;font-weight:850;line-height:1.28;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.home-week-day small{color:#94a3b8;font-size:11px;font-weight:850}.home-week-day>b{margin-top:auto;color:#dc2626;font-size:11px;font-weight:950}.home-week-day.today{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);background:#fbfdff}.home-week-day.has-work{background:#fffdf7}.mini-calendar-legend{display:flex;gap:12px;align-items:center;margin-top:12px;color:#64748b;font-size:12px;font-weight:850}.mini-calendar-legend span{display:inline-flex;gap:6px;align-items:center}.mini-calendar-legend i{width:8px;height:8px;border-radius:999px;display:inline-block}.today-dot{background:#2563eb}.work-dot{background:#f59e0b}
-.home-shortcut-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:0 0 18px}.home-shortcut-row button{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:13px 10px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 8px 18px rgba(15,23,42,.045)}.home-shortcut-row span{font-size:19px}.home-shortcut-row b{font-size:13px;font-weight:950;color:#0f172a}.home-month-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.home-month-stat{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:18px;text-align:left;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.055)}.home-month-stat span{display:block;font-size:13px;font-weight:950;color:#334155}.home-month-stat b{display:block;margin-top:13px;font-size:24px;font-weight:950;letter-spacing:-.6px}.home-month-stat small{display:block;margin-top:10px;color:#64748b;font-size:12px;font-weight:850}.home-month-stat.blue{background:#f6f9ff;border-color:#bfdbfe}.home-month-stat.blue b{color:#1455d9}.home-month-stat.purple{background:#faf7ff;border-color:#ddd6fe}.home-month-stat.purple b{color:#6d28d9}.home-month-stat.green{background:#f0fdf4;border-color:#bbf7d0}.home-month-stat.green b{color:#059669}.home-month-stat.amber{background:#fffaf0;border-color:#fde68a}.home-month-stat.amber b{color:#d97706}.home-log-panel-wide{margin:0 0 18px}.home-log-list{display:flex;flex-direction:column;gap:6px}.home-log-row{border:0;border-bottom:1px solid #eef2f7;background:transparent;width:100%;display:grid;grid-template-columns:76px 1fr 1.3fr;gap:10px;align-items:center;padding:7px 0;text-align:left;cursor:pointer}.home-log-row span{color:#64748b;font-size:12px;font-weight:850}.home-log-row b{color:#0f172a;font-size:12px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-log-row em{font-style:normal;color:#475569;font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:1200px){.home-dashboard-top-row,.home-dashboard-main-row{grid-template-columns:1fr}.home-week-calendar-grid{grid-template-columns:repeat(7,minmax(120px,1fr));overflow-x:auto;padding-bottom:4px}.home-shortcut-row{grid-template-columns:repeat(3,1fr)}.home-month-stat-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){.home-recent-activity-grid{grid-template-columns:1fr}.home-recent-row{grid-template-columns:42px minmax(0,1fr) auto}.home-recent-row span{display:none}.home-week-calendar-grid{grid-template-columns:1fr;overflow:visible}.home-week-day{min-height:auto}.home-shortcut-row{grid-template-columns:repeat(2,1fr);gap:10px}.home-shortcut-row button{justify-content:flex-start;padding:12px}.home-month-stat-grid{grid-template-columns:1fr}.home-month-stat b{font-size:22px}.home-log-row{grid-template-columns:64px minmax(0,1fr)}.home-log-row em{display:none}}
+.home-shortcut-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:0 0 18px}.home-shortcut-row button{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:13px 10px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 8px 18px rgba(15,23,42,.045)}.home-shortcut-row span{font-size:19px}.home-shortcut-row b{font-size:13px;font-weight:950;color:#0f172a}.home-month-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.home-month-stat{border:1px solid #e2e8f0;border-radius:16px;background:#fff;padding:18px;text-align:left;cursor:pointer;box-shadow:0 10px 26px rgba(15,23,42,.055)}.home-month-stat span{display:block;font-size:13px;font-weight:950;color:#334155}.home-month-stat b{display:block;margin-top:13px;font-size:24px;font-weight:950;letter-spacing:-.6px}.home-month-stat small{display:block;margin-top:10px;color:#64748b;font-size:12px;font-weight:850}.home-month-stat.blue{background:#f6f9ff;border-color:#bfdbfe}.home-month-stat.blue b{color:#1455d9}.home-month-stat.purple{background:#faf7ff;border-color:#ddd6fe}.home-month-stat.purple b{color:#6d28d9}.home-month-stat.green{background:#f0fdf4;border-color:#bbf7d0}.home-month-stat.green b{color:#059669}.home-month-stat.amber{background:#fffaf0;border-color:#fde68a}.home-month-stat.amber b{color:#d97706}@media(max-width:1200px){.home-dashboard-top-row,.home-dashboard-main-row{grid-template-columns:1fr}.home-week-calendar-grid{grid-template-columns:repeat(7,minmax(120px,1fr));overflow-x:auto;padding-bottom:4px}.home-shortcut-row{grid-template-columns:repeat(3,1fr)}.home-month-stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.home-recent-activity-grid{grid-template-columns:1fr}.home-recent-row{grid-template-columns:42px minmax(0,1fr) auto}.home-recent-row span{display:none}.home-week-calendar-grid{grid-template-columns:1fr;overflow:visible}.home-week-day{min-height:auto}.home-shortcut-row{grid-template-columns:repeat(2,1fr);gap:10px}.home-shortcut-row button{justify-content:flex-start;padding:12px}.home-month-stat-grid{grid-template-columns:1fr}.home-month-stat b{font-size:22px}}
 
 
 `;
