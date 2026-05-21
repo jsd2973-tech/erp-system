@@ -8279,6 +8279,7 @@ function HomeDashboard({
         url,
         type: "입고",
         title: photo.vendor_name || "입고사진",
+        meta: photo.vendor_name || "입고사진",
         date: photo.receipt_date || photo.created_at || "",
         tab: "receipt_photos",
       }))
@@ -8289,6 +8290,7 @@ function HomeDashboard({
         url,
         type: "정비",
         title: photo.equipment_name || "정비사진",
+        meta: photo.equipment_name || "정비사진",
         date: photo.maint_date || photo.created_at || "",
         tab: "maintenance_photos",
       }))
@@ -8645,7 +8647,7 @@ function HomeDashboard({
                   <img src={photo.url} alt={photo.title} />
                   <span>{photo.type}</span>
                   <b>{photo.title}</b>
-                  <em>{photo.vendor || photo.warehouse || photo.equipment || "-"}</em>
+                  <em>{photo.meta || "-"}</em>
                   <small>{String(photo.date || "").slice(5, 10) || "-"}</small>
                 </button>
               ))}
