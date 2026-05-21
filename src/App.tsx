@@ -8268,27 +8268,6 @@ function HomeDashboard({
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
   const recentMaints = [...maints].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
-  const recentPhotos = [
-    ...receiptPhotos.map((p) => ({
-      id: `receipt-${p.id}`,
-      date: p.created_at || p.receipt_date || "",
-      title: p.vendor_name || "입고사진",
-      memo: p.memo || "",
-      urls: p.image_urls || [],
-      tab: "receipt_photos",
-      label: "입고",
-    })),
-    ...maintenancePhotos.map((p) => ({
-      id: `maintenance-${p.id}`,
-      date: p.created_at || p.maint_date || "",
-      title: p.equipment_name || "정비사진",
-      memo: p.memo || "",
-      urls: p.image_urls || [],
-      tab: "maintenance_photos",
-      label: p.is_urgent ? "긴급" : "정비",
-    })),
-  ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 4);
-
   const todayPurchaseTotal = todayPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthPurchaseTotal = monthPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
   const monthCardTotal = monthCards.reduce((sum, c) => sum + Number(c.amount || 0), 0);
