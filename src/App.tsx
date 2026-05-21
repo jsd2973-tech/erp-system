@@ -6773,6 +6773,37 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
   }, [purchasePage, purchaseTotalPages]);
 
+  const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+  const setPurchasePeriod = (from: string, to: string) => {
+    setSearch({ ...search, from, to });
+  };
+  const setThisWeekPeriod = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    setPurchasePeriod(toDateKey(monday), toDateKey(sunday));
+  };
+  const setThisMonthPeriod = () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setPurchasePeriod(toDateKey(first), toDateKey(last));
+  };
+  const setLastMonthPeriod = () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0);
+    setPurchasePeriod(toDateKey(first), toDateKey(last));
+  };
+  const setThisYearPeriod = () => {
+    const now = new Date();
+    setPurchasePeriod(`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`);
+  };
+
   const openPurchaseDetail = (purchase: Purchase) => {
     if ((purchase.rows || []).length > 1) {
       setDetailPurchase(purchase);
@@ -6807,8 +6838,8 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div>
-      <div className="purchase-page-summary">전체 {money(purchases.length)}건 중 {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch({ from: "", to: "", vendor: "", warehouse: "", item: "" })}>전체</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div>
+      <div className="purchase-page-summary">검색결과 {money(purchases.length)}건 · {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
       <div className="mobile-purchase-cards">
   {!pagedPurchases.length ? (
     <div className="empty">저장된 구매내역 없음</div>
@@ -8201,7 +8232,21 @@ function HomeDashboard({
   const monthPurchases = purchases.filter((p) => String(p.date || "").startsWith(monthKey));
   const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
   const todayMaints = maints.filter((m) => m.date === today);
+  const weekBaseDate = new Date(today);
+  const weekDay = weekBaseDate.getDay();
+  const weekMonday = new Date(weekBaseDate);
+  weekMonday.setDate(weekBaseDate.getDate() + (weekDay === 0 ? -6 : 1 - weekDay));
+  const weekSunday = new Date(weekMonday);
+  weekSunday.setDate(weekMonday.getDate() + 6);
+  const weekStartKey = weekMonday.toISOString().slice(0, 10);
+  const weekEndKey = weekSunday.toISOString().slice(0, 10);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
+  const weekSchedules = maintenanceSchedules
+    .filter((x) => {
+      const scheduleDate = String(x.schedule_date || "");
+      return scheduleDate >= weekStartKey && scheduleDate <= weekEndKey && x.status !== "완료";
+    })
+    .sort((a, b) => String(a.schedule_date || "").localeCompare(String(b.schedule_date || "")));
   const monthSchedules = maintenanceSchedules.filter((x) => String(x.schedule_date || "").startsWith(monthKey));
   const activeNotices = (siteNotices || []).filter((n) => n.is_active !== false).slice(0, 5);
   const recentPurchases = [...purchases].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5);
@@ -8466,8 +8511,8 @@ function HomeDashboard({
           <b>{pendingMaintenancePhotos.length}건</b>
         </button>
         <button onClick={() => setMenuTab?.("maintenance_schedules")}>
-          <span>오늘 정비일정</span>
-          <b>{todaySchedules.length}건</b>
+          <span>이번주 정비일정</span>
+          <b>{weekSchedules.length}건</b>
         </button>
         {currentRole === "admin" && (
           <>
@@ -8503,19 +8548,19 @@ function HomeDashboard({
 
         <div className="modern-home-panel">
           <div className="modern-home-panel-head">
-            <h3>오늘 정비 일정</h3>
+            <h3>이번주 정비 일정</h3>
             <button onClick={() => setMenuTab?.("maintenance_schedules")}>더보기 ›</button>
           </div>
           <div className="modern-home-schedule-list">
-            {todaySchedules.length ? todaySchedules.slice(0, 4).map((s) => (
+            {weekSchedules.length ? weekSchedules.slice(0, 4).map((s) => (
               <button className="modern-home-schedule-row" key={s.id} onClick={() => setMenuTab?.("maintenance_schedules")}>
                 <span>◷</span>
                 <div>
-                  <b>{s.equipment_name || "장비명 없음"}</b>
+                  <b>{s.schedule_date || "날짜 없음"} · {s.equipment_name || "장비명 없음"}</b>
                   <p>{s.work_detail || "작업내용 없음"}{s.worker_name ? ` / 정비담당: ${s.worker_name}` : ""}</p>
                 </div>
               </button>
-            )) : <div className="modern-home-empty">오늘 등록된 정비일정이 없습니다.</div>}
+            )) : <div className="modern-home-empty">이번주 예정된 정비일정이 없습니다.</div>}
           </div>
         </div>
 
@@ -17890,6 +17935,7 @@ button:disabled{
 
 
 
+.purchase-period-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 10px}.purchase-period-buttons button{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:900;color:#334155;cursor:pointer}.purchase-period-buttons button:hover{border-color:#2563eb;color:#2563eb;background:#f8fbff}
 .purchase-page-summary{
   margin:12px 0 8px;
   color:#64748b;
