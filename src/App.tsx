@@ -8279,7 +8279,7 @@ function HomeDashboard({
         url,
         type: "입고",
         title: photo.vendor_name || "입고사진",
-        meta: photo.item_name || photo.title || "입고내역",
+        meta: photo.memo || "입고내역",
         date: photo.receipt_date || photo.created_at || "",
         tab: "receipt_photos",
       }))
@@ -8290,7 +8290,7 @@ function HomeDashboard({
         url,
         type: "정비",
         title: photo.equipment_name || "정비사진",
-        meta: photo.work_detail || photo.title || "정비작업",
+        meta: photo.memo || "정비작업",
         date: photo.maint_date || photo.created_at || "",
         tab: "maintenance_photos",
       }))
