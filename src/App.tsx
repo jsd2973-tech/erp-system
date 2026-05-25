@@ -2567,12 +2567,42 @@ export default function App() {
 
   const updateMaintenanceScheduleStatus = async (item: MaintenanceSchedule, status: string) => {
     if (!canEditDeleteRecords) return alert("상태 변경은 관리자만 가능합니다.");
+
     const { error } = await supabase
       .from("maintenance_schedules")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", item.id);
     if (error) return alert(`정비일정 상태 변경 실패: ${error.message}`);
+
     setMaintenanceSchedules((prev) => prev.map((x) => (x.id === item.id ? { ...x, status } : x)));
+
+    if (status !== "완료") return;
+
+    const maintId = `schedule-maint-${item.id}`;
+    const exists = maints.some((m) => m.id === maintId);
+
+    if (!exists) {
+      const newMaint: Maint = {
+        id: maintId,
+        date: item.schedule_date || getTodayKey(),
+        warehouse: item.equipment_name || "",
+        manager: item.worker_name || userEmail || "",
+        title: item.work_detail || "정비일정 완료",
+        detail: item.memo || item.work_detail || "",
+        cost: 0,
+        items: [],
+        supplyTotal: 0,
+        vatTotal: 0,
+        total: 0,
+        image_urls: [],
+      };
+
+      const { error: maintError } = await supabase.from("maints").upsert(newMaint, { onConflict: "id" });
+      if (maintError) return alert(`정비조회 자동등록 실패: ${maintError.message}`);
+
+      setMaints((prev) => [newMaint, ...prev]);
+      alert("정비일정이 완료 처리되었고 정비조회에 자동 등록되었습니다. 필요하면 정비조회에서 품목/비용을 수정하세요.");
+    }
   };
 
   const markReceiptPhotoProcessed = async (id: string) => {
