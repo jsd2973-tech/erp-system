@@ -6970,9 +6970,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   };
 
   const openPurchaseDetail = (purchase: Purchase) => {
-    if ((purchase.rows || []).length > 1) {
-      setDetailPurchase(purchase);
-    }
+    setDetailPurchase(purchase);
   };
 
   const renderPurchasePages = () => {
