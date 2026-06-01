@@ -7101,19 +7101,67 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
     return { totalSupply, totalVat, total, rowCount };
   }, [filtered]);
 
+  const monthRangeText = (month: string) => {
+    if (!/^\d{4}-\d{2}$/.test(month)) return "-";
+    const [year, monthNumber] = month.split("-").map(Number);
+    const lastDay = new Date(year, monthNumber, 0).getDate();
+    return `${month}-01 ~ ${month}-${String(lastDay).padStart(2, "0")}`;
+  };
+
   const monthly = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; supply: number; vat: number; total: number }>();
-    filtered.forEach((p) => {
-      const month = (p.date || "미지정").slice(0, 7) || "미지정";
-      const cur = map.get(month) || { month, count: 0, supply: 0, vat: 0, total: 0 };
+    const vendorKeyword = vendor.trim();
+    const itemKeyword = item.trim();
+
+    const base = purchases.filter((p) => {
+      const okVendor = !vendorKeyword || String(p.vendor || "").includes(vendorKeyword);
+      const okItem = !itemKeyword || (p.rows || []).some((r) => String(r.item || "").includes(itemKeyword));
+      return okVendor && okItem;
+    });
+
+    const selectedMonths = new Set<string>();
+
+    if (from || to) {
+      base.forEach((p) => {
+        const date = String(p.date || "");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+        const month = date.slice(0, 7);
+        const monthStart = `${month}-01`;
+        const [year, monthNumber] = month.split("-").map(Number);
+        const monthEnd = `${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}`;
+        const overlapsFrom = !from || monthEnd >= from;
+        const overlapsTo = !to || monthStart <= to;
+        if (overlapsFrom && overlapsTo) selectedMonths.add(month);
+      });
+    }
+
+    const map = new Map<string, { month: string; period: string; count: number; rowCount: number; supply: number; vat: number; total: number }>();
+
+    base.forEach((p) => {
+      const date = String(p.date || "");
+      const month = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(0, 7) : "미지정";
+
+      if ((from || to) && month !== "미지정" && !selectedMonths.has(month)) return;
+
+      const cur = map.get(month) || {
+        month,
+        period: monthRangeText(month),
+        count: 0,
+        rowCount: 0,
+        supply: 0,
+        vat: 0,
+        total: 0,
+      };
+
       cur.count += 1;
+      cur.rowCount += (p.rows || []).length;
       cur.supply += Number(p.supplyTotal || 0);
       cur.vat += Number(p.vatTotal || 0);
       cur.total += Number(p.total || 0);
       map.set(month, cur);
     });
+
     return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [filtered]);
+  }, [purchases, from, to, vendor, item]);
 
   const byVendor = useMemo(() => {
     const map = new Map<string, { vendor: string; count: number; total: number }>();
@@ -7156,11 +7204,36 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
         <div><span>총합계</span><b>{money(summary.total)}원</b></div>
       </div>
 
-      <h3>월별 구매현황</h3>
+      <div className="between purchase-status-section-head">
+        <div>
+          <h3>월별 구매현황</h3>
+          <p className="muted">월별 집계는 선택한 기간이 월 중간이어도 해당 월 1일~말일 전체 기준으로 계산됩니다.</p>
+        </div>
+        <button onClick={() => downloadExcel(`월별구매현황_${todayText()}`, withTotalRow(
+          monthly.map((m) => ({
+            월: m.month,
+            집계기간: m.period,
+            구매건수: m.count,
+            품목행수: m.rowCount,
+            공급가액: m.supply,
+            부가세액: m.vat,
+            합계: m.total,
+          })),
+          {
+            월: "총합계",
+            집계기간: "-",
+            구매건수: monthly.reduce((sum, m) => sum + m.count, 0),
+            품목행수: monthly.reduce((sum, m) => sum + m.rowCount, 0),
+            공급가액: monthly.reduce((sum, m) => sum + m.supply, 0),
+            부가세액: monthly.reduce((sum, m) => sum + m.vat, 0),
+            합계: monthly.reduce((sum, m) => sum + m.total, 0),
+          }
+        ))}>월별 엑셀</button>
+      </div>
       <ScrollTable>
         <table>
-          <thead><tr><th>월</th><th>구매건수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!monthly.length ? <tr><td colSpan={5} className="empty">조회된 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td>{m.month}</td><td>{m.count}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
+          <thead><tr><th>월</th><th>집계기간</th><th>구매건수</th><th>품목행수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
+          <tbody>{!monthly.length ? <tr><td colSpan={7} className="empty">조회된 월별 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td className="bold">{m.month}</td><td>{m.period}</td><td className="right">{money(m.count)}</td><td className="right">{money(m.rowCount)}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
 
