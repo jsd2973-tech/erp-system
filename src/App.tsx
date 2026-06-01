@@ -6949,7 +6949,6 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
   }, [purchasePage, purchaseTotalPages]);
 
-  const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
   const setPurchasePeriod = (from: string, to: string) => {
     setSearch({ ...search, from, to });
   };
