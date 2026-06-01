@@ -236,12 +236,12 @@ const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">
 
 const parseExcelLikeDate = (value: any) => {
   if (!value && value !== 0) return "";
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return toDateKey(value);
 
   if (typeof value === "number") {
     const excelEpoch = new Date(Date.UTC(1899, 11, 30));
     excelEpoch.setUTCDate(excelEpoch.getUTCDate() + value);
-    return excelEpoch.toISOString().slice(0, 10);
+    return toDateKey(excelEpoch);
   }
 
   const raw = String(value).trim();
@@ -251,7 +251,7 @@ const parseExcelLikeDate = (value: any) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(formatted)) return formatted;
 
   const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  if (!Number.isNaN(parsed.getTime())) return toDateKey(parsed);
 
   return "";
 };
@@ -657,12 +657,23 @@ type BackupExport = {
   deleted_records: DeletedRecord[];
 };
 
-const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const KOREA_TIME_ZONE = "Asia/Seoul";
+
+const koreaNow = () => new Date(new Date().toLocaleString("en-US", { timeZone: KOREA_TIME_ZONE }));
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayKey = () => toDateKey(koreaNow());
 
 const getYesterdayKey = () => {
-  const d = new Date();
+  const d = koreaNow();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  return toDateKey(d);
 };
 
 const isRecentNotice = (notice: UpdateNotice) => {
@@ -6953,19 +6964,19 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     setPurchasePeriod(toDateKey(monday), toDateKey(sunday));
   };
   const setThisMonthPeriod = () => {
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    const now = koreaNow();
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     setPurchasePeriod(toDateKey(first), toDateKey(last));
   };
   const setLastMonthPeriod = () => {
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    const now = koreaNow();
     const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const last = new Date(now.getFullYear(), now.getMonth(), 0);
     setPurchasePeriod(toDateKey(first), toDateKey(last));
   };
   const setThisYearPeriod = () => {
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+    const now = koreaNow();
     setPurchasePeriod(`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`);
   };
 
