@@ -1327,6 +1327,10 @@ export default function App() {
   }, [transferWarehouseOptions]);
 
   const selectedTransferWarehouseSet = useMemo(() => new Set(selectedTransferWarehouses), [selectedTransferWarehouses]);
+  const isTransferWarehouseFilterActive =
+    transferWarehouseOptions.length > 0 &&
+    selectedTransferWarehouses.length > 0 &&
+    selectedTransferWarehouses.length < transferWarehouseOptions.length;
   const filteredTransferWarehouseOptions = useMemo(() => {
     const keyword = transferWarehouseSearch.trim().toLowerCase();
     if (!keyword) return transferWarehouseOptions;
@@ -1516,7 +1520,12 @@ export default function App() {
     purchases
       .filter((p) => !month || String(p.date || "").startsWith(month))
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
-      .filter((p) => !transferWarehouseOptions.length || selectedTransferWarehouseSet.has(String(p.warehouse || "")))
+      .filter((p) => {
+        if (!transferWarehouseOptions.length) return true;
+        if (!selectedTransferWarehouses.length) return false;
+        if (!isTransferWarehouseFilterActive) return true;
+        return selectedTransferWarehouseSet.has(String(p.warehouse || "").trim());
+      })
       .forEach((p) => {
         const vendor = p.vendor || "거래처 미입력";
         const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
