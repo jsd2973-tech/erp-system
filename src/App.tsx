@@ -1311,10 +1311,18 @@ export default function App() {
   const [editingPermitId, setEditingPermitId] = useState("");
 
   const transferWarehouseOptions = useMemo(() => {
-    return Array.from(
-      new Set((warehouses || []).map((warehouse) => String(warehouse.name || "").trim()).filter(Boolean))
-    ).sort((a, b) => a.localeCompare(b, "ko"));
-  }, [warehouses]);
+    const names = [
+      ...(warehouses || []).map((warehouse) => String(warehouse.name || "").trim()),
+      ...(purchases || []).map((purchase) => String(purchase.warehouse || "").trim()),
+    ].filter(Boolean);
+
+    return Array.from(new Set(names)).sort((a, b) => {
+      const aYugang = a.includes("유강씨앤디");
+      const bYugang = b.includes("유강씨앤디");
+      if (aYugang !== bYugang) return aYugang ? -1 : 1;
+      return a.localeCompare(b, "ko");
+    });
+  }, [warehouses, purchases]);
 
   useEffect(() => {
     if (!transferWarehouseInitializedRef.current && transferWarehouseOptions.length) {
@@ -9568,7 +9576,7 @@ td .icon{
 }
 
 .maint-detail-text{
-  font-size:13px;
+  font-size:14px;
   color:#64748b;
 }
 
@@ -12047,7 +12055,7 @@ td .icon{
   position:absolute;
   top:48px;
   left:0;
-  width:320px;
+  width:460px;
   max-width:calc(100vw - 36px);
   z-index:40;
   padding:12px;
@@ -12082,7 +12090,7 @@ td .icon{
 }
 
 .bulk-warehouse-list{
-  max-height:230px;
+  max-height:420px;
   overflow:auto;
   display:flex;
   flex-direction:column;
@@ -12096,7 +12104,7 @@ td .icon{
   padding:8px 9px;
   border-radius:10px;
   color:#334155;
-  font-size:13px;
+  font-size:14px;
   font-weight:900;
   cursor:pointer;
 }
@@ -17843,7 +17851,7 @@ button:disabled{
 }
 .modern-home-pdf-mini b{
   color:#334155;
-  font-size:13px;
+  font-size:14px;
   font-weight:900;
   overflow:hidden;
   text-overflow:ellipsis;
