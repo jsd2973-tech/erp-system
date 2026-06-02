@@ -1287,8 +1287,8 @@ export default function App() {
     memo: "",
   });
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
+  const [selectedTransferWarehouses, setSelectedTransferWarehouses] = useState<string[] | null>(null);
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
-  const [transferWarehouseFilter, setTransferWarehouseFilter] = useState("");
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
@@ -1465,17 +1465,50 @@ export default function App() {
     }));
   };
 
+  const transferWarehouseOptions = useMemo(() => {
+    const names = new Set<string>();
+
+    (purchases || []).forEach((purchase) => {
+      const warehouseName = String(purchase.warehouse || "").trim();
+      if (warehouseName) names.add(warehouseName);
+    });
+
+    (warehouses || []).forEach((warehouse) => {
+      const warehouseName = String(warehouse.name || "").trim();
+      if (warehouseName) names.add(warehouseName);
+    });
+
+    return Array.from(names).sort((a, b) => a.localeCompare(b, "ko-KR"));
+  }, [purchases, warehouses]);
+
+  const activeTransferWarehouses = selectedTransferWarehouses ?? transferWarehouseOptions;
+
+  const toggleTransferWarehouse = (warehouseName: string) => {
+    setSelectedTransferWarehouses((prev) => {
+      const current = prev ?? transferWarehouseOptions;
+      return current.includes(warehouseName)
+        ? current.filter((name) => name !== warehouseName)
+        : [...current, warehouseName];
+    });
+  };
+
+  const selectAllTransferWarehouses = () => setSelectedTransferWarehouses(transferWarehouseOptions);
+  const clearAllTransferWarehouses = () => setSelectedTransferWarehouses([]);
+
   const getBulkTransferRows = (): BulkTransferRow[] => {
     const month = transferMonth;
     const vendorFilter = transferVendorSearch.trim();
-    const warehouseFilter = transferWarehouseFilter.trim();
 
     const grouped = new Map<string, { vendor: string; amount: number; memoItems: string[] }>();
 
     purchases
       .filter((p) => !month || String(p.date || "").startsWith(month))
-      .filter((p) => !warehouseFilter || String(p.warehouse || "") === warehouseFilter)
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
+      .filter((p) => {
+        if (!transferWarehouseOptions.length) return true;
+        const warehouseName = String(p.warehouse || "").trim();
+        return activeTransferWarehouses.includes(warehouseName);
+      })
       .forEach((p) => {
         const vendor = p.vendor || "거래처 미입력";
         const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
@@ -3367,10 +3400,6 @@ export default function App() {
 
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
-  const bulkTransferWarehouseOptions = Array.from(new Set([
-    ...warehouses.map((warehouse) => String(warehouse.name || "").trim()),
-    ...purchases.map((purchase) => String(purchase.warehouse || "").trim()),
-  ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const filteredPermits = permits
     .filter((permit: PermitRenewal) =>
@@ -5764,17 +5793,43 @@ export default function App() {
                   placeholder="2026-04"
                 />
               </Field>
-              <Field label="창고">
-                <select
-                  value={transferWarehouseFilter}
-                  onChange={(e) => setTransferWarehouseFilter(e.target.value)}
-                >
-                  <option value="">전체 창고</option>
-                  {bulkTransferWarehouseOptions.map((warehouse) => (
-                    <option key={warehouse} value={warehouse}>{warehouse}</option>
-                  ))}
-                </select>
-              </Field>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 900, color: "#475569" }}>창고</label>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                  <button type="button" onClick={selectAllTransferWarehouses}>전체선택</button>
+                  <button type="button" onClick={clearAllTransferWarehouses}>전체해제</button>
+                  {transferWarehouseOptions.length ? (
+                    transferWarehouseOptions.map((warehouseName) => (
+                      <label
+                        key={warehouseName}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "7px 10px",
+                          border: "1px solid #dbe3ef",
+                          borderRadius: 999,
+                          background: activeTransferWarehouses.includes(warehouseName) ? "#eef6ff" : "#ffffff",
+                          color: "#0f172a",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={activeTransferWarehouses.includes(warehouseName)}
+                          onChange={() => toggleTransferWarehouse(warehouseName)}
+                          style={{ accentColor: "#2563eb" }}
+                        />
+                        {warehouseName}
+                      </label>
+                    ))
+                  ) : (
+                    <span style={{ color: "#64748b", fontSize: 12, fontWeight: 800 }}>등록된 창고 없음</span>
+                  )}
+                </div>
+              </div>
               <Field label="거래처 검색">
                 <input
                   value={transferVendorSearch}
@@ -11933,7 +11988,7 @@ td .icon{
 
 .bulk-transfer-filter{
   display:grid;
-  grid-template-columns:180px 220px 1fr auto;
+  grid-template-columns:180px 1fr auto;
   gap:12px;
   align-items:end;
   margin-bottom:16px;
