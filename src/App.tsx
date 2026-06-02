@@ -1287,8 +1287,11 @@ export default function App() {
     memo: "",
   });
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
-  const [selectedTransferWarehouses, setSelectedTransferWarehouses] = useState<string[] | null>(null);
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
+  const [transferWarehouseSearch, setTransferWarehouseSearch] = useState("");
+  const [transferWarehouseDropdownOpen, setTransferWarehouseDropdownOpen] = useState(false);
+  const [selectedTransferWarehouses, setSelectedTransferWarehouses] = useState<string[]>([]);
+  const transferWarehouseInitializedRef = useRef(false);
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
@@ -1306,6 +1309,45 @@ export default function App() {
     status: "진행",
   });
   const [editingPermitId, setEditingPermitId] = useState("");
+
+  const transferWarehouseOptions = useMemo(() => {
+    return Array.from(
+      new Set((warehouses || []).map((warehouse) => String(warehouse.name || "").trim()).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, "ko"));
+  }, [warehouses]);
+
+  useEffect(() => {
+    if (!transferWarehouseInitializedRef.current && transferWarehouseOptions.length) {
+      setSelectedTransferWarehouses(transferWarehouseOptions);
+      transferWarehouseInitializedRef.current = true;
+      return;
+    }
+
+    setSelectedTransferWarehouses((prev) => prev.filter((warehouse) => transferWarehouseOptions.includes(warehouse)));
+  }, [transferWarehouseOptions]);
+
+  const selectedTransferWarehouseSet = useMemo(() => new Set(selectedTransferWarehouses), [selectedTransferWarehouses]);
+  const filteredTransferWarehouseOptions = useMemo(() => {
+    const keyword = transferWarehouseSearch.trim().toLowerCase();
+    if (!keyword) return transferWarehouseOptions;
+    return transferWarehouseOptions.filter((warehouse) => warehouse.toLowerCase().includes(keyword));
+  }, [transferWarehouseOptions, transferWarehouseSearch]);
+  const isAllTransferWarehousesSelected = transferWarehouseOptions.length > 0 && selectedTransferWarehouses.length === transferWarehouseOptions.length;
+  const transferWarehouseLabel = !transferWarehouseOptions.length
+    ? "창고 없음"
+    : isAllTransferWarehousesSelected
+      ? `전체 창고 (${transferWarehouseOptions.length})`
+      : selectedTransferWarehouses.length
+        ? `${selectedTransferWarehouses.slice(0, 2).join(", ")}${selectedTransferWarehouses.length > 2 ? ` 외 ${selectedTransferWarehouses.length - 2}개` : ""}`
+        : "선택 없음";
+
+  const toggleTransferWarehouse = (warehouseName: string) => {
+    setSelectedTransferWarehouses((prev) =>
+      prev.includes(warehouseName)
+        ? prev.filter((name) => name !== warehouseName)
+        : [...prev, warehouseName]
+    );
+  };
 
 
   const loadVendorAccounts = async () => {
@@ -1465,36 +1507,6 @@ export default function App() {
     }));
   };
 
-  const transferWarehouseOptions = useMemo(() => {
-    const names = new Set<string>();
-
-    (purchases || []).forEach((purchase) => {
-      const warehouseName = String(purchase.warehouse || "").trim();
-      if (warehouseName) names.add(warehouseName);
-    });
-
-    (warehouses || []).forEach((warehouse) => {
-      const warehouseName = String(warehouse.name || "").trim();
-      if (warehouseName) names.add(warehouseName);
-    });
-
-    return Array.from(names).sort((a, b) => a.localeCompare(b, "ko-KR"));
-  }, [purchases, warehouses]);
-
-  const activeTransferWarehouses = selectedTransferWarehouses ?? transferWarehouseOptions;
-
-  const toggleTransferWarehouse = (warehouseName: string) => {
-    setSelectedTransferWarehouses((prev) => {
-      const current = prev ?? transferWarehouseOptions;
-      return current.includes(warehouseName)
-        ? current.filter((name) => name !== warehouseName)
-        : [...current, warehouseName];
-    });
-  };
-
-  const selectAllTransferWarehouses = () => setSelectedTransferWarehouses(transferWarehouseOptions);
-  const clearAllTransferWarehouses = () => setSelectedTransferWarehouses([]);
-
   const getBulkTransferRows = (): BulkTransferRow[] => {
     const month = transferMonth;
     const vendorFilter = transferVendorSearch.trim();
@@ -1504,11 +1516,7 @@ export default function App() {
     purchases
       .filter((p) => !month || String(p.date || "").startsWith(month))
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
-      .filter((p) => {
-        if (!transferWarehouseOptions.length) return true;
-        const warehouseName = String(p.warehouse || "").trim();
-        return activeTransferWarehouses.includes(warehouseName);
-      })
+      .filter((p) => !transferWarehouseOptions.length || selectedTransferWarehouseSet.has(String(p.warehouse || "")))
       .forEach((p) => {
         const vendor = p.vendor || "거래처 미입력";
         const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
@@ -5793,43 +5801,48 @@ export default function App() {
                   placeholder="2026-04"
                 />
               </Field>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 900, color: "#475569" }}>창고</label>
-                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                  <button type="button" onClick={selectAllTransferWarehouses}>전체선택</button>
-                  <button type="button" onClick={clearAllTransferWarehouses}>전체해제</button>
-                  {transferWarehouseOptions.length ? (
-                    transferWarehouseOptions.map((warehouseName) => (
-                      <label
-                        key={warehouseName}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "7px 10px",
-                          border: "1px solid #dbe3ef",
-                          borderRadius: 999,
-                          background: activeTransferWarehouses.includes(warehouseName) ? "#eef6ff" : "#ffffff",
-                          color: "#0f172a",
-                          fontSize: 12,
-                          fontWeight: 900,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={activeTransferWarehouses.includes(warehouseName)}
-                          onChange={() => toggleTransferWarehouse(warehouseName)}
-                          style={{ accentColor: "#2563eb" }}
-                        />
-                        {warehouseName}
-                      </label>
-                    ))
-                  ) : (
-                    <span style={{ color: "#64748b", fontSize: 12, fontWeight: 800 }}>등록된 창고 없음</span>
+              <Field label="창고">
+                <div className="bulk-warehouse-multiselect">
+                  <button
+                    type="button"
+                    className="bulk-warehouse-toggle"
+                    onClick={() => setTransferWarehouseDropdownOpen((open) => !open)}
+                  >
+                    <span>{transferWarehouseLabel}</span>
+                    <b>▾</b>
+                  </button>
+                  {transferWarehouseDropdownOpen && (
+                    <div className="bulk-warehouse-dropdown">
+                      <div className="bulk-warehouse-actions">
+                        <button type="button" onClick={() => setSelectedTransferWarehouses(transferWarehouseOptions)}>전체선택</button>
+                        <button type="button" onClick={() => setSelectedTransferWarehouses([])}>전체해제</button>
+                      </div>
+                      <input
+                        className="bulk-warehouse-search"
+                        value={transferWarehouseSearch}
+                        onChange={(e) => setTransferWarehouseSearch(e.target.value)}
+                        placeholder="창고 검색"
+                      />
+                      <div className="bulk-warehouse-list">
+                        {!filteredTransferWarehouseOptions.length ? (
+                          <div className="dropdown-empty">검색 결과 없음</div>
+                        ) : (
+                          filteredTransferWarehouseOptions.map((warehouseName) => (
+                            <label key={warehouseName} className="bulk-warehouse-option">
+                              <input
+                                type="checkbox"
+                                checked={selectedTransferWarehouses.includes(warehouseName)}
+                                onChange={() => toggleTransferWarehouse(warehouseName)}
+                              />
+                              <span>{warehouseName}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
+              </Field>
               <Field label="거래처 검색">
                 <input
                   value={transferVendorSearch}
@@ -11988,10 +12001,105 @@ td .icon{
 
 .bulk-transfer-filter{
   display:grid;
-  grid-template-columns:180px 1fr auto;
+  grid-template-columns:180px 260px 1fr auto;
   gap:12px;
   align-items:end;
   margin-bottom:16px;
+}
+
+.bulk-warehouse-multiselect{
+  position:relative;
+}
+
+.bulk-warehouse-toggle{
+  width:100%;
+  height:42px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  background:#ffffff;
+  color:#111827;
+  font-size:14px;
+  font-weight:900;
+  padding:0 12px;
+  cursor:pointer;
+}
+
+.bulk-warehouse-toggle span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.bulk-warehouse-dropdown{
+  position:absolute;
+  top:48px;
+  left:0;
+  width:320px;
+  max-width:calc(100vw - 36px);
+  z-index:40;
+  padding:12px;
+  border:1px solid #cbd5e1;
+  border-radius:16px;
+  background:#ffffff;
+  box-shadow:0 18px 45px rgba(15,23,42,.18);
+}
+
+.bulk-warehouse-actions{
+  display:flex;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.bulk-warehouse-actions button{
+  flex:1;
+  min-height:34px;
+  border-radius:10px;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.bulk-warehouse-search{
+  width:100%;
+  height:38px;
+  margin-bottom:8px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  padding:0 10px;
+  box-sizing:border-box;
+}
+
+.bulk-warehouse-list{
+  max-height:230px;
+  overflow:auto;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.bulk-warehouse-option{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 9px;
+  border-radius:10px;
+  color:#334155;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.bulk-warehouse-option:hover{
+  background:#f1f5f9;
+}
+
+.bulk-warehouse-option input{
+  width:15px;
+  height:15px;
+  accent-color:#2563eb;
 }
 
 .bulk-summary{
