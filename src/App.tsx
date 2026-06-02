@@ -1288,6 +1288,7 @@ export default function App() {
   });
   const [transferMonth, setTransferMonth] = useState(() => getTodayKey().slice(0, 7));
   const [transferVendorSearch, setTransferVendorSearch] = useState("");
+  const [transferWarehouseFilter, setTransferWarehouseFilter] = useState("");
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
@@ -1467,11 +1468,13 @@ export default function App() {
   const getBulkTransferRows = (): BulkTransferRow[] => {
     const month = transferMonth;
     const vendorFilter = transferVendorSearch.trim();
+    const warehouseFilter = transferWarehouseFilter.trim();
 
     const grouped = new Map<string, { vendor: string; amount: number; memoItems: string[] }>();
 
     purchases
       .filter((p) => !month || String(p.date || "").startsWith(month))
+      .filter((p) => !warehouseFilter || String(p.warehouse || "") === warehouseFilter)
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
       .forEach((p) => {
         const vendor = p.vendor || "거래처 미입력";
@@ -3364,6 +3367,10 @@ export default function App() {
 
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
+  const bulkTransferWarehouseOptions = Array.from(new Set([
+    ...warehouses.map((warehouse) => String(warehouse.name || "").trim()),
+    ...purchases.map((purchase) => String(purchase.warehouse || "").trim()),
+  ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const filteredPermits = permits
     .filter((permit: PermitRenewal) =>
@@ -5756,6 +5763,17 @@ export default function App() {
                   onChange={(e) => setTransferMonth(e.target.value)}
                   placeholder="2026-04"
                 />
+              </Field>
+              <Field label="창고">
+                <select
+                  value={transferWarehouseFilter}
+                  onChange={(e) => setTransferWarehouseFilter(e.target.value)}
+                >
+                  <option value="">전체 창고</option>
+                  {bulkTransferWarehouseOptions.map((warehouse) => (
+                    <option key={warehouse} value={warehouse}>{warehouse}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="거래처 검색">
                 <input
@@ -11915,7 +11933,7 @@ td .icon{
 
 .bulk-transfer-filter{
   display:grid;
-  grid-template-columns:180px 1fr auto;
+  grid-template-columns:180px 220px 1fr auto;
   gap:12px;
   align-items:end;
   margin-bottom:16px;
