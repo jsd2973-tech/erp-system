@@ -7818,17 +7818,18 @@ function AttachmentPreview({ url }: { url?: string }) {
     lowerUrl.startsWith("blob:");
 
   const isAudio =
-    /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(pathOnly) ||
+    /\.(mp3|m4a|wav|webm|ogg|aac|mpeg|mp4)$/i.test(pathOnly) ||
     lowerUrl.includes("audio/") ||
-    lowerUrl.includes("mp3") ||
-    lowerUrl.includes("m4a") ||
-    lowerUrl.includes("wav") ||
-    lowerUrl.includes("webm") ||
-    lowerUrl.includes("ogg") ||
-    lowerUrl.includes("aac") ||
-    lowerUrl.includes("/receipts/purchase-");
+    lowerUrl.includes(".mp3") ||
+    lowerUrl.includes(".m4a") ||
+    lowerUrl.includes(".wav") ||
+    lowerUrl.includes(".webm") ||
+    lowerUrl.includes(".ogg") ||
+    lowerUrl.includes(".aac") ||
+    lowerUrl.includes(".mpeg") ||
+    lowerUrl.includes(".mp4");
 
-  if (isImage && !isAudio) {
+  if (isImage) {
     return (
       <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
         <img src={cleanUrl} alt="첨부파일" />
