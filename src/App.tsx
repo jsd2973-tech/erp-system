@@ -1005,6 +1005,20 @@ html, body, #root {
   font-weight: 700;
 }
 .audio-preview{display:flex;flex-direction:column;gap:6px;min-width:180px;max-width:260px;padding:6px;border:1px solid #dbeafe;border-radius:12px;background:#f8fafc}.audio-preview audio{width:220px;max-width:100%;height:32px}.audio-preview a{font-size:12px;font-weight:800;color:#2563eb;text-decoration:none}.attachment-file-link{display:inline-flex;align-items:center;justify-content:center;min-width:68px;padding:7px 9px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:900;text-decoration:none}
+
+.purchase-lookup-page .attachment-group{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.purchase-lookup-page .audio-preview{
+  min-width:160px;
+  max-width:220px;
+}
+.purchase-lookup-page .audio-preview audio{
+  width:180px;
+}
 .receipt-preview{
   font-size:14px;
   color:#64748b;
@@ -7798,38 +7812,23 @@ function AttachmentPreview({ url }: { url?: string }) {
   const lowerUrl = decodeURIComponent(cleanUrl.toLowerCase());
   const pathOnly = lowerUrl.split("?")[0];
   const isPdf = pathOnly.endsWith(".pdf") || lowerUrl.includes("application/pdf");
-  const isAudio =
-    /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(pathOnly) ||
-    lowerUrl.includes("audio/") ||
-    lowerUrl.includes(".mp3") ||
-    lowerUrl.includes(".m4a") ||
-    lowerUrl.includes(".wav") ||
-    lowerUrl.includes(".webm") ||
-    lowerUrl.includes(".ogg") ||
-    lowerUrl.includes(".aac");
-
-  if (isAudio) {
-    return (
-      <div className="attachment-preview audio-preview">
-        <audio controls src={cleanUrl} preload="metadata" />
-        <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
-      </div>
-    );
-  }
-
-  if (isPdf) {
-    return (
-      <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
-        <div className="pdf-thumb">PDF</div>
-      </a>
-    );
-  }
 
   const isImage =
     /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(pathOnly) ||
     lowerUrl.startsWith("blob:");
 
-  if (isImage) {
+  const isAudio =
+    /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(pathOnly) ||
+    lowerUrl.includes("audio/") ||
+    lowerUrl.includes("mp3") ||
+    lowerUrl.includes("m4a") ||
+    lowerUrl.includes("wav") ||
+    lowerUrl.includes("webm") ||
+    lowerUrl.includes("ogg") ||
+    lowerUrl.includes("aac") ||
+    lowerUrl.includes("/receipts/purchase-");
+
+  if (isImage && !isAudio) {
     return (
       <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
         <img src={cleanUrl} alt="첨부파일" />
@@ -7837,10 +7836,19 @@ function AttachmentPreview({ url }: { url?: string }) {
     );
   }
 
+  if (isPdf && !isAudio) {
+    return (
+      <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
+        <div className="pdf-thumb">PDF</div>
+      </a>
+    );
+  }
+
   return (
-    <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-file-link">
-      파일 열기
-    </a>
+    <div className="attachment-preview audio-preview">
+      <audio controls src={cleanUrl} preload="metadata" />
+      <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
+    </div>
   );
 }
 
