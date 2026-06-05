@@ -7125,6 +7125,7 @@ function ScrollTable({ children }: { children: any }) {
 
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
+  const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
   const [purchasePage, setPurchasePage] = useState(1);
   const purchaseImportInputRef = useRef<HTMLInputElement | null>(null);
   const purchasePageSize = 20;
@@ -7201,6 +7202,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   };
 
   return <>
+    <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
@@ -7233,7 +7235,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>사진</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
   const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
@@ -7272,6 +7274,10 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
             <span>공급가액 {money(detailPurchase.supplyTotal)}원</span>
             <span>부가세 {money(detailPurchase.vatTotal)}원</span>
             <b>합계 {money(detailPurchase.total)}원</b>
+          </div>
+          <div className="purchase-detail-attachment-box">
+            <h3>첨부파일</h3>
+            <AttachmentGroup urls={detailPurchase.image_urls || (detailPurchase.image_url ? [detailPurchase.image_url] : [])} />
           </div>
         </div>
       </div>
