@@ -1004,7 +1004,7 @@ html, body, #root {
   font-size: 13px;
   font-weight: 700;
 }
-.audio-preview{display:flex;flex-direction:column;gap:6px;min-width:180px;max-width:260px}.audio-preview audio{width:220px;max-width:100%;height:32px}.audio-preview a{font-size:12px;font-weight:800;color:#2563eb;text-decoration:none}
+.audio-preview{display:flex;flex-direction:column;gap:6px;min-width:180px;max-width:260px;padding:6px;border:1px solid #dbeafe;border-radius:12px;background:#f8fafc}.audio-preview audio{width:220px;max-width:100%;height:32px}.audio-preview a{font-size:12px;font-weight:800;color:#2563eb;text-decoration:none}
 .receipt-preview{
   font-size:14px;
   color:#64748b;
@@ -1248,9 +1248,13 @@ export default function App() {
   const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
 
   const isPdfUrl = (url: string) => String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
+  const isAudioUrl = (url: string) => {
+    const target = String(url || "").toLowerCase().split("?")[0];
+    return /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(target);
+  };
   const isImageUrl = (url: string) => {
     const target = String(url || "").toLowerCase().split("?")[0];
-    return target.match(/\.(jpg|jpeg|png|webp|gif|heic)$/) || String(url || "").startsWith("blob:") || (!isPdfUrl(url) && String(url || "").includes("/storage/"));
+    return target.match(/\.(jpg|jpeg|png|webp|gif|heic)$/) || String(url || "").startsWith("blob:") || (!isPdfUrl(url) && !isAudioUrl(url) && String(url || "").includes("/storage/"));
   };
 
   const openPhotoViewer = (urls: string[], index = 0, title = "사진 보기") => {
@@ -2416,7 +2420,7 @@ export default function App() {
     for (const file of Array.from(files)) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const ext = isImage ? "jpg" : getUploadFileExtension(file);
       const fileName = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
@@ -2483,7 +2487,7 @@ export default function App() {
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const ext = isImage ? "jpg" : getUploadFileExtension(file);
       const fileName = `maintenance-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       const { error } = await supabase.storage.from("maintenance-photos").upload(fileName, uploadFile, {
@@ -2929,7 +2933,7 @@ export default function App() {
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const ext = isImage ? "jpg" : getUploadFileExtension(file);
       const fileName = `purchase-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       const { error } = await supabase.storage.from("purchase-photos").upload(fileName, uploadFile, {
@@ -5236,12 +5240,12 @@ export default function App() {
               </div>
 
               <div className="receipt-clean-upload-card">
-                <div className="receipt-card-section-title">정비 사진 첨부</div>
+                <div className="receipt-card-section-title">정비 사진/PDF/음성 첨부</div>
 
                 <label className="receipt-dropzone maintenance-dropzone">
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                     multiple
                     onChange={(e) => {
                     const files = Array.from(e.target.files || []);
@@ -5252,8 +5256,8 @@ export default function App() {
                   }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
-                  <strong>정비 사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · 사진/PDF 업로드</span>
+                  <strong>정비 사진/PDF/음성을 선택하세요</strong>
+                  <span>여러 개 선택 가능 · 사진/PDF/음성 업로드</span>
                 </label>
 
                 <div className="receipt-file-count">
@@ -5447,12 +5451,12 @@ export default function App() {
               </div>
 
               <div className="receipt-clean-upload-card">
-                <div className="receipt-card-section-title">사진 첨부</div>
+                <div className="receipt-card-section-title">사진/PDF/음성 첨부</div>
 
                 <label className="receipt-dropzone">
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                     multiple
                     onChange={(e) => {
                     const files = Array.from(e.target.files || []);
@@ -5463,8 +5467,8 @@ export default function App() {
                   }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
-                  <strong>사진을 선택하세요</strong>
-                  <span>여러 장 선택 가능 · JPG / PNG / PDF</span>
+                  <strong>사진/PDF/음성을 선택하세요</strong>
+                  <span>여러 개 선택 가능 · JPG / PNG / PDF / 음성</span>
                 </label>
 
                 <div className="receipt-file-count">
@@ -6245,7 +6249,7 @@ export default function App() {
                 {(purchaseHeader.image_urls || []).length ? (
                   <AttachmentGroup urls={purchaseHeader.image_urls || []} />
                 ) : (
-                  <span>사진/PDF/음성 첨부파일 없음</span>
+                  <span>사진/PDF/음성 사진/PDF/음성 첨부파일 없음</span>
                 )}
               </div>
             </div>
@@ -6290,7 +6294,7 @@ export default function App() {
                 <Upload size={16} /> 영수증 여러 장 업로드
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                   capture="environment"
                   multiple
                   onChange={async (e) => {
@@ -6646,10 +6650,10 @@ export default function App() {
 
             <div className="between">
               <label className="upload">
-                <Upload size={16} /> 정비 사진/PDF 여러 장 업로드
+                <Upload size={16} /> 정비 사진/PDF/음성 업로드
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                   multiple
                   onChange={async (e) => {
                     const files = e.target.files;
@@ -6659,6 +6663,7 @@ export default function App() {
                       ...prev,
                       image_urls: [...(prev.image_urls || []), ...urls],
                     }));
+                    e.currentTarget.value = "";
                   }}
                 />
               </label>
@@ -6668,7 +6673,7 @@ export default function App() {
                     <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">첨부{idx + 1}</a>
                   ))
                 ) : (
-                  <span>첨부파일 없음</span>
+                  <span>사진/PDF/음성 첨부파일 없음</span>
                 )}
               </div>
             </div>
@@ -6861,9 +6866,9 @@ export default function App() {
                   </h2>
                   <p>
                     {photoLinkModal.mode === "purchase"
-                      ? "구매조회 내역에 연결할 입고사진을 선택하세요."
+                      ? "구매조회 내역에 연결할 입고사진/PDF/음성을 선택하세요."
                       : photoLinkModal.mode === "maint"
-                        ? "정비조회 내역에 연결할 정비사진을 선택하세요."
+                        ? "정비조회 내역에 연결할 정비사진/PDF/음성을 선택하세요."
                         : photoLinkModal.mode === "recordPurchase"
                           ? "입고사진을 연결할 기존 구매내역을 선택하세요."
                           : "정비사진을 연결할 기존 정비내역을 선택하세요."}
@@ -16195,7 +16200,7 @@ button[onclick*="downloadPdf"]{
     font-weight:1000 !important;
   }
 
-  /* 사진 첨부 썸네일 */
+  /* 사진/PDF/음성 첨부 썸네일 */
   .mobile-maint-card .attachment-group,
   .mobile-list-card .attachment-group{
     justify-content:flex-start !important;
