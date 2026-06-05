@@ -1260,6 +1260,7 @@ export default function App() {
   }>({ mode: "", targetId: "", search: "" });
   const [photoViewer, setPhotoViewer] = useState<{ urls: string[]; index: number; title: string } | null>(null);
   const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string } | null>(null);
+  const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
 
   const isPdfUrl = (url: string) => String(url || "").toLowerCase().split("?")[0].endsWith(".pdf");
   const isAudioUrl = (url: string) => {
@@ -6972,7 +6973,9 @@ export default function App() {
           </div>
         )}
 
-        {photoViewer && (
+        <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
+
+      {photoViewer && (
           <div className="photo-viewer-backdrop" onClick={closePhotoViewer}>
             <div className="photo-viewer-modal" onClick={(e) => e.stopPropagation()}>
               <div className="photo-viewer-head">
@@ -7219,7 +7222,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
-        <div className="mobile-purchase-card-row"><span>사진</span><b><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></b></div>
+        <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
         {isAdmin && (
           <div className="mobile-purchase-card-actions">
             <button onClick={() => onLinkPhoto(p)}>사진연결</button>
@@ -7234,7 +7237,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><AttachmentGroup urls={p.image_urls || (p.image_url ? [p.image_url] : [])} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
     {detailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -7808,17 +7811,12 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 
-function AttachmentPreview({ url }: { url?: string }) {
-  const [imageFailed, setImageFailed] = useState(false);
-
-  if (!url) return <span>-</span>;
-
+function getAttachmentKind(url?: string) {
   const cleanUrl = String(url || "");
   const lowerUrl = decodeURIComponent(cleanUrl.toLowerCase());
   const pathOnly = lowerUrl.split("?")[0];
-  const isPdf = pathOnly.endsWith(".pdf") || lowerUrl.includes("application/pdf");
 
-  const isAudio =
+  if (
     /\.(mp3|m4a|wav|webm|ogg|aac|mpeg|mp4)$/i.test(pathOnly) ||
     lowerUrl.includes("audio/") ||
     lowerUrl.includes("erp_file=audio") ||
@@ -7827,24 +7825,36 @@ function AttachmentPreview({ url }: { url?: string }) {
     lowerUrl.includes(".wav") ||
     lowerUrl.includes(".webm") ||
     lowerUrl.includes(".ogg") ||
-    lowerUrl.includes(".aac") ||
-    lowerUrl.includes(".mpeg") ||
-    lowerUrl.includes(".mp4");
+    lowerUrl.includes(".aac")
+  ) return "audio";
 
-  const isImage =
-    !isAudio &&
-    !imageFailed &&
-    (/\.(jpg|jpeg|png|webp|gif|heic)$/i.test(pathOnly) || lowerUrl.startsWith("blob:"));
+  if (pathOnly.endsWith(".pdf") || lowerUrl.includes("application/pdf")) return "pdf";
 
-  if (isImage) {
+  if (
+    /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(pathOnly) ||
+    lowerUrl.startsWith("blob:") ||
+    lowerUrl.includes("/storage/")
+  ) return "image";
+
+  return "file";
+}
+
+function AttachmentPreview({ url }: { url?: string }) {
+  if (!url) return <span>-</span>;
+
+  const cleanUrl = String(url || "");
+  const kind = getAttachmentKind(cleanUrl);
+
+  if (kind === "audio") {
     return (
-      <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
-        <img src={cleanUrl} alt="첨부파일" onError={() => setImageFailed(true)} />
-      </a>
+      <div className="audio-preview">
+        <audio controls src={cleanUrl} preload="metadata" />
+        <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
+      </div>
     );
   }
 
-  if (isPdf && !isAudio) {
+  if (kind === "pdf") {
     return (
       <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
         <div className="pdf-thumb">PDF</div>
@@ -7852,14 +7862,20 @@ function AttachmentPreview({ url }: { url?: string }) {
     );
   }
 
+  if (kind === "image") {
+    return (
+      <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
+        <img src={cleanUrl} alt="첨부파일" />
+      </a>
+    );
+  }
+
   return (
-    <div className="audio-preview">
-      <audio controls src={cleanUrl} preload="metadata" />
-      <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
-    </div>
+    <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-file-link">
+      파일 열기
+    </a>
   );
 }
-
 
 function AttachmentGroup({ urls }: { urls?: string[] }) {
   const list = (urls || []).filter(Boolean);
@@ -7872,6 +7888,118 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
           <AttachmentPreview url={url} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function AttachmentSummaryButton({
+  urls,
+  onOpen,
+}: {
+  urls?: string[];
+  onOpen: () => void;
+}) {
+  const list = (urls || []).filter(Boolean);
+  if (!list.length) return <span>-</span>;
+
+  const counts = list.reduce(
+    (acc, url) => {
+      const kind = getAttachmentKind(url);
+      if (kind === "image") acc.image += 1;
+      else if (kind === "audio") acc.audio += 1;
+      else if (kind === "pdf") acc.pdf += 1;
+      else acc.file += 1;
+      return acc;
+    },
+    { image: 0, audio: 0, pdf: 0, file: 0 }
+  );
+
+  return (
+    <button type="button" className="attachment-summary-button" onClick={onOpen}>
+      {!!counts.image && <span>📷 {counts.image}</span>}
+      {!!counts.audio && <span>🎤 {counts.audio}</span>}
+      {!!counts.pdf && <span>📄 {counts.pdf}</span>}
+      {!!counts.file && <span>📎 {counts.file}</span>}
+    </button>
+  );
+}
+
+function AttachmentViewerModal({
+  viewer,
+  onClose,
+}: {
+  viewer: { title: string; urls: string[] } | null;
+  onClose: () => void;
+}) {
+  if (!viewer) return null;
+
+  const urls = (viewer.urls || []).filter(Boolean);
+  const imageUrls = urls.filter((url) => getAttachmentKind(url) === "image");
+  const audioUrls = urls.filter((url) => getAttachmentKind(url) === "audio");
+  const pdfUrls = urls.filter((url) => getAttachmentKind(url) === "pdf");
+  const fileUrls = urls.filter((url) => getAttachmentKind(url) === "file");
+
+  return (
+    <div className="attachment-viewer-backdrop" onClick={onClose}>
+      <div className="attachment-viewer-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="attachment-viewer-head">
+          <div>
+            <h2>첨부파일</h2>
+            <p>{viewer.title}</p>
+          </div>
+          <button onClick={onClose}>닫기</button>
+        </div>
+
+        {!!imageUrls.length && (
+          <div className="attachment-viewer-section">
+            <h3>사진 {imageUrls.length}개</h3>
+            <div className="attachment-viewer-image-grid">
+              {imageUrls.map((url, idx) => (
+                <a href={url} target="_blank" rel="noreferrer" key={`${url}-${idx}`}>
+                  <img src={url} alt={`사진 ${idx + 1}`} />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!!audioUrls.length && (
+          <div className="attachment-viewer-section">
+            <h3>음성메모 {audioUrls.length}개</h3>
+            <div className="attachment-viewer-audio-list">
+              {audioUrls.map((url, idx) => (
+                <div className="attachment-viewer-audio" key={`${url}-${idx}`}>
+                  <b>음성 {idx + 1}</b>
+                  <audio controls src={url} preload="metadata" />
+                  <a href={url} target="_blank" rel="noreferrer">새 창에서 열기</a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!!pdfUrls.length && (
+          <div className="attachment-viewer-section">
+            <h3>PDF {pdfUrls.length}개</h3>
+            <div className="attachment-viewer-link-list">
+              {pdfUrls.map((url, idx) => (
+                <a href={url} target="_blank" rel="noreferrer" key={`${url}-${idx}`}>PDF {idx + 1} 열기</a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!!fileUrls.length && (
+          <div className="attachment-viewer-section">
+            <h3>기타파일 {fileUrls.length}개</h3>
+            <div className="attachment-viewer-link-list">
+              {fileUrls.map((url, idx) => (
+                <a href={url} target="_blank" rel="noreferrer" key={`${url}-${idx}`}>파일 {idx + 1} 열기</a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -10625,34 +10753,135 @@ td .icon{
 }
 
 
-.audio-preview{
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:stretch !important;
-  justify-content:center !important;
-  gap:6px !important;
-  width:190px !important;
-  height:auto !important;
-  min-width:180px !important;
-  max-width:220px !important;
-  padding:6px !important;
-  overflow:visible !important;
-  border:1px solid #dbeafe !important;
-  border-radius:12px !important;
-  background:#f8fafc !important;
+.attachment-summary-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-width:72px;
+  padding:6px 9px;
+  border:1px solid #dbeafe;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1e40af;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  white-space:nowrap;
 }
-.audio-preview audio{
-  display:block !important;
-  width:180px !important;
-  height:32px !important;
+.attachment-summary-button:hover{
+  background:#dbeafe;
 }
-.audio-preview a{
-  display:block !important;
-  color:#2563eb !important;
-  font-size:12px !important;
-  font-weight:900 !important;
-  text-decoration:none !important;
-  line-height:1.2 !important;
+.attachment-viewer-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  background:rgba(15,23,42,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+.attachment-viewer-modal{
+  width:min(860px, 94vw);
+  max-height:88vh;
+  overflow:auto;
+  background:#ffffff;
+  border-radius:24px;
+  box-shadow:0 30px 90px rgba(15,23,42,.35);
+  padding:22px;
+}
+.attachment-viewer-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:18px;
+  border-bottom:1px solid #e5e7eb;
+  padding-bottom:14px;
+}
+.attachment-viewer-head h2{
+  margin:0 0 6px;
+  font-size:22px;
+  font-weight:1000;
+}
+.attachment-viewer-head p{
+  margin:0;
+  color:#64748b;
+  font-weight:800;
+}
+.attachment-viewer-section{
+  margin-top:18px;
+}
+.attachment-viewer-section h3{
+  margin:0 0 10px;
+  font-size:15px;
+  font-weight:1000;
+  color:#111827;
+}
+.attachment-viewer-image-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+  gap:10px;
+}
+.attachment-viewer-image-grid a{
+  display:block;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  overflow:hidden;
+  background:#f8fafc;
+}
+.attachment-viewer-image-grid img{
+  width:100%;
+  height:130px;
+  object-fit:cover;
+  display:block;
+}
+.attachment-viewer-audio-list{
+  display:grid;
+  gap:10px;
+}
+.attachment-viewer-audio{
+  border:1px solid #dbeafe;
+  border-radius:16px;
+  background:#f8fafc;
+  padding:12px;
+  display:grid;
+  gap:8px;
+}
+.attachment-viewer-audio audio{
+  width:100%;
+  height:36px;
+}
+.attachment-viewer-audio a,
+.attachment-viewer-link-list a{
+  color:#2563eb;
+  font-size:13px;
+  font-weight:900;
+  text-decoration:none;
+}
+.attachment-viewer-link-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.attachment-viewer-link-list a{
+  padding:9px 12px;
+  border:1px solid #dbeafe;
+  border-radius:12px;
+  background:#eff6ff;
+}
+.purchase-detail-attachment-box{
+  margin-top:16px;
+  padding:14px;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.purchase-detail-attachment-box h3{
+  margin:0 0 10px;
+  font-size:15px;
+  font-weight:1000;
 }
 
 /* ===== Mobile Card List + Attachment Preview ===== */
