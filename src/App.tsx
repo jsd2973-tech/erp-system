@@ -2392,7 +2392,8 @@ export default function App() {
       }
 
       const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      uploadedUrls.push(data.publicUrl);
+      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
+      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
     }
 
     return uploadedUrls;
@@ -2420,7 +2421,8 @@ export default function App() {
       }
 
       const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      uploadedUrls.push(data.publicUrl);
+      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
+      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
     }
 
     return uploadedUrls;
@@ -2449,7 +2451,8 @@ export default function App() {
       }
 
       const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      uploadedUrls.push(data.publicUrl);
+      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
+      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
     }
 
     return uploadedUrls;
@@ -7806,6 +7809,8 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
 
 
 function AttachmentPreview({ url }: { url?: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   if (!url) return <span>-</span>;
 
   const cleanUrl = String(url || "");
@@ -7813,13 +7818,10 @@ function AttachmentPreview({ url }: { url?: string }) {
   const pathOnly = lowerUrl.split("?")[0];
   const isPdf = pathOnly.endsWith(".pdf") || lowerUrl.includes("application/pdf");
 
-  const isImage =
-    /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(pathOnly) ||
-    lowerUrl.startsWith("blob:");
-
   const isAudio =
     /\.(mp3|m4a|wav|webm|ogg|aac|mpeg|mp4)$/i.test(pathOnly) ||
     lowerUrl.includes("audio/") ||
+    lowerUrl.includes("erp_file=audio") ||
     lowerUrl.includes(".mp3") ||
     lowerUrl.includes(".m4a") ||
     lowerUrl.includes(".wav") ||
@@ -7829,10 +7831,15 @@ function AttachmentPreview({ url }: { url?: string }) {
     lowerUrl.includes(".mpeg") ||
     lowerUrl.includes(".mp4");
 
+  const isImage =
+    !isAudio &&
+    !imageFailed &&
+    (/\.(jpg|jpeg|png|webp|gif|heic)$/i.test(pathOnly) || lowerUrl.startsWith("blob:"));
+
   if (isImage) {
     return (
       <a href={cleanUrl} target="_blank" rel="noreferrer" className="attachment-preview">
-        <img src={cleanUrl} alt="첨부파일" />
+        <img src={cleanUrl} alt="첨부파일" onError={() => setImageFailed(true)} />
       </a>
     );
   }
