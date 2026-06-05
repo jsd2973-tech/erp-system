@@ -1004,6 +1004,7 @@ html, body, #root {
   font-size: 13px;
   font-weight: 700;
 }
+.audio-preview{display:flex;flex-direction:column;gap:6px;min-width:180px;max-width:260px}.audio-preview audio{width:220px;max-width:100%;height:32px}.audio-preview a{font-size:12px;font-weight:800;color:#2563eb;text-decoration:none}
 .receipt-preview{
   font-size:14px;
   color:#64748b;
@@ -2340,6 +2341,43 @@ export default function App() {
       reader.onerror = () => resolve(file);
       reader.readAsDataURL(file);
     });
+  };
+
+
+  const getUploadFileExtension = (file: File, fallback = "bin") => {
+    const nameExt = String(file.name || "").split(".").pop()?.toLowerCase() || "";
+    if (nameExt && /^[a-z0-9]+$/.test(nameExt) && nameExt.length <= 8) return nameExt;
+    if (file.type === "application/pdf") return "pdf";
+    if (file.type.startsWith("audio/")) return file.type.split("/")[1] || "audio";
+    if (file.type.startsWith("image/")) return "jpg";
+    return fallback;
+  };
+
+  const uploadPurchaseFiles = async (files: FileList | File[]) => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const isImage = file.type.startsWith("image/");
+      const uploadFile = isImage ? await compressReceiptImage(file) : file;
+      const ext = isImage ? "jpg" : getUploadFileExtension(file);
+      const fileName = `purchase-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+      });
+
+      if (error) {
+        alert(`구매 첨부 업로드 실패: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
+      uploadedUrls.push(data.publicUrl);
+    }
+
+    return uploadedUrls;
   };
 
 
@@ -6184,6 +6222,33 @@ export default function App() {
               </table>
             </div>
             <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 행추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
+            <div className="between">
+              <label className="upload">
+                <Upload size={16} /> 구매 첨부 업로드
+                <input
+                  type="file"
+                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm"
+                  multiple
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files?.length) return;
+                    const urls = await uploadPurchaseFiles(files);
+                    setPurchaseHeader((prev) => ({
+                      ...prev,
+                      image_urls: [...(prev.image_urls || []), ...urls],
+                    }));
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </label>
+              <div className="receipt-preview">
+                {(purchaseHeader.image_urls || []).length ? (
+                  <AttachmentGroup urls={purchaseHeader.image_urls || []} />
+                ) : (
+                  <span>사진/PDF/음성 첨부파일 없음</span>
+                )}
+              </div>
+            </div>
             <div className="actions"><button className="primary" onClick={savePurchase}><Save size={16} /> 저장</button><button onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
           </section>
         )}
@@ -7725,7 +7790,18 @@ function AttachmentPreview({ url }: { url?: string }) {
   if (!url) return <span>-</span>;
 
   const cleanUrl = String(url || "");
-  const isPdf = cleanUrl.toLowerCase().includes(".pdf");
+  const lowerUrl = cleanUrl.toLowerCase().split("?")[0];
+  const isPdf = lowerUrl.endsWith(".pdf");
+  const isAudio = /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(lowerUrl);
+
+  if (isAudio) {
+    return (
+      <div className="attachment-preview audio-preview">
+        <audio controls src={cleanUrl} preload="metadata" />
+        <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
+      </div>
+    );
+  }
 
   return (
     <a
