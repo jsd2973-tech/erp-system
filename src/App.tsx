@@ -7853,7 +7853,7 @@ function AttachmentPreview({ url }: { url?: string }) {
   }
 
   return (
-    <div className="attachment-preview audio-preview">
+    <div className="audio-preview">
       <audio controls src={cleanUrl} preload="metadata" />
       <a href={cleanUrl} target="_blank" rel="noreferrer">음성파일 열기</a>
     </div>
@@ -10622,6 +10622,37 @@ td .icon{
   .mobile-bottom-nav button{
     font-size:12px !important;
   }
+}
+
+
+.audio-preview{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  justify-content:center !important;
+  gap:6px !important;
+  width:190px !important;
+  height:auto !important;
+  min-width:180px !important;
+  max-width:220px !important;
+  padding:6px !important;
+  overflow:visible !important;
+  border:1px solid #dbeafe !important;
+  border-radius:12px !important;
+  background:#f8fafc !important;
+}
+.audio-preview audio{
+  display:block !important;
+  width:180px !important;
+  height:32px !important;
+}
+.audio-preview a{
+  display:block !important;
+  color:#2563eb !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  line-height:1.2 !important;
 }
 
 /* ===== Mobile Card List + Attachment Preview ===== */
