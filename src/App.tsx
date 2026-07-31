@@ -1193,6 +1193,8 @@ export default function App() {
   const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "", image_urls: [] as string[] });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
+  const [purchaseSaving, setPurchaseSaving] = useState(false);
+  const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
 
@@ -2279,38 +2281,50 @@ export default function App() {
   };
 
   const savePurchase = async () => {
+    if (purchaseSavingRef.current) return;
     if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     const validRows = validPurchaseRows;
     if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("거래처, 창고, 품목/수량을 확인하세요.");
-    const payload: Purchase = {
-      id: editingPurchaseId || uid(),
-      ...purchaseHeader,
-      rows: validRows,
-      supplyTotal: purchaseSupplyTotal,
-      vatTotal: purchaseVatTotal,
-      total: purchaseTotal,
-      itemSummary: getPurchaseItemSummary({ itemSummary: validRows[0].item, rows: validRows }),
-      image_urls: purchaseHeader.image_urls || [],
-      image_url: (purchaseHeader.image_urls || [])[0] || "",
-    };
-    const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
-    if (error) return alert(`구매 저장 실패: ${error.message}`);
-    setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
-    await addActivityLog({
-      module: "구매",
-      action: editingPurchaseId ? "수정" : "등록",
-      target_id: payload.id,
-      target_title: `${payload.vendor || "-"} / ${getPurchaseItemSummary(payload)}`,
-      detail: `${payload.date || "-"} · ${payload.warehouse || "-"} · ${money(payload.total)}원`,
-    });
-    if (linkingReceiptPhotoId) {
-      await markReceiptPhotoProcessed(linkingReceiptPhotoId);
-      setLinkingReceiptPhotoId("");
+    purchaseSavingRef.current = true;
+    setPurchaseSaving(true);
+
+    try {
+      const payload: Purchase = {
+        id: editingPurchaseId || uid(),
+        ...purchaseHeader,
+        rows: validRows,
+        supplyTotal: purchaseSupplyTotal,
+        vatTotal: purchaseVatTotal,
+        total: purchaseTotal,
+        itemSummary: getPurchaseItemSummary({ itemSummary: validRows[0].item, rows: validRows }),
+        image_urls: purchaseHeader.image_urls || [],
+        image_url: (purchaseHeader.image_urls || [])[0] || "",
+      };
+      const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
+      if (error) return alert(`구매 저장 실패: ${error.message}`);
+      setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
+      await addActivityLog({
+        module: "구매",
+        action: editingPurchaseId ? "수정" : "등록",
+        target_id: payload.id,
+        target_title: `${payload.vendor || "-"} / ${getPurchaseItemSummary(payload)}`,
+        detail: `${payload.date || "-"} · ${payload.warehouse || "-"} · ${money(payload.total)}원`,
+      });
+      if (linkingReceiptPhotoId) {
+        await markReceiptPhotoProcessed(linkingReceiptPhotoId);
+        setLinkingReceiptPhotoId("");
+      }
+      resetPurchaseForm();
+      setPurchaseEntryPopupOpen(false);
+      setMenuTab("list");
+    } catch (error: any) {
+      const message = error?.message ? `구매 저장 중 오류: ${error.message}` : "구매 저장 중 알 수 없는 오류가 발생했습니다.";
+      alert(message);
+    } finally {
+      purchaseSavingRef.current = false;
+      setPurchaseSaving(false);
     }
-    resetPurchaseForm();
-    setPurchaseEntryPopupOpen(false);
-    setMenuTab("list");
   };
 
 
@@ -6291,7 +6305,7 @@ export default function App() {
                 )}
               </div>
             </div>
-            <div className="actions"><button className="primary" onClick={savePurchase}><Save size={16} /> 저장</button><button onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <div className="actions"><button className="primary" disabled={purchaseSaving} onClick={savePurchase}><Save size={16} /> {purchaseSaving ? "저장 중..." : "저장"}</button><button disabled={purchaseSaving} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
           </section>
         )}
 
