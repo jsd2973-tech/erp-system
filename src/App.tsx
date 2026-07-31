@@ -844,6 +844,26 @@ function DateInput({
   placeholder?: string;
   ariaLabel?: string;
 }) {
+  const pickerRef = useRef<HTMLInputElement | null>(null);
+
+  const openDatePicker = () => {
+    const picker = pickerRef.current;
+    if (!picker) return;
+
+    const showPicker = (picker as HTMLInputElement & { showPicker?: () => void }).showPicker;
+    if (typeof showPicker === "function") {
+      try {
+        showPicker.call(picker);
+        return;
+      } catch {
+        // Older or restricted browsers can fall back to a normal input click.
+      }
+    }
+
+    picker.focus();
+    picker.click();
+  };
+
   return (
     <div className="date-input-wrap">
       <input
@@ -853,13 +873,17 @@ function DateInput({
         placeholder={placeholder}
       />
       <input
+        ref={pickerRef}
         className="date-picker-input"
         type="date"
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
+        tabIndex={-1}
       />
-      <span className="date-picker-icon">📅</span>
+      <button type="button" className="date-picker-button" onClick={openDatePicker} aria-label={ariaLabel}>
+        <span aria-hidden="true">📅</span>
+      </button>
     </div>
   );
 }
@@ -1190,7 +1214,7 @@ export default function App() {
   }, [siteNotices, isAdmin, currentRole, userEmail]);
 
   const [mobileSheet, setMobileSheet] = useState<"" | "buy" | "card" | "maint" | "more">("");
-  const [purchaseHeader, setPurchaseHeader] = useState({ date: "", vendor: "", warehouse: "", image_urls: [] as string[] });
+  const [purchaseHeader, setPurchaseHeader] = useState({ date: getTodayKey(), vendor: "", warehouse: "", image_urls: [] as string[] });
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
   const [purchaseSaving, setPurchaseSaving] = useState(false);
@@ -1209,7 +1233,7 @@ export default function App() {
   const [itemImportMessage, setItemImportMessage] = useState("");
   const [editingItemId, setEditingItemId] = useState("");
   const [itemSearch, setItemSearch] = useState("");
-  const [maintForm, setMaintForm] = useState({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
+  const [maintForm, setMaintForm] = useState({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
@@ -1221,9 +1245,22 @@ export default function App() {
   const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
-  const [cardForm, setCardForm] = useState({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
+  const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+
+  useEffect(() => {
+    if (menuTab === "new" && !editingPurchaseId && !purchaseHeader.date) {
+      setPurchaseHeader((prev) => ({ ...prev, date: getTodayKey() }));
+    }
+    if (menuTab === "card_use" && !editingCardUseId && !cardForm.date) {
+      setCardForm((prev) => ({ ...prev, date: getTodayKey() }));
+    }
+    if (menuTab === "maint_new" && !editingMaintId && !maintForm.date) {
+      setMaintForm((prev) => ({ ...prev, date: getTodayKey() }));
+    }
+  }, [menuTab, editingPurchaseId, editingCardUseId, editingMaintId, purchaseHeader.date, cardForm.date, maintForm.date]);
+
   const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
@@ -2269,7 +2306,7 @@ export default function App() {
   };
 
   const resetPurchaseForm = () => {
-    setPurchaseHeader({ date: "", vendor: "", warehouse: "", image_urls: [] });
+    setPurchaseHeader({ date: getTodayKey(), vendor: "", warehouse: "", image_urls: [] });
     setRows([emptyRow()]);
     setEditingPurchaseId("");
     setLinkingReceiptPhotoId("");
@@ -2293,6 +2330,7 @@ export default function App() {
       const payload: Purchase = {
         id: editingPurchaseId || uid(),
         ...purchaseHeader,
+        date: purchaseHeader.date || getTodayKey(),
         rows: validRows,
         supplyTotal: purchaseSupplyTotal,
         vatTotal: purchaseVatTotal,
@@ -3095,20 +3133,21 @@ export default function App() {
 
 
   const resetCardForm = () => {
-    setCardForm({ date: "", user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
+    setCardForm({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
     setEditingCardUseId("");
   };
 
   const saveCardUse = async () => {
     if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!cardForm.date || !cardForm.place || !Number(cardForm.amount || 0)) {
+    const cardDate = cardForm.date || getTodayKey();
+    if (!cardForm.place || !Number(cardForm.amount || 0)) {
       return alert("사용일자, 사용처, 금액을 확인하세요.");
     }
 
     const payload: CardUse = {
       id: editingCardUseId || uid(),
-      date: cardForm.date,
+      date: cardDate,
       user_name: cardForm.user_name,
       place: cardForm.place,
       amount: Number(cardForm.amount || 0),
@@ -3753,7 +3792,7 @@ export default function App() {
   };
 
   const resetMaintForm = () => {
-    setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
+    setMaintForm({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
     setLinkingMaintenancePhotoId("");
@@ -3823,6 +3862,7 @@ export default function App() {
       const payload = {
         id: editingMaintId || uid(),
         ...maintForm,
+        date: maintForm.date || getTodayKey(),
         image_url: (maintForm.image_urls || [])[0] || "",
         image_urls: maintForm.image_urls || [],
         items: validItems,
@@ -6230,22 +6270,12 @@ export default function App() {
             </div>
             <div className="grid3">
               <Field label="일자">
-                                <div className="date-input-wrap">
-                  <input
-                    className="date-text-input"
-                    value={purchaseHeader.date}
-                    onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: formatInputDate(e.target.value) })}
-                    placeholder="20260501 또는 260501"
-                  />
-                  <input
-                    className="date-picker-input"
-                    type="date"
-                    value={purchaseHeader.date}
-                    onChange={(e) => setPurchaseHeader({ ...purchaseHeader, date: e.target.value })}
-                    aria-label="일자 선택"
-                  />
-                  <span className="date-picker-icon">📅</span>
-                </div>
+                <DateInput
+                  value={purchaseHeader.date || getTodayKey()}
+                  onChange={(value) => setPurchaseHeader({ ...purchaseHeader, date: value })}
+                  placeholder="20260501 또는 260501"
+                  ariaLabel="구매일자 선택"
+                />
               </Field>
               <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
               <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
@@ -6321,7 +6351,7 @@ export default function App() {
             <div className="grid5">
               <Field label="사용일자">
                 <DateInput
-                  value={cardForm.date}
+                  value={cardForm.date || getTodayKey()}
                   onChange={(value) => setCardForm({ ...cardForm, date: value })}
                   placeholder="20260519 또는 260519"
                   ariaLabel="사용일자 선택"
@@ -6535,7 +6565,7 @@ export default function App() {
             <div className="grid3">
               <Field label="정비일자">
                 <DateInput
-                  value={maintForm.date}
+                  value={maintForm.date || getTodayKey()}
                   onChange={(value) => setMaintForm({ ...maintForm, date: value })}
                   placeholder="20260519 또는 260519"
                   ariaLabel="정비일자 선택"
@@ -12806,39 +12836,51 @@ td .icon{
 /* ===== Inline Date Picker ===== */
 .date-input-wrap{
   position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px;
+  gap:8px;
   width:100%;
 }
 
 .date-input-wrap .date-text-input{
   width:100%;
-  padding-right:46px;
+  min-width:0;
 }
 
 .date-picker-input{
   position:absolute;
-  right:0;
-  top:0;
-  width:44px;
-  height:100%;
+  left:0;
+  bottom:0;
+  width:1px;
+  height:1px;
   opacity:0;
-  cursor:pointer;
-  z-index:3;
+  pointer-events:none;
 }
 
-.date-picker-icon{
-  position:absolute;
-  right:14px;
-  top:50%;
-  transform:translateY(-50%);
-  pointer-events:none;
+.date-picker-button{
+  width:44px;
+  min-width:44px;
+  height:100%;
+  min-height:38px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#f8fafc;
+  color:#334155;
+  cursor:pointer;
   font-size:17px;
   line-height:1;
-  opacity:.72;
-  z-index:2;
 }
 
-.date-input-wrap:focus-within .date-picker-icon{
-  opacity:1;
+.date-picker-button:hover,
+.date-picker-button:focus-visible{
+  background:#eff6ff;
+  border-color:#60a5fa;
+  outline:none;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
 }
 
 /* ===== Receipt Photo Register ===== */
@@ -18538,6 +18580,9 @@ button:disabled{
   min-width:0;
 }
 .date-input-wrap .date-picker-input{
+  min-width:1px;
+}
+.date-input-wrap .date-picker-button{
   min-width:44px;
 }
 @media(max-width:900px){
@@ -18548,6 +18593,12 @@ button:disabled{
     height:46px;
   }
   .date-input-wrap .date-picker-input{
+    width:1px;
+    height:1px;
+  }
+  .date-input-wrap .date-picker-button{
+    width:46px;
+    min-width:46px;
     height:46px;
   }
 }
