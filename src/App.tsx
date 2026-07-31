@@ -3399,9 +3399,27 @@ export default function App() {
     setItems((prev) => [...prev, newItem]);
 
     if (newItemModal.rowIndex !== null) {
-      updateRow(newItemModal.rowIndex, "item", name);
-      updateRow(newItemModal.rowIndex, "spec", spec);
-      updateRow(newItemModal.rowIndex, "price", price);
+      const targetRowIndex = newItemModal.rowIndex;
+
+      setRows((prev) =>
+        prev.map((row, index) => {
+          if (index !== targetRowIndex) return row;
+
+          const qty = Number(row.qty || 0);
+          const supply = qty * price;
+          const vat = Math.round(supply * 0.1);
+
+          return {
+            ...row,
+            item: name,
+            spec,
+            price,
+            supply,
+            vat,
+            total: supply + vat,
+          };
+        })
+      );
     }
 
     closeNewItemModal();
