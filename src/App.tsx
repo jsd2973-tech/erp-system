@@ -2269,6 +2269,7 @@ export default function App() {
     setPurchaseHeader({ date: "", vendor: "", warehouse: "", image_urls: [] });
     setRows([emptyRow()]);
     setEditingPurchaseId("");
+    setLinkingReceiptPhotoId("");
   };
 
   const openPurchaseEntryPopup = () => {
@@ -2767,7 +2768,7 @@ export default function App() {
     return true;
   };
 
-  const applyReceiptPhotoToPurchase = async (item: ReceiptPhoto) => {
+  const applyReceiptPhotoToPurchase = (item: ReceiptPhoto) => {
     if (!isAdmin) return alert("관리자만 구매입력에 반영할 수 있습니다.");
 
     setPurchaseHeader({
@@ -2780,13 +2781,11 @@ export default function App() {
     setEditingPurchaseId("");
     setLinkingReceiptPhotoId(item.id);
 
-    await markReceiptPhotoProcessed(item.id);
-
     setMenuTab("new");
     alert("입고사진을 구매입력에 반영했습니다. 창고/품목/금액을 입력해서 저장하세요.");
   };
 
-  const applyMaintenancePhotoToMaint = async (item: MaintenancePhoto) => {
+  const applyMaintenancePhotoToMaint = (item: MaintenancePhoto) => {
     if (!isAdmin) return alert("관리자만 정비등록에 반영할 수 있습니다.");
 
     setMaintForm({
@@ -2801,8 +2800,6 @@ export default function App() {
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
     setLinkingMaintenancePhotoId(item.id);
-
-    await markMaintenancePhotoProcessed(item.id);
 
     setMenuTab("maint_new");
     alert("정비사진을 정비등록에 반영했습니다. 품목/금액을 입력해서 저장하세요.");
@@ -3176,6 +3173,7 @@ export default function App() {
 
   const editPurchase = (p: Purchase) => {
     setMenuTab("new");
+    setLinkingReceiptPhotoId("");
     setEditingPurchaseId(p.id);
     setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "", image_urls: p.image_urls || (p.image_url ? [p.image_url] : []) });
     setRows((p.rows || []).map((r) => ({ ...r, id: uid() })));
@@ -3742,6 +3740,7 @@ export default function App() {
     setMaintForm({ date: "", warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
+    setLinkingMaintenancePhotoId("");
     setMaintSaveError("");
     clearMaintDraft();
   };
@@ -3856,6 +3855,7 @@ export default function App() {
     setMenuTab("maint_new");
     setMaintSaveError("");
     clearMaintDraft();
+    setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
     setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
     setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
