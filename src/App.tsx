@@ -2085,9 +2085,10 @@ export default function App() {
     setRows(next);
   };
 
-  const purchaseSupplyTotal = rows.reduce((sum, r) => sum + Number(r.supply || 0), 0);
-  const purchaseVatTotal = rows.reduce((sum, r) => sum + Number(r.vat || 0), 0);
-  const purchaseTotal = rows.reduce((sum, r) => sum + Number(r.total || 0), 0);
+  const validPurchaseRows = rows.filter((r) => r.item && Number(r.qty || 0) > 0);
+  const purchaseSupplyTotal = validPurchaseRows.reduce((sum, r) => sum + Number(r.supply || 0), 0);
+  const purchaseVatTotal = validPurchaseRows.reduce((sum, r) => sum + Number(r.vat || 0), 0);
+  const purchaseTotal = validPurchaseRows.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   const parsePurchaseImportDateNo = (value: any) => {
     const raw = String(value || "").trim();
@@ -2280,7 +2281,7 @@ export default function App() {
   const savePurchase = async () => {
     if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    const validRows = rows.filter((r) => r.item && Number(r.qty) > 0);
+    const validRows = validPurchaseRows;
     if (!purchaseHeader.vendor || !purchaseHeader.warehouse || !validRows.length) return alert("거래처, 창고, 품목/수량을 확인하세요.");
     const payload: Purchase = {
       id: editingPurchaseId || uid(),
@@ -3536,9 +3537,10 @@ export default function App() {
       return aValue - bValue;
     });
 
-  const maintSupplyTotal = maintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
-  const maintVatTotal = maintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
-  const maintGrandTotal = maintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
+  const validMaintItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
+  const maintSupplyTotal = validMaintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
+  const maintVatTotal = validMaintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
+  const maintGrandTotal = validMaintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
 
   const getRecentPurchaseInfo = (itemName: string) => {
     const keyword = String(itemName || "").trim();
@@ -3803,7 +3805,7 @@ export default function App() {
     setMaintSaving(true);
 
     try {
-      const validItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
+      const validItems = validMaintItems;
       const payload = {
         id: editingMaintId || uid(),
         ...maintForm,
