@@ -731,12 +731,14 @@ const dedupeUpdateNotices = (notices: UpdateNotice[]) => {
 
 function SearchSelect({
   label,
+  required = false,
   value,
   options,
   onChange,
   placeholder,
 }: {
   label?: string;
+  required?: boolean;
   value: string;
   options: any[];
   onChange: (value: string) => void;
@@ -770,7 +772,7 @@ function SearchSelect({
 
   return (
     <div className="search-wrap" style={{ zIndex: open ? 9999 : 1 }}>
-      {label && <label>{label}</label>}
+      {label && <label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>}
 
       <input
         value={query}
@@ -1237,6 +1239,7 @@ export default function App() {
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
+  const maintSavingRef = useRef(false);
   const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [showAllMaintSuggestions, setShowAllMaintSuggestions] = useState(false);
@@ -1247,6 +1250,8 @@ export default function App() {
   const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
+  const [cardSaving, setCardSaving] = useState(false);
+  const cardSavingRef = useRef(false);
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
   useEffect(() => {
@@ -2288,7 +2293,7 @@ export default function App() {
 
     if (newGroups.length) {
       const groupError = await upsertInChunks("warehouse_groups", newGroups);
-      if (groupError) return alert(`창고 대분류 저장 실패: ${groupError.message}`);
+      if (groupError) return alert(`창고 저장 실패: ${groupError.message}`);
     }
 
     const purchaseError = await upsertInChunks("purchases", purchaseRows.map(fromPurchase));
@@ -3138,44 +3143,56 @@ export default function App() {
   };
 
   const saveCardUse = async () => {
+    if (cardSavingRef.current) return;
     if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     const cardDate = cardForm.date || getTodayKey();
     if (!cardForm.place || !Number(cardForm.amount || 0)) {
       return alert("사용일자, 사용처, 금액을 확인하세요.");
     }
+    cardSavingRef.current = true;
+    setCardSaving(true);
 
-    const payload: CardUse = {
-      id: editingCardUseId || uid(),
-      date: cardDate,
-      user_name: cardForm.user_name,
-      place: cardForm.place,
-      amount: Number(cardForm.amount || 0),
-      memo: cardForm.memo,
-      image_url: (cardForm.image_urls || [])[0] || cardForm.image_url,
-      image_urls: cardForm.image_urls || (cardForm.image_url ? [cardForm.image_url] : []),
-    };
+    try {
+      const isEditing = !!editingCardUseId;
+      const payload: CardUse = {
+        id: editingCardUseId || uid(),
+        date: cardDate,
+        user_name: cardForm.user_name,
+        place: cardForm.place,
+        amount: Number(cardForm.amount || 0),
+        memo: cardForm.memo,
+        image_url: (cardForm.image_urls || [])[0] || cardForm.image_url,
+        image_urls: cardForm.image_urls || (cardForm.image_url ? [cardForm.image_url] : []),
+      };
 
-    const { error } = await supabase.from("card_uses").upsert(payload);
-    if (error) return alert(`카드사용 저장 실패: ${error.message}`);
+      const { error } = await supabase.from("card_uses").upsert(payload);
+      if (error) return alert(`카드사용 저장 실패: ${error.message}`);
 
-    setCardUses((prev) =>
-      editingCardUseId
-        ? prev.map((c) => (c.id === editingCardUseId ? payload : c))
-        : [payload, ...prev]
-    );
+      setCardUses((prev) =>
+        isEditing
+          ? prev.map((c) => (c.id === editingCardUseId ? payload : c))
+          : [payload, ...prev]
+      );
 
-    await addActivityLog({
-      module: "카드",
-      action: editingCardUseId ? "수정" : "등록",
-      target_id: payload.id,
-      target_title: payload.place || "",
-      detail: `${payload.date || "-"} · ${money(payload.amount)}원 · ${payload.memo || ""}`,
-    });
+      await addActivityLog({
+        module: "카드",
+        action: isEditing ? "수정" : "등록",
+        target_id: payload.id,
+        target_title: payload.place || "",
+        detail: `${payload.date || "-"} · ${money(payload.amount)}원 · ${payload.memo || ""}`,
+      });
 
-    resetCardForm();
-    alert(editingCardUseId ? "카드사용 수정 완료" : "카드사용 저장 완료");
-    setMenuTab("card_list");
+      resetCardForm();
+      alert(isEditing ? "카드사용 수정 완료" : "카드사용 저장 완료");
+      setMenuTab("card_list");
+    } catch (error: any) {
+      const message = error?.message ? `카드사용 저장 중 오류: ${error.message}` : "카드사용 저장 중 알 수 없는 오류가 발생했습니다.";
+      alert(message);
+    } finally {
+      cardSavingRef.current = false;
+      setCardSaving(false);
+    }
   };
 
   const editCardUse = (c: CardUse) => {
@@ -3292,7 +3309,7 @@ export default function App() {
     if (!groupForm.name) return;
     const payload: Group = { id: editingGroupId || uid(), ...groupForm };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
-    if (error) return alert(`대분류 저장 실패: ${error.message}`);
+    if (error) return alert(`저장 실패: ${error.message}`);
     const next = editingGroupId ? groups.map((g) => (g.id === editingGroupId ? payload : g)) : [...groups, payload];
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
@@ -3357,7 +3374,7 @@ export default function App() {
     const existing = editingItemId ? latestItems.find((i) => i.id === editingItemId) : undefined;
     const payload = { id: existing?.id || uid(), ...itemForm, code, name, price: Number(itemForm.price || 0) };
     const { error } = await supabase.from("items").upsert(payload);
-    if (error) return alert(`품목 저장 실패: ${error.message}`);
+    if (error) return alert(`저장 실패: ${error.message}`);
 
     const next = existing ? latestItems.map((i) => (i.id === existing.id ? payload : i)) : [...latestItems, payload];
     setItems(next);
@@ -3447,7 +3464,7 @@ export default function App() {
     };
 
     const { error } = await supabase.from("items").insert(newItem);
-    if (error) return alert(`신규 품목 저장 실패: ${error.message}`);
+    if (error) return alert(`신규 저장 실패: ${error.message}`);
     setItems((prev) => [...prev, newItem]);
 
     if (newItemModal.rowIndex !== null) {
@@ -3845,7 +3862,7 @@ export default function App() {
   }, [maintForm, maintItems, editingMaintId]);
 
   const saveMaint = async () => {
-    if (maintSaving) return;
+    if (maintSavingRef.current) return;
     setMaintSaveError("");
 
     if (!maintForm.warehouse || !maintForm.title) {
@@ -3855,6 +3872,7 @@ export default function App() {
       return;
     }
 
+    maintSavingRef.current = true;
     setMaintSaving(true);
 
     try {
@@ -3904,6 +3922,7 @@ export default function App() {
       setMaintSaveError(message);
       alert(message);
     } finally {
+      maintSavingRef.current = false;
       setMaintSaving(false);
     }
   };
@@ -4970,7 +4989,7 @@ export default function App() {
 
               <div className="actions right-actions">
                 <button className="primary" onClick={saveUpdateNotice}>
-                  {editingUpdateNoticeId ? "수정저장" : "공지등록"}
+                  {editingUpdateNoticeId ? "수정 저장" : "공지 등록"}
                 </button>
                 <button
                   onClick={() => {
@@ -5138,7 +5157,7 @@ export default function App() {
 
             <div className="actions right-actions">
               <button className="primary" onClick={savePermit}>
-                {editingPermitId ? "수정저장" : "허가 등록"}
+                {editingPermitId ? "수정 저장" : "허가 등록"}
               </button>
               <button onClick={resetPermitForm}>초기화</button>
             </div>
@@ -6265,11 +6284,11 @@ export default function App() {
         {(menuTab === "new" || purchaseEntryPopupOpen) && (
           <section className={`card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
             <div className="purchase-entry-popup-head">
-              <h2>{editingPurchaseId ? "구매수정" : "구매입력"}</h2>
+              <h2>{editingPurchaseId ? "구매 수정" : "구매 입력"}</h2>
               {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>닫기</button>}
             </div>
             <div className="grid3">
-              <Field label="일자">
+              <Field label="일자" required>
                 <DateInput
                   value={purchaseHeader.date || getTodayKey()}
                   onChange={(value) => setPurchaseHeader({ ...purchaseHeader, date: value })}
@@ -6277,12 +6296,12 @@ export default function App() {
                   ariaLabel="구매일자 선택"
                 />
               </Field>
-              <SearchSelect label="거래처" value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
-              <SearchSelect label="창고" value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
+              <SearchSelect label="거래처" required value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
+              <SearchSelect label="창고" required value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th></th></tr></thead>
+                <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, minWidth: 520 }}>
     <SearchSelect
@@ -6304,7 +6323,7 @@ export default function App() {
       + 신규
     </button>
   </div>
-</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" onClick={() => setRows(rows.length === 1 ? [emptyRow()] : rows.filter((_, idx) => idx !== i))}><Trash2 size={16} /></button></td></tr>)}</tbody>
+</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => setRows(rows.length === 1 ? [emptyRow()] : rows.filter((_, idx) => idx !== i))}><Trash2 size={16} /></button></td></tr>)}</tbody>
               </table>
             </div>
             <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 행추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
@@ -6331,11 +6350,11 @@ export default function App() {
                 {(purchaseHeader.image_urls || []).length ? (
                   <AttachmentGroup urls={purchaseHeader.image_urls || []} />
                 ) : (
-                  <span>사진/PDF/음성 사진/PDF/음성 첨부파일 없음</span>
+                  <span>사진/PDF/음성 첨부파일 없음</span>
                 )}
               </div>
             </div>
-            <div className="actions"><button className="primary" disabled={purchaseSaving} onClick={savePurchase}><Save size={16} /> {purchaseSaving ? "저장 중..." : "저장"}</button><button disabled={purchaseSaving} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving} onClick={savePurchase}><Save size={16} /> {purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
           </section>
         )}
 
@@ -6346,10 +6365,10 @@ export default function App() {
 
         {menuTab === "card_use" && (
           <section className="card">
-            <h2>{editingCardUseId ? "카드사용 수정" : "카드사용"}</h2>
+            <h2>{editingCardUseId ? "카드사용 수정" : "카드사용 등록"}</h2>
 
             <div className="grid5">
-              <Field label="사용일자">
+              <Field label="사용일자" required>
                 <DateInput
                   value={cardForm.date || getTodayKey()}
                   onChange={(value) => setCardForm({ ...cardForm, date: value })}
@@ -6360,11 +6379,11 @@ export default function App() {
               <Field label="담당자">
                 <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/작업자" />
               </Field>
-              <Field label="사용처">
+              <Field label="사용처" required>
                 <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="상호/구매처" />
               </Field>
-              <Field label="금액">
-                <input className="right" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="0" />
+              <Field label="금액" required>
+                <input className="right" inputMode="decimal" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="0" />
               </Field>
               <Field label="메모">
                 <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="구매내용 메모" />
@@ -6403,9 +6422,9 @@ export default function App() {
               </div>
             </div>
 
-            <div className="actions right-actions">
-              <button className="primary" onClick={saveCardUse}>{editingCardUseId ? "카드사용 수정저장" : "카드사용 저장"}</button>
-              <button onClick={resetCardForm}>초기화</button>
+            <div className="actions right-actions entry-actions">
+              <button className="primary" disabled={cardSaving} onClick={saveCardUse}><Save size={16} /> {cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
+              <button disabled={cardSaving} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
             </div>
 
           </section>
@@ -6508,21 +6527,21 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "거래처 수정저장" : "거래처 저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
-          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveGroup}>{editingGroupId ? "대분류 수정저장" : "대분류 저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "세부창고 수정저장" : "세부 창고 저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
+          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveGroup}>{editingGroupId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "품목 수정저장" : "품목 저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input inputMode="decimal" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "수정 저장" : "저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
           <section className="card">
             <div className="between">
-              <h2>{editingMaintId ? "정비수정" : "정비등록"}</h2>
+              <h2>{editingMaintId ? "정비 수정" : "정비 등록"}</h2>
               <button onClick={() => setMaintTemplateOpen((value) => !value)}>이전 작업 불러오기</button>
             </div>
 
@@ -6563,7 +6582,7 @@ export default function App() {
             )}
 
             <div className="grid3">
-              <Field label="정비일자">
+              <Field label="정비일자" required>
                 <DateInput
                   value={maintForm.date || getTodayKey()}
                   onChange={(value) => setMaintForm({ ...maintForm, date: value })}
@@ -6571,15 +6590,15 @@ export default function App() {
                   ariaLabel="정비일자 선택"
                 />
               </Field>
-              <SearchSelect label="창고" value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
+              <SearchSelect label="창고" required value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
               <Field label="작업자">
                 <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
               </Field>
-              <Field label="정비제목">
+              <Field label="정비제목" required>
                 <input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
               </Field>
               <Field label="정비내용">
-                <input value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} />
+                <textarea className="maint-detail-input" rows={3} value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} placeholder="정비 작업내용을 입력하세요" />
               </Field>
               <Field label="정비비용">
                 <input value={maintForm.cost} readOnly />
@@ -6699,13 +6718,13 @@ export default function App() {
                           )}
                         </td>
                         <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
-                        <td><input className="right" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
-                        <td><input className="right" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
-                        <td><input className="right" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
-                        <td><input className="right" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
+                        <td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
+                        <td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
+                        <td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
+                        <td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
                         <td className="right bold">{money(r.total)}</td>
                         <td>
-                          <button className="icon" onClick={() => {
+                          <button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => {
                             const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, idx) => idx !== i);
                             setMaintItems(next);
                             const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
@@ -6762,11 +6781,11 @@ export default function App() {
 
             {maintSaveError && <div className="save-error-box">{maintSaveError}</div>}
 
-            <div className="actions right-actions">
+            <div className="actions right-actions entry-actions">
               <button className="primary" disabled={maintSaving} onClick={saveMaint}>
-                {maintSaving ? "저장 중..." : "정비 저장"}
+                <Save size={16} /> {maintSaving ? "저장 중..." : editingMaintId ? "수정 저장" : "저장"}
               </button>
-              <button disabled={maintSaving} onClick={resetMaintForm}>초기화</button>
+              <button disabled={maintSaving} onClick={resetMaintForm}><RotateCcw size={16} /> 초기화</button>
             </div>
             <p className="draft-help-text">작성 중인 정비등록 내용은 자동 임시저장됩니다. 저장 실패나 메뉴 이동 후에도 다시 정비등록에 들어오면 복원됩니다.</p>
           </section>
@@ -6850,7 +6869,7 @@ export default function App() {
                 </Field>
 
                 <div className="schedule-pro-actions">
-                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정저장" : "일정저장"}</button>
+                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정 저장" : "일정 저장"}</button>
                   <button onClick={resetMaintenanceScheduleForm}>초기화</button>
                 </div>
               </div>
@@ -6921,7 +6940,7 @@ export default function App() {
                   <input value={newItemForm.unit} onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value })} placeholder="ea" />
                 </Field>
                 <Field label="입고단가">
-                  <input value={newItemForm.price} onChange={(e) => setNewItemForm({ ...newItemForm, price: e.target.value })} placeholder="0" />
+                  <input inputMode="decimal" value={newItemForm.price} onChange={(e) => setNewItemForm({ ...newItemForm, price: e.target.value })} placeholder="0" />
                 </Field>
               </div>
               <div className="actions right-actions">
@@ -7180,8 +7199,8 @@ export default function App() {
   );
 }
 
-function Field({ label, children }: { label: string; children: any }) {
-  return <div className="field"><label>{label}</label>{children}</div>;
+function Field({ label, children, required = false, className = "" }: { label: string; children: any; required?: boolean; className?: string }) {
+  return <div className={`field ${className}`.trim()}><label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>{children}</div>;
 }
 function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
@@ -9776,10 +9795,15 @@ const css = `
 *{box-sizing:border-box}
 html,body,#root{width:100%;min-height:100%;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',Arial,sans-serif;background:#0f172a;color:#0f172a;overflow-x:hidden}
-button{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:#e2e8f0}
+button{border:0;border-radius:10px;padding:9px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;background:#e2e8f0;transition:background-color .16s ease,border-color .16s ease,opacity .16s ease,box-shadow .16s ease}
 button:hover{filter:brightness(.96)}
-input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;background:#fff}
+button:disabled{cursor:not-allowed;opacity:.55;filter:none;box-shadow:none}
+button:disabled:hover{filter:none}
+input,textarea,select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:9px;background:#fff;color:#0f172a;font:inherit;transition:border-color .16s ease,box-shadow .16s ease}
+input:focus,textarea:focus,select:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+input[readonly],textarea[readonly]{background:#f8fafc;color:#475569}
 label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6px}
+.required-mark{display:inline-block;margin-left:4px;color:#dc2626;font-weight:900}
 .app{width:100%;min-height:100vh;margin:0;padding:24px;box-sizing:border-box}
 .hero{width:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .main-title{margin:0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;color:white;text-shadow:0 4px 14px rgba(0,0,0,.35)}
@@ -9820,6 +9844,10 @@ td input{height:36px}
 .actions{display:flex;gap:10px;margin-top:16px}
 .right-actions{justify-content:flex-end}
 .primary{background:#16a34a;color:white}
+.primary:disabled{background:#94a3b8;color:#f8fafc}
+.entry-actions{padding-top:16px;margin-top:20px;border-top:1px solid #e2e8f0}
+.entry-actions button{min-width:120px;justify-content:center}
+.maint-detail-input{min-height:78px;line-height:1.5;resize:vertical}
 .icon{padding:6px 8px;margin-right:4px}
 .upload{display:inline-flex;gap:7px;align-items:center;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
 .upload input{display:none}
