@@ -12849,10 +12849,10 @@ td .icon{
 
 .date-picker-input{
   position:absolute;
-  left:0;
-  bottom:0;
-  width:1px;
-  height:1px;
+  right:0;
+  top:0;
+  width:44px;
+  height:100%;
   opacity:0;
   pointer-events:none;
 }
@@ -18580,7 +18580,7 @@ button:disabled{
   min-width:0;
 }
 .date-input-wrap .date-picker-input{
-  min-width:1px;
+  min-width:44px;
 }
 .date-input-wrap .date-picker-button{
   min-width:44px;
@@ -18593,8 +18593,9 @@ button:disabled{
     height:46px;
   }
   .date-input-wrap .date-picker-input{
-    width:1px;
-    height:1px;
+    width:46px;
+    min-width:46px;
+    height:46px;
   }
   .date-input-wrap .date-picker-button{
     width:46px;
