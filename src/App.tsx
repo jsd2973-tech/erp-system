@@ -2129,6 +2129,10 @@ export default function App() {
     setRows(next);
   };
 
+  const removePurchaseRow = (index: number) => {
+    setRows((prev) => (prev.length === 1 ? [emptyRow()] : prev.filter((_, rowIndex) => rowIndex !== index)));
+  };
+
   const validPurchaseRows = rows.filter((r) => r.item && Number(r.qty || 0) > 0);
   const purchaseSupplyTotal = validPurchaseRows.reduce((sum, r) => sum + Number(r.supply || 0), 0);
   const purchaseVatTotal = validPurchaseRows.reduce((sum, r) => sum + Number(r.vat || 0), 0);
@@ -3526,6 +3530,13 @@ export default function App() {
       next[index].total = Number(next[index].supply || 0) + next[index].vat;
     }
 
+    setMaintItems(next);
+    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+  };
+
+  const removeMaintItem = (index: number) => {
+    const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, rowIndex) => rowIndex !== index);
     setMaintItems(next);
     const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
     setMaintForm((prev) => ({ ...prev, cost: String(total) }));
@@ -6299,7 +6310,7 @@ export default function App() {
               <SearchSelect label="거래처" required value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
               <SearchSelect label="창고" required value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
-            <div className="table-wrap">
+            <div className="table-wrap entry-desktop-table">
               <table>
                 <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
@@ -6323,10 +6334,57 @@ export default function App() {
       + 신규
     </button>
   </div>
-</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => setRows(rows.length === 1 ? [emptyRow()] : rows.filter((_, idx) => idx !== i))}><Trash2 size={16} /></button></td></tr>)}</tbody>
+</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>)}</tbody>
               </table>
             </div>
-            <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 행추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
+            <div className="mobile-entry-item-list" aria-label="구매 품목 입력">
+              {rows.map((r, i) => (
+                <div className="mobile-entry-item-card" key={`mobile-purchase-${r.id}`}>
+                  <div className="mobile-entry-item-head">
+                    <div><span>구매 품목</span><b>{i + 1}</b></div>
+                    <button type="button" className="mobile-entry-delete" onClick={() => removePurchaseRow(i)} aria-label={`${i + 1}번 구매 품목 삭제`}><Trash2 size={16} /> 삭제</button>
+                  </div>
+
+                  <SearchSelect
+                    label="품목"
+                    required
+                    value={r.item}
+                    options={itemOptions}
+                    onChange={(value) => updateRow(i, "item", value)}
+                    placeholder="품목명 검색"
+                  />
+
+                  <Field label="품목명 직접수정">
+                    <div className="mobile-entry-inline-row">
+                      <input value={r.item} onChange={(e) => updateRow(i, "item", e.target.value)} placeholder="이번 구매에서 사용할 품목명" />
+                      <button type="button" onClick={() => openNewItemModal(i)}><Plus size={16} /> 신규</button>
+                    </div>
+                  </Field>
+
+                  <Field label="규격">
+                    <input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
+                  </Field>
+
+                  <div className="mobile-entry-grid">
+                    <Field label="수량" required>
+                      <input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="0" />
+                    </Field>
+                    <Field label="단가">
+                      <input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} placeholder="0" />
+                    </Field>
+                    <Field label="공급가액">
+                      <input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} placeholder="0" />
+                    </Field>
+                    <Field label="부가세액">
+                      <input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} placeholder="0" />
+                    </Field>
+                  </div>
+
+                  <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
+                </div>
+              ))}
+            </div>
+            <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
             <div className="between">
               <label className="upload">
                 <Upload size={16} /> 구매 첨부 업로드
@@ -6677,7 +6735,7 @@ export default function App() {
             )}
 
             <h3>사용 품목</h3>
-            <div className="table-wrap">
+            <div className="table-wrap entry-desktop-table">
               <table>
                 <thead>
                   <tr>
@@ -6724,12 +6782,7 @@ export default function App() {
                         <td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
                         <td className="right bold">{money(r.total)}</td>
                         <td>
-                          <button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => {
-                            const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, idx) => idx !== i);
-                            setMaintItems(next);
-                            const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-                            setMaintForm((prev) => ({ ...prev, cost: String(total) }));
-                          }}>
+                          <button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removeMaintItem(i)}>
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -6740,8 +6793,64 @@ export default function App() {
               </table>
             </div>
 
+            <div className="mobile-entry-item-list" aria-label="정비 사용 품목 입력">
+              {maintItems.map((r, i) => {
+                const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
+
+                return (
+                  <div className="mobile-entry-item-card maintenance" key={`mobile-maint-${r.id}`}>
+                    <div className="mobile-entry-item-head">
+                      <div><span>정비 품목</span><b>{i + 1}</b></div>
+                      <button type="button" className="mobile-entry-delete" onClick={() => removeMaintItem(i)} aria-label={`${i + 1}번 정비 품목 삭제`}><Trash2 size={16} /> 삭제</button>
+                    </div>
+
+                    <SearchSelect
+                      label="품목"
+                      value={r.item}
+                      options={itemOptions}
+                      onChange={(value) => updateMaintItem(i, "item", value)}
+                      placeholder="품목명 검색"
+                    />
+
+                    <Field label="품목명 직접수정">
+                      <input value={r.item} onChange={(e) => updateMaintItem(i, "item", e.target.value)} placeholder="이번 정비에서 사용할 품목명" />
+                    </Field>
+
+                    {recentPurchaseInfo && (
+                      <div className="mobile-entry-recent">
+                        <span>최근 구매</span>
+                        <b>{recentPurchaseInfo.date || "-"} · {recentPurchaseInfo.vendor || "거래처 미입력"}</b>
+                        <em>단가 {money(recentPurchaseInfo.price)}원</em>
+                      </div>
+                    )}
+
+                    <Field label="규격">
+                      <input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} placeholder="규격 입력" />
+                    </Field>
+
+                    <div className="mobile-entry-grid">
+                      <Field label="수량">
+                        <input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} placeholder="0" />
+                      </Field>
+                      <Field label="단가">
+                        <input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} placeholder="0" />
+                      </Field>
+                      <Field label="공급가액">
+                        <input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} placeholder="0" />
+                      </Field>
+                      <Field label="부가세">
+                        <input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} placeholder="0" />
+                      </Field>
+                    </div>
+
+                    <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="between">
-              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목행 추가</button>
+              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목 추가</button>
               <div className="totals">
                 <div>공급가액 합계: <b>{money(maintSupplyTotal)}원</b></div>
                 <div>부가세 합계: <b>{money(maintVatTotal)}원</b></div>
@@ -18944,6 +19053,122 @@ button:disabled{
 .home-week-range{margin:-4px 0 10px;color:#64748b;font-size:13px;font-weight:850}.home-week-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.home-week-day{position:relative;min-height:132px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:9px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px}.home-week-day>span{color:#0f172a;font-size:12px;font-weight:950}.home-week-day>i{align-self:flex-start;border-radius:999px;background:#2563eb;color:#fff;font-style:normal;font-size:10px;font-weight:950;padding:3px 8px}.home-week-day div{display:flex;flex-direction:column;gap:4px;min-width:0}.home-week-day em{font-style:normal;color:#334155;font-size:11px;font-weight:850;line-height:1.28;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.home-week-day small{color:#94a3b8;font-size:11px;font-weight:850}.home-week-day>b{margin-top:auto;color:#dc2626;font-size:11px;font-weight:950}.home-week-day.today{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12);background:#fbfdff}.home-week-day.has-work{background:#fffdf7}.mini-calendar-legend{display:flex;gap:12px;align-items:center;margin-top:12px;color:#64748b;font-size:12px;font-weight:850}.mini-calendar-legend span{display:inline-flex;gap:6px;align-items:center}.mini-calendar-legend i{width:8px;height:8px;border-radius:999px;display:inline-block}.today-dot{background:#2563eb}.work-dot{background:#f59e0b}
 .home-photo-shortcut-row{display:grid;grid-template-columns:minmax(0,.9fr) minmax(380px,1.1fr);gap:16px;margin:0 0 18px;align-items:stretch}.home-recent-photo-panel,.home-shortcut-panel{min-width:0}.home-recent-photo-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.home-recent-photo-card{position:relative;min-width:0;border:1px solid #dbe4f0;border-radius:15px;background:#fff;padding:0;overflow:hidden;text-align:left;cursor:pointer;box-shadow:0 10px 24px rgba(15,23,42,.06);display:flex;flex-direction:column}.home-recent-photo-card img{display:block;width:100%;height:92px;object-fit:cover;background:#f1f5f9}.home-recent-photo-card span{position:absolute;left:7px;top:7px;padding:3px 7px;border-radius:999px;background:rgba(15,23,42,.78);color:#fff;font-size:10px;font-weight:950}.home-recent-photo-card b{display:block;padding:9px 9px 2px;color:#0f172a;font-size:12px;font-weight:950;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-photo-card em{display:block;padding:0 9px 2px;color:#475569;font-size:11px;font-style:normal;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-recent-photo-card small{display:block;padding:0 9px 9px;color:#94a3b8;font-size:10px;font-weight:850}.home-shortcut-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:0 0 18px}.home-shortcut-row.home-shortcut-row-inline{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}.home-shortcut-row button{border:1px solid #e2e8f0;border-radius:14px;background:#fff;padding:13px 10px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 8px 18px rgba(15,23,42,.045)}.home-shortcut-row.home-shortcut-row-inline button{justify-content:flex-start;min-height:68px;padding:16px 15px}.home-shortcut-row span{font-size:23px}.home-shortcut-row b{font-size:14px;font-weight:950;color:#0f172a}.home-month-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.home-month-stat{border:1px solid #e2e8f0;border-radius:17px;background:#fff;padding:26px 22px;text-align:left;cursor:pointer;box-shadow:0 12px 28px rgba(15,23,42,.06);min-height:132px}.home-month-stat span{display:block;font-size:13px;font-weight:950;color:#334155}.home-month-stat b{display:block;margin-top:15px;font-size:29px;font-weight:950;letter-spacing:-.7px}.home-month-stat small{display:block;margin-top:11px;color:#64748b;font-size:12px;font-weight:850}.home-month-stat.blue{background:#f6f9ff;border-color:#bfdbfe}.home-month-stat.blue b{color:#1455d9}.home-month-stat.purple{background:#faf7ff;border-color:#ddd6fe}.home-month-stat.purple b{color:#6d28d9}.home-month-stat.green{background:#f0fdf4;border-color:#bbf7d0}.home-month-stat.green b{color:#059669}.home-month-stat.amber{background:#fffaf0;border-color:#fde68a}.home-month-stat.amber b{color:#d97706}@media(max-width:1200px){.home-dashboard-top-row,.home-dashboard-main-row,.home-photo-shortcut-row{grid-template-columns:1fr}.home-week-calendar-grid{grid-template-columns:repeat(7,minmax(120px,1fr));overflow-x:auto;padding-bottom:4px}.home-shortcut-row{grid-template-columns:repeat(3,1fr)}.home-shortcut-row.home-shortcut-row-inline{grid-template-columns:repeat(3,1fr)}.home-recent-photo-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.home-month-stat-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.home-recent-activity-grid{grid-template-columns:1fr}.home-recent-row{grid-template-columns:42px minmax(0,1fr) auto}.home-recent-row span{display:none}.home-week-calendar-grid{grid-template-columns:1fr;overflow:visible}.home-week-day{min-height:auto}.home-recent-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-recent-photo-card img{height:72px}.home-shortcut-row,.home-shortcut-row.home-shortcut-row-inline{grid-template-columns:repeat(2,1fr);gap:10px}.home-shortcut-row button,.home-shortcut-row.home-shortcut-row-inline button{justify-content:flex-start;min-height:54px;padding:12px}.home-month-stat-grid{grid-template-columns:1fr}.home-month-stat{min-height:104px}.home-month-stat b{font-size:22px}}
+
+/* ===== Mobile purchase / maintenance item entry ===== */
+.mobile-entry-item-list{display:none}
+
+@media(max-width:900px){
+  .entry-desktop-table{display:none !important}
+  .mobile-entry-item-list{
+    display:grid !important;
+    gap:14px;
+    margin:14px 0 16px;
+  }
+  .mobile-entry-item-card{
+    position:relative;
+    min-width:0;
+    padding:15px;
+    border:1px solid #bfdbfe;
+    border-left:4px solid #2563eb;
+    border-radius:20px;
+    background:linear-gradient(180deg,#f8fbff 0%,#ffffff 32%);
+    box-shadow:0 10px 24px rgba(37,99,235,.08);
+  }
+  .mobile-entry-item-card.maintenance{
+    border-color:#bbf7d0;
+    border-left-color:#10b981;
+    background:linear-gradient(180deg,#f2fdf7 0%,#ffffff 32%);
+    box-shadow:0 10px 24px rgba(16,185,129,.08);
+  }
+  .mobile-entry-item-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:14px;
+    padding-bottom:11px;
+    border-bottom:1px solid #dbeafe;
+  }
+  .mobile-entry-item-card.maintenance .mobile-entry-item-head{border-bottom-color:#d1fae5}
+  .mobile-entry-item-head>div{display:flex;align-items:center;gap:8px}
+  .mobile-entry-item-head span{color:#475569;font-size:13px;font-weight:900}
+  .mobile-entry-item-head b{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:27px;
+    height:27px;
+    border-radius:999px;
+    background:#2563eb;
+    color:#fff;
+    font-size:13px;
+    font-weight:950;
+  }
+  .mobile-entry-item-card.maintenance .mobile-entry-item-head b{background:#10b981}
+  .mobile-entry-delete{
+    width:auto !important;
+    min-width:72px !important;
+    min-height:38px !important;
+    padding:7px 10px !important;
+    justify-content:center !important;
+    border:1px solid #fecaca !important;
+    border-radius:12px !important;
+    background:#fff1f2 !important;
+    color:#dc2626 !important;
+    font-size:13px !important;
+  }
+  .mobile-entry-item-card .search-wrap{margin-bottom:12px}
+  .mobile-entry-item-card .field{margin-bottom:12px !important}
+  .mobile-entry-item-card label{margin-bottom:6px !important;color:#334155 !important;font-size:13px !important;font-weight:900 !important}
+  .mobile-entry-inline-row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:8px;
+    align-items:center;
+  }
+  .mobile-entry-inline-row button{
+    width:auto !important;
+    min-width:76px !important;
+    height:52px !important;
+    justify-content:center !important;
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+  }
+  .mobile-entry-grid{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:0 10px !important;
+  }
+  .mobile-entry-item-card input.right{text-align:right !important}
+  .mobile-entry-total{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-top:2px;
+    padding:13px 14px;
+    border-radius:15px;
+    background:#eaf2ff;
+    color:#1d4ed8;
+  }
+  .mobile-entry-item-card.maintenance .mobile-entry-total{background:#ecfdf5;color:#047857}
+  .mobile-entry-total span{font-size:13px;font-weight:900}
+  .mobile-entry-total b{font-size:20px;font-weight:1000;letter-spacing:-.3px}
+  .mobile-entry-recent{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:4px 8px;
+    margin:-2px 0 12px;
+    padding:11px 12px;
+    border:1px solid #d1fae5;
+    border-radius:14px;
+    background:#f0fdf4;
+  }
+  .mobile-entry-recent span{grid-row:1/3;color:#059669;font-size:11px;font-weight:950;align-self:center}
+  .mobile-entry-recent b{color:#334155;font-size:12px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mobile-entry-recent em{color:#047857;font-size:12px;font-style:normal;font-weight:900}
+}
 
 
 `;
