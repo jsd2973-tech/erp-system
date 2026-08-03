@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2 } from "lucide-react";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
 type Group = { id: string; code: string; name: string };
@@ -1263,6 +1263,21 @@ export default function App() {
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
   const auxiliarySavingRef = useRef<Set<string>>(new Set());
   const [auxiliarySaving, setAuxiliarySaving] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<{ id: number; message: string; tone: "success" | "info" } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = (message: string, tone: "success" | "info" = "success") => {
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    setToast({ id: Date.now(), message, tone });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3200);
+  };
+
+  useEffect(() => () => {
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+  }, []);
 
   const isAuxiliarySaving = (key: string) => !!auxiliarySaving[key];
 
@@ -1514,7 +1529,7 @@ export default function App() {
 
     await loadVendorAccounts();
     resetNewVendorAccountForm();
-    alert("계좌가 추가되었습니다.");
+    showToast("거래처 계좌가 저장되었습니다.");
   };
 
   const importVendorAccountsExcel = async (file: File) => {
@@ -1574,7 +1589,7 @@ export default function App() {
     if (error) return alert(`거래처 계좌 업로드 실패: ${error.message}`);
 
     await loadVendorAccounts();
-    alert(`거래처 계좌 ${dedupedRows.length}건을 인터넷 DB에 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
+    showToast(`거래처 계좌 ${dedupedRows.length}건을 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
   };
 
   const findVendorAccount = (vendorName: string) => {
@@ -1852,6 +1867,7 @@ export default function App() {
 
     await loadPermits();
     resetPermitForm();
+    showToast(editingPermitId ? "허가·갱신 항목을 수정했습니다." : "허가·갱신 항목을 등록했습니다.");
   };
 
   const editPermit = (permit: PermitRenewal) => {
@@ -1919,7 +1935,7 @@ export default function App() {
     if (error) return alert(`허가/갱신 엑셀 업로드 실패: ${error.message}`);
 
     await loadPermits();
-    alert(`허가/갱신 항목 ${rows.length}건을 인터넷 DB에 저장했습니다.`);
+    showToast(`허가·갱신 항목 ${rows.length}건을 저장했습니다.`);
   };
 
 
@@ -2340,7 +2356,7 @@ export default function App() {
     });
 
     await loadAll();
-    alert(`구매내역 ${purchaseRows.length}건을 업로드했습니다. 합계/빈 행 ${skippedRows}행은 제외했습니다.`);
+    showToast(`구매내역 ${purchaseRows.length}건을 업로드했습니다. 합계·빈 행 ${skippedRows}행은 제외했습니다.`);
   };
 
   const hasPurchaseFormValue = () => !!(
@@ -2454,6 +2470,7 @@ export default function App() {
       }
       clearPurchaseForm();
       setPurchaseEntryPopupOpen(false);
+      showToast(editingPurchaseId ? "구매내역을 수정했습니다." : "구매내역을 저장했습니다.");
       setMenuTab("list");
     } catch (error: any) {
       const message = error?.message ? `구매 저장 중 오류: ${error.message}` : "구매 저장 중 알 수 없는 오류가 발생했습니다.";
@@ -2732,7 +2749,7 @@ export default function App() {
       setMaintenancePhotoFiles([]);
       setMaintenanceUploadPreviewUrls([]);
       await loadMaintenancePhotos();
-      alert("정비사진이 등록되었습니다.");
+      showToast("정비사진이 등록되었습니다.");
     } finally {
       setMaintenancePhotoSaving(false);
     }
@@ -2825,6 +2842,7 @@ export default function App() {
 
     await loadMaintenanceSchedules();
     resetMaintenanceScheduleForm();
+    showToast(editingMaintenanceScheduleId ? "정비일정을 수정했습니다." : "정비일정을 등록했습니다.");
     setMenuTab("maintenance_schedules");
   };
 
@@ -2886,7 +2904,7 @@ export default function App() {
       if (maintError) return alert(`정비조회 자동등록 실패: ${maintError.message}`);
 
       setMaints((prev) => [newMaint, ...prev]);
-      alert("정비일정이 완료 처리되었고 정비조회에 자동 등록되었습니다. 필요하면 정비조회에서 품목/비용을 수정하세요.");
+      showToast("정비일정을 완료 처리하고 정비조회에 자동 등록했습니다.");
     }
   };
 
@@ -2934,7 +2952,7 @@ export default function App() {
     setLinkingReceiptPhotoId(item.id);
 
     setMenuTab("new");
-    alert("입고사진을 구매입력에 반영했습니다. 창고/품목/금액을 입력해서 저장하세요.");
+    showToast("입고사진을 구매입력에 반영했습니다. 나머지 항목을 입력해 주세요.", "info");
   };
 
   const applyMaintenancePhotoToMaint = (item: MaintenancePhoto) => {
@@ -2954,7 +2972,7 @@ export default function App() {
     setLinkingMaintenancePhotoId(item.id);
 
     setMenuTab("maint_new");
-    alert("정비사진을 정비등록에 반영했습니다. 품목/금액을 입력해서 저장하세요.");
+    showToast("정비사진을 정비등록에 반영했습니다. 나머지 항목을 입력해 주세요.", "info");
   };
 
   const mergeUrls = (base?: string[], extra?: string[]) => {
@@ -3010,7 +3028,7 @@ export default function App() {
     setPurchases((prev) => prev.map((p) => (p.id === purchase.id ? payload : p)));
     await markReceiptPhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("기존 구매내역에 사진을 연결했습니다.");
+    showToast("기존 구매내역에 사진을 연결했습니다.");
   };
 
   const connectMaintRecordToMaintenancePhoto = async (maint: Maint, maintenancePhotoId: string) => {
@@ -3030,7 +3048,7 @@ export default function App() {
     setMaints((prev) => prev.map((m) => (m.id === maint.id ? payload : m)));
     await markMaintenancePhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("기존 정비내역에 사진을 연결했습니다.");
+    showToast("기존 정비내역에 사진을 연결했습니다.");
   };
 
   const connectReceiptPhotoToPurchase = async (photo: ReceiptPhoto, purchaseId: string) => {
@@ -3050,7 +3068,7 @@ export default function App() {
     setPurchases((prev) => prev.map((p) => (p.id === target.id ? payload : p)));
     await markReceiptPhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("구매내역에 사진을 연결했습니다.");
+    showToast("구매내역에 사진을 연결했습니다.");
   };
 
   const connectMaintenancePhotoToMaint = async (photo: MaintenancePhoto, maintId: string) => {
@@ -3070,7 +3088,7 @@ export default function App() {
     setMaints((prev) => prev.map((m) => (m.id === target.id ? payload : m)));
     await markMaintenancePhotoProcessed(photo.id);
     setPhotoLinkModal({ mode: "", targetId: "", search: "" });
-    alert("정비내역에 사진을 연결했습니다.");
+    showToast("정비내역에 사진을 연결했습니다.");
   };
 
 
@@ -3173,7 +3191,7 @@ export default function App() {
       setReceiptPhotoFiles([]);
       setReceiptUploadPreviewUrls([]);
       await loadReceiptPhotos();
-      alert("입고사진이 등록되었습니다.");
+      showToast("입고사진이 등록되었습니다.");
     } finally {
       setReceiptPhotoSaving(false);
     }
@@ -3339,7 +3357,7 @@ export default function App() {
       });
 
       clearCardForm();
-      alert(isEditing ? "카드사용 수정 완료" : "카드사용 저장 완료");
+      showToast(isEditing ? "카드사용 내역을 수정했습니다." : "카드사용 내역을 저장했습니다.");
       setMenuTab("card_list");
     } catch (error: any) {
       const message = error?.message ? `카드사용 저장 중 오류: ${error.message}` : "카드사용 저장 중 알 수 없는 오류가 발생했습니다.";
@@ -3432,6 +3450,7 @@ export default function App() {
     setVendors(next);
     setVendorForm({ code: `V${String(next.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
     setEditingVendorId("");
+    showToast(existing ? "거래처 정보를 수정했습니다." : "거래처를 등록했습니다.");
   };
 
   const importVendors = async (file: File) => {
@@ -3469,6 +3488,7 @@ export default function App() {
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
     setEditingGroupId("");
+    showToast(editingGroupId ? "창고 대분류를 수정했습니다." : "창고 대분류를 등록했습니다.");
   };
 
   const saveWarehouse = async () => {
@@ -3482,6 +3502,7 @@ export default function App() {
     setWarehouses(next);
     setWarehouseForm({ group: "", code: nextCode(next), name: "" });
     setEditingWarehouseId("");
+    showToast(editingWarehouseId ? "세부 창고를 수정했습니다." : "세부 창고를 등록했습니다.");
   };
 
   const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
@@ -3535,6 +3556,7 @@ export default function App() {
     setItems(next);
     setItemForm({ code: nextItemCode(next), name: "", spec: "", unit: "", price: "" });
     setEditingItemId("");
+    showToast(existing ? "품목 정보를 수정했습니다." : "품목을 등록했습니다.");
   };
 
   const importItems = async (file: File) => {
@@ -3646,6 +3668,7 @@ export default function App() {
       );
     }
 
+    showToast("신규 품목을 등록하고 입력란에 반영했습니다.");
     closeNewItemModal();
   };
 
@@ -4090,7 +4113,7 @@ export default function App() {
       }
 
       clearMaintForm();
-      alert("정비가 저장되었습니다.");
+      showToast(editingMaintId ? "정비내역을 수정했습니다." : "정비내역을 저장했습니다.");
       setMenuTab("maint_list");
     } catch (error: any) {
       const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
@@ -4476,7 +4499,7 @@ export default function App() {
     await loadAll();
     await loadReceiptPhotos();
     await loadMaintenancePhotos();
-    alert("복구되었습니다.");
+    showToast("선택한 항목을 복구했습니다.");
   };
 
   const permanentlyDeleteTrashRecord = async (id: string) => {
@@ -4583,7 +4606,7 @@ export default function App() {
         detail: `구매 ${backup.purchases.length}건 · 정비 ${backup.maints.length}건 · 카드 ${backup.card_uses.length}건 · 휴지통 ${backup.deleted_records.length}건`,
       });
 
-      alert("전체 백업 파일을 다운로드했습니다.");
+      showToast("전체 백업 파일을 다운로드했습니다.");
     } finally {
       setBackupSaving(false);
     }
@@ -4663,6 +4686,7 @@ export default function App() {
     setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] });
     setEditingSiteNoticeId("");
     await loadSiteNotices();
+    showToast(editingSiteNoticeId ? "공지를 수정했습니다." : "공지를 등록했습니다.");
   };
 
   const editSiteNotice = (notice: SiteNotice) => {
@@ -4759,7 +4783,7 @@ export default function App() {
     setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
     setEditingUpdateNoticeId("");
     await loadUpdateNotices();
-    alert(editingUpdateNoticeId ? "업데이트 공지 수정 완료" : "업데이트 공지 등록 완료");
+    showToast(editingUpdateNoticeId ? "업데이트 공지를 수정했습니다." : "업데이트 공지를 등록했습니다.");
   };
 
   const editUpdateNotice = (notice: UpdateNotice) => {
@@ -4816,7 +4840,7 @@ export default function App() {
     });
 
     if (!duplicateIds.length) {
-      alert("중복 공지가 없습니다.");
+      showToast("정리할 중복 공지가 없습니다.", "info");
       return;
     }
 
@@ -4828,7 +4852,7 @@ export default function App() {
     if (deleteError) return alert(`중복 공지 삭제 실패: ${deleteError.message}`);
 
     await loadUpdateNotices();
-    alert(`중복 공지 ${duplicateIds.length}건을 정리했습니다.`);
+    showToast(`중복 공지 ${duplicateIds.length}건을 정리했습니다.`);
   };
 
   useEffect(() => {
@@ -4934,6 +4958,17 @@ export default function App() {
   return (
     <div>
       <style>{css}</style>
+      {toast && (
+        <div key={toast.id} className={`app-toast ${toast.tone}`} role="status" aria-live="polite">
+          <div className="app-toast-icon"><CheckCircle2 size={21} /></div>
+          <div className="app-toast-copy">
+            <strong>{toast.tone === "success" ? "완료" : "안내"}</strong>
+            <span>{toast.message}</span>
+          </div>
+          <button type="button" onClick={() => setToast(null)} aria-label="알림 닫기"><X size={16} /></button>
+          <i aria-hidden="true" />
+        </div>
+      )}
       <div className="app">
         <header className="hero">
           <h1 className="main-title">태명산업개발</h1>
@@ -6103,7 +6138,7 @@ export default function App() {
                             return;
                           }
 
-                          alert("저장되었습니다.");
+                          showToast("거래처 계좌를 저장했습니다.");
                           await loadVendorAccounts();
                         })}
                       >
@@ -6277,6 +6312,7 @@ export default function App() {
             backupSaving={backupSaving}
             exportFullBackup={exportFullBackup}
             exportBackupSummaryExcel={exportBackupSummaryExcel}
+            showToast={showToast}
           />
         )}
 
@@ -6459,7 +6495,7 @@ export default function App() {
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
-        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} />}
+        {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
 
         {(menuTab === "new" || purchaseEntryPopupOpen) && (
           <section className={`card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
@@ -8424,11 +8460,13 @@ function Home({
   setMaintSearch,
   warehouses,
   isAdmin,
+  showToast,
 }: {
   setMenuTab: (tab: string) => void;
   setMaintSearch: (value: any) => void;
   warehouses: Warehouse[];
   isAdmin: boolean;
+  showToast: (message: string, tone?: "success" | "info") => void;
 }) {
   const hotspotTableName = "layout_hotspots";
   const [editLayout, setEditLayout] = useState(false);
@@ -8636,7 +8674,7 @@ function Home({
     }
 
     setLayoutMessage(`${layoutDevice === "mobile" ? "모바일" : "PC"} 좌표 DB 저장 완료`);
-    alert("생산라인 클릭영역 좌표를 DB에 저장했습니다.");
+    showToast("생산라인 클릭영역 좌표를 저장했습니다.");
   };
 
   const copyPcToMobile = async () => {
@@ -9011,6 +9049,7 @@ function BackupPermissionPage({
   backupSaving,
   exportFullBackup,
   exportBackupSummaryExcel,
+  showToast,
 }: any) {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
@@ -9090,7 +9129,7 @@ function BackupPermissionPage({
         loadUserPermissions(),
       ]);
 
-      alert("백업 복구가 완료되었습니다.");
+      showToast("백업 복구가 완료되었습니다.");
       setRestoreFile(null);
     } catch (error: any) {
       alert(error?.message || "백업 복구 중 오류가 발생했습니다.");
@@ -10135,6 +10174,72 @@ label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6
 .main-title{margin:0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;color:white;text-shadow:0 4px 14px rgba(0,0,0,.35)}
 .hero p{margin:10px 0 0;color:#dbeafe;text-align:center;font-size:18px;font-weight:600;letter-spacing:2px}
 .loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}
+.app-toast{
+  position:fixed;
+  top:22px;
+  right:22px;
+  z-index:1000000;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:11px;
+  width:min(390px,calc(100vw - 32px));
+  min-height:68px;
+  padding:13px 14px;
+  overflow:hidden;
+  border:1px solid #bbf7d0;
+  border-radius:17px;
+  background:rgba(255,255,255,.98);
+  color:#0f172a;
+  box-shadow:0 18px 50px rgba(15,23,42,.2),0 3px 12px rgba(15,23,42,.08);
+  animation:appToastIn .24s ease-out;
+  backdrop-filter:blur(12px);
+}
+.app-toast.info{border-color:#bfdbfe}
+.app-toast-icon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:40px;
+  height:40px;
+  border-radius:13px;
+  background:#dcfce7;
+  color:#16a34a;
+}
+.app-toast.info .app-toast-icon{background:#dbeafe;color:#2563eb}
+.app-toast-copy{display:grid;gap:3px;min-width:0}
+.app-toast-copy strong{font-size:13px;font-weight:1000;color:#15803d}
+.app-toast.info .app-toast-copy strong{color:#1d4ed8}
+.app-toast-copy span{font-size:13px;font-weight:800;line-height:1.45;color:#334155;word-break:keep-all}
+.app-toast>button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  min-width:30px;
+  padding:0;
+  border:0;
+  border-radius:10px;
+  background:#f1f5f9;
+  color:#64748b;
+}
+.app-toast>i{
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:100%;
+  height:3px;
+  background:linear-gradient(90deg,#16a34a,#4ade80);
+  transform-origin:left;
+  animation:appToastTimer 3.2s linear forwards;
+}
+.app-toast.info>i{background:linear-gradient(90deg,#2563eb,#60a5fa)}
+@keyframes appToastIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes appToastTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(max-width:700px){
+  .app-toast{top:12px;right:12px;width:calc(100vw - 24px);min-height:64px;border-radius:15px}
+}
 .menu{display:flex;gap:12px;background:rgba(255,255,255,.12);border-radius:16px;padding:10px;margin:18px 0;width:100%}
 .menu>button,.menu-group>button{background:rgba(255,255,255,.18);color:white}
 .menu>button.active{background:#facc15;color:#111827}
