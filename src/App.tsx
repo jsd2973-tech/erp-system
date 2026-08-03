@@ -19639,7 +19639,7 @@ button:disabled{
   .menu>button,
   .menu-group>button{
     width:100%;
-    min-height:42px;
+    min-height:46px;
     display:flex;
     align-items:center;
     justify-content:flex-start;
@@ -19650,14 +19650,16 @@ button:disabled{
     border-radius:10px !important;
     background:transparent;
     color:#c6d0df;
-    font-size:13px;
+    font-size:14px !important;
     font-weight:850;
     text-align:left;
     box-shadow:none;
   }
   .menu>button>svg,
   .menu-group>button>svg{
-    flex:0 0 17px;
+    width:18px;
+    height:18px;
+    flex:0 0 18px;
     color:#9fb0c8;
     stroke-width:2;
   }
@@ -19697,6 +19699,18 @@ button:disabled{
     color:#fff;
   }
   .menu-group.expanded>button>svg{color:#fff}
+  .menu .menu-group:not(.expanded):hover > .sub,
+  .menu .menu-group:not(.expanded):focus-within > .sub{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+  .menu .menu-group.expanded > .sub{
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
   .sub{
     position:static;
     width:100%;
@@ -19712,14 +19726,14 @@ button:disabled{
   .menu-group.expanded .sub{display:grid !important}
   .sub button{
     width:100%;
-    min-height:34px;
+    min-height:36px;
     margin:0;
     padding:7px 10px;
     border:0;
     border-radius:8px !important;
     background:transparent;
     color:#94a3b8;
-    font-size:12px;
+    font-size:13px !important;
     font-weight:750;
     text-align:left;
     box-shadow:none;
@@ -19765,7 +19779,7 @@ button:disabled{
   .menu .maint-menu-group .maint-sub button:last-child{
     position:static !important;
     width:100% !important;
-    min-height:34px !important;
+    min-height:36px !important;
     display:block !important;
     margin:0 !important;
     padding:7px 10px !important;
@@ -19773,7 +19787,7 @@ button:disabled{
     border-radius:8px !important;
     background:transparent !important;
     color:#94a3b8 !important;
-    font-size:12px !important;
+    font-size:13px !important;
     font-weight:750 !important;
     text-align:left !important;
     box-shadow:none !important;
