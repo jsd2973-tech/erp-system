@@ -1261,6 +1261,27 @@ export default function App() {
   const [cardDraftReady, setCardDraftReady] = useState(false);
   const cardSavingRef = useRef(false);
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
+  const auxiliarySavingRef = useRef<Set<string>>(new Set());
+  const [auxiliarySaving, setAuxiliarySaving] = useState<Record<string, boolean>>({});
+
+  const isAuxiliarySaving = (key: string) => !!auxiliarySaving[key];
+
+  const runAuxiliarySave = async (key: string, action: () => Promise<unknown> | unknown) => {
+    if (auxiliarySavingRef.current.has(key)) return;
+    auxiliarySavingRef.current.add(key);
+    setAuxiliarySaving((prev) => ({ ...prev, [key]: true }));
+
+    try {
+      await action();
+    } finally {
+      auxiliarySavingRef.current.delete(key);
+      setAuxiliarySaving((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     if (menuTab === "new" && !editingPurchaseId && !purchaseHeader.date) {
@@ -5142,10 +5163,11 @@ export default function App() {
               </div>
 
               <div className="actions right-actions">
-                <button className="primary" onClick={saveUpdateNotice}>
-                  {editingUpdateNoticeId ? "수정 저장" : "공지 등록"}
+                <button className="primary" disabled={isAuxiliarySaving("updateNotice")} onClick={() => runAuxiliarySave("updateNotice", saveUpdateNotice)}>
+                  {isAuxiliarySaving("updateNotice") ? "저장 중..." : editingUpdateNoticeId ? "수정 저장" : "공지 등록"}
                 </button>
                 <button
+                  disabled={isAuxiliarySaving("updateNotice")}
                   onClick={() => {
                     setEditingUpdateNoticeId("");
                     setUpdateNoticeForm({ notice_date: getTodayKey(), content: "" });
@@ -5310,10 +5332,10 @@ export default function App() {
             </Field>
 
             <div className="actions right-actions">
-              <button className="primary" onClick={savePermit}>
-                {editingPermitId ? "수정 저장" : "허가 등록"}
+              <button className="primary" disabled={isAuxiliarySaving("permit")} onClick={() => runAuxiliarySave("permit", savePermit)}>
+                {isAuxiliarySaving("permit") ? "저장 중..." : editingPermitId ? "수정 저장" : "허가 등록"}
               </button>
-              <button onClick={resetPermitForm}>초기화</button>
+              <button disabled={isAuxiliarySaving("permit")} onClick={resetPermitForm}>초기화</button>
             </div>
 
             <div className="grid3">
@@ -5974,7 +5996,9 @@ export default function App() {
               </div>
 
               <div className="vendor-account-bottom">
-                <button className="primary" onClick={saveNewVendorAccount}>계좌 추가</button>
+                <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", saveNewVendorAccount)}>
+                  {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
+                </button>
               </div>
             </div>
 
@@ -6068,7 +6092,8 @@ export default function App() {
                     <div className="vendor-account-bottom">
                       <button
                         className="primary"
-                        onClick={async () => {
+                        disabled={isAuxiliarySaving(`vendorAccount:${account.id}`)}
+                        onClick={() => runAuxiliarySave(`vendorAccount:${account.id}`, async () => {
                           const { error } = await supabase
                             .from("vendor_accounts")
                             .upsert(account, { onConflict: "id" });
@@ -6080,9 +6105,9 @@ export default function App() {
 
                           alert("저장되었습니다.");
                           await loadVendorAccounts();
-                        }}
+                        })}
                       >
-                        저장
+                        {isAuxiliarySaving(`vendorAccount:${account.id}`) ? "저장 중..." : "저장"}
                       </button>
                     </div>
                   </div>
@@ -6422,7 +6447,8 @@ export default function App() {
             siteNoticeForm={siteNoticeForm}
             setSiteNoticeForm={setSiteNoticeForm}
             editingSiteNoticeId={editingSiteNoticeId}
-            saveSiteNotice={saveSiteNotice}
+            saveSiteNotice={() => runAuxiliarySave("siteNotice", saveSiteNotice)}
+            siteNoticeSaving={isAuxiliarySaving("siteNotice")}
             editSiteNotice={editSiteNotice}
             deleteSiteNotice={deleteSiteNotice}
             siteNoticeError={siteNoticeError}
@@ -6753,15 +6779,15 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveVendor}>{editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
-          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveGroup}>{editingGroupId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" onClick={saveWarehouse}>{editingWarehouseId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
+          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" disabled={isAuxiliarySaving("group")} onClick={() => runAuxiliarySave("group", saveGroup)}>{isAuxiliarySaving("group") ? "저장 중..." : editingGroupId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" disabled={isAuxiliarySaving("warehouse")} onClick={() => runAuxiliarySave("warehouse", saveWarehouse)}>{isAuxiliarySaving("warehouse") ? "저장 중..." : editingWarehouseId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
         )}
 
         {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input inputMode="decimal" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" onClick={saveItem}>{editingItemId ? "수정 저장" : "저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
+          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input inputMode="decimal" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("item")} onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("item")} onClick={() => runAuxiliarySave("item", saveItem)}>{isAuxiliarySaving("item") ? "저장 중..." : editingItemId ? "수정 저장" : "저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
         )}
 
         {menuTab === "maint_new" && (
@@ -7157,8 +7183,8 @@ export default function App() {
                 </Field>
 
                 <div className="schedule-pro-actions">
-                  <button className="primary" onClick={saveMaintenanceSchedule}>{editingMaintenanceScheduleId ? "수정 저장" : "일정 저장"}</button>
-                  <button onClick={resetMaintenanceScheduleForm}>초기화</button>
+                  <button className="primary" disabled={isAuxiliarySaving("maintenanceSchedule")} onClick={() => runAuxiliarySave("maintenanceSchedule", saveMaintenanceSchedule)}>{isAuxiliarySaving("maintenanceSchedule") ? "저장 중..." : editingMaintenanceScheduleId ? "수정 저장" : "일정 저장"}</button>
+                  <button disabled={isAuxiliarySaving("maintenanceSchedule")} onClick={resetMaintenanceScheduleForm}>초기화</button>
                 </div>
               </div>
 
@@ -7232,8 +7258,8 @@ export default function App() {
                 </Field>
               </div>
               <div className="actions right-actions">
-                <button onClick={closeNewItemModal}>취소</button>
-                <button className="primary" onClick={saveNewItemFromModal}>저장</button>
+                <button disabled={isAuxiliarySaving("newItemModal")} onClick={closeNewItemModal}>취소</button>
+                <button className="primary" disabled={isAuxiliarySaving("newItemModal")} onClick={() => runAuxiliarySave("newItemModal", saveNewItemFromModal)}>{isAuxiliarySaving("newItemModal") ? "저장 중..." : "저장"}</button>
               </div>
             </div>
           </div>
@@ -8798,6 +8824,7 @@ function SiteNoticePage({
   setSiteNoticeForm,
   editingSiteNoticeId,
   saveSiteNotice,
+  siteNoticeSaving = false,
   editSiteNotice,
   deleteSiteNotice,
   siteNoticeError,
@@ -8922,8 +8949,8 @@ function SiteNoticePage({
           </div>
 
           <div className="site-notice-editor-actions">
-            <button className="primary" onClick={saveSiteNotice}>{editingSiteNoticeId ? "수정 저장" : "공지 저장"}</button>
-            <button onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] })}>초기화</button>
+            <button className="primary" disabled={siteNoticeSaving} onClick={saveSiteNotice}>{siteNoticeSaving ? "저장 중..." : editingSiteNoticeId ? "수정 저장" : "공지 저장"}</button>
+            <button disabled={siteNoticeSaving} onClick={() => setSiteNoticeForm({ title: "", content: "", priority: "보통", is_active: true, target_roles: ["all"], target_emails: [] })}>초기화</button>
           </div>
         </div>
       )}
