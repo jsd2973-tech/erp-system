@@ -1154,6 +1154,7 @@ export default function App() {
   const isAdmin = adminEmails.includes(userEmail);
 
   const [menuTab, setMenuTab] = useState("home");
+  const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const menuHistoryReadyRef = useRef(false);
   const skipNextMenuHistoryRef = useRef(false);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
@@ -5052,13 +5053,13 @@ export default function App() {
         )}
 
         <nav className="menu permission-aware-menu">
-          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => setMenuTab("home")}>홈</button>}
-          {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => setMenuTab("site_notices")}>공지</button>}
-          {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => setMenuTab("layout")}>생산라인</button>}
+          {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setOpenMenuGroup(null); }}>홈</button>}
+          {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => { setMenuTab("site_notices"); setOpenMenuGroup(null); }}>공지</button>}
+          {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}>생산라인</button>}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
-            <div className="menu-group">
-              <button>구매</button>
+            <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "purchase"} onClick={() => setOpenMenuGroup((current) => current === "purchase" ? null : "purchase")}>구매</button>
               <div className="sub">
                 {menuButton("new", "구매입력")}
                 {menuButton("list", "구매조회")}
@@ -5071,8 +5072,8 @@ export default function App() {
           )}
 
           {canShowAny(["card_use", "card_list", "card_stats"]) && (
-            <div className="menu-group">
-              <button>카드</button>
+            <div className={`menu-group ${openMenuGroup === "card" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "card"} onClick={() => setOpenMenuGroup((current) => current === "card" ? null : "card")}>카드</button>
               <div className="sub">
                 {menuButton("card_use", "카드사용")}
                 {menuButton("card_list", "카드조회")}
@@ -5082,8 +5083,8 @@ export default function App() {
           )}
 
           {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
-            <div className="menu-group maint-menu-group">
-              <button type="button">정비</button>
+            <div className={`menu-group maint-menu-group ${openMenuGroup === "maintenance" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "maintenance"} onClick={() => setOpenMenuGroup((current) => current === "maintenance" ? null : "maintenance")}>정비</button>
               <div className="sub maint-sub">
                 {menuButton("maint_new", "정비등록")}
                 {menuButton("maint_list", "정비조회")}
@@ -5096,8 +5097,8 @@ export default function App() {
           )}
 
           {canShowAny(["vendors", "warehouse_groups", "items"]) && (
-            <div className="menu-group">
-              <button>기초등록</button>
+            <div className={`menu-group ${openMenuGroup === "basic" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "basic"} onClick={() => setOpenMenuGroup((current) => current === "basic" ? null : "basic")}>기초등록</button>
               <div className="sub">
                 {menuButton("vendors", "거래처등록")}
                 {menuButton("warehouse_groups", "창고등록")}
@@ -5106,10 +5107,10 @@ export default function App() {
             </div>
           )}
 
-          {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => setMenuTab("permits")}>허가관리</button>}
-          {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => setMenuTab("activity_logs")}>작업로그</button>}
-          {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => setMenuTab("trash_bin")}>휴지통</button>}
-          {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => setMenuTab("backup_permissions")}>백업/권한관리</button>}
+          {canAccessTab("permits") && <button className={menuTab === "permits" ? "active" : ""} onClick={() => { setMenuTab("permits"); setOpenMenuGroup(null); }}>허가관리</button>}
+          {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => { setMenuTab("activity_logs"); setOpenMenuGroup(null); }}>작업로그</button>}
+          {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => { setMenuTab("trash_bin"); setOpenMenuGroup(null); }}>휴지통</button>}
+          {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => { setMenuTab("backup_permissions"); setOpenMenuGroup(null); }}>백업/권한관리</button>}
           <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
@@ -19623,7 +19624,7 @@ button:disabled{
     box-shadow:10px 0 34px rgba(15,23,42,.16);
   }
   .menu::before{
-    content:"TM  태명 ERP";
+    content:"☰";
     position:absolute;
     top:20px;
     left:18px;
@@ -19631,9 +19632,9 @@ button:disabled{
     display:flex;
     align-items:center;
     color:#fff;
-    font-size:17px;
-    font-weight:1000;
-    letter-spacing:-.4px;
+    font-size:23px;
+    font-weight:800;
+    letter-spacing:0;
   }
   .menu>button,
   .menu-group>button{
@@ -19666,12 +19667,27 @@ button:disabled{
     box-shadow:0 8px 20px rgba(37,99,235,.25);
   }
   .menu-group{width:100%;margin:0}
-  .menu-group>button{color:#e2e8f0}
+  .menu-group>button{position:relative;color:#e2e8f0;padding-right:34px}
+  .menu-group>button::after{
+    content:"›";
+    position:absolute;
+    right:13px;
+    top:50%;
+    color:#718096;
+    font-size:19px;
+    line-height:1;
+    transform:translateY(-50%) rotate(0deg);
+    transition:transform .18s ease,color .18s ease;
+  }
+  .menu-group.expanded>button::after{
+    color:#bfdbfe;
+    transform:translateY(-50%) rotate(90deg);
+  }
   .sub{
     position:static;
     width:100%;
     min-width:0;
-    display:grid !important;
+    display:none !important;
     gap:2px;
     margin:0;
     padding:3px 0 6px 13px;
@@ -19679,6 +19695,7 @@ button:disabled{
     background:transparent;
     box-shadow:none;
   }
+  .menu-group.expanded .sub{display:grid !important}
   .sub button{
     width:100%;
     min-height:34px;
