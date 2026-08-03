@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X } from "lucide-react";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
 type Group = { id: string; code: string; name: string };
