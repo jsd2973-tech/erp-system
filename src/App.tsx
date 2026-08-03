@@ -1220,6 +1220,7 @@ export default function App() {
   const [rows, setRows] = useState<PurchaseRow[]>([emptyRow()]);
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
   const [purchaseSaving, setPurchaseSaving] = useState(false);
+  const [purchaseUploading, setPurchaseUploading] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
@@ -1239,6 +1240,7 @@ export default function App() {
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
+  const [maintUploading, setMaintUploading] = useState(false);
   const maintSavingRef = useRef(false);
   const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
@@ -1251,6 +1253,7 @@ export default function App() {
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSaving, setCardSaving] = useState(false);
+  const [cardUploading, setCardUploading] = useState(false);
   const cardSavingRef = useRef(false);
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
@@ -2328,6 +2331,7 @@ export default function App() {
 
   const savePurchase = async () => {
     if (purchaseSavingRef.current) return;
+    if (purchaseUploading) return alert("첨부파일 업로드가 끝난 후 저장해 주세요.");
     if (editingPurchaseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     const validRows = validPurchaseRows;
@@ -2470,7 +2474,7 @@ export default function App() {
     for (const file of Array.from(files)) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = file.type === "application/pdf" ? "pdf" : "jpg";
+      const ext = isImage ? "jpg" : getUploadFileExtension(file);
       const fileName = `card-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
@@ -3148,6 +3152,7 @@ export default function App() {
 
   const saveCardUse = async () => {
     if (cardSavingRef.current) return;
+    if (cardUploading) return alert("첨부파일 업로드가 끝난 후 저장해 주세요.");
     if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     const cardDate = cardForm.date || getTodayKey();
@@ -3874,6 +3879,7 @@ export default function App() {
 
   const saveMaint = async () => {
     if (maintSavingRef.current) return;
+    if (maintUploading) return alert("첨부파일 업로드가 끝난 후 저장해 주세요.");
     setMaintSaveError("");
 
     if (!maintForm.warehouse || !maintForm.title) {
@@ -6386,33 +6392,46 @@ export default function App() {
             </div>
             <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
             <div className="between">
-              <label className="upload">
-                <Upload size={16} /> 구매 첨부 업로드
+              <label className={`upload${purchaseUploading ? " upload-busy" : ""}`} aria-disabled={purchaseUploading}>
+                <Upload size={16} /> {purchaseUploading ? "첨부 업로드 중..." : "구매 첨부 업로드"}
                 <input
                   type="file"
                   accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm"
                   multiple
+                  disabled={purchaseUploading}
                   onChange={async (e) => {
+                    const input = e.currentTarget;
                     const files = e.target.files;
                     if (!files?.length) return;
-                    const urls = await uploadPurchaseFiles(files);
-                    setPurchaseHeader((prev) => ({
-                      ...prev,
-                      image_urls: [...(prev.image_urls || []), ...urls],
-                    }));
-                    e.currentTarget.value = "";
+                    setPurchaseUploading(true);
+                    try {
+                      const urls = await uploadPurchaseFiles(files);
+                      setPurchaseHeader((prev) => ({
+                        ...prev,
+                        image_urls: [...(prev.image_urls || []), ...urls],
+                      }));
+                    } finally {
+                      input.value = "";
+                      setPurchaseUploading(false);
+                    }
                   }}
                 />
               </label>
               <div className="receipt-preview">
                 {(purchaseHeader.image_urls || []).length ? (
-                  <AttachmentGroup urls={purchaseHeader.image_urls || []} />
+                  <AttachmentGroup
+                    urls={purchaseHeader.image_urls || []}
+                    onRemove={(removeIndex) => setPurchaseHeader((prev) => ({
+                      ...prev,
+                      image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
+                    }))}
+                  />
                 ) : (
                   <span>사진/PDF/음성 첨부파일 없음</span>
                 )}
               </div>
             </div>
-            <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving} onClick={savePurchase}><Save size={16} /> {purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
           </section>
         )}
 
@@ -6449,31 +6468,41 @@ export default function App() {
             </div>
 
             <div className="between">
-              <label className="upload">
-                <Upload size={16} /> 영수증 여러 장 업로드
+              <label className={`upload${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
+                <Upload size={16} /> {cardUploading ? "영수증 업로드 중..." : "영수증 여러 장 업로드"}
                 <input
                   type="file"
                   accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                   capture="environment"
                   multiple
+                  disabled={cardUploading}
                   onChange={async (e) => {
+                    const input = e.currentTarget;
                     const files = e.target.files;
                     if (!files?.length) return;
-                    const urls = await uploadCardReceipts(files);
-                    setCardForm((prev) => {
-                      const nextUrls = [...(prev.image_urls || []), ...urls];
-                      return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
-                    });
+                    setCardUploading(true);
+                    try {
+                      const urls = await uploadCardReceipts(files);
+                      setCardForm((prev) => {
+                        const nextUrls = [...(prev.image_urls || []), ...urls];
+                        return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
+                      });
+                    } finally {
+                      input.value = "";
+                      setCardUploading(false);
+                    }
                   }}
                 />
               </label>
               <div className="receipt-preview">
                 {(cardForm.image_urls || []).length ? (
-                  <div className="attachment-chips">
-                    {(cardForm.image_urls || []).map((url, idx) => (
-                      <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">영수증{idx + 1}</a>
-                    ))}
-                  </div>
+                  <AttachmentGroup
+                    urls={cardForm.image_urls || []}
+                    onRemove={(removeIndex) => setCardForm((prev) => {
+                      const nextUrls = (prev.image_urls || []).filter((_, idx) => idx !== removeIndex);
+                      return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || "" };
+                    })}
+                  />
                 ) : (
                   cardForm.image_url ? <a href={cardForm.image_url} target="_blank" rel="noreferrer">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>
                 )}
@@ -6481,8 +6510,8 @@ export default function App() {
             </div>
 
             <div className="actions right-actions entry-actions">
-              <button className="primary" disabled={cardSaving} onClick={saveCardUse}><Save size={16} /> {cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
-              <button disabled={cardSaving} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
+              <button className="primary" disabled={cardSaving || cardUploading} onClick={saveCardUse}><Save size={16} /> {cardUploading ? "업로드 중..." : cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
+              <button disabled={cardSaving || cardUploading} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
             </div>
 
           </section>
@@ -6859,29 +6888,40 @@ export default function App() {
             </div>
 
             <div className="between">
-              <label className="upload">
-                <Upload size={16} /> 정비 사진/PDF/음성 업로드
+              <label className={`upload${maintUploading ? " upload-busy" : ""}`} aria-disabled={maintUploading}>
+                <Upload size={16} /> {maintUploading ? "첨부 업로드 중..." : "정비 사진/PDF/음성 업로드"}
                 <input
                   type="file"
                   accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                   multiple
+                  disabled={maintUploading}
                   onChange={async (e) => {
+                    const input = e.currentTarget;
                     const files = e.target.files;
                     if (!files?.length) return;
-                    const urls = await uploadMaintFiles(files);
-                    setMaintForm((prev) => ({
-                      ...prev,
-                      image_urls: [...(prev.image_urls || []), ...urls],
-                    }));
-                    e.currentTarget.value = "";
+                    setMaintUploading(true);
+                    try {
+                      const urls = await uploadMaintFiles(files);
+                      setMaintForm((prev) => ({
+                        ...prev,
+                        image_urls: [...(prev.image_urls || []), ...urls],
+                      }));
+                    } finally {
+                      input.value = "";
+                      setMaintUploading(false);
+                    }
                   }}
                 />
               </label>
-              <div className="attachment-chips">
+              <div className="receipt-preview">
                 {(maintForm.image_urls || []).length ? (
-                  (maintForm.image_urls || []).map((url, idx) => (
-                    <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer">첨부{idx + 1}</a>
-                  ))
+                  <AttachmentGroup
+                    urls={maintForm.image_urls || []}
+                    onRemove={(removeIndex) => setMaintForm((prev) => ({
+                      ...prev,
+                      image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
+                    }))}
+                  />
                 ) : (
                   <span>사진/PDF/음성 첨부파일 없음</span>
                 )}
@@ -6891,10 +6931,10 @@ export default function App() {
             {maintSaveError && <div className="save-error-box">{maintSaveError}</div>}
 
             <div className="actions right-actions entry-actions">
-              <button className="primary" disabled={maintSaving} onClick={saveMaint}>
-                <Save size={16} /> {maintSaving ? "저장 중..." : editingMaintId ? "수정 저장" : "저장"}
+              <button className="primary" disabled={maintSaving || maintUploading} onClick={saveMaint}>
+                <Save size={16} /> {maintUploading ? "업로드 중..." : maintSaving ? "저장 중..." : editingMaintId ? "수정 저장" : "저장"}
               </button>
-              <button disabled={maintSaving} onClick={resetMaintForm}><RotateCcw size={16} /> 초기화</button>
+              <button disabled={maintSaving || maintUploading} onClick={resetMaintForm}><RotateCcw size={16} /> 초기화</button>
             </div>
             <p className="draft-help-text">작성 중인 정비등록 내용은 자동 임시저장됩니다. 저장 실패나 메뉴 이동 후에도 다시 정비등록에 들어오면 복원됩니다.</p>
           </section>
@@ -8075,7 +8115,7 @@ function AttachmentPreview({ url }: { url?: string }) {
   );
 }
 
-function AttachmentGroup({ urls }: { urls?: string[] }) {
+function AttachmentGroup({ urls, onRemove }: { urls?: string[]; onRemove?: (index: number) => void }) {
   const list = (urls || []).filter(Boolean);
   if (!list.length) return <span>-</span>;
 
@@ -8084,6 +8124,17 @@ function AttachmentGroup({ urls }: { urls?: string[] }) {
       {list.map((url, idx) => (
         <div className="attachment-group-item" key={`${url}-${idx}`}>
           <AttachmentPreview url={url} />
+          {onRemove && (
+            <button
+              type="button"
+              className="attachment-remove-button"
+              onClick={() => onRemove(idx)}
+              aria-label={`첨부파일 ${idx + 1} 삭제`}
+              title="첨부 삭제"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -9960,6 +10011,7 @@ td input{height:36px}
 .icon{padding:6px 8px;margin-right:4px}
 .upload{display:inline-flex;gap:7px;align-items:center;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
 .upload input{display:none}
+.upload.upload-busy{background:#f1f5f9;color:#64748b;cursor:wait;pointer-events:none}
 .empty{text-align:center;color:#64748b;padding:36px}
 .home-img{height:620px;background:#f1f5f9;border-radius:16px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .home-img img{width:100%;height:100%;object-fit:contain}
@@ -11265,6 +11317,34 @@ td .icon{
   gap:6px;
   flex-wrap:wrap;
   align-items:center;
+}
+
+.attachment-group-item{
+  position:relative;
+  display:inline-flex;
+}
+
+.attachment-remove-button{
+  position:absolute;
+  top:-7px;
+  right:-7px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:24px;
+  height:24px;
+  min-width:24px;
+  padding:0;
+  border:2px solid #fff;
+  border-radius:999px;
+  background:#dc2626;
+  color:#fff;
+  box-shadow:0 2px 8px rgba(15,23,42,.22);
+  z-index:2;
+}
+
+.attachment-remove-button:hover{
+  background:#b91c1c;
 }
 
 .attachment-group .attachment-preview{
