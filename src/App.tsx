@@ -145,6 +145,8 @@ const KEY = {
 
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
+const PURCHASE_DRAFT_KEY = "erp_purchase_draft_v1";
+const CARD_DRAFT_KEY = "erp_card_draft_v1";
 const MAINT_DRAFT_KEY = "erp_maint_draft_v1";
 const INTERNAL_LOGIN_DOMAIN = "tm.local";
 
@@ -536,7 +538,7 @@ const downloadPdf = (fileName: string, title: string, rows: Record<string, any>[
 };
 
 
-const todayText = () => new Date().toISOString().slice(0, 10);
+const todayText = () => getTodayKey();
 
 const withTotalRow = (rows: Record<string, any>[], totalRow: Record<string, any>) => {
   return rows.length ? [...rows, totalRow] : rows;
@@ -1221,6 +1223,7 @@ export default function App() {
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
   const [purchaseSaving, setPurchaseSaving] = useState(false);
   const [purchaseUploading, setPurchaseUploading] = useState(false);
+  const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
@@ -1241,6 +1244,7 @@ export default function App() {
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
   const [maintUploading, setMaintUploading] = useState(false);
+  const [maintDraftReady, setMaintDraftReady] = useState(false);
   const maintSavingRef = useRef(false);
   const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
@@ -1254,6 +1258,7 @@ export default function App() {
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSaving, setCardSaving] = useState(false);
   const [cardUploading, setCardUploading] = useState(false);
+  const [cardDraftReady, setCardDraftReady] = useState(false);
   const cardSavingRef = useRef(false);
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
 
@@ -2317,17 +2322,77 @@ export default function App() {
     alert(`구매내역 ${purchaseRows.length}건을 업로드했습니다. 합계/빈 행 ${skippedRows}행은 제외했습니다.`);
   };
 
-  const resetPurchaseForm = () => {
+  const hasPurchaseFormValue = () => !!(
+    (purchaseHeader.date && purchaseHeader.date !== getTodayKey()) ||
+    purchaseHeader.vendor ||
+    purchaseHeader.warehouse ||
+    (purchaseHeader.image_urls || []).length ||
+    rows.some((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total) ||
+    editingPurchaseId
+  );
+
+  const clearPurchaseDraft = () => {
+    try {
+      localStorage.removeItem(PURCHASE_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  const clearPurchaseForm = () => {
     setPurchaseHeader({ date: getTodayKey(), vendor: "", warehouse: "", image_urls: [] });
     setRows([emptyRow()]);
     setEditingPurchaseId("");
     setLinkingReceiptPhotoId("");
+    clearPurchaseDraft();
+  };
+
+  const resetPurchaseForm = () => {
+    if (hasPurchaseFormValue() && !window.confirm("작성 중인 구매입력 내용을 모두 초기화할까요?")) return;
+    clearPurchaseForm();
   };
 
   const openPurchaseEntryPopup = () => {
-    resetPurchaseForm();
+    if (!hasPurchaseFormValue()) clearPurchaseForm();
     setPurchaseEntryPopupOpen(true);
   };
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(PURCHASE_DRAFT_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        if (draft?.purchaseHeader) setPurchaseHeader(draft.purchaseHeader);
+        if (Array.isArray(draft?.rows) && draft.rows.length) setRows(draft.rows);
+        if (draft?.editingPurchaseId) setEditingPurchaseId(draft.editingPurchaseId);
+      }
+    } catch {
+      clearPurchaseDraft();
+    } finally {
+      setPurchaseDraftReady(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!purchaseDraftReady) return;
+    if (!hasPurchaseFormValue()) {
+      clearPurchaseDraft();
+      return;
+    }
+
+    try {
+      localStorage.setItem(PURCHASE_DRAFT_KEY, JSON.stringify({
+        purchaseHeader,
+        rows,
+        editingPurchaseId,
+        saved_at: new Date().toISOString(),
+      }));
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseHeader, rows, editingPurchaseId, purchaseDraftReady]);
 
   const savePurchase = async () => {
     if (purchaseSavingRef.current) return;
@@ -2366,7 +2431,7 @@ export default function App() {
         await markReceiptPhotoProcessed(linkingReceiptPhotoId);
         setLinkingReceiptPhotoId("");
       }
-      resetPurchaseForm();
+      clearPurchaseForm();
       setPurchaseEntryPopupOpen(false);
       setMenuTab("list");
     } catch (error: any) {
@@ -3145,10 +3210,70 @@ export default function App() {
   };
 
 
-  const resetCardForm = () => {
+  const hasCardFormValue = () => !!(
+    (cardForm.date && cardForm.date !== getTodayKey()) ||
+    cardForm.user_name ||
+    cardForm.place ||
+    cardForm.amount ||
+    cardForm.memo ||
+    cardForm.image_url ||
+    (cardForm.image_urls || []).length ||
+    editingCardUseId
+  );
+
+  const clearCardDraft = () => {
+    try {
+      localStorage.removeItem(CARD_DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  const clearCardForm = () => {
     setCardForm({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
     setEditingCardUseId("");
+    clearCardDraft();
   };
+
+  const resetCardForm = () => {
+    if (hasCardFormValue() && !window.confirm("작성 중인 카드사용 내용을 모두 초기화할까요?")) return;
+    clearCardForm();
+  };
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CARD_DRAFT_KEY);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        if (draft?.cardForm) setCardForm(draft.cardForm);
+        if (draft?.editingCardUseId) setEditingCardUseId(draft.editingCardUseId);
+      }
+    } catch {
+      clearCardDraft();
+    } finally {
+      setCardDraftReady(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!cardDraftReady) return;
+    if (!hasCardFormValue()) {
+      clearCardDraft();
+      return;
+    }
+
+    try {
+      localStorage.setItem(CARD_DRAFT_KEY, JSON.stringify({
+        cardForm,
+        editingCardUseId,
+        saved_at: new Date().toISOString(),
+      }));
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardForm, editingCardUseId, cardDraftReady]);
 
   const saveCardUse = async () => {
     if (cardSavingRef.current) return;
@@ -3192,7 +3317,7 @@ export default function App() {
         detail: `${payload.date || "-"} · ${money(payload.amount)}원 · ${payload.memo || ""}`,
       });
 
-      resetCardForm();
+      clearCardForm();
       alert(isEditing ? "카드사용 수정 완료" : "카드사용 저장 완료");
       setMenuTab("card_list");
     } catch (error: any) {
@@ -3824,13 +3949,30 @@ export default function App() {
     }
   };
 
-  const resetMaintForm = () => {
+  const hasMaintFormValue = () => !!(
+    (maintForm.date && maintForm.date !== getTodayKey()) ||
+    maintForm.warehouse ||
+    maintForm.manager ||
+    maintForm.title ||
+    maintForm.detail ||
+    maintForm.cost ||
+    (maintForm.image_urls || []).length ||
+    maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total) ||
+    editingMaintId
+  );
+
+  const clearMaintForm = () => {
     setMaintForm({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
     setEditingMaintId("");
     setLinkingMaintenancePhotoId("");
     setMaintSaveError("");
     clearMaintDraft();
+  };
+
+  const resetMaintForm = () => {
+    if (hasMaintFormValue() && !window.confirm("작성 중인 정비등록 내용을 모두 초기화할까요?")) return;
+    clearMaintForm();
   };
 
   const restoreMaintDraft = () => {
@@ -3842,7 +3984,9 @@ export default function App() {
       if (Array.isArray(draft?.maintItems) && draft.maintItems.length) setMaintItems(draft.maintItems);
       if (draft?.editingMaintId) setEditingMaintId(draft.editingMaintId);
     } catch {
-      // ignore
+      clearMaintDraft();
+    } finally {
+      setMaintDraftReady(true);
     }
   };
 
@@ -3852,18 +3996,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const hasFormValue = !!(
-      maintForm.date ||
-      maintForm.warehouse ||
-      maintForm.manager ||
-      maintForm.title ||
-      maintForm.detail ||
-      maintForm.cost ||
-      (maintForm.image_urls || []).length ||
-      maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total)
-    );
-
-    if (!hasFormValue) return;
+    if (!maintDraftReady) return;
+    if (!hasMaintFormValue()) {
+      clearMaintDraft();
+      return;
+    }
 
     try {
       localStorage.setItem(MAINT_DRAFT_KEY, JSON.stringify({
@@ -3875,7 +4012,8 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [maintForm, maintItems, editingMaintId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maintForm, maintItems, editingMaintId, maintDraftReady]);
 
   const saveMaint = async () => {
     if (maintSavingRef.current) return;
@@ -3930,8 +4068,7 @@ export default function App() {
         setLinkingMaintenancePhotoId("");
       }
 
-      clearMaintDraft();
-      resetMaintForm();
+      clearMaintForm();
       alert("정비가 저장되었습니다.");
       setMenuTab("maint_list");
     } catch (error: any) {
@@ -6432,6 +6569,7 @@ export default function App() {
               </div>
             </div>
             <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <p className="draft-help-text">작성 중인 구매입력 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 구매입력에 들어오면 복원됩니다.</p>
           </section>
         )}
 
@@ -6513,6 +6651,7 @@ export default function App() {
               <button className="primary" disabled={cardSaving || cardUploading} onClick={saveCardUse}><Save size={16} /> {cardUploading ? "업로드 중..." : cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
               <button disabled={cardSaving || cardUploading} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
             </div>
+            <p className="draft-help-text">작성 중인 카드사용 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 카드사용에 들어오면 복원됩니다.</p>
 
           </section>
         )}
@@ -9073,14 +9212,14 @@ function HomeDashboard({
   const monthPurchases = purchases.filter((p) => String(p.date || "").startsWith(monthKey));
   const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
   const todayMaints = maints.filter((m) => m.date === today);
-  const weekBaseDate = new Date(today);
+  const weekBaseDate = new Date(`${today}T12:00:00`);
   const weekDay = weekBaseDate.getDay();
   const weekMonday = new Date(weekBaseDate);
   weekMonday.setDate(weekBaseDate.getDate() + (weekDay === 0 ? -6 : 1 - weekDay));
   const weekSunday = new Date(weekMonday);
   weekSunday.setDate(weekMonday.getDate() + 6);
-  const weekStartKey = weekMonday.toISOString().slice(0, 10);
-  const weekEndKey = weekSunday.toISOString().slice(0, 10);
+  const weekStartKey = toDateKey(weekMonday);
+  const weekEndKey = toDateKey(weekSunday);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
   const weekSchedules = maintenanceSchedules
     .filter((x) => {
@@ -9091,7 +9230,7 @@ function HomeDashboard({
   const weekCalendarDays = Array.from({ length: 7 }, (_, index) => {
     const d = new Date(weekMonday);
     d.setDate(weekMonday.getDate() + index);
-    const dateKey = d.toISOString().slice(0, 10);
+    const dateKey = toDateKey(d);
     return {
       dateKey,
       dayLabel: ["일", "월", "화", "수", "목", "금", "토"][d.getDay()],
