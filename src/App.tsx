@@ -1202,7 +1202,7 @@ export default function App() {
   };
   const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
-    canAccessTab(tab) ? <button onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
+    canAccessTab(tab) ? <button className={menuTab === tab ? "active" : ""} onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
 
   const visibleSiteNotices = useMemo(() => {
     return (siteNotices || []).filter((notice) => {
@@ -4971,8 +4971,11 @@ export default function App() {
       )}
       <div className="app">
         <header className="hero">
-          <h1 className="main-title">태명산업개발</h1>
-          <p>통합 관리 시스템</p>
+          <div className="hero-brand-mark" aria-hidden="true">TM</div>
+          <div className="hero-brand-copy">
+            <h1 className="main-title">태명산업개발</h1>
+            <p>통합 관리 시스템</p>
+          </div>
         </header>
 
         {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
@@ -6498,7 +6501,7 @@ export default function App() {
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
 
         {(menuTab === "new" || purchaseEntryPopupOpen) && (
-          <section className={`card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
+          <section className={`card purchase-entry-card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
             <div className="purchase-entry-popup-head">
               <h2>{editingPurchaseId ? "구매 수정" : "구매 입력"}</h2>
               {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>닫기</button>}
@@ -6589,45 +6592,57 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <div className="between"><button onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button><div className="totals"><div>공급가액 합계: <b>{money(purchaseSupplyTotal)}원</b></div><div>부가세액 합계: <b>{money(purchaseVatTotal)}원</b></div><div className="big">총합: {money(purchaseTotal)}원</div></div></div>
-            <div className="between">
-              <label className={`upload${purchaseUploading ? " upload-busy" : ""}`} aria-disabled={purchaseUploading}>
-                <Upload size={16} /> {purchaseUploading ? "첨부 업로드 중..." : "구매 첨부 업로드"}
-                <input
-                  type="file"
-                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm"
-                  multiple
-                  disabled={purchaseUploading}
-                  onChange={async (e) => {
-                    const input = e.currentTarget;
-                    const files = e.target.files;
-                    if (!files?.length) return;
-                    setPurchaseUploading(true);
-                    try {
-                      const urls = await uploadPurchaseFiles(files);
-                      setPurchaseHeader((prev) => ({
-                        ...prev,
-                        image_urls: [...(prev.image_urls || []), ...urls],
-                      }));
-                    } finally {
-                      input.value = "";
-                      setPurchaseUploading(false);
-                    }
-                  }}
-                />
-              </label>
-              <div className="receipt-preview">
-                {(purchaseHeader.image_urls || []).length ? (
-                  <AttachmentGroup
-                    urls={purchaseHeader.image_urls || []}
-                    onRemove={(removeIndex) => setPurchaseHeader((prev) => ({
-                      ...prev,
-                      image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
-                    }))}
-                  />
-                ) : (
-                  <span>사진/PDF/음성 첨부파일 없음</span>
-                )}
+            <div className="purchase-entry-footer">
+              <div className="purchase-entry-support">
+                <button className="purchase-add-item-button" onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button>
+                <div className="purchase-upload-panel">
+                  <strong>구매 첨부파일</strong>
+                  <p>사진·PDF·음성파일을 여러 개 등록할 수 있습니다.</p>
+                  <label className={`upload${purchaseUploading ? " upload-busy" : ""}`} aria-disabled={purchaseUploading}>
+                    <Upload size={16} /> {purchaseUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm"
+                      multiple
+                      disabled={purchaseUploading}
+                      onChange={async (e) => {
+                        const input = e.currentTarget;
+                        const files = e.target.files;
+                        if (!files?.length) return;
+                        setPurchaseUploading(true);
+                        try {
+                          const urls = await uploadPurchaseFiles(files);
+                          setPurchaseHeader((prev) => ({
+                            ...prev,
+                            image_urls: [...(prev.image_urls || []), ...urls],
+                          }));
+                        } finally {
+                          input.value = "";
+                          setPurchaseUploading(false);
+                        }
+                      }}
+                    />
+                  </label>
+                  <div className="receipt-preview">
+                    {(purchaseHeader.image_urls || []).length ? (
+                      <AttachmentGroup
+                        urls={purchaseHeader.image_urls || []}
+                        onRemove={(removeIndex) => setPurchaseHeader((prev) => ({
+                          ...prev,
+                          image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
+                        }))}
+                      />
+                    ) : (
+                      <span>첨부파일 없음</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="totals purchase-entry-summary">
+                <span>결제금액 요약</span>
+                <div>공급가액 합계 <b>{money(purchaseSupplyTotal)}원</b></div>
+                <div>부가세액 합계 <b>{money(purchaseVatTotal)}원</b></div>
+                <div className="big"><em>총합</em><strong>{money(purchaseTotal)}원</strong></div>
               </div>
             </div>
             <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
@@ -19519,6 +19534,444 @@ button:disabled{
   .mobile-entry-recent span{grid-row:1/3;color:#059669;font-size:11px;font-weight:950;align-self:center}
   .mobile-entry-recent b{color:#334155;font-size:12px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mobile-entry-recent em{color:#047857;font-size:12px;font-style:normal;font-weight:900}
+}
+
+/* ===== 2026 Modern Desktop Shell + Purchase Entry ===== */
+@media (min-width:901px){
+  body{
+    background:#f4f7fb;
+    color:#172033;
+  }
+  .app{
+    min-height:100vh;
+    padding:88px 26px 42px 274px;
+    background:
+      radial-gradient(circle at 86% 0%,rgba(59,130,246,.08),transparent 27%),
+      #f4f7fb;
+  }
+  .hero{
+    position:fixed;
+    z-index:1200;
+    top:0;
+    right:0;
+    left:248px;
+    height:70px;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:12px;
+    margin:0;
+    padding:0 310px 0 26px;
+    border:0;
+    border-bottom:1px solid #e4eaf2;
+    border-radius:0;
+    background:rgba(255,255,255,.96);
+    color:#172033;
+    box-shadow:0 4px 18px rgba(15,23,42,.04);
+    backdrop-filter:blur(14px);
+  }
+  .hero-brand-mark{
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
+    display:grid;
+    place-items:center;
+    border-radius:11px;
+    background:linear-gradient(145deg,#2563eb,#4f46e5);
+    color:#fff;
+    font-size:13px;
+    font-weight:1000;
+    letter-spacing:-.2px;
+    box-shadow:0 7px 18px rgba(37,99,235,.24);
+  }
+  .hero-brand-copy{min-width:0;text-align:left}
+  .hero .main-title{
+    margin:0;
+    color:#152238;
+    font-size:20px;
+    line-height:1.15;
+    letter-spacing:-.6px;
+    text-align:left;
+    text-shadow:none;
+  }
+  .hero p{
+    margin:3px 0 0;
+    color:#8490a3;
+    font-size:11px;
+    line-height:1;
+    letter-spacing:.2px;
+    text-align:left;
+    text-shadow:none;
+  }
+  .menu{
+    position:fixed;
+    z-index:1300;
+    inset:0 auto 0 0;
+    width:248px;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:4px;
+    margin:0;
+    padding:82px 14px 22px;
+    overflow-x:hidden;
+    overflow-y:auto;
+    border:0;
+    border-radius:0;
+    background:linear-gradient(180deg,#16243d 0%,#111c31 58%,#0c1526 100%);
+    box-shadow:10px 0 34px rgba(15,23,42,.16);
+  }
+  .menu::before{
+    content:"TM  태명 ERP";
+    position:absolute;
+    top:20px;
+    left:18px;
+    height:38px;
+    display:flex;
+    align-items:center;
+    color:#fff;
+    font-size:17px;
+    font-weight:1000;
+    letter-spacing:-.4px;
+  }
+  .menu>button,
+  .menu-group>button{
+    width:100%;
+    min-height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    margin:0;
+    padding:10px 12px;
+    border:1px solid transparent;
+    border-radius:10px !important;
+    background:transparent;
+    color:#c6d0df;
+    font-size:13px;
+    font-weight:850;
+    text-align:left;
+    box-shadow:none;
+  }
+  .menu>button:hover,
+  .menu-group>button:hover{
+    background:rgba(255,255,255,.07);
+    color:#fff;
+    transform:none;
+  }
+  .menu>button.active{
+    border-color:rgba(147,197,253,.26);
+    background:linear-gradient(135deg,#2563eb,#3b82f6);
+    color:#fff;
+    box-shadow:0 8px 20px rgba(37,99,235,.25);
+  }
+  .menu-group{width:100%;margin:0}
+  .menu-group>button{color:#e2e8f0}
+  .sub{
+    position:static;
+    width:100%;
+    min-width:0;
+    display:grid !important;
+    gap:2px;
+    margin:0;
+    padding:3px 0 6px 13px;
+    border:0;
+    background:transparent;
+    box-shadow:none;
+  }
+  .sub button{
+    width:100%;
+    min-height:34px;
+    margin:0;
+    padding:7px 10px;
+    border:0;
+    border-radius:8px !important;
+    background:transparent;
+    color:#94a3b8;
+    font-size:12px;
+    font-weight:750;
+    text-align:left;
+    box-shadow:none;
+  }
+  .sub button:hover{
+    background:rgba(255,255,255,.07);
+    color:#fff;
+    transform:none;
+  }
+  .sub button.active{
+    background:rgba(37,99,235,.28);
+    color:#dbeafe;
+  }
+  .user-box{
+    position:fixed;
+    z-index:1400;
+    top:0;
+    right:24px;
+    height:70px;
+    width:auto;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:9px;
+    margin:0;
+    padding:0;
+    background:transparent;
+    color:#475569;
+  }
+  .user-box span{color:#526075;font-size:12px;font-weight:750}
+  .user-box button{
+    min-height:36px;
+    padding:8px 12px;
+    border:1px solid #dde5ee;
+    border-radius:9px;
+    background:#f8fafc;
+    color:#475569;
+    box-shadow:none;
+  }
+  .user-box button:hover{background:#eef2f7;transform:none}
+  .card{
+    margin-top:18px;
+    padding:24px;
+    border:1px solid #e1e8f0;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 10px 32px rgba(15,23,42,.055);
+  }
+  .card h2{
+    color:#172033;
+    font-size:23px;
+    letter-spacing:-.7px;
+    text-align:left;
+  }
+  input,select,textarea{
+    border-color:#d7e0ea;
+    border-radius:10px;
+    background:#fff;
+  }
+  input:hover,select:hover,textarea:hover{border-color:#b9c7d8}
+  input:focus,select:focus,textarea:focus{
+    border-color:#3b82f6;
+    box-shadow:0 0 0 3px rgba(59,130,246,.12);
+  }
+  button{border-radius:9px;font-weight:850}
+  .table-wrap{
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#fff;
+  }
+  th{
+    border-bottom:1px solid #dfe7f0;
+    background:#eef3f8;
+    color:#344258;
+  }
+  td{border-bottom-color:#e8edf3}
+  .purchase-entry-card{overflow:visible}
+  .purchase-entry-popup-head{
+    margin-bottom:20px;
+    padding-bottom:17px;
+    border-bottom:1px solid #edf1f5;
+  }
+  .purchase-entry-popup-head h2{font-size:25px}
+  .purchase-entry-card>.grid3{
+    grid-template-columns:minmax(180px,.85fr) minmax(230px,1.25fr) minmax(230px,1.25fr);
+    gap:18px;
+    margin-bottom:20px;
+    padding:17px 18px;
+    border:1px solid #e5ebf2;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .purchase-entry-card>.grid3>label{
+    color:#475569;
+    font-size:12px;
+    font-weight:900;
+  }
+  .purchase-entry-card>.grid3 input{height:44px;margin-top:7px}
+  .purchase-entry-card .entry-desktop-table{
+    margin-top:0;
+    border-color:#dfe7f0;
+    border-radius:14px;
+    box-shadow:0 4px 14px rgba(15,23,42,.025);
+  }
+  .purchase-entry-card .entry-desktop-table table{min-width:1280px}
+  .purchase-entry-card .entry-desktop-table th{
+    padding:12px 10px;
+    background:#edf3f9;
+    color:#334155;
+    font-size:12px;
+  }
+  .purchase-entry-card .entry-desktop-table td{padding:9px 7px}
+  .purchase-entry-card .entry-desktop-table input{height:40px}
+  .purchase-entry-footer{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 340px;
+    gap:18px;
+    align-items:stretch;
+    margin-top:20px;
+  }
+  .purchase-entry-support{
+    min-width:0;
+    display:grid;
+    gap:12px;
+    align-content:start;
+  }
+  .purchase-add-item-button{
+    width:max-content;
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:9px 14px;
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+    box-shadow:none;
+  }
+  .purchase-add-item-button:hover{background:#dbeafe;transform:none}
+  .purchase-upload-panel{
+    min-height:126px;
+    padding:16px;
+    border:1px dashed #c4cfdd;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .purchase-upload-panel strong{
+    display:block;
+    color:#334155;
+    font-size:13px;
+    font-weight:950;
+  }
+  .purchase-upload-panel p{
+    margin:5px 0 12px;
+    color:#8793a6;
+    font-size:11px;
+  }
+  .purchase-upload-panel .upload{
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    border:1px solid #d5dee9;
+    background:#fff;
+    color:#334155;
+  }
+  .purchase-upload-panel .receipt-preview{margin-top:10px;color:#8793a6;font-size:12px}
+  .purchase-entry-summary{
+    min-width:0;
+    margin:0;
+    padding:18px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+    color:#475569;
+    box-shadow:none;
+    text-align:left;
+  }
+  .purchase-entry-summary>span{
+    display:block;
+    margin-bottom:14px;
+    color:#334155;
+    font-size:13px;
+    font-weight:950;
+  }
+  .purchase-entry-summary>div{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    margin:9px 0;
+    font-size:12px;
+  }
+  .purchase-entry-summary>div b{color:#1e293b;font-size:13px}
+  .purchase-entry-summary .big{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    margin:15px 0 0;
+    padding-top:15px;
+    border-top:1px solid #dce4ed;
+    color:#172033;
+  }
+  .purchase-entry-summary .big em{
+    color:#334155;
+    font-size:13px;
+    font-style:normal;
+    font-weight:950;
+  }
+  .purchase-entry-summary .big strong{
+    color:#1d4ed8;
+    font-size:25px;
+    line-height:1;
+    letter-spacing:-.7px;
+  }
+  .purchase-entry-card .entry-actions{
+    margin-top:18px;
+    padding-top:18px;
+    border-top:1px solid #edf1f5;
+  }
+  .purchase-entry-card .entry-actions button{min-height:44px;padding:10px 17px}
+  .purchase-entry-card .entry-actions .primary{
+    box-shadow:0 7px 16px rgba(22,163,74,.18);
+  }
+  .purchase-entry-card .draft-help-text{color:#8995a7;font-size:11px}
+}
+
+@media (max-width:900px){
+  .app{padding:14px 14px 94px;background:#0f172a}
+  .hero{
+    position:static;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:11px;
+    margin:0 0 14px;
+    padding:15px 16px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#2563eb,#4f46e5);
+    box-shadow:0 12px 26px rgba(37,99,235,.25);
+    text-align:left;
+  }
+  .hero-brand-mark{
+    width:39px;
+    height:39px;
+    flex:0 0 39px;
+    display:grid;
+    place-items:center;
+    border-radius:11px;
+    background:rgba(255,255,255,.17);
+    color:#fff;
+    font-size:13px;
+    font-weight:1000;
+  }
+  .hero-brand-copy{text-align:left}
+  .hero .main-title{margin:0;color:#fff;font-size:21px;line-height:1.12;text-align:left;text-shadow:none}
+  .hero p{margin:4px 0 0;color:#dbeafe;font-size:10px;text-align:left;text-shadow:none}
+  .menu{display:none !important}
+  .purchase-entry-footer{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+  .purchase-entry-support{display:grid;gap:10px}
+  .purchase-add-item-button{width:100%;min-height:44px}
+  .purchase-upload-panel{
+    padding:14px;
+    border:1px dashed #cbd5e1;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .purchase-upload-panel strong{display:block;color:#334155;font-size:13px}
+  .purchase-upload-panel p{margin:5px 0 10px;color:#8793a6;font-size:11px}
+  .purchase-entry-summary{
+    margin:0;
+    padding:15px;
+    border:1px solid #dfe7f0;
+    border-radius:14px;
+    background:#f8fafc;
+    text-align:left;
+  }
+  .purchase-entry-summary>span{display:block;margin-bottom:10px;color:#334155;font-size:13px;font-weight:950}
+  .purchase-entry-summary>div{display:flex;justify-content:space-between;gap:12px;margin:7px 0;font-size:12px}
+  .purchase-entry-summary .big{margin-top:11px;padding-top:11px;border-top:1px solid #dce4ed}
+  .purchase-entry-summary .big em{font-style:normal;font-weight:950}
+  .purchase-entry-summary .big strong{color:#1d4ed8;font-size:22px}
 }
 
 
