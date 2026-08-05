@@ -738,6 +738,7 @@ function SearchSelect({
   options,
   onChange,
   placeholder,
+  variant = "default",
 }: {
   label?: string;
   required?: boolean;
@@ -745,6 +746,7 @@ function SearchSelect({
   options: any[];
   onChange: (value: string) => void;
   placeholder?: string;
+  variant?: "default" | "item";
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -754,14 +756,17 @@ function SearchSelect({
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
-          return { label: text, value: text, search: text.toLowerCase() };
+          return { label: text, value: text, search: text.toLowerCase(), code: "", name: text, spec: "", unit: "", price: 0 };
         }
         const label = String(o?.label || o?.name || o?.value || "").trim();
         const value = String(o?.value || o?.name || o?.label || "").trim();
         const code = String(o?.code || "").trim();
         const name = String(o?.name || "").trim();
-        const search = `${label} ${value} ${code} ${name}`.toLowerCase();
-        return { label, value, search };
+        const spec = String(o?.spec || "").trim();
+        const unit = String(o?.unit || "").trim();
+        const price = Number(o?.price || 0);
+        const search = `${label} ${value} ${code} ${name} ${spec} ${unit}`.toLowerCase();
+        return { label, value, search, code, name, spec, unit, price };
       })
       .filter((o) => o.label || o.value);
   }, [options]);
@@ -773,7 +778,7 @@ function SearchSelect({
   }, [query, normalized]);
 
   return (
-    <div className="search-wrap" style={{ zIndex: open ? 9999 : 1 }}>
+    <div className={`search-wrap${variant === "item" ? " item-search-select" : ""}`} style={{ zIndex: open ? 9999 : 1 }}>
       {label && <label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>}
 
       <input
@@ -812,7 +817,12 @@ function SearchSelect({
       />
 
       {open && (
-        <div className="dropdown">
+        <div className={`dropdown${variant === "item" ? " item-search-dropdown" : ""}`}>
+          {variant === "item" && filtered.length > 0 && (
+            <div className="item-search-dropdown-head" aria-hidden="true">
+              <span>품목명</span><span>코드</span><span>규격</span><span>단위</span><span>입고단가</span>
+            </div>
+          )}
           {filtered.length ? (
             filtered.map((o, i) => (
               <div
@@ -825,7 +835,15 @@ function SearchSelect({
                   setOpen(false);
                 }}
               >
-                {o.label}
+                {variant === "item" ? (
+                  <div className="item-search-dropdown-row">
+                    <strong>{o.name || o.label}</strong>
+                    <span>{o.code || "-"}</span>
+                    <span>{o.spec || "-"}</span>
+                    <span>{o.unit || "-"}</span>
+                    <b>{o.price ? `${money(o.price)}원` : "-"}</b>
+                  </div>
+                ) : o.label}
               </div>
             ))
           ) : (
@@ -2134,7 +2152,15 @@ export default function App() {
     return Array.from(new Set(values));
   }, [groups, warehouses]);
   const itemOptions = useMemo(
-    () => items.map((i) => ({ label: i.name, value: i.name, code: i.code, name: i.name })).filter((i) => i.name),
+    () => items.map((i) => ({
+      label: i.name,
+      value: i.name,
+      code: i.code,
+      name: i.name,
+      spec: i.spec,
+      unit: i.unit,
+      price: i.price,
+    })).filter((i) => i.name),
     [items]
   );
 
@@ -6529,6 +6555,7 @@ export default function App() {
       options={itemOptions}
       onChange={(v) => updateRow(i, "item", v)}
       placeholder="품목 검색"
+      variant="item"
     />
     <input
       value={r.item}
@@ -6561,6 +6588,7 @@ export default function App() {
                     options={itemOptions}
                     onChange={(value) => updateRow(i, "item", value)}
                     placeholder="품목명 검색"
+                    variant="item"
                   />
 
                   <Field label="품목명 직접수정">
@@ -20082,7 +20110,7 @@ button:disabled{
   .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card),
   .app.app-tab-card_use>.card,
   .app.app-tab-maint_new>.card{
-    width:min(100%,1480px);
+    width:min(100%,1640px);
     margin:22px auto 0;
     padding:28px 30px 24px;
     border-radius:18px;
@@ -20171,11 +20199,17 @@ button:disabled{
     border-radius:14px;
     overflow-x:auto;
   }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .entry-desktop-table{
+    overflow:visible;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .entry-desktop-table table{
+    min-width:1420px;
+  }
   .app.app-tab-new>.purchase-entry-card .entry-desktop-table th,
   .app.app-tab-maint_new>.card .entry-desktop-table th{
     height:48px;
     padding:12px 10px;
-    font-size:13px;
+    font-size:13.5px;
     text-align:center;
   }
   .app.app-tab-new>.purchase-entry-card .entry-desktop-table td,
@@ -20185,7 +20219,7 @@ button:disabled{
     vertical-align:middle;
   }
   .app.app-tab-new>.purchase-entry-card .entry-desktop-table input,
-  .app.app-tab-maint_new>.card .entry-desktop-table input{height:42px;font-size:13px}
+  .app.app-tab-maint_new>.card .entry-desktop-table input{height:44px;font-size:14px}
   .app.app-tab-new>.purchase-entry-card .purchase-entry-footer,
   .app.app-tab-maint_new>.card .maintenance-entry-footer{
     display:grid;
@@ -20367,6 +20401,41 @@ button:disabled{
   .app.app-tab-list>.lookup-page .scroll-table,
   .app.app-tab-card_list>.lookup-page .scroll-table,
   .app.app-tab-maint_list>.lookup-page .scroll-table{border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.025)}
+  .app.app-tab-new .item-search-select{position:relative;z-index:50}
+  .app.app-tab-new .item-search-dropdown{
+    left:0;
+    right:auto;
+    width:min(760px,calc(100vw - 300px));
+    max-height:390px;
+    margin-top:7px;
+    overflow-y:auto;
+    border:1px solid #b9c8da;
+    border-radius:13px;
+    box-shadow:0 20px 46px rgba(15,23,42,.2);
+  }
+  .app.app-tab-new .item-search-dropdown-head,
+  .app.app-tab-new .item-search-dropdown-row{
+    display:grid;
+    grid-template-columns:minmax(180px,1.45fr) minmax(80px,.7fr) minmax(130px,1fr) 64px minmax(105px,.8fr);
+    gap:12px;
+    align-items:center;
+  }
+  .app.app-tab-new .item-search-dropdown-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    padding:10px 14px;
+    border-bottom:1px solid #dce5ef;
+    background:#edf3f9;
+    color:#536176;
+    font-size:11px;
+    font-weight:950;
+  }
+  .app.app-tab-new .item-search-dropdown .dropdown-item{padding:0;border-bottom:1px solid #edf1f5}
+  .app.app-tab-new .item-search-dropdown .dropdown-item:last-child{border-bottom:0}
+  .app.app-tab-new .item-search-dropdown-row{min-height:50px;padding:9px 14px;color:#475569;font-size:12px}
+  .app.app-tab-new .item-search-dropdown-row strong{overflow:hidden;color:#172033;font-size:14px;text-overflow:ellipsis}
+  .app.app-tab-new .item-search-dropdown-row b{color:#1d4ed8;text-align:right}
 }
 
 @media (max-width:900px){
@@ -20394,6 +20463,14 @@ button:disabled{
   .maintenance-entry-summary .big{margin-top:11px;padding-top:11px;border-top:1px solid #dce4ed}
   .maintenance-entry-summary .big em{font-style:normal;font-weight:950}
   .maintenance-entry-summary .big strong{color:#1d4ed8;font-size:22px}
+  .item-search-dropdown{max-height:300px}
+  .item-search-dropdown-head{display:none}
+  .item-search-dropdown-row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+  .item-search-dropdown-row strong{grid-column:1/2;color:#172033}
+  .item-search-dropdown-row span:nth-of-type(1),
+  .item-search-dropdown-row span:nth-of-type(2){grid-column:1/2;color:#64748b;font-size:11px}
+  .item-search-dropdown-row span:nth-of-type(3){display:none}
+  .item-search-dropdown-row b{grid-column:2/3;grid-row:1/4;color:#1d4ed8;text-align:right}
 }
 
 
