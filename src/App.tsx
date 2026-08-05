@@ -1272,7 +1272,7 @@ export default function App() {
   const [maintTemplateOpen, setMaintTemplateOpen] = useState(false);
   const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
-  const [newItemForm, setNewItemForm] = useState({ name: "", spec: "", unit: "", price: "" });
+  const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
   const [editingCardUseId, setEditingCardUseId] = useState("");
   const [cardSaving, setCardSaving] = useState(false);
@@ -3641,16 +3641,22 @@ export default function App() {
   };
 
   const openNewItemModal = (rowIndex: number) => {
-    setNewItemForm({ name: "", spec: "", unit: "", price: "" });
+    setNewItemForm({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
     setNewItemModal({ open: true, rowIndex });
   };
 
   const closeNewItemModal = () => {
     setNewItemModal({ open: false, rowIndex: null });
-    setNewItemForm({ name: "", spec: "", unit: "", price: "" });
+    setNewItemForm({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   };
 
   const saveNewItemFromModal = async () => {
+    const code = newItemForm.code.trim();
+    if (!code) return alert("품목코드를 입력하세요.");
+    if (items.some((item) => String(item.code || "").trim().toLowerCase() === code.toLowerCase())) {
+      return alert("이미 등록된 품목코드입니다. 다른 코드를 입력하세요.");
+    }
+
     const name = newItemForm.name.trim();
     if (!name) return alert("품목명을 입력하세요.");
 
@@ -3660,7 +3666,7 @@ export default function App() {
 
     const newItem = {
       id: uid(),
-      code: nextItemCode(items),
+      code,
       name,
       spec,
       unit,
@@ -7338,8 +7344,11 @@ export default function App() {
             <div className="modal-box">
               <h2>신규 품목 추가</h2>
               <div className="grid2">
+                <Field label="품목코드" required>
+                  <input value={newItemForm.code} onChange={(e) => setNewItemForm({ ...newItemForm, code: e.target.value })} autoFocus placeholder="예: 0001" />
+                </Field>
                 <Field label="품목명">
-                  <input value={newItemForm.name} onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })} autoFocus />
+                  <input value={newItemForm.name} onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })} />
                 </Field>
                 <Field label="규격정보">
                   <input value={newItemForm.spec} onChange={(e) => setNewItemForm({ ...newItemForm, spec: e.target.value })} />
@@ -18048,11 +18057,20 @@ button[onclick*="downloadPdf"]{
 .field-mobile-list em{display:block;margin-top:7px;color:#94a3b8;font-size:12px;font-style:normal;font-weight:850}
 .field-mobile-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
 .purchase-lookup-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 64px));max-height:90vh;overflow:auto;box-shadow:0 30px 90px rgba(15,23,42,.35);border:1px solid #dbeafe}
-.purchase-entry-popup-card:before{content:"";position:fixed;inset:-100vh;z-index:-1;background:rgba(15,23,42,.45)}
+.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 64px));max-height:90vh;overflow:auto;background:#f5f7fb !important;border:1px solid #dbe4ef;box-shadow:0 0 0 100vmax rgba(15,23,42,.42),0 30px 90px rgba(15,23,42,.28)}
+.purchase-entry-popup-card:before{content:none !important}
 .purchase-entry-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .purchase-entry-popup-head h2{margin:0}
 .purchase-entry-popup-head button{border:0;background:#f1f5f9;color:#334155;border-radius:999px;padding:9px 13px;font-weight:950;cursor:pointer}
+.purchase-entry-popup-card .purchase-entry-popup-head{margin:0 0 18px;padding:17px 19px;border:1px solid #e1e8f0;border-radius:14px;background:#fff}
+.purchase-entry-popup-card .purchase-entry-popup-head h2{color:#172033;font-size:24px;letter-spacing:-.6px}
+.purchase-entry-popup-card .purchase-entry-popup-head button{border:1px solid #cfe0f5;background:#eff6ff;color:#1d4ed8}
+.purchase-entry-popup-card>.grid3,
+.purchase-entry-popup-card .entry-desktop-table,
+.purchase-entry-popup-card .purchase-upload-panel,
+.purchase-entry-popup-card .purchase-entry-summary{border-color:#dce5ef !important;background:#fff !important}
+.purchase-entry-popup-card .entry-desktop-table th{background:#edf3f9 !important;color:#334155 !important}
+.purchase-entry-popup-card .entry-actions{border-top-color:#dce5ef !important}
 @media(max-width:760px){.field-mobile-home{padding:14px 10px 96px}.field-mobile-hero h2{font-size:21px}.field-mobile-quick-grid{grid-template-columns:1fr}.field-mobile-quick-grid button{min-height:94px}.purchase-entry-popup-card{width:96vw;max-height:86vh;padding:16px}}
 
 
