@@ -7027,6 +7027,16 @@ export default function App() {
             <h3>사용 품목</h3>
             <div className="table-wrap entry-desktop-table">
               <table>
+                <colgroup>
+                  <col style={{ width: "42%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "7%" }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>품목</th>
@@ -7046,12 +7056,13 @@ export default function App() {
                     return (
                       <tr key={r.id}>
                         <td>
-                          <div style={{ display: "grid", gridTemplateColumns: "220px 220px", gap: 6, minWidth: 460 }}>
+                          <div className="maintenance-item-editor">
                             <SearchSelect
                               value={r.item}
                               options={itemOptions}
                               onChange={(v) => updateMaintItem(i, "item", v)}
                               placeholder="품목 검색"
+                              variant="item"
                             />
                             <input
                               value={r.item}
@@ -7100,6 +7111,7 @@ export default function App() {
                       options={itemOptions}
                       onChange={(value) => updateMaintItem(i, "item", value)}
                       placeholder="품목명 검색"
+                      variant="item"
                     />
 
                     <Field label="품목명 직접수정">
@@ -18057,7 +18069,7 @@ button[onclick*="downloadPdf"]{
 .field-mobile-list em{display:block;margin-top:7px;color:#94a3b8;font-size:12px;font-style:normal;font-weight:850}
 .field-mobile-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
 .purchase-lookup-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 64px));max-height:90vh;overflow:auto;background:#f5f7fb !important;border:1px solid #dbe4ef;box-shadow:0 0 0 100vmax rgba(15,23,42,.42),0 30px 90px rgba(15,23,42,.28)}
+.purchase-entry-popup-card{position:fixed;left:calc(50% + 99px);top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 230px));max-height:90vh;overflow:auto;background:#f5f7fb !important;border:1px solid #dbe4ef;box-shadow:0 0 0 100vmax rgba(15,23,42,.42),0 30px 90px rgba(15,23,42,.28)}
 .purchase-entry-popup-card:before{content:none !important}
 .purchase-entry-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .purchase-entry-popup-head h2{margin:0}
@@ -18071,7 +18083,8 @@ button[onclick*="downloadPdf"]{
 .purchase-entry-popup-card .purchase-entry-summary{border-color:#dce5ef !important;background:#fff !important}
 .purchase-entry-popup-card .entry-desktop-table th{background:#edf3f9 !important;color:#334155 !important}
 .purchase-entry-popup-card .entry-actions{border-top-color:#dce5ef !important}
-@media(max-width:760px){.field-mobile-home{padding:14px 10px 96px}.field-mobile-hero h2{font-size:21px}.field-mobile-quick-grid{grid-template-columns:1fr}.field-mobile-quick-grid button{min-height:94px}.purchase-entry-popup-card{width:96vw;max-height:86vh;padding:16px}}
+@media(max-width:900px){.purchase-entry-popup-card{left:50%;width:96vw;max-height:86vh;padding:16px}}
+@media(max-width:760px){.field-mobile-home{padding:14px 10px 96px}.field-mobile-hero h2{font-size:21px}.field-mobile-quick-grid{grid-template-columns:1fr}.field-mobile-quick-grid button{min-height:94px}}
 
 
 /* modern field worker mobile home */
@@ -20601,6 +20614,171 @@ button:disabled{
     margin:2px !important;
     padding:5px 6px !important;
     font-size:11px !important;
+  }
+}
+
+/* ===== Final App-wide Horizontal Fit + Unclipped Item Search ===== */
+html,body,#root{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden !important;
+}
+.app,
+.app main,
+.app section,
+.app .card,
+.app .lookup-page,
+.app .grid2,
+.app .grid3,
+.app .grid5,
+.app .two,
+.app .between{
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.app .grid2>*,
+.app .grid3>*,
+.app .grid5>*,
+.app .two>*,
+.app .between>*{min-width:0}
+.app input,
+.app select,
+.app textarea{max-width:100%;min-width:0}
+
+@media (min-width:901px){
+  .app .scroll-table{
+    max-width:100%;
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+  }
+  .app .scroll-table table,
+  .app .table-wrap table{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+  }
+  .app .scroll-table th,
+  .app .scroll-table td{
+    white-space:normal !important;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  .app .scroll-table td.right,
+  .app .scroll-table td.bold{white-space:nowrap !important}
+  .app .entry-desktop-table{
+    overflow:visible !important;
+  }
+  .app .entry-desktop-table table{
+    width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+  }
+  .app .maintenance-item-editor{
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:6px;
+    align-items:center;
+  }
+  .app .maintenance-item-editor>*{min-width:0}
+  .app .item-search-select{position:relative;z-index:60}
+  .app .item-search-dropdown{
+    left:0;
+    right:auto;
+    width:min(760px,calc(100vw - 300px));
+    max-width:calc(100vw - 280px);
+    max-height:390px;
+    margin-top:7px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    border:1px solid #b9c8da;
+    border-radius:13px;
+    background:#fff;
+    box-shadow:0 20px 46px rgba(15,23,42,.2);
+  }
+  .app .item-search-dropdown-head,
+  .app .item-search-dropdown-row{
+    display:grid;
+    grid-template-columns:minmax(180px,1.45fr) minmax(80px,.7fr) minmax(130px,1fr) 64px minmax(105px,.8fr);
+    gap:12px;
+    align-items:center;
+  }
+  .app .item-search-dropdown-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    padding:10px 14px;
+    border-bottom:1px solid #dce5ef;
+    background:#edf3f9;
+    color:#536176;
+    font-size:11px;
+    font-weight:950;
+  }
+  .app .item-search-dropdown .dropdown-item{padding:0;border-bottom:1px solid #edf1f5}
+  .app .item-search-dropdown-row{min-height:50px;padding:9px 14px;color:#475569;font-size:12px}
+  .app .item-search-dropdown-row strong{overflow:hidden;color:#172033;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+  .app .item-search-dropdown-row b{color:#1d4ed8;text-align:right;white-space:nowrap}
+  .home-week-calendar-grid{
+    grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+    overflow-x:hidden !important;
+  }
+  .photo-viewer-thumbs{
+    flex-wrap:wrap;
+    overflow-x:hidden !important;
+  }
+}
+
+@media (max-width:900px){
+  .app,
+  .app .lookup-page,
+  .app .table-wrap,
+  .app .scroll-table{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    overflow-x:hidden !important;
+  }
+  .app .card:not(.purchase-entry-popup-card){overflow:visible !important}
+  .app .purchase-entry-popup-card{overflow-x:hidden !important;overflow-y:auto !important}
+  .app .scroll-table table,
+  .app .table-wrap table,
+  .app table{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+  }
+  .app .scroll-table th,
+  .app .scroll-table td,
+  .app .table-wrap th,
+  .app .table-wrap td{
+    padding:7px 5px !important;
+    white-space:normal !important;
+    word-break:keep-all !important;
+    overflow-wrap:anywhere !important;
+    font-size:11px !important;
+  }
+  .app .mobile-entry-item-card,
+  .app .search-wrap{overflow:visible !important}
+  .app .item-search-dropdown{
+    width:100%;
+    max-width:calc(100vw - 40px);
+    overflow-x:hidden;
+  }
+  .app .menu{
+    max-width:100%;
+    flex-wrap:wrap !important;
+    overflow-x:hidden !important;
+  }
+  .home-week-calendar-grid{
+    grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+    overflow-x:hidden !important;
+  }
+  .photo-viewer-thumbs{
+    flex-wrap:wrap;
+    overflow-x:hidden !important;
   }
 }
 
