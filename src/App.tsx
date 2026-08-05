@@ -4970,7 +4970,7 @@ export default function App() {
           <i aria-hidden="true" />
         </div>
       )}
-      <div className="app">
+      <div className={`app app-tab-${menuTab}`}>
         <header className="hero">
           <div className="hero-brand-mark" aria-hidden="true">TM</div>
           <div className="hero-brand-copy">
@@ -7095,53 +7095,57 @@ export default function App() {
               })}
             </div>
 
-            <div className="between">
-              <button onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목 추가</button>
-              <div className="totals">
-                <div>공급가액 합계: <b>{money(maintSupplyTotal)}원</b></div>
-                <div>부가세 합계: <b>{money(maintVatTotal)}원</b></div>
-                <div className="big">정비비 총합: {money(maintGrandTotal)}원</div>
+            <div className="maintenance-entry-footer">
+              <div className="maintenance-entry-support">
+                <button className="maintenance-add-item-button" onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목 추가</button>
+                <div className="maintenance-upload-panel">
+                  <strong>정비 첨부파일</strong>
+                  <p>사진·PDF·음성파일을 여러 개 등록할 수 있습니다.</p>
+                  <label className={`upload${maintUploading ? " upload-busy" : ""}`} aria-disabled={maintUploading}>
+                    <Upload size={16} /> {maintUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
+                      multiple
+                      disabled={maintUploading}
+                      onChange={async (e) => {
+                        const input = e.currentTarget;
+                        const files = e.target.files;
+                        if (!files?.length) return;
+                        setMaintUploading(true);
+                        try {
+                          const urls = await uploadMaintFiles(files);
+                          setMaintForm((prev) => ({
+                            ...prev,
+                            image_urls: [...(prev.image_urls || []), ...urls],
+                          }));
+                        } finally {
+                          input.value = "";
+                          setMaintUploading(false);
+                        }
+                      }}
+                    />
+                  </label>
+                  <div className="receipt-preview">
+                    {(maintForm.image_urls || []).length ? (
+                      <AttachmentGroup
+                        urls={maintForm.image_urls || []}
+                        onRemove={(removeIndex) => setMaintForm((prev) => ({
+                          ...prev,
+                          image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
+                        }))}
+                      />
+                    ) : (
+                      <span>첨부파일 없음</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="between">
-              <label className={`upload${maintUploading ? " upload-busy" : ""}`} aria-disabled={maintUploading}>
-                <Upload size={16} /> {maintUploading ? "첨부 업로드 중..." : "정비 사진/PDF/음성 업로드"}
-                <input
-                  type="file"
-                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
-                  multiple
-                  disabled={maintUploading}
-                  onChange={async (e) => {
-                    const input = e.currentTarget;
-                    const files = e.target.files;
-                    if (!files?.length) return;
-                    setMaintUploading(true);
-                    try {
-                      const urls = await uploadMaintFiles(files);
-                      setMaintForm((prev) => ({
-                        ...prev,
-                        image_urls: [...(prev.image_urls || []), ...urls],
-                      }));
-                    } finally {
-                      input.value = "";
-                      setMaintUploading(false);
-                    }
-                  }}
-                />
-              </label>
-              <div className="receipt-preview">
-                {(maintForm.image_urls || []).length ? (
-                  <AttachmentGroup
-                    urls={maintForm.image_urls || []}
-                    onRemove={(removeIndex) => setMaintForm((prev) => ({
-                      ...prev,
-                      image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
-                    }))}
-                  />
-                ) : (
-                  <span>사진/PDF/음성 첨부파일 없음</span>
-                )}
+              <div className="totals maintenance-entry-summary">
+                <span>정비금액 요약</span>
+                <div>공급가액 합계 <b>{money(maintSupplyTotal)}원</b></div>
+                <div>부가세액 합계 <b>{money(maintVatTotal)}원</b></div>
+                <div className="big"><em>총합</em><strong>{money(maintGrandTotal)}원</strong></div>
               </div>
             </div>
 
@@ -20071,6 +20075,325 @@ button:disabled{
   .purchase-entry-summary .big{margin-top:11px;padding-top:11px;border-top:1px solid #dce4ed}
   .purchase-entry-summary .big em{font-style:normal;font-weight:950}
   .purchase-entry-summary .big strong{color:#1d4ed8;font-size:22px}
+}
+
+/* ===== 2026 Unified Workspace Density ===== */
+@media (min-width:901px){
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card),
+  .app.app-tab-card_use>.card,
+  .app.app-tab-maint_new>.card{
+    width:min(100%,1480px);
+    margin:22px auto 0;
+    padding:28px 30px 24px;
+    border-radius:18px;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .purchase-entry-popup-head,
+  .app.app-tab-card_use>.card>h2,
+  .app.app-tab-maint_new>.card>.between:first-child{
+    margin:0 0 20px;
+    padding:0 0 18px;
+    border-bottom:1px solid #e8edf3;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .purchase-entry-popup-head h2,
+  .app.app-tab-card_use>.card>h2,
+  .app.app-tab-maint_new>.card>.between:first-child h2{
+    margin:0;
+    color:#152238;
+    font-size:26px;
+    font-weight:950;
+    line-height:1.2;
+    letter-spacing:-.8px;
+    text-align:left;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .purchase-entry-popup-head h2::after,
+  .app.app-tab-card_use>.card>h2::after,
+  .app.app-tab-maint_new>.card>.between:first-child h2::after{
+    display:block;
+    margin-top:7px;
+    color:#7b8799;
+    font-size:12px;
+    font-weight:700;
+    line-height:1.4;
+    letter-spacing:0;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card) .purchase-entry-popup-head h2::after{content:"구매 정보를 입력하고 품목과 첨부파일을 확인한 뒤 저장하세요."}
+  .app.app-tab-card_use>.card>h2::after{content:"카드 사용내역과 영수증을 등록합니다."}
+  .app.app-tab-maint_new>.card>.between:first-child h2::after{content:"정비 기본정보와 사용 품목, 첨부파일을 한 번에 등록합니다."}
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3,
+  .app.app-tab-card_use>.card>.grid5,
+  .app.app-tab-maint_new>.card>.grid3{
+    gap:18px;
+    margin:0 0 20px;
+    padding:18px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3{
+    grid-template-columns:minmax(220px,.8fr) minmax(280px,1.2fr) minmax(280px,1.2fr);
+  }
+  .app.app-tab-card_use>.card>.grid5{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .app.app-tab-card_use>.card>.grid5>.field:nth-child(5){grid-column:2/4}
+  .app.app-tab-maint_new>.card>.grid3{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    align-items:start;
+  }
+  .app.app-tab-new>.purchase-entry-card .field,
+  .app.app-tab-card_use>.card>.grid5>.field,
+  .app.app-tab-maint_new>.card>.grid3>.field{
+    margin:0;
+    text-align:left !important;
+  }
+  .app.app-tab-new>.purchase-entry-card .field>label,
+  .app.app-tab-card_use>.card>.grid5>.field>label,
+  .app.app-tab-maint_new>.card>.grid3>.field>label{
+    display:block;
+    margin:0 0 8px;
+    color:#3f4d61;
+    font-size:13px;
+    font-weight:900;
+    text-align:left !important;
+  }
+  .app.app-tab-new>.purchase-entry-card>.grid3 input,
+  .app.app-tab-card_use>.card>.grid5 input,
+  .app.app-tab-maint_new>.card>.grid3 input,
+  .app.app-tab-maint_new>.card>.grid3 textarea{
+    min-height:46px;
+    margin-top:0;
+    font-size:14px;
+  }
+  .app.app-tab-maint_new>.card>.grid3 textarea{min-height:94px;resize:vertical}
+  .app.app-tab-new>.purchase-entry-card .entry-desktop-table,
+  .app.app-tab-maint_new>.card .entry-desktop-table{
+    margin-top:0;
+    border-radius:14px;
+    overflow-x:auto;
+  }
+  .app.app-tab-new>.purchase-entry-card .entry-desktop-table th,
+  .app.app-tab-maint_new>.card .entry-desktop-table th{
+    height:48px;
+    padding:12px 10px;
+    font-size:13px;
+    text-align:center;
+  }
+  .app.app-tab-new>.purchase-entry-card .entry-desktop-table td,
+  .app.app-tab-maint_new>.card .entry-desktop-table td{
+    min-height:46px;
+    padding:9px 7px;
+    vertical-align:middle;
+  }
+  .app.app-tab-new>.purchase-entry-card .entry-desktop-table input,
+  .app.app-tab-maint_new>.card .entry-desktop-table input{height:42px;font-size:13px}
+  .app.app-tab-new>.purchase-entry-card .purchase-entry-footer,
+  .app.app-tab-maint_new>.card .maintenance-entry-footer{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(390px,.9fr);
+    gap:18px;
+    align-items:stretch;
+    margin-top:20px;
+  }
+  .maintenance-entry-support{display:grid;gap:12px;align-content:start;min-width:0}
+  .maintenance-add-item-button{
+    width:max-content;
+    min-height:42px;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:9px 15px;
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+    box-shadow:none;
+  }
+  .maintenance-upload-panel,
+  .purchase-upload-panel{
+    min-height:150px;
+    padding:18px;
+    border:1px dashed #bdc9d8;
+    border-radius:14px;
+    background:#fafcff;
+  }
+  .maintenance-upload-panel strong{display:block;color:#334155;font-size:14px;font-weight:950}
+  .maintenance-upload-panel p{margin:6px 0 13px;color:#8793a6;font-size:12px}
+  .maintenance-upload-panel .upload{display:inline-flex;align-items:center;gap:7px;min-height:42px;border:1px solid #d5dee9;background:#fff;color:#334155}
+  .maintenance-upload-panel .receipt-preview{margin-top:11px;color:#8793a6;font-size:12px}
+  .maintenance-entry-summary,
+  .purchase-entry-summary{
+    min-height:100%;
+    margin:0;
+    padding:20px;
+    border:1px solid #dfe6ef;
+    border-radius:14px;
+    background:#f8fafc;
+    box-shadow:none;
+  }
+  .maintenance-entry-summary>span,
+  .purchase-entry-summary>span{margin-bottom:18px;font-size:14px}
+  .maintenance-entry-summary>div,
+  .purchase-entry-summary>div{margin:11px 0;font-size:13px}
+  .maintenance-entry-summary>div b,
+  .purchase-entry-summary>div b{font-size:14px}
+  .maintenance-entry-summary .big,
+  .purchase-entry-summary .big{margin-top:18px;padding-top:18px}
+  .maintenance-entry-summary .big em,
+  .purchase-entry-summary .big em{font-style:normal;font-size:14px;font-weight:950}
+  .maintenance-entry-summary .big strong,
+  .purchase-entry-summary .big strong{color:#1d4ed8;font-size:27px;line-height:1}
+  .app.app-tab-card_use>.card>.between{
+    min-height:138px;
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:18px;
+    align-items:center;
+    margin:0;
+    padding:18px;
+    border:1px dashed #bdc9d8;
+    border-radius:14px;
+    background:#fafcff;
+  }
+  .app.app-tab-card_use>.card>.between .upload{
+    min-height:44px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    border:1px solid #d5dee9;
+    background:#fff;
+    color:#334155;
+  }
+  .app.app-tab-card_use>.card>.between .receipt-preview{color:#8793a6;font-size:13px;text-align:left}
+  .app.app-tab-new>.purchase-entry-card .entry-actions,
+  .app.app-tab-card_use>.card>.entry-actions,
+  .app.app-tab-maint_new>.card>.entry-actions{
+    min-height:66px;
+    margin-top:20px;
+    padding-top:18px;
+    border-top:1px solid #e8edf3;
+  }
+  .app.app-tab-new>.purchase-entry-card .draft-help-text,
+  .app.app-tab-card_use>.card>.draft-help-text,
+  .app.app-tab-maint_new>.card>.draft-help-text{
+    margin:9px 0 0;
+    color:#8793a6;
+    font-size:11px;
+    text-align:right;
+  }
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-vendors>.card,
+  .app.app-tab-warehouse_groups>.card,
+  .app.app-tab-items>.card,
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page,
+  .app.app-tab-maintenance_schedule_new>.maintenance-schedule-pro-page,
+  .app.app-tab-maintenance_schedules>.maintenance-schedule-pro-list{
+    width:min(100%,1600px);
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-vendors>.card,
+  .app.app-tab-warehouse_groups>.card,
+  .app.app-tab-items>.card{
+    padding:26px 28px;
+  }
+  .app.app-tab-list>.lookup-page>.between:first-child,
+  .app.app-tab-card_list>.lookup-page>.between:first-child,
+  .app.app-tab-status>.card>.between:first-child,
+  .app.app-tab-card_stats>.card>.between:first-child,
+  .app.app-tab-maint_stats>.card>.between:first-child{
+    margin:0 0 18px;
+    padding-bottom:16px;
+    border-bottom:1px solid #e8edf3;
+  }
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5{
+    gap:12px;
+    margin:0 0 18px;
+    padding:16px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .app.app-tab-vendors>.card>.grid5,
+  .app.app-tab-items>.card>.grid5{
+    gap:14px;
+    margin:16px 0 18px;
+    padding:17px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .app.app-tab-warehouse_groups>.card>.two{gap:20px}
+  .app.app-tab-warehouse_groups>.card>.two>div{
+    min-width:0;
+    padding:20px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .app.app-tab-vendors>.card>h2,
+  .app.app-tab-warehouse_groups>.card>h2,
+  .app.app-tab-items>.card>h2{
+    margin:0 0 18px;
+    padding-bottom:16px;
+    border-bottom:1px solid #e8edf3;
+    font-size:25px;
+    text-align:left;
+  }
+  .app.app-tab-vendors>.card>.actions,
+  .app.app-tab-items>.card>.actions{padding-bottom:18px;border-bottom:1px solid #edf1f5}
+  .app.app-tab-vendors>.card .scroll-table,
+  .app.app-tab-warehouse_groups>.card .scroll-table,
+  .app.app-tab-items>.card .scroll-table,
+  .app.app-tab-list>.lookup-page .scroll-table,
+  .app.app-tab-card_list>.lookup-page .scroll-table,
+  .app.app-tab-maint_list>.lookup-page .scroll-table{border-radius:14px;box-shadow:0 4px 14px rgba(15,23,42,.025)}
+}
+
+@media (max-width:900px){
+  .maintenance-entry-footer{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+  .maintenance-entry-support{display:grid;gap:10px}
+  .maintenance-add-item-button{width:100%;min-height:44px}
+  .maintenance-upload-panel{
+    padding:14px;
+    border:1px dashed #cbd5e1;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .maintenance-upload-panel strong{display:block;color:#334155;font-size:13px}
+  .maintenance-upload-panel p{margin:5px 0 10px;color:#8793a6;font-size:11px}
+  .maintenance-entry-summary{
+    margin:0;
+    padding:15px;
+    border:1px solid #dfe7f0;
+    border-radius:14px;
+    background:#f8fafc;
+    text-align:left;
+  }
+  .maintenance-entry-summary>span{display:block;margin-bottom:10px;color:#334155;font-size:13px;font-weight:950}
+  .maintenance-entry-summary>div{display:flex;justify-content:space-between;gap:12px;margin:7px 0;font-size:12px}
+  .maintenance-entry-summary .big{margin-top:11px;padding-top:11px;border-top:1px solid #dce4ed}
+  .maintenance-entry-summary .big em{font-style:normal;font-weight:950}
+  .maintenance-entry-summary .big strong{color:#1d4ed8;font-size:22px}
 }
 
 
