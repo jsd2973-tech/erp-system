@@ -6547,9 +6547,19 @@ export default function App() {
             </div>
             <div className="table-wrap entry-desktop-table">
               <table>
+                <colgroup>
+                  <col style={{ width: "42%" }} />
+                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "7%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "9%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "7%" }} />
+                </colgroup>
                 <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
                 <tbody>{rows.map((r, i) => <tr key={r.id}><td>
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 6, minWidth: 520 }}>
+  <div className="purchase-item-editor">
     <SearchSelect
       value={r.item}
       options={itemOptions}
@@ -8159,7 +8169,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
       </div>
 
       <ScrollTable>
-        <table>
+        <table className="maint-lookup-table">
           <thead>
             <tr>
               <th>관리번호</th>
@@ -18038,7 +18048,7 @@ button[onclick*="downloadPdf"]{
 .field-mobile-list em{display:block;margin-top:7px;color:#94a3b8;font-size:12px;font-style:normal;font-weight:850}
 .field-mobile-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
 .purchase-lookup-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1540px,96vw);max-height:90vh;overflow:auto;box-shadow:0 30px 90px rgba(15,23,42,.35);border:1px solid #dbeafe}
+.purchase-entry-popup-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 64px));max-height:90vh;overflow:auto;box-shadow:0 30px 90px rgba(15,23,42,.35);border:1px solid #dbeafe}
 .purchase-entry-popup-card:before{content:"";position:fixed;inset:-100vh;z-index:-1;background:rgba(15,23,42,.45)}
 .purchase-entry-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .purchase-entry-popup-head h2{margin:0}
@@ -20475,12 +20485,27 @@ button:disabled{
 
 /* ===== Purchase Popup + Maintenance Lookup Final Fit ===== */
 @media (min-width:901px){
+  .purchase-entry-card .entry-desktop-table table{
+    width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
+  }
+  .purchase-entry-card .purchase-item-editor{
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;
+    gap:6px;
+    align-items:center;
+  }
+  .purchase-entry-card .purchase-item-editor>*{min-width:0}
+  .purchase-entry-card .purchase-item-editor>button{white-space:nowrap;padding-left:10px;padding-right:10px}
   .purchase-entry-popup-card .entry-desktop-table{
     overflow:visible !important;
   }
   .purchase-entry-popup-card .entry-desktop-table table{
     width:100% !important;
-    min-width:1420px !important;
+    min-width:0 !important;
+    table-layout:fixed !important;
   }
   .purchase-entry-popup-card .item-search-select{position:relative;z-index:50}
   .purchase-entry-popup-card .item-search-dropdown{
@@ -20521,38 +20546,39 @@ button:disabled{
     overflow-x:hidden !important;
     overflow-y:auto !important;
   }
-  .maint-lookup-page .scroll-table table{
+  .maint-lookup-page .maint-lookup-table{
     width:100% !important;
     min-width:0 !important;
+    max-width:100% !important;
     table-layout:fixed !important;
   }
-  .maint-lookup-page .scroll-table th,
-  .maint-lookup-page .scroll-table td{
+  .maint-lookup-page .maint-lookup-table th,
+  .maint-lookup-page .maint-lookup-table td{
     padding:9px 7px !important;
     white-space:normal !important;
     word-break:keep-all !important;
     overflow-wrap:anywhere !important;
   }
-  .maint-lookup-page .scroll-table th:nth-child(1){width:10%}
-  .maint-lookup-page .scroll-table th:nth-child(2){width:15%}
-  .maint-lookup-page .scroll-table th:nth-child(3){width:9%}
-  .maint-lookup-page .scroll-table th:nth-child(4){width:16%}
-  .maint-lookup-page .scroll-table th:nth-child(5){width:12%}
-  .maint-lookup-page .scroll-table th:nth-child(6){width:7%}
-  .maint-lookup-page .scroll-table th:nth-child(7){width:7%}
-  .maint-lookup-page .scroll-table th:nth-child(8){width:7%}
-  .maint-lookup-page .scroll-table th:nth-child(9){width:7%}
-  .maint-lookup-page .scroll-table th:nth-child(10){width:10%}
-  .maint-lookup-page .scroll-table td:nth-child(1),
-  .maint-lookup-page .scroll-table td:nth-child(6),
-  .maint-lookup-page .scroll-table td:nth-child(7),
-  .maint-lookup-page .scroll-table td:nth-child(8){white-space:nowrap !important}
+  .maint-lookup-page .maint-lookup-table th:nth-child(1){width:10%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(2){width:15%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(3){width:9%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(4){width:16%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(5){width:12%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(6){width:7%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(7){width:7%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(8){width:7%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(9){width:7%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(10){width:10%}
+  .maint-lookup-page .maint-lookup-table td:nth-child(1),
+  .maint-lookup-page .maint-lookup-table td:nth-child(6),
+  .maint-lookup-page .maint-lookup-table td:nth-child(7),
+  .maint-lookup-page .maint-lookup-table td:nth-child(8){white-space:nowrap !important}
   .maint-lookup-page .maint-detail-text{
     display:block !important;
     max-width:none !important;
     white-space:normal !important;
   }
-  .maint-lookup-page .scroll-table td:last-child .icon{
+  .maint-lookup-page .maint-lookup-table td:last-child .icon{
     min-height:28px !important;
     margin:2px !important;
     padding:5px 6px !important;
