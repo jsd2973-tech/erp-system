@@ -185,24 +185,19 @@ const read = <T,>(key: string, fallback: T): T => {
 };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-const nextCode = (arr: { code?: string }[]) => String(arr.length + 1).padStart(4, "0");
+const nextNumericCode = (arr: { code?: string }[], prefix = "", width = 4) => {
+  const maxCode = (arr || []).reduce((max, item) => {
+    const raw = String(item.code || "").trim();
+    const numericText = prefix && raw.toUpperCase().startsWith(prefix.toUpperCase()) ? raw.slice(prefix.length) : raw;
+    const numericCode = /^\d+$/.test(numericText) ? Number(numericText) : 0;
+    return Number.isFinite(numericCode) ? Math.max(max, numericCode) : max;
+  }, 0);
+  return `${prefix}${String(maxCode + 1).padStart(width, "0")}`;
+};
+const nextCode = (arr: { code?: string }[]) => nextNumericCode(arr, "", 4);
+const nextVendorCode = (arr: { code?: string }[]) => nextNumericCode(arr, "V", 3);
 const nextItemCode = (arr: { code?: string }[]) => {
-  const used = new Set<number>();
-
-  (arr || []).forEach((item) => {
-    const code = String(item.code || "").trim();
-    if (!/^\d{1,6}$/.test(code)) return;
-
-    const numericCode = Number(code);
-    if (Number.isFinite(numericCode) && numericCode > 0) {
-      used.add(numericCode);
-    }
-  });
-
-  let next = 1;
-  while (used.has(next)) next += 1;
-
-  return String(next).padStart(4, "0");
+  return nextNumericCode(arr, "", 4);
 };
 
 const formatInputDate = (value: string) => {
@@ -686,6 +681,7 @@ type DeletedRecord = {
 type BackupExport = {
   exported_at: string;
   exported_by: string;
+  record_counts: Record<string, number>;
   vendors: Vendor[];
   warehouse_groups: Group[];
   warehouses: Warehouse[];
@@ -698,6 +694,9 @@ type BackupExport = {
   maintenance_schedules: MaintenanceSchedule[];
   vendor_accounts: VendorAccount[];
   permits: PermitRenewal[];
+  update_notices: UpdateNotice[];
+  site_notices: SiteNotice[];
+  user_permissions: UserPermission[];
   activity_logs: ActivityLog[];
   deleted_records: DeletedRecord[];
 };
@@ -1291,7 +1290,7 @@ export default function App() {
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "" });
 
-  const [vendorForm, setVendorForm] = useState({ code: `V${String(vendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
+  const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
   const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
@@ -1534,10 +1533,7 @@ export default function App() {
 
 
   const loadVendorAccounts = async () => {
-    const { data, error } = await supabase
-      .from("vendor_accounts")
-      .select("*")
-      .order("vendor_name", { ascending: true });
+    const { data, error } = await fetchAllRows("vendor_accounts", "vendor_name", 1000);
 
     if (error) {
       console.error(error);
@@ -1871,10 +1867,7 @@ export default function App() {
 
 
   const loadPermits = async () => {
-    const { data, error } = await supabase
-      .from("permit_renewals")
-      .select("*")
-      .order("expiry_date", { ascending: true });
+    const { data, error } = await fetchAllRows("permit_renewals", "expiry_date", 1000);
 
     if (error) {
       console.error(error);
@@ -1950,7 +1943,20 @@ export default function App() {
   };
 
   const deletePermit = async (id: string) => {
-    if (!confirm("허가/갱신 항목을 삭제할까요?")) return;
+    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = permits.find((item) => item.id === id);
+    if (!target) return alert("삭제할 허가/갱신 항목을 찾지 못했습니다.");
+    if (!confirm("허가/갱신 항목을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "permit_renewals",
+      module: "허가관리",
+      record_id: id,
+      title: target.title || "",
+      detail: `${target.company || "-"} · ${target.expiry_date || "기한 없음"}`,
+      data: target,
+    });
+    if (!ok) return;
 
     const { error } = await supabase.from("permit_renewals").delete().eq("id", id);
     if (error) return alert(`허가/갱신 삭제 실패: ${error.message}`);
@@ -2004,16 +2010,15 @@ export default function App() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [vRes, gRes, wRes, pRes, mRes, cRes] = await Promise.all([
-      supabase.from("vendors").select("*").order("code", { ascending: true }),
-      supabase.from("warehouse_groups").select("*").order("code", { ascending: true }),
-      supabase.from("warehouses").select("*").order("code", { ascending: true }),
+    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
+      fetchAllRows("vendors", "code", 1000),
+      fetchAllRows("warehouse_groups", "code", 1000),
+      fetchAllRows("warehouses", "code", 1000),
+      fetchAllRows("items", "code", 1000),
       fetchAllRows("purchases", "date", 1000, false),
-      supabase.from("maints").select("*").order("date", { ascending: false }),
-      supabase.from("card_uses").select("*").order("date", { ascending: false }),
+      fetchAllRows("maints", "date", 1000, false),
+      fetchAllRows("card_uses", "date", 1000, false),
     ]);
-
-    const iRes = await fetchAllRows("items", "code", 1000);
 
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
       console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
@@ -2035,7 +2040,7 @@ export default function App() {
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
 
-    setVendorForm({ code: `V${String(nextVendors.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode(nextVendors), name: "", owner: "", phone: "", mobile: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
     setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
@@ -2702,11 +2707,7 @@ export default function App() {
 
 
   const loadMaintenancePhotos = async () => {
-    const { data, error } = await supabase
-      .from("maintenance_photos")
-      .select("*")
-      .order("maint_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows("maintenance_photos", "maint_date", 1000, false);
 
     if (error) {
       console.error(error);
@@ -2718,15 +2719,11 @@ export default function App() {
       id: String(item.id),
       maint_date: item.maint_date ? String(item.maint_date).slice(0, 10) : "",
       image_urls: item.image_urls || [],
-    })) as MaintenancePhoto[]);
+    })).sort((a, b) => String(b.maint_date || "").localeCompare(String(a.maint_date || "")) || String(b.created_at || "").localeCompare(String(a.created_at || ""))) as MaintenancePhoto[]);
   };
 
   const loadMaintenanceSchedules = async () => {
-    const { data, error } = await supabase
-      .from("maintenance_schedules")
-      .select("*")
-      .order("schedule_date", { ascending: true })
-      .order("created_at", { ascending: true });
+    const { data, error } = await fetchAllRows("maintenance_schedules", "schedule_date", 1000);
 
     if (error) {
       console.error(error);
@@ -2933,7 +2930,20 @@ export default function App() {
 
   const deleteMaintenanceSchedule = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("정비일정을 삭제할까요?")) return;
+    const target = maintenanceSchedules.find((item) => item.id === id);
+    if (!target) return alert("삭제할 정비일정을 찾지 못했습니다.");
+    if (!confirm("정비일정을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "maintenance_schedules",
+      module: "정비일정",
+      record_id: id,
+      title: target.equipment_name || "",
+      detail: `${target.schedule_date || "-"} · ${target.work_detail || "-"}`,
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("maintenance_schedules").delete().eq("id", id);
     if (error) return alert(`정비일정 삭제 실패: ${error.message}`);
     setMaintenanceSchedules((prev) => prev.filter((item) => item.id !== id));
@@ -3164,11 +3174,7 @@ export default function App() {
 
 
   const loadReceiptPhotos = async () => {
-    const { data, error } = await supabase
-      .from("receipt_photos")
-      .select("*")
-      .order("receipt_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows("receipt_photos", "receipt_date", 1000, false);
 
     if (error) {
       console.error(error);
@@ -3180,7 +3186,7 @@ export default function App() {
       id: String(item.id),
       receipt_date: item.receipt_date ? String(item.receipt_date).slice(0, 10) : "",
       image_urls: item.image_urls || [],
-    })) as ReceiptPhoto[]);
+    })).sort((a, b) => String(b.receipt_date || "").localeCompare(String(a.receipt_date || "")) || String(b.created_at || "").localeCompare(String(a.created_at || ""))) as ReceiptPhoto[]);
   };
 
   const uploadReceiptPhotoFiles = async (files: File[]) => {
@@ -3519,22 +3525,27 @@ export default function App() {
     if (error) return alert(`거래처 저장 실패: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
-    setVendorForm({ code: `V${String(next.length + 1).padStart(3, "0")}`, name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode(next), name: "", owner: "", phone: "", mobile: "" });
     setEditingVendorId("");
     showToast(existing ? "거래처 정보를 수정했습니다." : "거래처를 등록했습니다.");
   };
 
   const importVendors = async (file: File) => {
     const rows = await readExcelRows(file);
+    const importedCodes: { code?: string }[] = [...vendors];
     const imported = rows
-      .map((r) => ({
-        id: uid(),
-        code: String(pick(r, ["거래처코드", "코드", "사업자번호"]) || "").trim() || `V${String(vendors.length + 1).padStart(3, "0")}`,
-        name: String(pick(r, ["거래처명", "상호"]) || "").trim(),
-        owner: String(pick(r, ["대표자", "대표자명"]) || "").trim(),
-        phone: String(pick(r, ["전화", "전화번호", "연락처"]) || "").trim(),
-        mobile: String(pick(r, ["모바일", "휴대폰", "휴대전화"]) || "").trim(),
-      }))
+      .map((r) => {
+        const code = String(pick(r, ["거래처코드", "코드", "사업자번호"]) || "").trim() || nextVendorCode(importedCodes);
+        importedCodes.push({ code });
+        return {
+          id: uid(),
+          code,
+          name: String(pick(r, ["거래처명", "상호"]) || "").trim(),
+          owner: String(pick(r, ["대표자", "대표자명"]) || "").trim(),
+          phone: String(pick(r, ["전화", "전화번호", "연락처"]) || "").trim(),
+          mobile: String(pick(r, ["모바일", "휴대폰", "휴대전화"]) || "").trim(),
+        };
+      })
       .filter((x) => x.name);
     const merged = [...vendors];
     imported.forEach((row) => {
@@ -3576,17 +3587,40 @@ export default function App() {
     showToast(editingWarehouseId ? "세부 창고를 수정했습니다." : "세부 창고를 등록했습니다.");
   };
 
-  const reseq = <T extends { code: string }>(arr: T[]) => arr.map((x, idx) => ({ ...x, code: String(idx + 1).padStart(4, "0") }));
   const deleteGroup = async (id: string, name: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const newGroups = reseq(groups.filter((g) => g.id !== id));
-    const newWarehouses = reseq(warehouses.filter((w) => w.group !== name));
-    const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
-    if (delGroup.error) return alert(`대분류 삭제 실패: ${delGroup.error.message}`);
+    const target = groups.find((group) => group.id === id);
+    if (!target) return alert("삭제할 창고 대분류를 찾지 못했습니다.");
+    const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group === name);
+    if (!confirm(`창고 대분류와 연결된 세부창고 ${linkedWarehouses.length}건을 휴지통으로 이동할까요?`)) return;
+
+    const ok = await moveRecordsToTrash([
+      {
+        source_table: "warehouse_groups",
+        module: "창고분류",
+        record_id: target.id,
+        title: target.name || "",
+        detail: `연결 세부창고 ${linkedWarehouses.length}건`,
+        data: target,
+      },
+      ...linkedWarehouses.map((warehouse) => ({
+        source_table: "warehouses",
+        module: "창고",
+        record_id: warehouse.id,
+        title: warehouse.name || "",
+        detail: warehouse.group || "",
+        data: warehouse,
+      })),
+    ]);
+    if (!ok) return;
+
     const delWh = await supabase.from("warehouses").delete().eq("group", name);
     if (delWh.error) return alert(`세부창고 삭제 실패: ${delWh.error.message}`);
-    if (newGroups.length) await supabase.from("warehouse_groups").upsert(newGroups);
-    if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
+    const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
+    if (delGroup.error) return alert(`대분류 삭제 실패: ${delGroup.error.message}`);
+
+    const newGroups = groups.filter((group) => group.id !== id);
+    const newWarehouses = warehouses.filter((warehouse) => warehouse.group !== name);
     setGroups(newGroups);
     setWarehouses(newWarehouses);
     setGroupForm({ code: nextCode(newGroups), name: "" });
@@ -3594,10 +3628,23 @@ export default function App() {
   };
   const deleteWarehouse = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const newWarehouses = reseq(warehouses.filter((w) => w.id !== id));
+    const target = warehouses.find((warehouse) => warehouse.id === id);
+    if (!target) return alert("삭제할 창고를 찾지 못했습니다.");
+    if (!confirm("세부창고를 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "warehouses",
+      module: "창고",
+      record_id: id,
+      title: target.name || "",
+      detail: target.group || "",
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("warehouses").delete().eq("id", id);
     if (error) return alert(`창고 삭제 실패: ${error.message}`);
-    if (newWarehouses.length) await supabase.from("warehouses").upsert(newWarehouses);
+    const newWarehouses = warehouses.filter((warehouse) => warehouse.id !== id);
     setWarehouses(newWarehouses);
     setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
   };
@@ -4256,6 +4303,20 @@ export default function App() {
 
   const deleteVendor = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = vendors.find((vendor) => vendor.id === id);
+    if (!target) return alert("삭제할 거래처를 찾지 못했습니다.");
+    if (!confirm("거래처를 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "vendors",
+      module: "거래처",
+      record_id: id,
+      title: target.name || "",
+      detail: target.code || "",
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("vendors").delete().eq("id", id);
     if (error) return alert(`거래처 삭제 실패: ${error.message}`);
     setVendors((prev) => prev.filter((v) => v.id !== id));
@@ -4263,15 +4324,41 @@ export default function App() {
 
   const clearVendors = async () => {
     if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
+    if (!vendors.length) return alert("삭제할 거래처가 없습니다.");
+    if (!confirm(`거래처 ${vendors.length}건을 모두 휴지통으로 이동할까요?`)) return;
+    const ok = await moveRecordsToTrash(vendors.map((vendor) => ({
+      source_table: "vendors",
+      module: "거래처",
+      record_id: vendor.id,
+      title: vendor.name || "",
+      detail: vendor.code || "",
+      data: vendor,
+    })));
+    if (!ok) return;
+
     const { error } = await supabase.from("vendors").delete().neq("id", "");
     if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
     setVendors([]);
     setVendorImportMessage("거래처 전체 삭제 완료");
-    setVendorForm({ code: "V001", name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode([]), name: "", owner: "", phone: "", mobile: "" });
   };
 
   const deleteItem = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
+    const target = items.find((item) => item.id === id);
+    if (!target) return alert("삭제할 품목을 찾지 못했습니다.");
+    if (!confirm("품목을 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "items",
+      module: "품목",
+      record_id: id,
+      title: target.name || "",
+      detail: `${target.code || "-"} · ${target.spec || "규격 없음"}`,
+      data: target,
+    });
+    if (!ok) return;
+
     const { error } = await supabase.from("items").delete().eq("id", id);
     if (error) return alert(`품목 삭제 실패: ${error.message}`);
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -4279,7 +4366,18 @@ export default function App() {
 
   const clearItems = async () => {
     if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
-    if (!confirm("품목을 전체 삭제하시겠습니까?\n삭제 후에는 되돌릴 수 없습니다.")) return;
+    if (!items.length) return alert("삭제할 품목이 없습니다.");
+    if (!confirm(`품목 ${items.length}건을 모두 휴지통으로 이동할까요?`)) return;
+
+    const ok = await moveRecordsToTrash(items.map((item) => ({
+      source_table: "items",
+      module: "품목",
+      record_id: item.id,
+      title: item.name || "",
+      detail: `${item.code || "-"} · ${item.spec || "규격 없음"}`,
+      data: item,
+    })));
+    if (!ok) return;
 
     const { error } = await supabase.from("items").delete().neq("id", "");
     if (error) return alert(`품목 전체삭제 실패: ${error.message}`);
@@ -4407,12 +4505,7 @@ export default function App() {
   const loadUpdateNotices = async () => {
     setUpdateNoticeError("");
 
-    const { data, error } = await supabase
-      .from("update_notices")
-      .select("*")
-      .eq("is_active", true)
-      .order("notice_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows("update_notices", "notice_date", 1000, false);
 
     if (error) {
       console.error(error);
@@ -4422,11 +4515,11 @@ export default function App() {
       return;
     }
 
-    const notices = ((data || []) as any[]).map((n) => ({
+    const notices = ((data || []) as any[]).filter((n) => n.is_active !== false).map((n) => ({
       ...n,
       id: String(n.id),
       notice_date: String(n.notice_date || "").slice(0, 10),
-    })) as UpdateNotice[];
+    })).sort((a, b) => String(b.notice_date || "").localeCompare(String(a.notice_date || "")) || String(b.created_at || "").localeCompare(String(a.created_at || ""))) as UpdateNotice[];
 
     const dedupedNotices = dedupeUpdateNotices(notices);
     setUpdateNotices(dedupedNotices);
@@ -4465,11 +4558,7 @@ export default function App() {
   };
 
   const loadActivityLogs = async () => {
-    const { data, error } = await supabase
-      .from("activity_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(300);
+    const { data, error } = await fetchAllRows("activity_logs", "created_at", 1000, false);
 
     if (error) {
       console.error(error);
@@ -4492,11 +4581,7 @@ export default function App() {
   };
 
   const loadDeletedRecords = async () => {
-    const { data, error } = await supabase
-      .from("deleted_records")
-      .select("*")
-      .order("deleted_at", { ascending: false })
-      .limit(300);
+    const { data, error } = await fetchAllRows("deleted_records", "deleted_at", 1000, false);
 
     if (error) {
       console.error(error);
@@ -4518,6 +4603,40 @@ export default function App() {
     })) as DeletedRecord[]);
   };
 
+  type TrashInput = {
+    source_table: string;
+    module: string;
+    record_id: string;
+    title?: string;
+    detail?: string;
+    data: any;
+  };
+
+  const moveRecordsToTrash = async (records: TrashInput[]) => {
+    if (!records.length) return true;
+    const movedAt = Date.now();
+    const deletedAt = new Date().toISOString();
+    const payloads: DeletedRecord[] = records.map((record, index) => ({
+      id: `trash-${record.source_table}-${record.record_id}-${movedAt}-${index}`,
+      source_table: record.source_table,
+      module: record.module,
+      record_id: record.record_id,
+      title: record.title || "",
+      detail: record.detail || "",
+      data: record.data,
+      deleted_by: userEmail || "",
+      deleted_at: deletedAt,
+    }));
+
+    const error = await upsertInChunks("deleted_records", payloads, 500);
+    if (error) {
+      alert(`휴지통 저장 실패: ${error.message}`);
+      return false;
+    }
+
+    return true;
+  };
+
   const moveToTrash = async ({
     source_table,
     module,
@@ -4525,33 +4644,15 @@ export default function App() {
     title = "",
     detail = "",
     data,
-  }: {
-    source_table: string;
-    module: string;
-    record_id: string;
-    title?: string;
-    detail?: string;
-    data: any;
-  }) => {
-    const trashPayload: DeletedRecord = {
-      id: `trash-${source_table}-${record_id}-${Date.now()}`,
+  }: TrashInput) => {
+    return moveRecordsToTrash([{
       source_table,
       module,
       record_id,
       title,
       detail,
       data,
-      deleted_by: userEmail || "",
-      deleted_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase.from("deleted_records").insert(trashPayload);
-    if (error) {
-      alert(`휴지통 저장 실패: ${error.message}`);
-      return false;
-    }
-
-    return true;
+    }]);
   };
 
   const restoreDeletedRecord = async (record: DeletedRecord) => {
@@ -4573,9 +4674,16 @@ export default function App() {
     });
 
     await loadDeletedRecords();
-    await loadAll();
-    await loadReceiptPhotos();
-    await loadMaintenancePhotos();
+    await Promise.all([
+      loadAll(),
+      loadPermits(),
+      loadVendorAccounts(),
+      loadReceiptPhotos(),
+      loadMaintenancePhotos(),
+      loadMaintenanceSchedules(),
+      loadUpdateNotices(),
+      loadSiteNotices(),
+    ]);
     showToast("선택한 항목을 복구했습니다.");
   };
 
@@ -4590,14 +4698,11 @@ export default function App() {
   };
 
   const fetchBackupTable = async (table: string, orderColumn = "id") => {
-    const { data, error } = await supabase
-      .from(table)
-      .select("*")
-      .order(orderColumn, { ascending: false });
+    const { data, error } = await fetchAllRows(table, orderColumn, 1000, false);
 
     if (error) {
       console.error(`backup ${table} failed`, error);
-      return [];
+      throw new Error(`${table} 전체자료 조회 실패: ${error.message}`);
     }
 
     return data || [];
@@ -4635,6 +4740,9 @@ export default function App() {
         backupMaintenanceSchedules,
         backupVendorAccounts,
         backupPermits,
+        backupUpdateNotices,
+        backupSiteNotices,
+        backupUserPermissions,
         backupActivityLogs,
         backupDeletedRecords,
       ] = await Promise.all([
@@ -4650,6 +4758,9 @@ export default function App() {
         fetchBackupTable("maintenance_schedules", "schedule_date"),
         fetchBackupTable("vendor_accounts", "vendor_name"),
         fetchBackupTable("permit_renewals", "expiry_date"),
+        fetchBackupTable("update_notices", "notice_date"),
+        fetchBackupTable("site_notices", "notice_date"),
+        fetchBackupTable("user_permissions", "email"),
         fetchBackupTable("activity_logs", "created_at"),
         fetchBackupTable("deleted_records", "deleted_at"),
       ]);
@@ -4657,6 +4768,25 @@ export default function App() {
       const backup: BackupExport = {
         exported_at: new Date().toISOString(),
         exported_by: userEmail || "",
+        record_counts: {
+          vendors: backupVendors.length,
+          warehouse_groups: backupGroups.length,
+          warehouses: backupWarehouses.length,
+          items: backupItems.length,
+          purchases: backupPurchases.length,
+          maints: backupMaints.length,
+          card_uses: backupCardUses.length,
+          receipt_photos: backupReceiptPhotos.length,
+          maintenance_photos: backupMaintenancePhotos.length,
+          maintenance_schedules: backupMaintenanceSchedules.length,
+          vendor_accounts: backupVendorAccounts.length,
+          permit_renewals: backupPermits.length,
+          update_notices: backupUpdateNotices.length,
+          site_notices: backupSiteNotices.length,
+          user_permissions: backupUserPermissions.length,
+          activity_logs: backupActivityLogs.length,
+          deleted_records: backupDeletedRecords.length,
+        },
         vendors: backupVendors as Vendor[],
         warehouse_groups: backupGroups as Group[],
         warehouses: backupWarehouses as Warehouse[],
@@ -4669,6 +4799,9 @@ export default function App() {
         maintenance_schedules: backupMaintenanceSchedules as MaintenanceSchedule[],
         vendor_accounts: backupVendorAccounts as VendorAccount[],
         permits: backupPermits as PermitRenewal[],
+        update_notices: backupUpdateNotices as UpdateNotice[],
+        site_notices: backupSiteNotices as SiteNotice[],
+        user_permissions: backupUserPermissions as UserPermission[],
         activity_logs: backupActivityLogs as ActivityLog[],
         deleted_records: backupDeletedRecords as DeletedRecord[],
       };
@@ -4684,6 +4817,8 @@ export default function App() {
       });
 
       showToast("전체 백업 파일을 다운로드했습니다.");
+    } catch (error: any) {
+      alert(error?.message || "전체백업 중 오류가 발생했습니다. 백업 파일은 생성하지 않았습니다.");
     } finally {
       setBackupSaving(false);
     }
@@ -4715,12 +4850,7 @@ export default function App() {
   const loadSiteNotices = async () => {
     setSiteNoticeError("");
 
-    const { data, error } = await supabase
-      .from("site_notices")
-      .select("*")
-      .eq("is_active", true)
-      .order("notice_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows("site_notices", "notice_date", 1000, false);
 
     if (error) {
       console.error(error);
@@ -4729,14 +4859,14 @@ export default function App() {
       return;
     }
 
-    setSiteNotices(((data || []) as any[]).map((item) => ({
+    setSiteNotices(((data || []) as any[]).filter((item) => item.is_active !== false).map((item) => ({
       ...item,
       id: String(item.id),
       notice_date: String(item.notice_date || "").slice(0, 10),
       priority: item.priority || "보통",
       target_roles: Array.isArray(item.target_roles) ? item.target_roles : ["all"],
       target_emails: Array.isArray(item.target_emails) ? item.target_emails : [],
-    })) as SiteNotice[]);
+    })).sort((a, b) => String(b.notice_date || "").localeCompare(String(a.notice_date || "")) || String(b.created_at || "").localeCompare(String(a.created_at || ""))) as SiteNotice[]);
   };
 
   const saveSiteNotice = async () => {
@@ -4780,7 +4910,19 @@ export default function App() {
 
   const deleteSiteNotice = async (id: string) => {
     if (!isAdmin) return alert("관리자만 현장 공지를 삭제할 수 있습니다.");
-    if (!confirm("공지를 삭제할까요?")) return;
+    const target = siteNotices.find((notice) => notice.id === id);
+    if (!target) return alert("삭제할 공지를 찾지 못했습니다.");
+    if (!confirm("공지를 휴지통으로 이동할까요?")) return;
+
+    const ok = await moveToTrash({
+      source_table: "site_notices",
+      module: "공지",
+      record_id: id,
+      title: target.title || "",
+      detail: `${target.notice_date || "-"} · ${target.priority || "보통"}`,
+      data: target,
+    });
+    if (!ok) return;
 
     const { error } = await supabase.from("site_notices").delete().eq("id", id);
     if (error) return alert(`공지 삭제 실패: ${error.message}`);
@@ -4789,10 +4931,7 @@ export default function App() {
   };
 
   const loadUserPermissions = async () => {
-    const { data, error } = await supabase
-      .from("user_permissions")
-      .select("*")
-      .order("email", { ascending: true });
+    const { data, error } = await fetchAllRows("user_permissions", "email", 1000);
 
     if (error) {
       console.error(error);
@@ -4874,23 +5013,22 @@ export default function App() {
 
   const deleteUpdateNotice = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    if (!confirm("업데이트 공지를 삭제할까요?")) return;
+    const target = updateNotices.find((notice) => notice.id === id);
+    if (!target) return alert("삭제할 업데이트 공지를 찾지 못했습니다.");
+    if (!confirm("업데이트 공지를 휴지통으로 이동할까요?")) return;
 
-    setUpdateNotices((prev) => prev.filter((notice) => notice.id !== id));
+    const ok = await moveToTrash({
+      source_table: "update_notices",
+      module: "업데이트공지",
+      record_id: id,
+      title: target.content || "",
+      detail: target.notice_date || "",
+      data: target,
+    });
+    if (!ok) return;
 
     const { error } = await supabase.from("update_notices").delete().eq("id", id);
-
-    if (error) {
-      const { error: softError } = await supabase
-        .from("update_notices")
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (softError) {
-        await loadUpdateNotices();
-        return alert(`업데이트 공지 삭제 실패: ${softError.message}`);
-      }
-    }
+    if (error) return alert(`업데이트 공지 삭제 실패: ${error.message}`);
 
     await loadUpdateNotices();
   };
@@ -4898,19 +5036,14 @@ export default function App() {
   const cleanupDuplicateUpdateNotices = async () => {
     if (!isAdmin) return alert("관리자만 중복 공지를 정리할 수 있습니다.");
 
-    const { data, error } = await supabase
-      .from("update_notices")
-      .select("*")
-      .eq("is_active", true)
-      .order("notice_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const { data, error } = await fetchAllRows("update_notices", "notice_date", 1000, false);
 
     if (error) return alert(`중복 공지 조회 실패: ${error.message}`);
 
     const seen = new Set<string>();
     const duplicateIds: string[] = [];
 
-    ((data || []) as any[]).forEach((notice) => {
+    ((data || []) as any[]).filter((notice) => notice.is_active !== false).forEach((notice) => {
       const key = `${String(notice.notice_date || "").slice(0, 10)}|${String(notice.content || "").trim()}`;
       if (seen.has(key)) duplicateIds.push(String(notice.id));
       else seen.add(key);
@@ -6387,6 +6520,7 @@ export default function App() {
             maintenancePhotos={maintenancePhotos}
             maintenanceSchedules={maintenanceSchedules}
             updateNotices={updateNotices}
+            siteNotices={siteNotices}
             userPermissions={userPermissions}
             activityLogs={activityLogs}
             deletedRecords={deletedRecords}
@@ -6400,7 +6534,11 @@ export default function App() {
             loadReceiptPhotos={loadReceiptPhotos}
             loadMaintenancePhotos={loadMaintenancePhotos}
             loadMaintenanceSchedules={loadMaintenanceSchedules}
+            loadUpdateNotices={loadUpdateNotices}
+            loadSiteNotices={loadSiteNotices}
             loadUserPermissions={loadUserPermissions}
+            loadActivityLogs={loadActivityLogs}
+            loadDeletedRecords={loadDeletedRecords}
             backupSaving={backupSaving}
             exportFullBackup={exportFullBackup}
             exportBackupSummaryExcel={exportBackupSummaryExcel}
@@ -6413,7 +6551,7 @@ export default function App() {
             <div className="between">
               <div>
                 <h2>휴지통</h2>
-                <p className="muted">삭제된 구매/카드/정비/사진 등록건을 복구하거나 완전삭제합니다.</p>
+                <p className="muted">삭제된 구매·카드·정비·사진·기초자료·일정·공지를 복구하거나 완전삭제합니다.</p>
               </div>
               <button onClick={loadDeletedRecords}>새로고침</button>
             </div>
@@ -6427,6 +6565,14 @@ export default function App() {
                   <option value="정비">정비</option>
                   <option value="입고사진">입고사진</option>
                   <option value="정비사진">정비사진</option>
+                  <option value="거래처">거래처</option>
+                  <option value="품목">품목</option>
+                  <option value="창고분류">창고분류</option>
+                  <option value="창고">창고</option>
+                  <option value="허가관리">허가관리</option>
+                  <option value="정비일정">정비일정</option>
+                  <option value="공지">공지</option>
+                  <option value="업데이트공지">업데이트공지</option>
                 </select>
               </Field>
               <Field label="검색">
@@ -9167,6 +9313,7 @@ function BackupPermissionPage({
   maintenancePhotos,
   maintenanceSchedules,
   updateNotices,
+  siteNotices,
   userPermissions,
   activityLogs,
   deletedRecords,
@@ -9180,7 +9327,11 @@ function BackupPermissionPage({
   loadReceiptPhotos,
   loadMaintenancePhotos,
   loadMaintenanceSchedules,
+  loadUpdateNotices,
+  loadSiteNotices,
   loadUserPermissions,
+  loadActivityLogs,
+  loadDeletedRecords,
   backupSaving,
   exportFullBackup,
   exportBackupSummaryExcel,
@@ -9206,7 +9357,10 @@ function BackupPermissionPage({
       maintenancePhotos,
       maintenanceSchedules,
       updateNotices,
+      siteNotices,
       userPermissions,
+      activityLogs,
+      deletedRecords,
     },
   };
 
@@ -9233,24 +9387,30 @@ function BackupPermissionPage({
 
       const restoreMap: Array<[string, any[] | undefined]> = [
         ["vendors", data.vendors],
-        ["warehouse_groups", data.groups],
+        ["warehouse_groups", data.warehouse_groups || data.groups],
         ["warehouses", data.warehouses],
         ["items", data.items],
         ["purchases", data.purchases],
         ["maints", data.maints],
-        ["card_uses", data.cardUses],
+        ["card_uses", data.card_uses || data.cardUses],
         ["permit_renewals", data.permits],
-        ["vendor_accounts", data.vendorAccounts],
-        ["receipt_photos", data.receiptPhotos],
-        ["maintenance_photos", data.maintenancePhotos],
-        ["maintenance_schedules", data.maintenanceSchedules],
-        ["update_notices", data.updateNotices],
-        ["user_permissions", data.userPermissions],
+        ["vendor_accounts", data.vendor_accounts || data.vendorAccounts],
+        ["receipt_photos", data.receipt_photos || data.receiptPhotos],
+        ["maintenance_photos", data.maintenance_photos || data.maintenancePhotos],
+        ["maintenance_schedules", data.maintenance_schedules || data.maintenanceSchedules],
+        ["update_notices", data.update_notices || data.updateNotices],
+        ["site_notices", data.site_notices || data.siteNotices],
+        ["user_permissions", data.user_permissions || data.userPermissions],
+        ["activity_logs", data.activity_logs || data.activityLogs],
+        ["deleted_records", data.deleted_records || data.deletedRecords],
       ];
 
       for (const [table, rows] of restoreMap) {
         if (!Array.isArray(rows) || !rows.length) continue;
-        const { error } = await supabase.from(table).upsert(rows);
+        const normalizedRows = table === "purchases"
+          ? rows.map((row) => fromPurchase(toPurchase(row)))
+          : rows;
+        const error = await upsertInChunks(table, normalizedRows, 500);
         if (error) throw new Error(`${table} 복구 실패: ${error.message}`);
       }
 
@@ -9261,7 +9421,11 @@ function BackupPermissionPage({
         loadReceiptPhotos(),
         loadMaintenancePhotos(),
         loadMaintenanceSchedules(),
+        loadUpdateNotices(),
+        loadSiteNotices(),
         loadUserPermissions(),
+        loadActivityLogs(),
+        loadDeletedRecords(),
       ]);
 
       showToast("백업 복구가 완료되었습니다.");
