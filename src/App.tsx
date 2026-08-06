@@ -1173,6 +1173,7 @@ export default function App() {
 
   const [menuTab, setMenuTab] = useState("home");
   const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuHistoryReadyRef = useRef(false);
   const skipNextMenuHistoryRef = useRef(false);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
@@ -5002,7 +5003,7 @@ export default function App() {
           <i aria-hidden="true" />
         </div>
       )}
-      <div className={`app app-tab-${menuTab}`}>
+      <div className={`app app-tab-${menuTab}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <header className="hero">
           <div className="hero-brand-mark" aria-hidden="true">TM</div>
           <div className="hero-brand-copy">
@@ -5085,6 +5086,18 @@ export default function App() {
         )}
 
         <nav className="menu permission-aware-menu">
+          <button
+            type="button"
+            className="desktop-sidebar-toggle"
+            aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            onClick={() => {
+              setSidebarCollapsed((value) => !value);
+              setOpenMenuGroup(null);
+            }}
+          >
+            ☰
+          </button>
           {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setOpenMenuGroup(null); }}><HomeIcon size={17} /> 홈</button>}
           {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => { setMenuTab("site_notices"); setOpenMenuGroup(null); }}><Bell size={17} /> 공지</button>}
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
@@ -18069,7 +18082,7 @@ button[onclick*="downloadPdf"]{
 .field-mobile-list em{display:block;margin-top:7px;color:#94a3b8;font-size:12px;font-style:normal;font-weight:850}
 .field-mobile-empty{border:1px dashed #cbd5e1;border-radius:16px;padding:22px;text-align:center;color:#94a3b8;font-weight:900}
 .purchase-lookup-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.purchase-entry-popup-card{position:fixed;left:calc(50% + 99px);top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 230px));max-height:90vh;overflow:auto;background:#f5f7fb !important;border:1px solid #dbe4ef;box-shadow:0 0 0 100vmax rgba(15,23,42,.42),0 30px 90px rgba(15,23,42,.28)}
+.purchase-entry-popup-card{position:fixed;left:calc(50% + 124px);top:50%;transform:translate(-50%,-50%);z-index:99999;width:min(1680px,calc(100vw - 280px));max-height:90vh;overflow:auto;background:#f5f7fb !important;border:1px solid #dbe4ef;box-shadow:0 0 0 100vmax rgba(15,23,42,.42),0 30px 90px rgba(15,23,42,.28)}
 .purchase-entry-popup-card:before{content:none !important}
 .purchase-entry-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
 .purchase-entry-popup-head h2{margin:0}
@@ -19622,6 +19635,7 @@ button:disabled{
     background:
       radial-gradient(circle at 86% 0%,rgba(59,130,246,.08),transparent 27%),
       #f4f7fb;
+    transition:padding-left .2s ease;
   }
   .hero{
     position:fixed;
@@ -19644,6 +19658,7 @@ button:disabled{
     color:#172033;
     box-shadow:0 4px 18px rgba(15,23,42,.04);
     backdrop-filter:blur(14px);
+    transition:left .2s ease;
   }
   .hero-brand-mark{
     width:38px;
@@ -19695,19 +19710,34 @@ button:disabled{
     border-radius:0;
     background:linear-gradient(180deg,#16243d 0%,#111c31 58%,#0c1526 100%);
     box-shadow:10px 0 34px rgba(15,23,42,.16);
+    transition:width .2s ease,padding .2s ease;
   }
   .menu::before{
-    content:"☰";
+    content:none;
+  }
+  .menu>.desktop-sidebar-toggle{
     position:absolute;
-    top:20px;
-    left:18px;
-    height:38px;
-    display:flex;
-    align-items:center;
+    top:16px;
+    left:14px;
+    width:44px;
+    min-width:44px;
+    height:44px;
+    min-height:44px;
+    display:grid;
+    place-items:center;
+    margin:0;
+    padding:0 !important;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:11px !important;
+    background:rgba(255,255,255,.06);
     color:#fff;
-    font-size:23px;
-    font-weight:800;
-    letter-spacing:0;
+    font-size:23px !important;
+    line-height:1;
+    cursor:pointer;
+  }
+  .menu>.desktop-sidebar-toggle:hover{
+    border-color:rgba(147,197,253,.32);
+    background:rgba(37,99,235,.45);
   }
   .menu>button,
   .menu-group>button{
@@ -19748,6 +19778,29 @@ button:disabled{
     background:linear-gradient(135deg,#2563eb,#3b82f6);
     color:#fff;
     box-shadow:0 8px 20px rgba(37,99,235,.25);
+  }
+  .app.sidebar-collapsed{padding-left:98px}
+  .app.sidebar-collapsed .hero{left:72px}
+  .app.sidebar-collapsed .menu{
+    width:72px;
+    padding-right:9px;
+    padding-left:9px;
+  }
+  .app.sidebar-collapsed .menu>.desktop-sidebar-toggle{
+    left:14px;
+  }
+  .app.sidebar-collapsed .menu>button:not(.desktop-sidebar-toggle),
+  .app.sidebar-collapsed .menu-group>button{
+    justify-content:center;
+    gap:0;
+    padding:10px !important;
+    font-size:0 !important;
+  }
+  .app.sidebar-collapsed .menu-group>button::after{display:none}
+  .app.sidebar-collapsed .menu-group .sub{display:none !important}
+  .app.sidebar-collapsed .purchase-entry-popup-card{
+    left:calc(50% + 36px);
+    width:min(1680px,calc(100vw - 104px));
   }
   .menu-group{width:100%;margin:0}
   .menu-group>button{position:relative;color:#e2e8f0;padding-right:34px}
