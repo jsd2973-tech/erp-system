@@ -221,6 +221,49 @@ const formatInputDate = (value: string) => {
 
 const money = (v: number | string | undefined) => Number(v || 0).toLocaleString("ko-KR");
 
+const monthKeyWithOffset = (baseDateKey: string, offset: number) => {
+  const date = new Date(`${baseDateKey.slice(0, 7)}-01T12:00:00`);
+  date.setMonth(date.getMonth() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthChangeLabel = (current: number, previous: number) => {
+  if (previous <= 0) return current > 0 ? "신규" : "0%";
+  const change = ((current - previous) / previous) * 100;
+  const rounded = Math.round(change * 10) / 10;
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("ko-KR")}%`;
+};
+
+const monthChangeTone = (current: number, previous: number) => {
+  if (previous <= 0 || current === previous) return "neutral";
+  return current > previous ? "up" : "down";
+};
+
+function MiniSparkline({ values, color }: { values: number[]; color: string }) {
+  const width = 132;
+  const height = 52;
+  const padding = 4;
+  const safeValues = values.length ? values : [0, 0];
+  const min = Math.min(...safeValues);
+  const max = Math.max(...safeValues);
+  const range = max - min || 1;
+  const points = safeValues.map((value, index) => {
+    const x = padding + (index * (width - padding * 2)) / Math.max(safeValues.length - 1, 1);
+    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <svg className="home-insight-sparkline" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {safeValues.map((value, index) => {
+        const [x, y] = points.split(" ")[index].split(",");
+        return <circle key={`${value}-${index}`} cx={x} cy={y} r="2.5" fill={color} />;
+      })}
+    </svg>
+  );
+}
+
 const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">) => {
   const itemNames = (purchase.rows || [])
     .map((row) => String(row.item || "").trim())
@@ -9366,6 +9409,8 @@ function HomeDashboard({
 }) {
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
+  const previousMonthKey = monthKeyWithOffset(today, -1);
+  const trendMonthKeys = Array.from({ length: 6 }, (_, index) => monthKeyWithOffset(today, index - 5));
   const todayPurchases = purchases.filter((p) => p.date === today);
   const monthPurchases = purchases.filter((p) => String(p.date || "").startsWith(monthKey));
   const monthCards = cardUses.filter((c) => String(c.date || "").startsWith(monthKey));
@@ -9379,12 +9424,13 @@ function HomeDashboard({
   const weekStartKey = toDateKey(weekMonday);
   const weekEndKey = toDateKey(weekSunday);
   const todaySchedules = maintenanceSchedules.filter((x) => x.schedule_date === today && x.status !== "완료");
-  const weekSchedules = maintenanceSchedules
+  const allWeekSchedules = maintenanceSchedules
     .filter((x) => {
       const scheduleDate = String(x.schedule_date || "");
-      return scheduleDate >= weekStartKey && scheduleDate <= weekEndKey && x.status !== "완료";
+      return scheduleDate >= weekStartKey && scheduleDate <= weekEndKey;
     })
     .sort((a, b) => String(a.schedule_date || "").localeCompare(String(b.schedule_date || "")));
+  const weekSchedules = allWeekSchedules.filter((x) => x.status !== "완료");
   const weekCalendarDays = Array.from({ length: 7 }, (_, index) => {
     const d = new Date(weekMonday);
     d.setDate(weekMonday.getDate() + index);
@@ -9406,6 +9452,28 @@ function HomeDashboard({
   const monthMaintTotal = maints
     .filter((m) => String(m.date || "").startsWith(monthKey))
     .reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
+  const previousMonthPurchaseTotal = purchases
+    .filter((p) => String(p.date || "").startsWith(previousMonthKey))
+    .reduce((sum, p) => sum + Number(p.total || 0), 0);
+  const previousMonthCardTotal = cardUses
+    .filter((c) => String(c.date || "").startsWith(previousMonthKey))
+    .reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const previousMonthMaintTotal = maints
+    .filter((m) => String(m.date || "").startsWith(previousMonthKey))
+    .reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0);
+  const purchaseTrend = trendMonthKeys.map((key) => purchases
+    .filter((p) => String(p.date || "").startsWith(key))
+    .reduce((sum, p) => sum + Number(p.total || 0), 0));
+  const cardTrend = trendMonthKeys.map((key) => cardUses
+    .filter((c) => String(c.date || "").startsWith(key))
+    .reduce((sum, c) => sum + Number(c.amount || 0), 0));
+  const maintTrend = trendMonthKeys.map((key) => maints
+    .filter((m) => String(m.date || "").startsWith(key))
+    .reduce((sum, m) => sum + Number(m.total || m.cost || 0), 0));
+  const completedWeekSchedules = allWeekSchedules.filter((schedule) => schedule.status === "완료").length;
+  const weekCompletionRate = allWeekSchedules.length
+    ? Math.round((completedWeekSchedules / allWeekSchedules.length) * 100)
+    : 0;
   const pendingReceiptPhotos = receiptPhotos.filter((item) => !item.is_processed);
   const pendingMaintenancePhotos = maintenancePhotos.filter((item) => !item.is_processed);
   const urgentMaintenancePhotos = maintenancePhotos.filter((item) => item.is_urgent && !item.is_processed);
@@ -9810,25 +9878,39 @@ function HomeDashboard({
       </div>
 
       <div className="home-month-stat-grid">
-        <button className="home-month-stat blue" onClick={() => setMenuTab?.("status")}>
-          <span>이번달 구매금액</span>
-          <b>{money(monthPurchaseTotal)}원</b>
-          <small>{monthPurchases.length}건</small>
+        <button className="home-month-stat home-insight-stat blue" onClick={() => setMenuTab?.("status")}>
+          <span className="home-insight-copy">
+            <em>구매비 전월 대비</em>
+            <b className={monthChangeTone(monthPurchaseTotal, previousMonthPurchaseTotal)}>{monthChangeLabel(monthPurchaseTotal, previousMonthPurchaseTotal)}</b>
+            <small>이번달 {money(monthPurchaseTotal)}원</small>
+          </span>
+          <MiniSparkline values={purchaseTrend} color="#2563eb" />
         </button>
-        <button className="home-month-stat purple" onClick={() => setMenuTab?.("card_stats")}>
-          <span>이번달 카드비용</span>
-          <b>{money(monthCardTotal)}원</b>
-          <small>{monthCards.length}건</small>
+        <button className="home-month-stat home-insight-stat purple" onClick={() => setMenuTab?.("card_stats")}>
+          <span className="home-insight-copy">
+            <em>카드비 전월 대비</em>
+            <b className={monthChangeTone(monthCardTotal, previousMonthCardTotal)}>{monthChangeLabel(monthCardTotal, previousMonthCardTotal)}</b>
+            <small>이번달 {money(monthCardTotal)}원</small>
+          </span>
+          <MiniSparkline values={cardTrend} color="#7c3aed" />
         </button>
-        <button className="home-month-stat green" onClick={() => setMenuTab?.("maint_stats")}>
-          <span>이번달 정비 비용</span>
-          <b>{money(monthMaintTotal)}원</b>
-          <small>{maints.filter((m) => String(m.date || "").startsWith(monthKey)).length}건</small>
+        <button className="home-month-stat home-insight-stat green" onClick={() => setMenuTab?.("maint_stats")}>
+          <span className="home-insight-copy">
+            <em>정비비 전월 대비</em>
+            <b className={monthChangeTone(monthMaintTotal, previousMonthMaintTotal)}>{monthChangeLabel(monthMaintTotal, previousMonthMaintTotal)}</b>
+            <small>이번달 {money(monthMaintTotal)}원</small>
+          </span>
+          <MiniSparkline values={maintTrend} color="#059669" />
         </button>
-        <button className="home-month-stat amber" onClick={() => setMenuTab?.("maintenance_schedules")}>
-          <span>이번주 정비일정</span>
-          <b>{weekSchedules.length}건</b>
-          <small>{weekStartKey.slice(5)} ~ {weekEndKey.slice(5)}</small>
+        <button className="home-month-stat home-insight-stat amber" onClick={() => setMenuTab?.("maintenance_schedules")}>
+          <span className="home-insight-copy">
+            <em>정비일정 완료율</em>
+            <b>{weekCompletionRate}%</b>
+            <small>{completedWeekSchedules}/{allWeekSchedules.length}건 완료</small>
+          </span>
+          <span className="home-completion-ring" style={{ background: `conic-gradient(#f59e0b ${weekCompletionRate * 3.6}deg,#e8edf3 0deg)` }} aria-hidden="true">
+            <i />
+          </span>
         </button>
       </div>
       {selectedCalendarDate && (
@@ -20835,5 +20917,62 @@ html,body,#root{
   }
 }
 
+/* ===== Dashboard Insight Cards ===== */
+.home-month-stat.home-insight-stat{
+  min-height:132px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 132px;
+  gap:18px;
+  align-items:center;
+  padding:22px 18px;
+  text-align:left;
+}
+.home-insight-copy{min-width:0;display:block;text-align:left}
+.home-insight-copy em{display:block;color:#475569;font-size:13px;font-style:normal;font-weight:950}
+.home-month-stat.home-insight-stat .home-insight-copy b{
+  display:block;
+  margin-top:10px;
+  font-size:27px;
+  line-height:1;
+  letter-spacing:-.7px;
+}
+.home-month-stat.home-insight-stat .home-insight-copy small{
+  display:block;
+  margin-top:10px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:850;
+  white-space:nowrap;
+}
+.home-insight-copy b.up{color:#dc2626!important}
+.home-insight-copy b.down{color:#2563eb!important}
+.home-insight-copy b.neutral{color:#64748b!important}
+.home-insight-sparkline{width:132px;height:52px;overflow:visible;justify-self:end}
+.home-completion-ring{
+  width:64px;
+  height:64px;
+  display:grid;
+  place-items:center;
+  justify-self:end;
+  border-radius:999px;
+  box-shadow:inset 0 0 0 1px rgba(15,23,42,.04);
+}
+.home-completion-ring i{
+  width:46px;
+  height:46px;
+  display:block;
+  border-radius:999px;
+  background:#fffaf0;
+}
+@media(max-width:1500px){
+  .home-month-stat.home-insight-stat{grid-template-columns:minmax(0,1fr) 100px;gap:10px;padding:20px 16px}
+  .home-insight-sparkline{width:100px}
+  .home-month-stat.home-insight-stat .home-insight-copy b{font-size:24px}
+}
+@media(max-width:760px){
+  .home-month-stat-grid{grid-template-columns:1fr!important}
+  .home-month-stat.home-insight-stat{grid-template-columns:minmax(0,1fr) 112px}
+  .home-insight-sparkline{width:112px}
+}
 
 `;
