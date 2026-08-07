@@ -21185,4 +21185,145 @@ html,body,#root{
   }
 }
 
+/* ===== Mobile Compact Action System FINAL ===== */
+@media(max-width:900px){
+  /* 입력·등록 화면의 저장/초기화/업로드 버튼 */
+  .app .actions,
+  .app .right-actions,
+  .app .entry-actions,
+  .vendor-account-head .actions,
+  .backup-actions{
+    width:100% !important;
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    align-items:stretch !important;
+    justify-content:stretch !important;
+  }
+  .app .actions>button,
+  .app .actions>label,
+  .app .right-actions>button,
+  .app .right-actions>label,
+  .app .entry-actions>button,
+  .vendor-account-head .actions>button,
+  .vendor-account-head .actions>label,
+  .backup-actions>button{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:42px !important;
+    margin:0 !important;
+    padding:8px 7px !important;
+    justify-content:center !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+    line-height:1.2 !important;
+    white-space:normal !important;
+    word-break:keep-all !important;
+  }
+
+  /* 카드조회: 제목 1줄 + 엑셀/PDF 2칸 */
+  .card-lookup-page>.between:first-child{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    align-items:stretch !important;
+  }
+  .card-lookup-page>.between:first-child>h2{
+    grid-column:1 / -1 !important;
+    width:100% !important;
+    margin:0 0 6px !important;
+    text-align:center !important;
+    justify-self:center !important;
+  }
+  .card-lookup-page>.between:first-child>button{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:42px !important;
+    padding:8px 7px !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+  }
+
+  /* 정비조회: 제목 1줄 + 엑셀/정비등록 2칸 */
+  .maint-lookup-page>.between:first-child{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+  }
+  .maint-lookup-page>.between:first-child>h2{
+    width:100% !important;
+    margin:0 !important;
+    text-align:center !important;
+    justify-self:center !important;
+  }
+  .maint-lookup-page>.between:first-child>div{
+    width:100% !important;
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+  }
+  .maint-lookup-page>.between:first-child>div>button{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:42px !important;
+    margin:0 !important;
+    padding:8px 7px !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+    white-space:normal !important;
+  }
+
+  /* 다운로드 버튼이 하나뿐인 조회·통계 화면 */
+  .card>.between:first-child>button:only-of-type,
+  .lookup-page>.between:first-child>button:only-of-type,
+  .schedule-list-head>button:only-of-type{
+    width:min(180px,100%) !important;
+    min-width:0 !important;
+    min-height:42px !important;
+    justify-self:center !important;
+    align-self:center !important;
+    padding:8px 12px !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+  }
+
+  /* 거래처·품목의 단독 엑셀 업로드 버튼 */
+  .app.app-tab-vendors>.card>.between,
+  .app.app-tab-items>.card>.between{
+    align-items:center !important;
+    text-align:center !important;
+  }
+  .app.app-tab-vendors>.card>.between>.upload,
+  .app.app-tab-items>.card>.between>.upload{
+    width:min(220px,100%) !important;
+    min-height:42px !important;
+    margin:0 auto !important;
+    padding:8px 12px !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+  }
+
+  /* 정비일정 조회 헤더 */
+  .schedule-list-head{
+    justify-items:center !important;
+    text-align:center !important;
+  }
+  .schedule-list-head>div,
+  .schedule-list-head h2,
+  .schedule-list-head p{
+    width:100% !important;
+    text-align:center !important;
+  }
+}
+
+@media(max-width:380px){
+  .app .actions>button,
+  .app .actions>label,
+  .card-lookup-page>.between:first-child>button,
+  .maint-lookup-page>.between:first-child>div>button{
+    font-size:12px !important;
+    padding:7px 5px !important;
+  }
+}
+
 `;
