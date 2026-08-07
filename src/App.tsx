@@ -792,6 +792,7 @@ function SearchSelect({
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const normalized = useMemo(() => {
     return (options || [])
@@ -819,6 +820,20 @@ function SearchSelect({
     return normalized.filter((o) => o.search.includes(q)).slice(0, 80);
   }, [query, normalized]);
 
+  useEffect(() => {
+    setActiveIndex((current) => Math.min(current, Math.max(filtered.length - 1, 0)));
+  }, [filtered.length]);
+
+  const selectOption = (index = activeIndex) => {
+    const option = filtered[index] || filtered[0];
+    if (!option) return false;
+    onChange(option.value);
+    setQuery("");
+    setOpen(false);
+    setActiveIndex(0);
+    return true;
+  };
+
   return (
     <div className={`search-wrap${variant === "item" ? " item-search-select" : ""}`} style={{ zIndex: open ? 9999 : 1 }}>
       {label && <label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>}
@@ -829,25 +844,35 @@ function SearchSelect({
         onFocus={() => {
           setQuery("");
           setOpen(true);
+          setActiveIndex(0);
         }}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          setActiveIndex(0);
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "ArrowDown") {
             e.preventDefault();
-            if (filtered.length === 1) {
-              onChange(filtered[0].value);
-              setQuery("");
-              setOpen(false);
-            } else {
-              setOpen(true);
-            }
+            setOpen(true);
+            setActiveIndex((current) => Math.min(current + 1, Math.max(filtered.length - 1, 0)));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setOpen(true);
+            setActiveIndex((current) => Math.max(current - 1, 0));
+          }
+          if (e.key === "Enter" && filtered.length > 0 && (query.trim() || filtered.length === 1)) {
+            e.preventDefault();
+            selectOption();
+          }
+          if (e.key === "Tab" && !e.shiftKey && open && query.trim() && filtered.length > 0) {
+            selectOption();
           }
           if (e.key === "Escape") {
             setQuery("");
             setOpen(false);
+            setActiveIndex(0);
           }
         }}
         onBlur={() => {
@@ -869,13 +894,10 @@ function SearchSelect({
             filtered.map((o, i) => (
               <div
                 key={`${o.value}-${i}`}
-                className="dropdown-item"
+                className={`dropdown-item${i === activeIndex ? " keyboard-active" : ""}`}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onChange(o.value);
-                  setQuery("");
-                  setOpen(false);
-                }}
+                onMouseEnter={() => setActiveIndex(i)}
+                onClick={() => selectOption(i)}
               >
                 {variant === "item" ? (
                   <div className="item-search-dropdown-row">
@@ -10597,7 +10619,7 @@ label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6
 .search-wrap{position:relative}
 .dropdown{position:absolute;left:0;right:0;top:100%;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.18);max-height:320px;overflow:auto}
 .dropdown-item{padding:10px;cursor:pointer}
-.dropdown-item:hover{background:#f1f5f9}
+.dropdown-item:hover,.dropdown-item.keyboard-active{background:#eaf2ff}
 .dropdown-empty{padding:10px;color:#94a3b8}
 .table-wrap{overflow:visible;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px}
 .scroll-table{overflow:auto;border:1px solid #e2e8f0;border-radius:14px;margin-top:14px;max-height:420px}
