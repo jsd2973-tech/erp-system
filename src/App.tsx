@@ -21139,4 +21139,50 @@ html,body,#root{
   .home-insight-sparkline{width:112px}
 }
 
+/* ===== Mobile Brand Center + Compact Purchase Actions ===== */
+@media(max-width:900px){
+  .app>.hero{
+    justify-content:center !important;
+  }
+  .app>.hero .hero-brand-copy{
+    flex:0 1 auto;
+    text-align:left !important;
+  }
+  .app>.hero .main-title,
+  .app>.hero p{
+    text-align:left !important;
+  }
+  .purchase-lookup-page>.between{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:14px !important;
+    align-items:stretch !important;
+  }
+  .purchase-lookup-page>.between>h2{
+    width:100%;
+    margin:0 !important;
+    text-align:center !important;
+  }
+  .purchase-lookup-page .purchase-lookup-actions{
+    width:100%;
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    align-items:stretch !important;
+    justify-content:stretch !important;
+  }
+  .purchase-lookup-page .purchase-lookup-actions button{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:42px !important;
+    margin:0 !important;
+    padding:9px 8px !important;
+    justify-content:center !important;
+    border-radius:11px !important;
+    font-size:13px !important;
+    line-height:1.2 !important;
+    white-space:nowrap !important;
+  }
+}
+
 `;
