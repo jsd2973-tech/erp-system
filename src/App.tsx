@@ -1114,6 +1114,67 @@ html, body, #root {
   font-size: 13px;
   font-weight: 700;
 }
+
+.permission-pending-card {
+  text-align: center;
+}
+
+.permission-pending-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 8px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 34px;
+}
+
+.permission-pending-account {
+  margin: 4px 0 10px;
+  padding: 11px 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+  word-break: break-all;
+}
+
+.permission-pending-help {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.permission-pending-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.permission-pending-actions button {
+  min-height: 48px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.permission-pending-actions button.primary {
+  border-color: transparent;
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: #fff;
+}
 .audio-preview{display:flex;flex-direction:column;gap:6px;min-width:180px;max-width:260px;padding:6px;border:1px solid #dbeafe;border-radius:12px;background:#f8fafc}.audio-preview audio{width:220px;max-width:100%;height:32px}.audio-preview a{font-size:12px;font-weight:800;color:#2563eb;text-decoration:none}.attachment-file-link{display:inline-flex;align-items:center;justify-content:center;min-width:68px;padding:7px 9px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:900;text-decoration:none}
 
 .purchase-lookup-page .attachment-group{
@@ -1253,6 +1314,8 @@ export default function App() {
   const [editingUpdateNoticeId, setEditingUpdateNoticeId] = useState("");
   const [updateNoticeError, setUpdateNoticeError] = useState("");
   const [userPermissions, setUserPermissions] = useState<UserPermission[]>([]);
+  const [userPermissionsLoading, setUserPermissionsLoading] = useState(true);
+  const [userPermissionsError, setUserPermissionsError] = useState("");
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [activityLogSearch, setActivityLogSearch] = useState({ module: "", keyword: "" });
   const [deletedRecords, setDeletedRecords] = useState<DeletedRecord[]>([]);
@@ -1265,10 +1328,12 @@ export default function App() {
     permissions: {},
   });
   const currentUserPermission = userPermissions.find((item) => item.email === userEmail);
-  const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "office");
+  const isPermissionApproved = isAdmin || !!currentUserPermission;
+  const currentRole: UserRole = isAdmin ? "admin" : (currentUserPermission?.role || "field");
   const canCreateRecords = currentRole === "admin" || currentRole === "office";
   const canEditDeleteRecords = currentRole === "admin";
   const canAccessTab = (tab: string) => {
+    if (!isPermissionApproved) return false;
     if (!tab) return true;
     if (tab === "home") return true;
     if (tab === "site_notices") return true;
@@ -2106,22 +2171,46 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session) {
-      loadAll();
-      loadPermits();
-      loadVendorAccounts();
-      loadReceiptPhotos();
-      loadMaintenancePhotos();
-      loadMaintenanceSchedules();
-      loadSiteNotices();
-      loadUserPermissions();
-      loadActivityLogs();
-      loadDeletedRecords();
+    if (!session) {
+      setUserPermissions([]);
+      setUserPermissionsLoading(true);
+      return;
     }
+
+    let active = true;
+
+    const loadAuthorizedSession = async () => {
+      const permissions = await loadUserPermissions();
+      if (!active) return;
+
+      const approved = isAdmin || permissions.some((item) => item.email === userEmail);
+      if (!approved) {
+        setLoading(false);
+        return;
+      }
+
+      await Promise.all([
+        loadAll(),
+        loadPermits(),
+        loadVendorAccounts(),
+        loadReceiptPhotos(),
+        loadMaintenancePhotos(),
+        loadMaintenanceSchedules(),
+        loadSiteNotices(),
+        loadActivityLogs(),
+        loadDeletedRecords(),
+      ]);
+    };
+
+    loadAuthorizedSession();
+
+    return () => {
+      active = false;
+    };
   }, [session]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !isPermissionApproved) return;
 
     if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
       loadAll();
@@ -4976,20 +5065,28 @@ export default function App() {
   };
 
   const loadUserPermissions = async () => {
+    setUserPermissionsLoading(true);
+    setUserPermissionsError("");
     const { data, error } = await fetchAllRows("user_permissions", "email", 1000);
 
     if (error) {
       console.error(error);
       setUserPermissions([]);
-      return;
+      setUserPermissionsError("권한 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.");
+      setUserPermissionsLoading(false);
+      return [] as UserPermission[];
     }
 
-    setUserPermissions(((data || []) as any[]).map((item) => ({
+    const nextPermissions = ((data || []) as any[]).map((item) => ({
       ...item,
       id: String(item.id),
       role: (item.role || "field") as UserRole,
       permissions: item.permissions || {},
-    })) as UserPermission[]);
+    })) as UserPermission[];
+
+    setUserPermissions(nextPermissions);
+    setUserPermissionsLoading(false);
+    return nextPermissions;
   };
 
   const saveUserPermission = async (next?: UserPermission) => {
@@ -5111,10 +5208,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !isPermissionApproved) return;
     loadUpdateNotices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, menuTab]);
+  }, [session?.user?.id, menuTab, isPermissionApproved]);
 
   if (authLoading) {
     return (
@@ -5204,6 +5301,41 @@ export default function App() {
           {loginError && <div className="login-error">{loginError}</div>}
 
           <button className="primary login-button" onClick={login}>로그인</button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (!isAdmin && userPermissionsLoading) {
+    return (
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card">권한 확인 중...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (!isPermissionApproved) {
+    return (
+      <>
+        <style>{loginCss}</style>
+        <div className="login-page">
+          <div className="login-card permission-pending-card">
+            <div className="login-badge">TAEMYUNG ERP</div>
+            <div className="permission-pending-icon" aria-hidden="true">🔒</div>
+            <h1>{userPermissionsError ? "권한 확인 오류" : "권한 승인 대기"}</h1>
+            <p>{userPermissionsError || "관리자가 이 계정의 사용 권한을 등록해야 업무 메뉴를 이용할 수 있습니다."}</p>
+            <div className="permission-pending-account">로그인 계정: {toLoginId(userEmail)}</div>
+            <div className="permission-pending-help">
+              관리자에게 위 아이디를 알려주고<br />권한관리에서 직원 권한을 등록해 주세요.
+            </div>
+            <div className="permission-pending-actions">
+              <button type="button" onClick={logout}>로그아웃</button>
+              <button type="button" className="primary" onClick={() => window.location.reload()}>권한 다시 확인</button>
+            </div>
           </div>
         </div>
       </>
