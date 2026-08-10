@@ -9395,6 +9395,22 @@ function BackupPermissionPage({
     return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
   };
 
+  const openStorageCleanupCandidate = (item: { bucket: string; path: string }) => {
+    const { data } = supabase.storage.from(item.bucket).getPublicUrl(item.path);
+    if (!data?.publicUrl) {
+      alert("파일 주소를 확인할 수 없습니다.");
+      return;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = data.publicUrl;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  };
+
   const downloadJsonBackup = () => {
     const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -9802,14 +9818,14 @@ function BackupPermissionPage({
           </div>
           {!!storageCleanupCandidates.length && (
             <div className="storage-cleanup-list">
-              {storageCleanupCandidates.slice(0, 5).map((item) => (
+              {storageCleanupCandidates.map((item) => (
                 <div key={`${item.bucket}/${item.path}`}>
                   <span>{item.bucket}</span>
                   <b title={item.path}>{item.path}</b>
                   <em>{formatStorageSize(item.size)}</em>
+                  <button type="button" onClick={() => openStorageCleanupCandidate(item)}>보기</button>
                 </div>
               ))}
-              {storageCleanupCandidates.length > 5 && <p>외 {storageCleanupCandidates.length - 5}개</p>}
             </div>
           )}
           <div className="backup-actions">
@@ -17912,6 +17928,8 @@ button[onclick*="downloadPdf"]{
 .storage-cleanup-list{
   display:grid;
   gap:7px;
+  max-height:330px;
+  overflow:auto;
   margin:12px 0 14px;
   padding:12px;
   border:1px solid #e2e8f0;
@@ -17921,7 +17939,7 @@ button[onclick*="downloadPdf"]{
 
 .storage-cleanup-list div{
   display:grid;
-  grid-template-columns:130px minmax(0,1fr) 90px;
+  grid-template-columns:130px minmax(0,1fr) 90px 58px;
   gap:10px;
   align-items:center;
   min-width:0;
@@ -17950,6 +17968,16 @@ button[onclick*="downloadPdf"]{
 
 .storage-cleanup-list em{
   text-align:right;
+}
+
+.storage-cleanup-list div>button{
+  min-height:30px;
+  padding:0 9px;
+  border:1px solid #bfdbfe;
+  border-radius:9px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:12px;
 }
 
 .storage-cleanup-list p{
@@ -18032,7 +18060,7 @@ button[onclick*="downloadPdf"]{
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
   .storage-cleanup-list div{
-    grid-template-columns:92px minmax(0,1fr) 64px;
+    grid-template-columns:82px minmax(0,1fr) 56px 48px;
     gap:7px;
   }
 }
