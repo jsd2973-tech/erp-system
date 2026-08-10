@@ -1333,7 +1333,6 @@ export default function App() {
   const [maintSaveError, setMaintSaveError] = useState("");
   const [maintSearch, setMaintSearch] = useState({ from: "", to: "", warehouse: "", keyword: "" });
   const [showAllMaintSuggestions, setShowAllMaintSuggestions] = useState(false);
-  const [showAllRecentMaintItems, setShowAllRecentMaintItems] = useState(false);
   const [maintTemplateOpen, setMaintTemplateOpen] = useState(false);
   const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
@@ -3965,9 +3964,9 @@ export default function App() {
     return candidates[0] || null;
   };
 
-  const maintTitleKeyword = maintForm.title.trim().toLowerCase();
+  const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
   const maintSuggestedItems = useMemo(() => {
-    if (!maintTitleKeyword) return [];
+    if (!maintWarehouseKey) return [];
 
     const rows = new Map<string, {
       item: string;
@@ -3980,11 +3979,8 @@ export default function App() {
 
     maints.forEach((record) => {
       if (editingMaintId && record.id === editingMaintId) return;
-
-      const title = String(record.title || "").toLowerCase();
-      const detail = String(record.detail || "").toLowerCase();
-      const keywordMatch = title.includes(maintTitleKeyword) || maintTitleKeyword.includes(title) || detail.includes(maintTitleKeyword);
-      if (!keywordMatch) return;
+      const recordWarehouseKey = String(record.warehouse || "").trim().toLowerCase().replace(/\s+/g, "");
+      if (recordWarehouseKey !== maintWarehouseKey) return;
 
       (record.items || []).forEach((row) => {
         const itemName = String(row.item || "").trim();
@@ -4013,57 +4009,13 @@ export default function App() {
 
     return Array.from(rows.values())
       .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
-  }, [maints, maintTitleKeyword, editingMaintId]);
-
-  const recentMaintUsedItems = useMemo(() => {
-    const rows = new Map<string, {
-      item: string;
-      spec: string;
-      qty: number;
-      price: number;
-      count: number;
-      lastDate: string;
-    }>();
-
-    [...maints]
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-      .slice(0, 30)
-      .forEach((record) => {
-        (record.items || []).forEach((row) => {
-          const itemName = String(row.item || "").trim();
-          if (!itemName) return;
-
-          const prev = rows.get(itemName) || {
-            item: itemName,
-            spec: String(row.spec || ""),
-            qty: Number(row.qty || 1) || 1,
-            price: Number(row.price || 0),
-            count: 0,
-            lastDate: "",
-          };
-
-          prev.count += 1;
-          if (String(record.date || "") >= String(prev.lastDate || "")) {
-            prev.spec = String(row.spec || prev.spec || "");
-            prev.qty = Number(row.qty || prev.qty || 1) || 1;
-            prev.price = Number(row.price || prev.price || 0);
-            prev.lastDate = String(record.date || "");
-          }
-
-          rows.set(itemName, prev);
-        });
-      });
-
-    return Array.from(rows.values())
-      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
-  }, [maints]);
+  }, [maints, maintWarehouseKey, editingMaintId]);
 
   const visibleMaintSuggestedItems = showAllMaintSuggestions ? maintSuggestedItems : maintSuggestedItems.slice(0, 8);
-  const visibleRecentMaintUsedItems = showAllRecentMaintItems ? recentMaintUsedItems : recentMaintUsedItems.slice(0, 8);
 
   useEffect(() => {
     setShowAllMaintSuggestions(false);
-  }, [maintTitleKeyword]);
+  }, [maintWarehouseKey]);
 
 
   const maintTemplateRecords = useMemo(() => {
@@ -7177,18 +7129,19 @@ export default function App() {
               </Field>
             </div>
 
-            {(maintSuggestedItems.length > 0 || recentMaintUsedItems.length > 0) && (
-              <div className="maint-suggest-box">
+            <div className="maint-suggest-box">
                 <div className="maint-suggest-head">
                   <div>
                     <strong>
-                      추천 품목
-                      {maintSuggestedItems.length > 0 && <em>{maintSuggestedItems.length}개</em>}
+                      창고 추천 품목
+                      {!!maintWarehouseKey && <em>{maintSuggestedItems.length}개</em>}
                     </strong>
                     <span>
-                      {maintSuggestedItems.length
-                        ? `"${maintForm.title}" 작업에서 자주 사용된 품목입니다.`
-                        : "같은 작업 이력이 없어 최근 정비에서 자주 사용한 품목을 보여줍니다."}
+                      {!maintWarehouseKey
+                        ? "창고를 선택하면 해당 창고의 과거 정비 사용품목을 보여줍니다."
+                        : maintSuggestedItems.length
+                          ? `"${maintForm.warehouse}"에서 자주 사용된 품목입니다.`
+                          : `"${maintForm.warehouse}"의 기존 정비 이력에 등록된 사용품목이 없습니다.`}
                     </span>
                   </div>
 
@@ -7220,33 +7173,12 @@ export default function App() {
                   </>
                 )}
 
-                {!maintSuggestedItems.length && !!recentMaintUsedItems.length && (
-                  <>
-                    <div className="maint-suggest-subhead">
-                      <strong>최근 사용 품목</strong>
-                      <span>{recentMaintUsedItems.length}개</span>
-                    </div>
-
-                    <div className="maint-suggest-chips muted">
-                      {visibleRecentMaintUsedItems.map((item) => (
-                        <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
-                          <b>{item.item}</b>
-                          <span>최근 {item.count}회</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {recentMaintUsedItems.length > 8 && (
-                      <div className="maint-suggest-more">
-                        <button onClick={() => setShowAllRecentMaintItems((value) => !value)}>
-                          {showAllRecentMaintItems ? "접기" : `더보기 ${recentMaintUsedItems.length - 8}개`}
-                        </button>
-                      </div>
-                    )}
-                  </>
+                {!maintSuggestedItems.length && (
+                  <div className="maint-suggest-empty">
+                    {maintWarehouseKey ? "이 창고의 첫 정비 품목을 등록하면 다음부터 자동 추천됩니다." : "먼저 위에서 창고를 선택하세요."}
+                  </div>
                 )}
               </div>
-            )}
 
             <h3>사용 품목</h3>
             <div className="table-wrap entry-desktop-table">
@@ -19521,6 +19453,20 @@ button:disabled{
   border-color:#e2e8f0;
   background:#f8fafc;
   color:#334155;
+}
+.maint-suggest-empty{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:58px;
+  padding:12px;
+  border:1px dashed #cbd5e1;
+  border-radius:14px;
+  background:#fff;
+  color:#64748b;
+  font-size:13px;
+  font-weight:850;
+  text-align:center;
 }
 @media(max-width:900px){
   .maint-suggest-head{
