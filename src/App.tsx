@@ -2639,10 +2639,73 @@ export default function App() {
     return fallback;
   };
 
+  const formatUploadSize = (bytes: number) => {
+    if (!bytes) return "0B";
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  };
+
+  const validateAttachmentFiles = (inputFiles: FileList | File[]) => {
+    const files = Array.from(inputFiles || []);
+    const maxFileCount = 20;
+    const maxBatchSize = 100 * 1024 * 1024;
+    const imageLimit = 20 * 1024 * 1024;
+    const pdfLimit = 30 * 1024 * 1024;
+    const audioLimit = 50 * 1024 * 1024;
+    const imagePattern = /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i;
+    const audioPattern = /\.(mp3|m4a|wav|webm|ogg|aac)$/i;
+
+    if (!files.length) return [] as File[];
+    if (files.length > maxFileCount) {
+      alert(`첨부파일은 한 번에 최대 ${maxFileCount}개까지 선택할 수 있습니다. 현재 ${files.length}개를 선택했습니다.`);
+      return null;
+    }
+
+    const unsupported: string[] = [];
+    const oversized: string[] = [];
+
+    files.forEach((file) => {
+      const isImage = file.type.startsWith("image/") || imagePattern.test(file.name || "");
+      const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+      const isAudio = file.type.startsWith("audio/") || audioPattern.test(file.name || "");
+
+      if (!isImage && !isPdf && !isAudio) {
+        unsupported.push(file.name || "이름 없는 파일");
+        return;
+      }
+
+      const limit = isImage ? imageLimit : isPdf ? pdfLimit : audioLimit;
+      if (file.size > limit) {
+        oversized.push(`${file.name || "이름 없는 파일"} (${formatUploadSize(file.size)} / 제한 ${formatUploadSize(limit)})`);
+      }
+    });
+
+    if (unsupported.length) {
+      alert(`지원하지 않는 파일 형식입니다.\n${unsupported.slice(0, 5).join("\n")}${unsupported.length > 5 ? `\n외 ${unsupported.length - 5}개` : ""}\n\n사진·PDF·음성파일만 업로드할 수 있습니다.`);
+      return null;
+    }
+
+    if (oversized.length) {
+      alert(`파일 용량 제한을 초과했습니다.\n${oversized.slice(0, 5).join("\n")}${oversized.length > 5 ? `\n외 ${oversized.length - 5}개` : ""}`);
+      return null;
+    }
+
+    const totalSize = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+    if (totalSize > maxBatchSize) {
+      alert(`한 번에 선택한 파일의 합계는 ${formatUploadSize(maxBatchSize)} 이하여야 합니다. 현재 ${formatUploadSize(totalSize)}입니다.`);
+      return null;
+    }
+
+    return files;
+  };
+
   const uploadPurchaseFiles = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
+    const validFiles = validateAttachmentFiles(files);
+    if (!validFiles) return uploadedUrls;
 
-    for (const file of Array.from(files)) {
+    for (const file of validFiles) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
       const ext = isImage ? "jpg" : getUploadFileExtension(file);
@@ -2655,7 +2718,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`구매 첨부 업로드 실패: ${error.message}`);
+        alert(`구매 첨부 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
         continue;
       }
 
@@ -2670,8 +2733,10 @@ export default function App() {
 
   const uploadCardReceipts = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
+    const validFiles = validateAttachmentFiles(files);
+    if (!validFiles) return uploadedUrls;
 
-    for (const file of Array.from(files)) {
+    for (const file of validFiles) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
       const ext = isImage ? "jpg" : getUploadFileExtension(file);
@@ -2684,7 +2749,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`영수증 여러 장 업로드 실패: ${error.message}`);
+        alert(`영수증 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
         continue;
       }
 
@@ -2700,8 +2765,10 @@ export default function App() {
 
   const uploadMaintFiles = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
+    const validFiles = validateAttachmentFiles(files);
+    if (!validFiles) return uploadedUrls;
 
-    for (const file of Array.from(files)) {
+    for (const file of validFiles) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
       const ext = isImage ? "jpg" : getUploadFileExtension(file);
@@ -2714,7 +2781,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`정비 첨부 업로드 실패: ${error.message}`);
+        alert(`정비 첨부 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
         continue;
       }
 
@@ -2760,8 +2827,10 @@ export default function App() {
 
   const uploadMaintenancePhotoFiles = async (files: File[]) => {
     const uploadedUrls: string[] = [];
+    const validFiles = validateAttachmentFiles(files);
+    if (!validFiles) return uploadedUrls;
 
-    for (const file of files) {
+    for (const file of validFiles) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
       const ext = isImage ? "jpg" : getUploadFileExtension(file);
@@ -2774,7 +2843,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`정비사진 업로드 실패: ${error.message}`);
+        alert(`정비사진 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
         continue;
       }
 
@@ -3212,8 +3281,10 @@ export default function App() {
 
   const uploadReceiptPhotoFiles = async (files: File[]) => {
     const uploadedUrls: string[] = [];
+    const validFiles = validateAttachmentFiles(files);
+    if (!validFiles) return uploadedUrls;
 
-    for (const file of files) {
+    for (const file of validFiles) {
       const isImage = file.type.startsWith("image/");
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
       const ext = isImage ? "jpg" : getUploadFileExtension(file);
@@ -3226,7 +3297,7 @@ export default function App() {
       });
 
       if (error) {
-        alert(`입고사진 업로드 실패: ${error.message}`);
+        alert(`입고사진 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
         continue;
       }
 
@@ -5769,20 +5840,30 @@ export default function App() {
                     accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                     multiple
                     onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setMaintenancePhotoFiles(files);
-                    setMaintenanceUploadPreviewUrls(
-                      files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
-                    );
-                  }}
+                      const input = e.currentTarget;
+                      const files = validateAttachmentFiles(e.target.files || []);
+                      maintenanceUploadPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+                      if (!files) {
+                        input.value = "";
+                        setMaintenancePhotoFiles([]);
+                        setMaintenanceUploadPreviewUrls([]);
+                        return;
+                      }
+                      setMaintenancePhotoFiles(files);
+                      setMaintenanceUploadPreviewUrls(
+                        files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
+                      );
+                    }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>정비 사진/PDF/음성을 선택하세요</strong>
-                  <span>여러 개 선택 가능 · 사진/PDF/음성 업로드</span>
+                  <span>사진 20MB · PDF 30MB · 음성 50MB 이하</span>
                 </label>
 
                 <div className="receipt-file-count">
-                  {maintenancePhotoFiles.length ? `${maintenancePhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                  {maintenancePhotoFiles.length
+                    ? `${maintenancePhotoFiles.length}개 · ${formatUploadSize(maintenancePhotoFiles.reduce((sum, file) => sum + file.size, 0))}`
+                    : "선택된 첨부파일 없음"}
                 </div>
 
                 {!!maintenanceUploadPreviewUrls.length && (
@@ -5980,20 +6061,30 @@ export default function App() {
                     accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
                     multiple
                     onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setReceiptPhotoFiles(files);
-                    setReceiptUploadPreviewUrls(
-                      files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
-                    );
-                  }}
+                      const input = e.currentTarget;
+                      const files = validateAttachmentFiles(e.target.files || []);
+                      receiptUploadPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+                      if (!files) {
+                        input.value = "";
+                        setReceiptPhotoFiles([]);
+                        setReceiptUploadPreviewUrls([]);
+                        return;
+                      }
+                      setReceiptPhotoFiles(files);
+                      setReceiptUploadPreviewUrls(
+                        files.filter((f) => f.type.startsWith("image/")).map((f) => URL.createObjectURL(f))
+                      );
+                    }}
                   />
                   <div className="receipt-drop-icon">⬆</div>
                   <strong>사진/PDF/음성을 선택하세요</strong>
-                  <span>여러 개 선택 가능 · JPG / PNG / PDF / 음성</span>
+                  <span>사진 20MB · PDF 30MB · 음성 50MB 이하</span>
                 </label>
 
                 <div className="receipt-file-count">
-                  {receiptPhotoFiles.length ? `${receiptPhotoFiles.length}장 선택됨` : "선택된 사진 없음"}
+                  {receiptPhotoFiles.length
+                    ? `${receiptPhotoFiles.length}개 · ${formatUploadSize(receiptPhotoFiles.reduce((sum, file) => sum + file.size, 0))}`
+                    : "선택된 첨부파일 없음"}
                 </div>
 
                 {!!receiptUploadPreviewUrls.length && (
@@ -6821,7 +6912,7 @@ export default function App() {
                 <button className="purchase-add-item-button" onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button>
                 <div className="purchase-upload-panel">
                   <strong>구매 첨부파일</strong>
-                  <p>사진·PDF·음성파일을 여러 개 등록할 수 있습니다.</p>
+                  <p>사진 20MB · PDF 30MB · 음성 50MB 이하, 한 번에 최대 20개입니다.</p>
                   <label className={`upload${purchaseUploading ? " upload-busy" : ""}`} aria-disabled={purchaseUploading}>
                     <Upload size={16} /> {purchaseUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
                     <input
@@ -7315,7 +7406,7 @@ export default function App() {
                 <button className="maintenance-add-item-button" onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목 추가</button>
                 <div className="maintenance-upload-panel">
                   <strong>정비 첨부파일</strong>
-                  <p>사진·PDF·음성파일을 여러 개 등록할 수 있습니다.</p>
+                  <p>사진 20MB · PDF 30MB · 음성 50MB 이하, 한 번에 최대 20개입니다.</p>
                   <label className={`upload${maintUploading ? " upload-busy" : ""}`} aria-disabled={maintUploading}>
                     <Upload size={16} /> {maintUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
                     <input
