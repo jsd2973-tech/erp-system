@@ -9293,6 +9293,8 @@ function BackupPermissionPage({
 }: any) {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
+  const [attachmentBackupBusy, setAttachmentBackupBusy] = useState(false);
+  const [attachmentBackupProgress, setAttachmentBackupProgress] = useState("");
 
   const backupPayload = {
     backup_version: "taemyung-erp-v1",
@@ -9326,6 +9328,167 @@ function BackupPermissionPage({
     a.download = `taemyung_erp_backup_${todayText()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadBackupWithAttachments = async () => {
+    if (attachmentBackupBusy || backupSaving) return;
+
+    const attachmentMap = new Map<string, { url: string; references: string[] }>();
+    const visitBackupValue = (value: any, path: string) => {
+      if (typeof value === "string") {
+        const text = value.trim();
+        if (/^https?:\/\//i.test(text) && text.includes("/storage/v1/object/")) {
+          const key = text.replace(/\?erp_file=audio(?:&.*)?$/i, "");
+          const existing = attachmentMap.get(key);
+          if (existing) {
+            if (!existing.references.includes(path)) existing.references.push(path);
+          } else {
+            attachmentMap.set(key, { url: text, references: [path] });
+          }
+        }
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => visitBackupValue(item, `${path}[${index}]`));
+        return;
+      }
+      if (value && typeof value === "object") {
+        Object.entries(value).forEach(([key, item]) => visitBackupValue(item, path ? `${path}.${key}` : key));
+      }
+    };
+
+    visitBackupValue(backupPayload.data, "data");
+    const attachments = Array.from(attachmentMap.values());
+
+    const picker = (window as any).showDirectoryPicker;
+    if (typeof picker !== "function") {
+      alert("첨부 포함 백업은 PC용 Edge 또는 Chrome에서 사용할 수 있습니다.");
+      return;
+    }
+
+    if (!confirm(`복구용 JSON과 첨부파일 ${attachments.length}개를 선택한 폴더에 백업할까요?`)) return;
+
+    let selectedDirectory: any;
+    try {
+      selectedDirectory = await picker.call(window, { mode: "readwrite", startIn: "downloads" });
+    } catch (error: any) {
+      if (error?.name !== "AbortError") alert(error?.message || "백업 폴더를 열 수 없습니다.");
+      return;
+    }
+
+    setAttachmentBackupBusy(true);
+    setAttachmentBackupProgress("백업 폴더 준비 중...");
+
+    try {
+      const now = new Date();
+      const timeKey = `${getTodayKey().replace(/-/g, "")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+      const backupDirectory = await selectedDirectory.getDirectoryHandle(`ERP_첨부포함백업_${timeKey}`, { create: true });
+      const attachmentDirectory = await backupDirectory.getDirectoryHandle("attachments", { create: true });
+
+      const writeHandle = async (directory: any, fileName: string, data: Blob | string) => {
+        const handle = await directory.getFileHandle(fileName, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(data);
+        await writable.close();
+      };
+
+      await writeHandle(
+        backupDirectory,
+        "ERP_전체백업.json",
+        new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" })
+      );
+
+      const usedNames = new Set<string>();
+      const manifest: Array<{
+        file_name: string;
+        original_url: string;
+        references: string[];
+        size_bytes: number;
+        status: "saved" | "failed";
+        error?: string;
+      }> = [];
+
+      for (let index = 0; index < attachments.length; index += 1) {
+        const attachment = attachments[index];
+        setAttachmentBackupProgress(`첨부파일 저장 ${index + 1}/${attachments.length}`);
+
+        let originalName = `attachment-${String(index + 1).padStart(4, "0")}`;
+        try {
+          const pathName = new URL(attachment.url).pathname;
+          originalName = decodeURIComponent(pathName.split("/").pop() || originalName);
+        } catch {
+          // Keep the generated fallback filename.
+        }
+
+        originalName = originalName
+          .replace(/[^0-9a-zA-Z가-힣._-]+/g, "_")
+          .replace(/^\.+/, "")
+          .slice(0, 150) || `attachment-${String(index + 1).padStart(4, "0")}`;
+
+        let fileName = originalName;
+        let duplicateIndex = 2;
+        while (usedNames.has(fileName.toLowerCase())) {
+          const dotIndex = originalName.lastIndexOf(".");
+          const base = dotIndex > 0 ? originalName.slice(0, dotIndex) : originalName;
+          const ext = dotIndex > 0 ? originalName.slice(dotIndex) : "";
+          fileName = `${base}-${duplicateIndex}${ext}`;
+          duplicateIndex += 1;
+        }
+        usedNames.add(fileName.toLowerCase());
+
+        try {
+          const response = await fetch(attachment.url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          await writeHandle(attachmentDirectory, fileName, blob);
+          manifest.push({
+            file_name: `attachments/${fileName}`,
+            original_url: attachment.url,
+            references: attachment.references,
+            size_bytes: blob.size,
+            status: "saved",
+          });
+        } catch (error: any) {
+          manifest.push({
+            file_name: `attachments/${fileName}`,
+            original_url: attachment.url,
+            references: attachment.references,
+            size_bytes: 0,
+            status: "failed",
+            error: error?.message || "다운로드 실패",
+          });
+        }
+      }
+
+      const savedCount = manifest.filter((item) => item.status === "saved").length;
+      const failedCount = manifest.length - savedCount;
+      const totalSize = manifest.reduce((sum, item) => sum + item.size_bytes, 0);
+      const manifestPayload = {
+        exported_at: new Date().toISOString(),
+        attachment_count: manifest.length,
+        saved_count: savedCount,
+        failed_count: failedCount,
+        total_size_bytes: totalSize,
+        files: manifest,
+      };
+
+      await writeHandle(
+        backupDirectory,
+        "첨부파일_목록.json",
+        new Blob([JSON.stringify(manifestPayload, null, 2)], { type: "application/json;charset=utf-8" })
+      );
+
+      if (failedCount) {
+        alert(`첨부 포함 백업이 완료됐지만 ${failedCount}개 파일은 저장하지 못했습니다. 백업 폴더의 첨부파일_목록.json을 확인하세요.`);
+      } else {
+        showToast(`첨부파일 ${savedCount}개를 포함해 백업했습니다.`);
+      }
+    } catch (error: any) {
+      alert(error?.message || "첨부 포함 백업 중 오류가 발생했습니다.");
+    } finally {
+      setAttachmentBackupBusy(false);
+      setAttachmentBackupProgress("");
+    }
   };
 
   const restoreJsonBackup = async () => {
@@ -9421,7 +9584,7 @@ function BackupPermissionPage({
       <div className="backup-permission-grid">
         <div className="backup-card">
           <h3>전체 백업</h3>
-          <p>현재 ERP 주요 데이터를 JSON 파일로 내려받습니다. 복구용은 JSON을 사용하세요.</p>
+          <p>복구용 JSON을 내려받거나, PC에서 사진·PDF·음성 원본까지 폴더에 함께 백업합니다.</p>
           <div className="backup-stat-grid">
             <div><b>{purchases.length}</b><span>구매</span></div>
             <div><b>{maints.length}</b><span>정비</span></div>
@@ -9431,11 +9594,14 @@ function BackupPermissionPage({
             <div><b>{deletedRecords?.length || 0}</b><span>휴지통</span></div>
           </div>
           <div className="backup-actions">
-            <button className="primary" disabled={backupSaving} onClick={exportFullBackup}>
+            <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={exportFullBackup}>
               {backupSaving ? "백업 생성 중..." : "전체 백업 다운로드"}
             </button>
-            <button onClick={exportBackupSummaryExcel}>백업 요약 엑셀</button>
-            <button onClick={downloadJsonBackup}>화면 데이터 간단 백업</button>
+            <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={downloadBackupWithAttachments}>
+              {attachmentBackupBusy ? attachmentBackupProgress || "첨부 백업 중..." : "첨부 포함 백업"}
+            </button>
+            <button disabled={backupSaving || attachmentBackupBusy} onClick={exportBackupSummaryExcel}>백업 요약 엑셀</button>
+            <button disabled={backupSaving || attachmentBackupBusy} onClick={downloadJsonBackup}>화면 데이터 간단 백업</button>
           </div>
         </div>
 
