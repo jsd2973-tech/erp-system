@@ -6493,6 +6493,9 @@ export default function App() {
             receiptPhotos={receiptPhotos}
             maintenancePhotos={maintenancePhotos}
             maintenanceSchedules={maintenanceSchedules}
+            purchaseDraft={purchaseHeader}
+            maintenanceDraft={maintForm}
+            cardDraft={cardForm}
             updateNotices={updateNotices}
             siteNotices={siteNotices}
             userPermissions={userPermissions}
@@ -9266,6 +9269,9 @@ function BackupPermissionPage({
   receiptPhotos,
   maintenancePhotos,
   maintenanceSchedules,
+  purchaseDraft,
+  maintenanceDraft,
+  cardDraft,
   updateNotices,
   siteNotices,
   userPermissions,
@@ -9295,6 +9301,19 @@ function BackupPermissionPage({
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [attachmentBackupBusy, setAttachmentBackupBusy] = useState(false);
   const [attachmentBackupProgress, setAttachmentBackupProgress] = useState("");
+  const [storageCleanupBusy, setStorageCleanupBusy] = useState(false);
+  const [storageCleanupCandidates, setStorageCleanupCandidates] = useState<Array<{
+    bucket: string;
+    path: string;
+    size: number;
+    createdAt: string;
+  }>>([]);
+  const [storageCleanupSummary, setStorageCleanupSummary] = useState<{
+    scanned: number;
+    referenced: number;
+    candidateBytes: number;
+    checkedAt: string;
+  } | null>(null);
 
   const backupPayload = {
     backup_version: "taemyung-erp-v1",
@@ -9312,6 +9331,11 @@ function BackupPermissionPage({
       receiptPhotos,
       maintenancePhotos,
       maintenanceSchedules,
+      activeDrafts: {
+        purchase: purchaseDraft,
+        maintenance: maintenanceDraft,
+        card: cardDraft,
+      },
       updateNotices,
       siteNotices,
       userPermissions,
@@ -9320,19 +9344,7 @@ function BackupPermissionPage({
     },
   };
 
-  const downloadJsonBackup = () => {
-    const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `taemyung_erp_backup_${todayText()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const downloadBackupWithAttachments = async () => {
-    if (attachmentBackupBusy || backupSaving) return;
-
+  const collectAttachmentReferences = () => {
     const attachmentMap = new Map<string, { url: string; references: string[] }>();
     const visitBackupValue = (value: any, path: string) => {
       if (typeof value === "string") {
@@ -9358,6 +9370,45 @@ function BackupPermissionPage({
     };
 
     visitBackupValue(backupPayload.data, "data");
+    return attachmentMap;
+  };
+
+  const getStorageObjectKey = (url: string) => {
+    try {
+      const pathName = decodeURIComponent(new URL(url).pathname);
+      const markers = ["/storage/v1/object/public/", "/storage/v1/object/sign/", "/storage/v1/object/authenticated/"];
+      for (const marker of markers) {
+        const markerIndex = pathName.indexOf(marker);
+        if (markerIndex >= 0) return pathName.slice(markerIndex + marker.length).replace(/^\/+/, "");
+      }
+    } catch {
+      return "";
+    }
+    return "";
+  };
+
+  const formatStorageSize = (bytes: number) => {
+    if (!bytes) return "0B";
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)}GB`;
+  };
+
+  const downloadJsonBackup = () => {
+    const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `taemyung_erp_backup_${todayText()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadBackupWithAttachments = async () => {
+    if (attachmentBackupBusy || backupSaving) return;
+
+    const attachmentMap = collectAttachmentReferences();
     const attachments = Array.from(attachmentMap.values());
 
     const picker = (window as any).showDirectoryPicker;
@@ -9491,6 +9542,133 @@ function BackupPermissionPage({
     }
   };
 
+  const scanUnusedAttachments = async () => {
+    if (storageCleanupBusy || attachmentBackupBusy || backupSaving) return;
+    setStorageCleanupBusy(true);
+    setStorageCleanupCandidates([]);
+    setStorageCleanupSummary(null);
+
+    try {
+      const referencedKeys = new Set(
+        Array.from(collectAttachmentReferences().values())
+          .map((item) => getStorageObjectKey(item.url))
+          .filter(Boolean)
+      );
+      const buckets = ["receipts", "purchase-photos", "maintenance-photos"];
+      const cutoffTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const candidates: Array<{ bucket: string; path: string; size: number; createdAt: string }> = [];
+      let scanned = 0;
+      let referenced = 0;
+
+      for (const bucket of buckets) {
+        let offset = 0;
+        while (true) {
+          const { data, error } = await supabase.storage.from(bucket).list("", {
+            limit: 1000,
+            offset,
+            sortBy: { column: "name", order: "asc" },
+          });
+          if (error) throw new Error(`${bucket} 저장소 검사 실패: ${error.message}`);
+
+          const objects = (data || []).filter((item: any) => item?.name && item.name !== ".emptyFolderPlaceholder");
+          scanned += objects.length;
+
+          objects.forEach((item: any) => {
+            const path = String(item.name || "");
+            const objectKey = `${bucket}/${path}`;
+            if (referencedKeys.has(objectKey)) {
+              referenced += 1;
+              return;
+            }
+
+            const createdAt = String(item.created_at || item.updated_at || "");
+            const createdTime = createdAt ? new Date(createdAt).getTime() : Number.NaN;
+            if (!Number.isFinite(createdTime) || createdTime > cutoffTime) return;
+
+            candidates.push({
+              bucket,
+              path,
+              size: Number(item.metadata?.size || 0),
+              createdAt,
+            });
+          });
+
+          if ((data || []).length < 1000) break;
+          offset += 1000;
+        }
+      }
+
+      const candidateBytes = candidates.reduce((sum, item) => sum + item.size, 0);
+      setStorageCleanupCandidates(candidates);
+      setStorageCleanupSummary({
+        scanned,
+        referenced,
+        candidateBytes,
+        checkedAt: new Date().toISOString(),
+      });
+
+      if (!candidates.length) showToast("정리할 미사용 첨부파일이 없습니다.");
+    } catch (error: any) {
+      alert(error?.message || "미사용 첨부파일 검사 중 오류가 발생했습니다.");
+    } finally {
+      setStorageCleanupBusy(false);
+    }
+  };
+
+  const deleteUnusedAttachments = async () => {
+    if (storageCleanupBusy || !storageCleanupCandidates.length) return;
+
+    const referencedKeys = new Set(
+      Array.from(collectAttachmentReferences().values())
+        .map((item) => getStorageObjectKey(item.url))
+        .filter(Boolean)
+    );
+    const safeCandidates = storageCleanupCandidates.filter((item) => !referencedKeys.has(`${item.bucket}/${item.path}`));
+    const totalBytes = safeCandidates.reduce((sum, item) => sum + item.size, 0);
+
+    if (!safeCandidates.length) {
+      setStorageCleanupCandidates([]);
+      showToast("현재 자료에서 다시 사용 중인 파일은 삭제하지 않았습니다.");
+      return;
+    }
+
+    if (!confirm(`7일 이상 사용되지 않은 첨부파일 ${safeCandidates.length}개(${formatStorageSize(totalBytes)})를 완전히 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+
+    setStorageCleanupBusy(true);
+    try {
+      const failed: typeof safeCandidates = [];
+      let deletedCount = 0;
+      const buckets = Array.from(new Set(safeCandidates.map((item) => item.bucket)));
+
+      for (const bucket of buckets) {
+        const bucketItems = safeCandidates.filter((item) => item.bucket === bucket);
+        for (let index = 0; index < bucketItems.length; index += 100) {
+          const chunk = bucketItems.slice(index, index + 100);
+          const { error } = await supabase.storage.from(bucket).remove(chunk.map((item) => item.path));
+          if (error) failed.push(...chunk);
+          else deletedCount += chunk.length;
+        }
+      }
+
+      setStorageCleanupCandidates(failed);
+      setStorageCleanupSummary((current) => current ? {
+        ...current,
+        candidateBytes: failed.reduce((sum, item) => sum + item.size, 0),
+        checkedAt: new Date().toISOString(),
+      } : current);
+
+      if (failed.length) {
+        alert(`${deletedCount}개는 삭제했고 ${failed.length}개는 삭제하지 못했습니다. 저장소 삭제 권한을 확인한 뒤 다시 검사하세요.`);
+      } else {
+        showToast(`미사용 첨부파일 ${deletedCount}개를 안전하게 정리했습니다.`);
+      }
+    } catch (error: any) {
+      alert(error?.message || "미사용 첨부파일 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setStorageCleanupBusy(false);
+    }
+  };
+
   const restoreJsonBackup = async () => {
     if (!restoreFile) return alert("복구할 JSON 백업 파일을 선택하세요.");
     if (!confirm("선택한 백업 파일로 복구합니다. 같은 id 데이터는 덮어씁니다. 진행할까요?")) return;
@@ -9612,6 +9790,36 @@ function BackupPermissionPage({
           <button className="danger" disabled={restoreBusy} onClick={restoreJsonBackup}>
             {restoreBusy ? "복구 중..." : "JSON 백업 복구"}
           </button>
+        </div>
+
+        <div className="backup-card storage-cleanup-card">
+          <h3>미사용 첨부파일 정리</h3>
+          <p>현재 자료와 휴지통에서 사용 중인 파일은 보호하고, 7일 이상 연결되지 않은 파일만 검사합니다.</p>
+          <div className="backup-stat-grid storage-cleanup-stats">
+            <div><b>{storageCleanupSummary?.scanned ?? "-"}</b><span>검사 파일</span></div>
+            <div><b>{storageCleanupCandidates.length}</b><span>정리 후보</span></div>
+            <div><b>{formatStorageSize(storageCleanupSummary?.candidateBytes || 0)}</b><span>정리 용량</span></div>
+          </div>
+          {!!storageCleanupCandidates.length && (
+            <div className="storage-cleanup-list">
+              {storageCleanupCandidates.slice(0, 5).map((item) => (
+                <div key={`${item.bucket}/${item.path}`}>
+                  <span>{item.bucket}</span>
+                  <b title={item.path}>{item.path}</b>
+                  <em>{formatStorageSize(item.size)}</em>
+                </div>
+              ))}
+              {storageCleanupCandidates.length > 5 && <p>외 {storageCleanupCandidates.length - 5}개</p>}
+            </div>
+          )}
+          <div className="backup-actions">
+            <button disabled={storageCleanupBusy || attachmentBackupBusy || backupSaving} onClick={scanUnusedAttachments}>
+              {storageCleanupBusy ? "검사 중..." : "미사용 파일 검사"}
+            </button>
+            <button className="danger" disabled={storageCleanupBusy || !storageCleanupCandidates.length} onClick={deleteUnusedAttachments}>
+              정리 후보 완전삭제
+            </button>
+          </div>
         </div>
       </div>
 
@@ -17692,6 +17900,64 @@ button[onclick*="downloadPdf"]{
   background:linear-gradient(135deg,#fff,#fff1f2);
 }
 
+.storage-cleanup-card{
+  grid-column:1 / -1;
+  background:linear-gradient(135deg,#fff,#f8fbff);
+}
+
+.storage-cleanup-stats{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.storage-cleanup-list{
+  display:grid;
+  gap:7px;
+  margin:12px 0 14px;
+  padding:12px;
+  border:1px solid #e2e8f0;
+  border-radius:16px;
+  background:#f8fafc;
+}
+
+.storage-cleanup-list div{
+  display:grid;
+  grid-template-columns:130px minmax(0,1fr) 90px;
+  gap:10px;
+  align-items:center;
+  min-width:0;
+  padding:7px 8px;
+  border-radius:10px;
+  background:#fff;
+}
+
+.storage-cleanup-list span,
+.storage-cleanup-list em{
+  color:#64748b;
+  font-size:12px;
+  font-style:normal;
+  font-weight:900;
+}
+
+.storage-cleanup-list b{
+  min-width:0;
+  overflow:hidden;
+  color:#334155;
+  font-size:12px;
+  font-weight:900;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.storage-cleanup-list em{
+  text-align:right;
+}
+
+.storage-cleanup-list p{
+  margin:0;
+  text-align:center;
+  font-size:12px;
+}
+
 .permission-checks{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -17761,6 +18027,13 @@ button[onclick*="downloadPdf"]{
   }
   .permission-form{
     display:grid;
+  }
+  .storage-cleanup-stats{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .storage-cleanup-list div{
+    grid-template-columns:92px minmax(0,1fr) 64px;
+    gap:7px;
   }
 }
 
