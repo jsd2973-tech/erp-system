@@ -10150,7 +10150,6 @@ function BackupPermissionPage({
 
       <div className="permission-card admin-management-section">
         <div className="permission-head">
-          <span className="admin-section-number">02</span>
           <div>
             <h3>직원 권한관리</h3>
             <p>직원 아이디와 역할을 등록하고, 현장직원에게 필요한 메뉴만 선택해 허용합니다.</p>
@@ -10201,13 +10200,15 @@ function BackupPermissionPage({
         <div className="permission-list">
           {userPermissions.length ? userPermissions.map((item: UserPermission) => (
             <div className="permission-row" key={item.email}>
-              <div>
+              <div className="permission-row-person">
                 <b>{toLoginId(item.email)}</b>
                 <span>{item.role === "office" ? "사무실직원" : item.role === "field" ? "현장직원" : "관리자"}</span>
               </div>
-              <em>{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
-              <button onClick={() => editPermission(item)}>수정</button>
-              <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
+              <em className="permission-row-status">{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
+              <div className="permission-row-actions">
+                <button onClick={() => editPermission(item)}>수정</button>
+                <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
+              </div>
             </div>
           )) : <div className="permission-empty">등록된 직원 권한이 없습니다.</div>}
         </div>
@@ -22367,13 +22368,20 @@ html,body,#root{
   border:1px solid #edf1f5;
 }
 .permission-card.admin-management-section{
-  padding:20px;
+  padding:24px;
 }
 .permission-head{
+  display:flex;
   align-items:center;
-  margin-bottom:14px;
+  gap:16px;
+  margin-bottom:16px;
+  text-align:left;
 }
 .permission-head>div{min-width:0;flex:1}
+.permission-head h3,
+.permission-head p{
+  text-align:left;
+}
 .permission-user-count{
   margin-left:auto;
   padding:7px 11px;
@@ -22393,8 +22401,10 @@ html,body,#root{
 .permission-role-guide>div{
   display:flex;
   align-items:center;
-  gap:8px;
-  padding:11px 12px;
+  justify-content:flex-start;
+  gap:10px;
+  min-width:0;
+  padding:12px 14px;
   border:1px solid #e5eaf0;
   border-radius:12px;
   background:#f8fafc;
@@ -22433,19 +22443,22 @@ html,body,#root{
 .permission-id-help b{color:#334155}
 .permission-checks{
   display:grid;
-  grid-template-columns:1fr;
-  gap:10px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
   margin:14px 0 0;
-  padding:14px;
-  border:1px solid #e2e8f0;
-  border-radius:14px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
 }
 .permission-default-access{
   display:flex;
   align-items:center;
   gap:9px;
-  padding:9px 11px;
-  border-radius:11px;
+  grid-column:1 / -1;
+  padding:10px 14px;
+  border:1px solid #dbeafe;
+  border-radius:12px;
   background:#eaf2ff;
 }
 .permission-default-access b{
@@ -22459,26 +22472,49 @@ html,body,#root{
   font-weight:850;
 }
 .permission-check-group{
-  display:grid;
-  grid-template-columns:82px minmax(0,1fr);
-  gap:10px;
-  align-items:start;
+  min-width:0;
+  padding:14px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  background:#f8fafc;
 }
 .permission-check-group>strong{
-  padding:9px 0;
+  display:block;
+  margin-bottom:10px;
+  padding:0 2px;
   color:#334155;
-  font-size:12px;
+  font-size:13px;
   font-weight:1000;
+  text-align:left;
+  white-space:nowrap;
 }
 .permission-check-group>div{
-  display:flex;
-  flex-wrap:wrap;
-  gap:7px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  width:100%;
 }
 .permission-check-group label{
-  padding:8px 10px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:8px;
+  min-width:0;
+  min-height:42px;
+  padding:9px 11px;
   border:1px solid #e5eaf0;
   border-radius:10px;
+  background:#fff;
+  text-align:left;
+  white-space:nowrap;
+  word-break:keep-all;
+  overflow-wrap:normal;
+}
+.permission-check-group label span{
+  min-width:0;
+  white-space:nowrap;
+  word-break:keep-all;
+  overflow-wrap:normal;
 }
 .permission-list{
   margin-top:14px;
@@ -22486,12 +22522,41 @@ html,body,#root{
   border-top:1px solid #e8edf3;
 }
 .permission-row{
-  grid-template-columns:minmax(0,1fr) auto auto auto;
-  padding:11px 12px;
+  grid-template-columns:minmax(200px,1fr) minmax(140px,auto) auto;
+  gap:16px;
+  padding:13px 14px;
   border-radius:13px;
   background:#f8fafc;
+  text-align:left;
 }
-.permission-row>button{
+.permission-row-person{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+.permission-row-person b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.permission-row-person span{
+  flex:0 0 auto;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#e2e8f0;
+  white-space:nowrap;
+}
+.permission-row-status{
+  text-align:right;
+  white-space:nowrap;
+}
+.permission-row-actions{
+  display:flex;
+  gap:7px;
+}
+.permission-row-actions>button{
   min-height:34px;
   padding:0 12px;
   border-radius:10px;
@@ -22525,19 +22590,21 @@ html,body,#root{
   .backup-secondary-actions{grid-template-columns:1fr !important}
   .backup-secondary-actions>button{width:100% !important}
   .storage-cleanup-card{padding:15px}
-  .permission-head{display:grid;grid-template-columns:34px minmax(0,1fr)}
-  .permission-user-count{grid-column:2;margin:2px 0 0;width:max-content}
+  .permission-head{display:flex;gap:10px}
+  .permission-user-count{margin:0 0 0 auto;width:max-content}
   .permission-role-guide{grid-template-columns:1fr}
   .permission-form{grid-template-columns:1fr !important;padding:12px}
   .permission-save-button{width:100%;min-width:0}
-  .permission-checks{grid-template-columns:1fr;padding:11px}
-  .permission-check-group{grid-template-columns:1fr;gap:2px}
-  .permission-check-group>strong{padding:4px 0}
+  .permission-checks{grid-template-columns:1fr}
+  .permission-check-group{padding:12px}
+  .permission-check-group>strong{padding:0 2px}
   .permission-check-group>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   .permission-check-group label{min-width:0}
-  .permission-row{grid-template-columns:1fr 1fr !important;gap:8px}
-  .permission-row>div,.permission-row>em{grid-column:1 / -1}
-  .permission-row>button{width:100% !important}
+  .permission-row{grid-template-columns:1fr auto !important;gap:9px 12px}
+  .permission-row-person{grid-column:1 / -1}
+  .permission-row-status{grid-column:1;text-align:left}
+  .permission-row-actions{grid-column:2;grid-row:2}
+  .permission-row-actions>button{width:auto !important}
   .storage-cleanup-list div{grid-template-columns:70px minmax(0,1fr) 52px 46px}
 }
 @media(max-width:420px){
@@ -22546,6 +22613,12 @@ html,body,#root{
   .backup-card-head{display:grid}
   .backup-card-head>em{width:max-content}
   .permission-check-group>div{grid-template-columns:1fr}
+  .permission-head{display:grid;grid-template-columns:1fr}
+  .permission-user-count{margin:0}
+  .permission-row{grid-template-columns:1fr !important}
+  .permission-row-status,.permission-row-actions{grid-column:1;grid-row:auto}
+  .permission-row-actions{display:grid;grid-template-columns:1fr 1fr}
+  .permission-row-actions>button{width:100% !important}
 }
 
 `;
