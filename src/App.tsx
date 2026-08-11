@@ -8,7 +8,7 @@ type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; image_urls?: string[]; image_url?: string };
+type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; taxInvoiceReceived?: boolean; image_urls?: string[]; image_url?: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
@@ -116,6 +116,7 @@ const toPurchase = (p: any): Purchase => ({
   vatTotal: Number(p.vattotal ?? p.vatTotal ?? 0),
   total: Number(p.total || 0),
   itemSummary: p.itemsummary ?? p.itemSummary ?? "",
+  taxInvoiceReceived: Boolean(p.tax_invoice_received ?? p.taxInvoiceReceived ?? false),
   image_url: p.image_url || "",
   image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
@@ -130,6 +131,7 @@ const fromPurchase = (p: Purchase) => ({
   vattotal: p.vatTotal,
   total: p.total,
   itemsummary: p.itemSummary,
+  tax_invoice_received: Boolean(p.taxInvoiceReceived),
   image_url: (p.image_urls || [])[0] || p.image_url || "",
   image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
@@ -1372,6 +1374,7 @@ export default function App() {
   const [editingPurchaseId, setEditingPurchaseId] = useState("");
   const [purchaseSaving, setPurchaseSaving] = useState(false);
   const [purchaseUploading, setPurchaseUploading] = useState(false);
+  const [purchaseTaxInvoiceSavingId, setPurchaseTaxInvoiceSavingId] = useState("");
   const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
@@ -2637,6 +2640,9 @@ export default function App() {
         vatTotal: purchaseVatTotal,
         total: purchaseTotal,
         itemSummary: getPurchaseItemSummary({ itemSummary: validRows[0].item, rows: validRows }),
+        taxInvoiceReceived: editingPurchaseId
+          ? Boolean(purchases.find((purchase) => purchase.id === editingPurchaseId)?.taxInvoiceReceived)
+          : false,
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
@@ -3679,6 +3685,38 @@ export default function App() {
     setEditingPurchaseId(p.id);
     setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "", image_urls: p.image_urls || (p.image_url ? [p.image_url] : []) });
     setRows((p.rows || []).map((r) => ({ ...r, id: uid() })));
+  };
+
+  const updatePurchaseTaxInvoiceStatus = async (purchase: Purchase, received: boolean) => {
+    if (!canCreateRecords) return alert("세금계산서 수취 여부를 변경할 권한이 없습니다.");
+    if (purchaseTaxInvoiceSavingId) return;
+
+    setPurchaseTaxInvoiceSavingId(purchase.id);
+
+    try {
+      const { error } = await supabase
+        .from("purchases")
+        .update({ tax_invoice_received: received })
+        .eq("id", purchase.id);
+
+      if (error) return alert(`세금계산서 상태 저장 실패: ${error.message}`);
+
+      setPurchases((prev) => prev.map((item) => (
+        item.id === purchase.id ? { ...item, taxInvoiceReceived: received } : item
+      )));
+
+      await addActivityLog({
+        module: "구매",
+        action: "세금계산서 확인",
+        target_id: purchase.id,
+        target_title: purchase.vendor || "",
+        detail: `${purchase.date || "-"} · ${received ? "수취 완료" : "미수취로 변경"}`,
+      });
+    } catch (error: any) {
+      alert(error?.message ? `세금계산서 상태 저장 실패: ${error.message}` : "세금계산서 상태 저장 중 오류가 발생했습니다.");
+    } finally {
+      setPurchaseTaxInvoiceSavingId("");
+    }
   };
 
   const filteredPurchases = purchases
@@ -7097,7 +7135,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -8017,7 +8055,7 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
+function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
   const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
   const [purchasePage, setPurchasePage] = useState(1);
@@ -8098,9 +8136,9 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   return <>
     <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
-  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
+  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch({ from: "", to: "", vendor: "", warehouse: "", item: "" })}>전체</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div>
+))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch({ from: "", to: "", vendor: "", warehouse: "", item: "" })}>전체</button></div><div className="grid5"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /></div>
       <div className="purchase-page-summary">검색결과 {money(purchases.length)}건 · {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
       <div className="mobile-purchase-cards">
   {!pagedPurchases.length ? (
@@ -8118,6 +8156,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
+        <div className="mobile-purchase-card-row"><span>세금계산서</span><b><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></b></div>
         <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
         {isAdmin && (
           <div className="mobile-purchase-card-actions">
@@ -8129,11 +8168,11 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={7} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={8} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
   const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
     {detailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -20309,6 +20348,35 @@ button:disabled{
 .purchase-lookup-page .icon svg{
   width:14px !important;
   height:14px !important;
+}
+.purchase-lookup-page .tax-invoice-check{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-width:76px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+}
+.purchase-lookup-page .tax-invoice-check.checked{
+  color:#15803d;
+}
+.purchase-lookup-page .tax-invoice-check input{
+  width:18px;
+  height:18px;
+  margin:0;
+  accent-color:#16a34a;
+  cursor:pointer;
+}
+.purchase-lookup-page .tax-invoice-check input:disabled{
+  cursor:not-allowed;
+  opacity:.6;
+}
+.purchase-lookup-page .tax-invoice-check em{
+  font-style:normal;
+  white-space:nowrap;
 }
 .purchase-lookup-page .purchase-page-summary{
   font-size:13px !important;
