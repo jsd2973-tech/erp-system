@@ -22648,7 +22648,6 @@ html,body,#root{
 .app .upload{
   max-width:100%;
   min-width:0;
-  justify-content:center;
   line-height:1.25;
   word-break:keep-all;
 }
@@ -22936,6 +22935,76 @@ html,body,#root{
   .site-notice-modern-card-top>*,
   .receipt-clean-card-top>*,
   .bulk-card-main>*{min-width:0}
+}
+
+/* ===== Desktop Sidebar Alignment Fix ===== */
+@media(min-width:901px){
+  .app .menu>button:not(.desktop-sidebar-toggle),
+  .app .menu-group>button{
+    justify-content:flex-start;
+    padding-right:34px;
+    padding-left:13px;
+    text-align:left;
+  }
+  .app .menu-group>.sub,
+  .app .menu .maint-menu-group>.maint-sub{
+    position:static !important;
+    width:100% !important;
+    min-width:0 !important;
+    grid-template-columns:1fr !important;
+    gap:3px !important;
+    margin:3px 0 7px !important;
+    padding:0 0 0 31px !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  .app .menu .sub button,
+  .app .menu .maint-menu-group .maint-sub button,
+  .app .menu .maint-menu-group .maint-sub button:first-child,
+  .app .menu .maint-menu-group .maint-sub button:last-child{
+    position:static !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:34px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    margin:0 !important;
+    padding:7px 10px !important;
+    border:0 !important;
+    border-radius:8px !important;
+    background:transparent !important;
+    color:#9eabc0 !important;
+    font-size:12.5px !important;
+    font-weight:800 !important;
+    line-height:1.25 !important;
+    text-align:left !important;
+    white-space:nowrap !important;
+    box-shadow:none !important;
+  }
+  .app .menu .sub button::before,
+  .app .menu .maint-menu-group .maint-sub button::before{
+    content:none !important;
+    display:none !important;
+  }
+  .app .menu .sub button:hover,
+  .app .menu .maint-menu-group .maint-sub button:hover{
+    background:rgba(255,255,255,.07) !important;
+    color:#fff !important;
+  }
+  .app .menu .sub button.active,
+  .app .menu .maint-menu-group .maint-sub button.active{
+    background:rgba(37,99,235,.26) !important;
+    color:#eaf2ff !important;
+    box-shadow:inset 3px 0 0 #60a5fa !important;
+  }
+  .app.sidebar-collapsed .menu>button:not(.desktop-sidebar-toggle),
+  .app.sidebar-collapsed .menu-group>button{
+    justify-content:center;
+    padding:10px !important;
+    text-align:center;
+  }
 }
 
 `;
