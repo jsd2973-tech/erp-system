@@ -22490,7 +22490,7 @@ html,body,#root{
 }
 .permission-check-group>div{
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:8px;
   width:100%;
 }
@@ -22501,20 +22501,31 @@ html,body,#root{
   gap:8px;
   min-width:0;
   min-height:42px;
+  margin:0;
   padding:9px 11px;
   border:1px solid #e5eaf0;
   border-radius:10px;
   background:#fff;
   text-align:left;
-  white-space:nowrap;
-  word-break:keep-all;
-  overflow-wrap:normal;
+  overflow:hidden;
+}
+.permission-check-group input[type="checkbox"]{
+  flex:0 0 17px;
+  width:17px;
+  height:17px;
+  margin:0;
+  padding:0;
+  border-radius:4px;
+  accent-color:#2563eb;
 }
 .permission-check-group label span{
+  display:block;
+  flex:1 1 auto;
   min-width:0;
-  white-space:nowrap;
+  line-height:1.35;
+  white-space:normal;
   word-break:keep-all;
-  overflow-wrap:normal;
+  overflow-wrap:break-word;
 }
 .permission-list{
   margin-top:14px;
