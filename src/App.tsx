@@ -22632,4 +22632,310 @@ html,body,#root{
   .permission-row-actions>button{width:100% !important}
 }
 
+/* ===== Full Menu Visual Consistency Audit ===== */
+.app input[type="checkbox"]{
+  flex:0 0 17px;
+  width:17px !important;
+  min-width:17px;
+  max-width:17px;
+  height:17px;
+  margin:0;
+  padding:0 !important;
+  border-radius:4px;
+  accent-color:#2563eb;
+}
+.app button,
+.app .upload{
+  max-width:100%;
+  min-width:0;
+  justify-content:center;
+  line-height:1.25;
+  word-break:keep-all;
+}
+.app .field,
+.app .field>*{
+  min-width:0;
+}
+.app .field>label{
+  color:#475569;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.35;
+  text-align:left;
+  word-break:keep-all;
+}
+.app input,
+.app select,
+.app textarea{
+  min-height:42px;
+  border-color:#d7e0ea;
+}
+.app textarea{line-height:1.5}
+.app .empty,
+.app .center{
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+.app .scroll-table{
+  border-color:#e2e8f0;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(15,23,42,.025);
+}
+.app .scroll-table th{
+  background:#f1f5f9;
+  color:#475569;
+  font-size:12px;
+  font-weight:950;
+  line-height:1.35;
+}
+.app .scroll-table td{
+  color:#334155;
+  line-height:1.45;
+}
+.app .scroll-table tbody tr:hover td{background:#f8fbff}
+
+@media(min-width:901px){
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page,
+  .app.app-tab-maintenance_schedule_new>.maintenance-schedule-pro-page,
+  .app.app-tab-maintenance_schedules>.maintenance-schedule-pro-list,
+  .app.app-tab-site_notices>.site-notice-modern-page,
+  .app.app-tab-update_history>.notice-pro-wrap,
+  .app.app-tab-update_notices>.notice-pro-wrap,
+  .app.app-tab-backup_permissions>.backup-permission-page{
+    width:min(100%,1600px);
+    margin:22px auto 0;
+  }
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page{
+    padding:26px 28px;
+    border:1px solid #e2e8f0;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 10px 30px rgba(15,23,42,.055);
+  }
+  .trash-page>.between:first-child,
+  .activity-log-page>.between:first-child,
+  .vendor-account-head,
+  .bulk-transfer-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    margin:0 0 18px;
+    padding:0 0 16px;
+    border-bottom:1px solid #e8edf3;
+  }
+  .trash-page>.between:first-child h2,
+  .activity-log-page>.between:first-child h2,
+  .vendor-account-head h2,
+  .bulk-transfer-head h2{
+    margin:0 0 5px;
+    color:#152238;
+    font-size:25px;
+    font-weight:950;
+    line-height:1.2;
+    letter-spacing:-.7px;
+    text-align:left;
+  }
+  .trash-page>.between:first-child p,
+  .activity-log-page>.between:first-child p,
+  .vendor-account-head p,
+  .bulk-transfer-head p{
+    margin:0;
+    color:#7b8799;
+    font-size:12px;
+    line-height:1.5;
+    text-align:left;
+  }
+  .trash-page>.grid3,
+  .activity-log-page>.grid3{
+    grid-template-columns:minmax(180px,.38fr) minmax(280px,1fr);
+    gap:14px;
+    margin-bottom:18px;
+    padding:16px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .trash-page>.grid3 .field,
+  .activity-log-page>.grid3 .field{margin:0}
+  .permit-page>.grid5,
+  .permit-page>.grid3{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:14px;
+    margin:0 0 14px;
+    padding:16px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .permit-page>.grid5 .field,
+  .permit-page>.grid3 .field{margin:0}
+  .permit-page>.field{
+    margin:0 0 14px;
+    padding:16px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .permit-page>.actions.right-actions{
+    margin:0 0 20px;
+    padding-bottom:18px;
+    border-bottom:1px solid #e8edf3;
+  }
+  .bulk-transfer-filter{
+    align-items:end;
+    gap:14px;
+    padding:16px;
+    border:1px solid #e1e8f0;
+    border-radius:14px;
+    background:#f8fafc;
+  }
+  .bulk-transfer-filter .field{margin:0}
+  .vendor-account-card,
+  .bulk-transfer-card{
+    border-color:#e2e8f0;
+    border-radius:14px;
+    box-shadow:0 4px 14px rgba(15,23,42,.035);
+  }
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  }
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5{
+    grid-template-columns:repeat(auto-fit,minmax(175px,1fr));
+  }
+}
+
+@media(max-width:900px){
+  .app input[type="checkbox"]{
+    flex-basis:18px;
+    width:18px !important;
+    min-width:18px;
+    max-width:18px;
+    height:18px;
+  }
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page{
+    padding:15px !important;
+    border:1px solid #e2e8f0;
+    border-radius:15px !important;
+    box-shadow:none;
+  }
+  .permit-head,
+  .vendor-account-head,
+  .bulk-transfer-head,
+  .trash-page>.between:first-child,
+  .activity-log-page>.between:first-child{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    align-items:stretch !important;
+    margin:0 0 14px !important;
+    padding:0 0 14px !important;
+    border-bottom:1px solid #e8edf3;
+    text-align:left !important;
+  }
+  .permit-head h2,
+  .vendor-account-head h2,
+  .bulk-transfer-head h2,
+  .trash-page>.between:first-child h2,
+  .activity-log-page>.between:first-child h2{
+    margin:0 0 4px !important;
+    font-size:22px !important;
+    text-align:left !important;
+  }
+  .permit-head p,
+  .vendor-account-head p,
+  .bulk-transfer-head p,
+  .trash-page>.between:first-child p,
+  .activity-log-page>.between:first-child p{
+    margin:0 !important;
+    font-size:12px;
+    line-height:1.5;
+    text-align:left !important;
+  }
+  .permit-head .actions,
+  .vendor-account-head .actions,
+  .bulk-transfer-head .actions{
+    margin:0 !important;
+  }
+  .permit-page>.grid5,
+  .permit-page>.grid3,
+  .trash-page>.grid3,
+  .activity-log-page>.grid3,
+  .bulk-transfer-filter{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+    margin:0 0 14px !important;
+    padding:12px !important;
+    border:1px solid #e1e8f0;
+    border-radius:13px;
+    background:#f8fafc;
+  }
+  .permit-page>.grid5 .field,
+  .permit-page>.grid3 .field,
+  .trash-page>.grid3 .field,
+  .activity-log-page>.grid3 .field,
+  .bulk-transfer-filter .field{margin:0 !important}
+  .vendor-account-card,
+  .bulk-transfer-card,
+  .permit-card,
+  .mobile-list-card{
+    min-width:0;
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .vendor-account-card *,
+  .bulk-transfer-card *,
+  .permit-card *,
+  .mobile-list-card *{
+    max-width:100%;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  .mobile-list-actions,
+  .permit-card-actions,
+  .schedule-row-actions{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+  }
+  .mobile-list-actions>button,
+  .permit-card-actions>button,
+  .schedule-row-actions>button{
+    width:100% !important;
+    min-width:0 !important;
+    justify-content:center !important;
+  }
+  .site-notice-modern-card-top,
+  .receipt-clean-card-top,
+  .bulk-card-main{
+    min-width:0;
+    gap:10px;
+  }
+  .site-notice-modern-card-top>*,
+  .receipt-clean-card-top>*,
+  .bulk-card-main>*{min-width:0}
+}
+
 `;
