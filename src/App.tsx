@@ -1551,6 +1551,7 @@ export default function App() {
   const [transferWarehouseDropdownOpen, setTransferWarehouseDropdownOpen] = useState(false);
   const [selectedTransferWarehouses, setSelectedTransferWarehouses] = useState<string[]>([]);
   const transferWarehouseInitializedRef = useRef(false);
+  const previousTransferWarehouseOptionsRef = useRef<string[]>([]);
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
@@ -1584,13 +1585,19 @@ export default function App() {
   }, [warehouses, purchases]);
 
   useEffect(() => {
-    if (!transferWarehouseInitializedRef.current && transferWarehouseOptions.length) {
-      setSelectedTransferWarehouses(transferWarehouseOptions);
-      transferWarehouseInitializedRef.current = true;
-      return;
-    }
+    const previousOptions = previousTransferWarehouseOptionsRef.current;
 
-    setSelectedTransferWarehouses((prev) => prev.filter((warehouse) => transferWarehouseOptions.includes(warehouse)));
+    setSelectedTransferWarehouses((prev) => {
+      const validSelection = prev.filter((warehouse) => transferWarehouseOptions.includes(warehouse));
+      const previouslySelectedAll =
+        !transferWarehouseInitializedRef.current ||
+        (previousOptions.length > 0 && previousOptions.every((warehouse) => prev.includes(warehouse)));
+
+      return previouslySelectedAll ? transferWarehouseOptions : validSelection;
+    });
+
+    if (transferWarehouseOptions.length) transferWarehouseInitializedRef.current = true;
+    previousTransferWarehouseOptionsRef.current = transferWarehouseOptions;
   }, [transferWarehouseOptions]);
 
   const selectedTransferWarehouseSet = useMemo(() => new Set(selectedTransferWarehouses), [selectedTransferWarehouses]);
