@@ -10028,86 +10028,140 @@ function BackupPermissionPage({
     });
   };
 
+  const fieldPermissionGroups = [
+    { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
+    { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
+    { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
+    { label: "공통·기초", keys: ["layout", "vendors", "warehouse_groups", "items", "permits"] },
+  ].map((group) => ({
+    ...group,
+    items: ERP_PERMISSION_MODULES.filter((module) => group.keys.includes(module.key)),
+  }));
+
   return (
     <section className="backup-permission-page">
       <div className="backup-permission-hero">
         <div>
-          <span>System Control</span>
-          <h2>백업 / 권한관리</h2>
-          <p>전체 데이터를 인터넷 저장 기준으로 백업하고, 직원 권한과 공지 접근을 관리합니다.</p>
+          <span>관리자 전용</span>
+          <h2>백업 및 권한관리</h2>
+          <p>데이터 보호 작업과 직원별 사용 권한을 한곳에서 관리합니다.</p>
         </div>
       </div>
 
-      <div className="backup-permission-grid">
-        <div className="backup-card">
-          <h3>전체 백업</h3>
-          <p>복구용 JSON을 내려받거나, PC에서 사진·PDF·음성 원본까지 폴더에 함께 백업합니다.</p>
-          <div className="backup-stat-grid">
-            <div><b>{purchases.length}</b><span>구매</span></div>
-            <div><b>{maints.length}</b><span>정비</span></div>
-            <div><b>{cardUses.length}</b><span>카드</span></div>
-            <div><b>{maintenanceSchedules.length}</b><span>정비일정</span></div>
-            <div><b>{activityLogs?.length || 0}</b><span>작업로그</span></div>
-            <div><b>{deletedRecords?.length || 0}</b><span>휴지통</span></div>
-          </div>
-          <div className="backup-actions">
-            <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={exportFullBackup}>
-              {backupSaving ? "백업 생성 중..." : "전체 백업 다운로드"}
-            </button>
-            <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={downloadBackupWithAttachments}>
-              {attachmentBackupBusy ? attachmentBackupProgress || "첨부 백업 중..." : "첨부 포함 백업"}
-            </button>
-            <button disabled={backupSaving || attachmentBackupBusy} onClick={exportBackupSummaryExcel}>백업 요약 엑셀</button>
-            <button disabled={backupSaving || attachmentBackupBusy} onClick={downloadJsonBackup}>화면 데이터 간단 백업</button>
+      <div className="backup-overview-grid">
+        <div><span>구매</span><b>{purchases.length}</b></div>
+        <div><span>정비</span><b>{maints.length}</b></div>
+        <div><span>카드</span><b>{cardUses.length}</b></div>
+        <div><span>정비일정</span><b>{maintenanceSchedules.length}</b></div>
+        <div><span>작업로그</span><b>{activityLogs?.length || 0}</b></div>
+        <div><span>휴지통</span><b>{deletedRecords?.length || 0}</b></div>
+      </div>
+
+      <div className="admin-management-section">
+        <div className="admin-section-head">
+          <span>01</span>
+          <div>
+            <h3>데이터 보호</h3>
+            <p>백업은 안전하게 보관하고, 복구와 완전삭제는 필요한 경우에만 실행하세요.</p>
           </div>
         </div>
 
-        <div className="backup-card danger-zone">
-          <h3>백업 복구</h3>
-          <p>JSON 백업 파일을 선택하면 같은 ID 데이터는 덮어씁니다. 실행 전 한 번 더 백업하세요.</p>
-          <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] || null)} />
-          <button className="danger" disabled={restoreBusy} onClick={restoreJsonBackup}>
-            {restoreBusy ? "복구 중..." : "JSON 백업 복구"}
-          </button>
-        </div>
-
-        <div className="backup-card storage-cleanup-card">
-          <h3>미사용 첨부파일 정리</h3>
-          <p>현재 자료와 휴지통에서 사용 중인 파일은 보호하고, 7일 이상 연결되지 않은 파일만 검사합니다.</p>
-          <div className="backup-stat-grid storage-cleanup-stats">
-            <div><b>{storageCleanupSummary?.scanned ?? "-"}</b><span>검사 파일</span></div>
-            <div><b>{storageCleanupCandidates.length}</b><span>정리 후보</span></div>
-            <div><b>{formatStorageSize(storageCleanupSummary?.candidateBytes || 0)}</b><span>정리 용량</span></div>
-          </div>
-          {!!storageCleanupCandidates.length && (
-            <div className="storage-cleanup-list">
-              {storageCleanupCandidates.map((item) => (
-                <div key={`${item.bucket}/${item.path}`}>
-                  <span>{item.bucket}</span>
-                  <b title={item.path}>{item.path}</b>
-                  <em>{formatStorageSize(item.size)}</em>
-                  <button type="button" onClick={() => openStorageCleanupCandidate(item)}>보기</button>
-                </div>
-              ))}
+        <div className="backup-permission-grid">
+          <div className="backup-card backup-main-card">
+            <div className="backup-card-head">
+              <div>
+                <span className="backup-card-kicker">BACKUP</span>
+                <h3>데이터 백업</h3>
+              </div>
+              <em>정기적으로 실행 권장</em>
             </div>
-          )}
-          <div className="backup-actions">
-            <button disabled={storageCleanupBusy || attachmentBackupBusy || backupSaving} onClick={scanUnusedAttachments}>
-              {storageCleanupBusy ? "검사 중..." : "미사용 파일 검사"}
+            <p>복구용 데이터와 첨부 원본을 내려받아 PC 또는 외장 저장장치에 보관합니다.</p>
+            <div className="backup-recommended-box">
+              <strong>권장 백업</strong>
+              <span>사진·PDF·음성파일과 복구용 JSON을 폴더 하나에 함께 저장합니다.</span>
+              <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={downloadBackupWithAttachments}>
+                {attachmentBackupBusy ? attachmentBackupProgress || "첨부 백업 중..." : "첨부 포함 전체 백업"}
+              </button>
+            </div>
+            <div className="backup-secondary-actions">
+              <button disabled={backupSaving || attachmentBackupBusy} onClick={exportFullBackup}>
+                {backupSaving ? "백업 생성 중..." : "데이터 전체 백업"}
+              </button>
+              <button disabled={backupSaving || attachmentBackupBusy} onClick={exportBackupSummaryExcel}>백업 현황 엑셀</button>
+              <button disabled={backupSaving || attachmentBackupBusy} onClick={downloadJsonBackup}>현재 화면 간단 백업</button>
+            </div>
+          </div>
+
+          <div className="backup-card danger-zone restore-card">
+            <div className="backup-card-head">
+              <div>
+                <span className="backup-card-kicker danger">RESTORE</span>
+                <h3>백업 복구</h3>
+              </div>
+            </div>
+            <p>JSON 백업의 같은 ID 자료를 덮어씁니다. 복구 전에 현재 자료를 먼저 백업하세요.</p>
+            <label className={`restore-file-picker${restoreFile ? " selected" : ""}`}>
+              <input type="file" accept="application/json,.json" onChange={(e) => setRestoreFile(e.target.files?.[0] || null)} />
+              <span>{restoreFile?.name || "복구할 JSON 파일 선택"}</span>
+              <b>찾아보기</b>
+            </label>
+            <button className="danger restore-submit" disabled={restoreBusy || !restoreFile} onClick={restoreJsonBackup}>
+              {restoreBusy ? "복구 중..." : "선택한 백업 복구"}
             </button>
-            <button className="danger" disabled={storageCleanupBusy || !storageCleanupCandidates.length} onClick={deleteUnusedAttachments}>
-              정리 후보 완전삭제
-            </button>
+          </div>
+
+          <div className="backup-card storage-cleanup-card">
+            <div className="backup-card-head">
+              <div>
+                <span className="backup-card-kicker">STORAGE</span>
+                <h3>미사용 첨부파일 정리</h3>
+              </div>
+              <em>7일 이상 미연결 파일만</em>
+            </div>
+            <p>현재 자료와 휴지통에서 사용하는 첨부는 보호하고, 연결되지 않은 오래된 파일만 찾습니다.</p>
+            <div className="backup-stat-grid storage-cleanup-stats">
+              <div><b>{storageCleanupSummary?.scanned ?? "-"}</b><span>검사 파일</span></div>
+              <div><b>{storageCleanupCandidates.length}</b><span>정리 후보</span></div>
+              <div><b>{formatStorageSize(storageCleanupSummary?.candidateBytes || 0)}</b><span>정리 용량</span></div>
+            </div>
+            {!!storageCleanupCandidates.length && (
+              <div className="storage-cleanup-list">
+                {storageCleanupCandidates.map((item) => (
+                  <div key={`${item.bucket}/${item.path}`}>
+                    <span>{item.bucket}</span>
+                    <b title={item.path}>{item.path}</b>
+                    <em>{formatStorageSize(item.size)}</em>
+                    <button type="button" onClick={() => openStorageCleanupCandidate(item)}>보기</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="backup-actions">
+              <button disabled={storageCleanupBusy || attachmentBackupBusy || backupSaving} onClick={scanUnusedAttachments}>
+                {storageCleanupBusy ? "검사 중..." : "미사용 파일 검사"}
+              </button>
+              <button className="danger" disabled={storageCleanupBusy || !storageCleanupCandidates.length} onClick={deleteUnusedAttachments}>
+                정리 후보 완전삭제
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="permission-card">
+      <div className="permission-card admin-management-section">
         <div className="permission-head">
+          <span className="admin-section-number">02</span>
           <div>
             <h3>직원 권한관리</h3>
-            <p>관리자: 전체 가능 / 사무실직원: 수정·삭제 제외 대부분 가능 / 현장직원: 체크한 메뉴만 가능. 직원 아이디는 field01처럼 입력하면 내부에서 field01@tm.local로 저장됩니다.</p>
+            <p>직원 아이디와 역할을 등록하고, 현장직원에게 필요한 메뉴만 선택해 허용합니다.</p>
           </div>
+          <b className="permission-user-count">등록 직원 {userPermissions.length}명</b>
+        </div>
+
+        <div className="permission-role-guide">
+          <div><b>관리자</b><span>전체 기능 사용</span></div>
+          <div><b>사무실직원</b><span>등록·조회 중심</span></div>
+          <div><b>현장직원</b><span>선택한 메뉴만 사용</span></div>
         </div>
 
         <div className="permission-form">
@@ -10120,22 +10174,32 @@ function BackupPermissionPage({
               <option value="field">현장직원</option>
             </select>
           </Field>
-          <button className="primary" onClick={() => saveUserPermission()}>권한 저장</button>
+          <button className="primary permission-save-button" onClick={() => saveUserPermission()}>권한 저장</button>
         </div>
+
+        <p className="permission-id-help">직원 아이디는 <b>field01</b>처럼 입력하면 내부 로그인 계정 형식으로 자동 저장됩니다.</p>
 
         {permissionForm.role === "field" && (
           <div className="permission-checks">
-            {ERP_PERMISSION_MODULES.map((m) => (
-              <label key={m.key}>
-                <input type="checkbox" checked={!!permissionForm.permissions?.[m.key]} onChange={() => togglePermission(m.key)} />
-                <span>{m.label}</span>
-              </label>
+            <div className="permission-default-access"><b>기본 허용</b><span>홈 · 공지</span></div>
+            {fieldPermissionGroups.map((group) => (
+              <div className="permission-check-group" key={group.label}>
+                <strong>{group.label}</strong>
+                <div>
+                  {group.items.map((m) => (
+                    <label key={m.key}>
+                      <input type="checkbox" checked={!!permissionForm.permissions?.[m.key]} onChange={() => togglePermission(m.key)} />
+                      <span>{m.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
 
         <div className="permission-list">
-          {userPermissions.map((item: UserPermission) => (
+          {userPermissions.length ? userPermissions.map((item: UserPermission) => (
             <div className="permission-row" key={item.email}>
               <div>
                 <b>{toLoginId(item.email)}</b>
@@ -10145,7 +10209,7 @@ function BackupPermissionPage({
               <button onClick={() => editPermission(item)}>수정</button>
               <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
             </div>
-          ))}
+          )) : <div className="permission-empty">등록된 직원 권한이 없습니다.</div>}
         </div>
       </div>
     </section>
@@ -22054,6 +22118,434 @@ html,body,#root{
     font-size:12px !important;
     padding:7px 5px !important;
   }
+}
+
+/* ===== Backup / Permission Clean Layout ===== */
+.backup-permission-page{
+  display:grid;
+  gap:18px;
+  padding:24px;
+  background:#f4f7fb;
+  border:1px solid #e4eaf2;
+  box-shadow:none;
+}
+.backup-permission-hero{
+  margin:0;
+  padding:24px 26px;
+  border:1px solid #dbe6f4;
+  border-radius:20px;
+  background:linear-gradient(135deg,#ffffff 0%,#f2f7ff 100%);
+}
+.backup-permission-hero span{
+  padding:5px 10px;
+  background:#e8f1ff;
+  color:#1d4ed8;
+  letter-spacing:.2px;
+}
+.backup-permission-hero h2{
+  margin:9px 0 5px;
+  font-size:28px;
+  letter-spacing:-.7px;
+}
+.backup-permission-hero p{
+  font-size:14px;
+  font-weight:750;
+}
+.backup-overview-grid{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:10px;
+}
+.backup-overview-grid>div{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-width:0;
+  padding:14px 15px;
+  border:1px solid #e2e8f0;
+  border-radius:15px;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(15,23,42,.035);
+}
+.backup-overview-grid span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+}
+.backup-overview-grid b{
+  color:#1d4ed8;
+  font-size:20px;
+  font-weight:1000;
+}
+.admin-management-section{
+  min-width:0;
+}
+.admin-section-head,
+.permission-head{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:14px;
+}
+.admin-section-head>span,
+.admin-section-number{
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 34px;
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  background:#1d4ed8;
+  color:#fff;
+  font-size:12px;
+  font-weight:1000;
+}
+.admin-section-head h3,
+.permission-head h3{
+  margin:0 0 3px;
+  color:#0f172a;
+  font-size:19px;
+  font-weight:1000;
+}
+.admin-section-head p,
+.permission-head p{
+  margin:0;
+  color:#64748b;
+  font-size:13px;
+  font-weight:750;
+}
+.backup-permission-grid{
+  grid-template-columns:minmax(0,1.7fr) minmax(300px,.8fr);
+  gap:14px;
+  margin:0;
+}
+.backup-card,
+.permission-card{
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 6px 20px rgba(15,23,42,.045);
+}
+.backup-main-card,
+.restore-card{
+  min-height:100%;
+}
+.backup-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.backup-card-head h3{
+  margin:4px 0 0;
+  font-size:19px;
+}
+.backup-card-head>em{
+  padding:6px 9px;
+  border-radius:999px;
+  background:#f1f5f9;
+  color:#64748b;
+  font-size:11px;
+  font-style:normal;
+  font-weight:900;
+  white-space:nowrap;
+}
+.backup-card-kicker{
+  color:#2563eb;
+  font-size:10px;
+  font-weight:1000;
+  letter-spacing:1px;
+}
+.backup-card-kicker.danger{color:#dc2626}
+.backup-card>p{
+  font-size:13px;
+  line-height:1.55;
+}
+.backup-recommended-box{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:5px 14px;
+  align-items:center;
+  margin-top:16px;
+  padding:16px;
+  border:1px solid #bfdbfe;
+  border-radius:15px;
+  background:#eff6ff;
+}
+.backup-recommended-box strong{
+  color:#1e3a8a;
+  font-size:14px;
+  font-weight:1000;
+}
+.backup-recommended-box span{
+  grid-column:1;
+  color:#54709b;
+  font-size:12px;
+  font-weight:750;
+}
+.backup-recommended-box button{
+  grid-column:2;
+  grid-row:1 / 3;
+  min-width:180px;
+}
+.backup-secondary-actions{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.backup-secondary-actions button{
+  width:100%;
+  min-height:40px;
+  padding:7px 9px;
+  border:1px solid #d9e2ec;
+  background:#fff;
+  color:#475569;
+  font-size:12px;
+}
+.restore-card{
+  display:flex;
+  flex-direction:column;
+}
+.restore-file-picker{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  min-height:48px;
+  margin-top:auto;
+  padding:8px 9px 8px 13px;
+  border:1px dashed #cbd5e1;
+  border-radius:13px;
+  background:#fff;
+  cursor:pointer;
+}
+.restore-file-picker.selected{
+  border-style:solid;
+  border-color:#93c5fd;
+  background:#f8fbff;
+}
+.restore-file-picker input{display:none}
+.restore-file-picker span{
+  min-width:0;
+  overflow:hidden;
+  color:#64748b;
+  font-size:12px;
+  font-weight:850;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.restore-file-picker b{
+  padding:7px 9px;
+  border-radius:9px;
+  background:#e2e8f0;
+  color:#334155;
+  font-size:12px;
+  font-weight:950;
+}
+.restore-submit{
+  width:100%;
+  margin-top:9px;
+}
+.backup-card button:disabled,
+.permission-card button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+.storage-cleanup-card{
+  margin-top:0;
+  padding:18px 20px;
+}
+.storage-cleanup-card .backup-card-head{
+  margin-bottom:7px;
+}
+.storage-cleanup-stats{
+  margin:12px 0;
+}
+.storage-cleanup-stats div{
+  padding:12px;
+  border:1px solid #edf1f5;
+}
+.permission-card.admin-management-section{
+  padding:20px;
+}
+.permission-head{
+  align-items:center;
+  margin-bottom:14px;
+}
+.permission-head>div{min-width:0;flex:1}
+.permission-user-count{
+  margin-left:auto;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+  white-space:nowrap;
+}
+.permission-role-guide{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:14px;
+}
+.permission-role-guide>div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 12px;
+  border:1px solid #e5eaf0;
+  border-radius:12px;
+  background:#f8fafc;
+}
+.permission-role-guide b{
+  color:#334155;
+  font-size:12px;
+  font-weight:1000;
+}
+.permission-role-guide span{
+  color:#64748b;
+  font-size:11px;
+  font-weight:800;
+}
+.permission-form{
+  display:grid;
+  grid-template-columns:minmax(0,1.4fr) minmax(180px,.7fr) auto;
+  gap:10px;
+  align-items:end;
+  padding:14px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  background:#fff;
+}
+.permission-form .field{margin:0}
+.permission-save-button{
+  min-width:110px;
+  height:44px;
+}
+.permission-id-help{
+  margin:8px 3px 0;
+  color:#64748b;
+  font-size:11px;
+  font-weight:750;
+}
+.permission-id-help b{color:#334155}
+.permission-checks{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin:14px 0 0;
+  padding:14px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+}
+.permission-default-access{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:9px 11px;
+  border-radius:11px;
+  background:#eaf2ff;
+}
+.permission-default-access b{
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:1000;
+}
+.permission-default-access span{
+  color:#47658f;
+  font-size:12px;
+  font-weight:850;
+}
+.permission-check-group{
+  display:grid;
+  grid-template-columns:82px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+}
+.permission-check-group>strong{
+  padding:9px 0;
+  color:#334155;
+  font-size:12px;
+  font-weight:1000;
+}
+.permission-check-group>div{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.permission-check-group label{
+  padding:8px 10px;
+  border:1px solid #e5eaf0;
+  border-radius:10px;
+}
+.permission-list{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid #e8edf3;
+}
+.permission-row{
+  grid-template-columns:minmax(0,1fr) auto auto auto;
+  padding:11px 12px;
+  border-radius:13px;
+  background:#f8fafc;
+}
+.permission-row>button{
+  min-height:34px;
+  padding:0 12px;
+  border-radius:10px;
+  font-size:12px;
+}
+.permission-empty{
+  padding:24px;
+  border:1px dashed #cbd5e1;
+  border-radius:13px;
+  color:#64748b;
+  text-align:center;
+  font-size:13px;
+  font-weight:850;
+}
+@media(max-width:1100px){
+  .backup-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .backup-permission-grid{grid-template-columns:1fr}
+  .backup-secondary-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .backup-permission-page{gap:14px;padding:12px;border-radius:16px}
+  .backup-permission-hero{padding:19px 17px;border-radius:16px}
+  .backup-permission-hero h2{font-size:24px}
+  .backup-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .backup-overview-grid>div{padding:12px}
+  .admin-section-head,.permission-head{align-items:flex-start}
+  .backup-card,.permission-card.admin-management-section{padding:15px;border-radius:15px}
+  .backup-recommended-box{grid-template-columns:1fr;padding:14px}
+  .backup-recommended-box span,.backup-recommended-box button{grid-column:1;grid-row:auto}
+  .backup-recommended-box button{width:100%;min-width:0;margin-top:5px}
+  .backup-secondary-actions{grid-template-columns:1fr !important}
+  .backup-secondary-actions>button{width:100% !important}
+  .storage-cleanup-card{padding:15px}
+  .permission-head{display:grid;grid-template-columns:34px minmax(0,1fr)}
+  .permission-user-count{grid-column:2;margin:2px 0 0;width:max-content}
+  .permission-role-guide{grid-template-columns:1fr}
+  .permission-form{grid-template-columns:1fr !important;padding:12px}
+  .permission-save-button{width:100%;min-width:0}
+  .permission-checks{grid-template-columns:1fr;padding:11px}
+  .permission-check-group{grid-template-columns:1fr;gap:2px}
+  .permission-check-group>strong{padding:4px 0}
+  .permission-check-group>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .permission-check-group label{min-width:0}
+  .permission-row{grid-template-columns:1fr 1fr !important;gap:8px}
+  .permission-row>div,.permission-row>em{grid-column:1 / -1}
+  .permission-row>button{width:100% !important}
+  .storage-cleanup-list div{grid-template-columns:70px minmax(0,1fr) 52px 46px}
+}
+@media(max-width:420px){
+  .backup-overview-grid{grid-template-columns:1fr 1fr}
+  .backup-overview-grid>div{display:grid;gap:3px}
+  .backup-card-head{display:grid}
+  .backup-card-head>em{width:max-content}
+  .permission-check-group>div{grid-template-columns:1fr}
 }
 
 `;
