@@ -1383,41 +1383,72 @@ export default function App() {
   const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "", address: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
+  const [vendorAddressSearchOpen, setVendorAddressSearchOpen] = useState(false);
+  const [vendorAddressSearchReady, setVendorAddressSearchReady] = useState(false);
+  const [vendorAddressSearchError, setVendorAddressSearchError] = useState("");
+  const vendorAddressSearchContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const postcodeWindow = window as any;
-    if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode || document.getElementById("kakao-postcode-script")) return;
+    const markReady = () => {
+      if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode) {
+        setVendorAddressSearchReady(true);
+        setVendorAddressSearchError("");
+      }
+    };
+    markReady();
+    if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode) return;
 
-    const script = document.createElement("script");
-    script.id = "kakao-postcode-script";
-    script.src = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-    script.async = true;
-    document.head.appendChild(script);
+    const existingScript = document.getElementById("kakao-postcode-script") as HTMLScriptElement | null;
+    const script = existingScript || document.createElement("script");
+    const handleError = () => setVendorAddressSearchError("주소 검색 서비스를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.");
+    script.addEventListener("load", markReady);
+    script.addEventListener("error", handleError);
+    if (!existingScript) {
+      script.id = "kakao-postcode-script";
+      script.src = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    return () => {
+      script.removeEventListener("load", markReady);
+      script.removeEventListener("error", handleError);
+    };
   }, []);
 
   const openVendorAddressSearch = () => {
+    setVendorAddressSearchError("");
+    setVendorAddressSearchOpen(true);
+  };
+
+  useEffect(() => {
+    if (!vendorAddressSearchOpen || !vendorAddressSearchReady || !vendorAddressSearchContainerRef.current) return;
     const postcodeWindow = window as any;
     const Postcode = postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode;
-    if (!Postcode) {
-      alert("주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 눌러주세요.");
-      return;
-    }
+    if (!Postcode) return;
 
+    const container = vendorAddressSearchContainerRef.current;
+    container.innerHTML = "";
     new Postcode({
       oncomplete: (data: any) => {
         const selectedAddress = data.userSelectedType === "J"
           ? data.jibunAddress
           : data.roadAddress || data.address;
         setVendorForm((prev) => ({ ...prev, address: selectedAddress || data.address || "" }));
+        setVendorAddressSearchOpen(false);
       },
-      width: 500,
-      height: 600,
-    }).open({
-      popupTitle: "거래처 주소 검색",
-      popupKey: "vendorAddressSearch",
-      left: Math.max(0, Math.round(window.screen.width / 2 - 250)),
-      top: Math.max(0, Math.round(window.screen.height / 2 - 300)),
-    });
-  };
+      width: "100%",
+      height: "100%",
+    }).embed(container, { autoClose: false });
+  }, [vendorAddressSearchOpen, vendorAddressSearchReady]);
+
+  useEffect(() => {
+    if (!vendorAddressSearchOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setVendorAddressSearchOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [vendorAddressSearchOpen]);
   const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
   const [warehouseForm, setWarehouseForm] = useState({ group: "", code: nextCode(warehouses), name: "" });
   const [editingGroupId, setEditingGroupId] = useState("");
@@ -5436,6 +5467,34 @@ export default function App() {
           </div>
           <button type="button" onClick={() => setToast(null)} aria-label="알림 닫기"><X size={16} /></button>
           <i aria-hidden="true" />
+        </div>
+      )}
+      {vendorAddressSearchOpen && (
+        <div className="vendor-address-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setVendorAddressSearchOpen(false);
+        }}>
+          <div className="vendor-address-modal" role="dialog" aria-modal="true" aria-label="거래처 주소 검색">
+            <div className="vendor-address-modal-head">
+              <div>
+                <strong>주소 검색</strong>
+                <span>도로명 또는 지번주소를 검색하세요.</span>
+              </div>
+              <button type="button" onClick={() => setVendorAddressSearchOpen(false)} aria-label="주소 검색 닫기"><X size={18} /></button>
+            </div>
+            <div className="vendor-address-modal-body">
+              {!vendorAddressSearchReady && !vendorAddressSearchError && (
+                <div className="vendor-address-modal-status">주소 검색 기능을 불러오는 중입니다...</div>
+              )}
+              {vendorAddressSearchError && (
+                <div className="vendor-address-modal-status error">
+                  <strong>주소 검색을 불러오지 못했습니다.</strong>
+                  <span>{vendorAddressSearchError}</span>
+                  <button type="button" onClick={() => window.location.reload()}>다시 불러오기</button>
+                </div>
+              )}
+              <div ref={vendorAddressSearchContainerRef} className={`vendor-address-embed${vendorAddressSearchReady ? " ready" : ""}`} />
+            </div>
+          </div>
         </div>
       )}
       <div className={`app app-tab-${menuTab}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
@@ -22688,6 +22747,84 @@ html,body,#root{
   font-size:12px;
   font-weight:950;
   white-space:nowrap;
+}
+.vendor-address-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1000001;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(15,23,42,.58);
+  backdrop-filter:blur(4px);
+}
+.vendor-address-modal{
+  width:min(540px,calc(100vw - 32px));
+  height:min(720px,calc(100vh - 40px));
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  overflow:hidden;
+  border:1px solid #dbe4f0;
+  border-radius:20px;
+  background:#fff;
+  box-shadow:0 30px 90px rgba(15,23,42,.32);
+}
+.vendor-address-modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:17px 18px;
+  border-bottom:1px solid #e2e8f0;
+  background:#fff;
+}
+.vendor-address-modal-head>div{display:grid;gap:3px;min-width:0}
+.vendor-address-modal-head strong{color:#172033;font-size:17px;font-weight:950}
+.vendor-address-modal-head span{color:#64748b;font-size:12px;font-weight:750}
+.vendor-address-modal-head>button{
+  flex:0 0 38px;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:1px solid #dbe4f0;
+  border-radius:11px;
+  background:#f8fafc;
+  color:#475569;
+}
+.vendor-address-modal-body{position:relative;min-height:0;background:#f8fafc}
+.vendor-address-embed{width:100%;height:100%;display:none;background:#fff}
+.vendor-address-embed.ready{display:block}
+.vendor-address-modal-status{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:24px;
+  color:#64748b;
+  font-size:13px;
+  font-weight:800;
+  text-align:center;
+}
+.vendor-address-modal-status.error{color:#b91c1c}
+.vendor-address-modal-status.error>button{
+  margin-top:4px;
+  padding:9px 14px;
+  border:0;
+  border-radius:10px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:900;
+}
+@media(max-width:600px){
+  .vendor-address-modal-backdrop{padding:10px}
+  .vendor-address-modal{width:100%;height:calc(100vh - 20px);border-radius:16px}
+  .vendor-address-modal-head{padding:14px}
 }
 .app input[type="checkbox"]{
   flex:0 0 17px;
