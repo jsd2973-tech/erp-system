@@ -10250,6 +10250,13 @@ function HomeDashboard({
   currentRole?: UserRole;
   logout?: () => void;
 }) {
+  const isHomeImageUrl = (url: string) => {
+    const original = String(url || "");
+    const target = original.toLowerCase().split("?")[0];
+    const isKnownImage = /\.(jpg|jpeg|png|webp|gif|heic)$/.test(target);
+    const isKnownNonImage = /\.(pdf|mp3|m4a|wav|webm|ogg|aac)$/.test(target);
+    return isKnownImage || original.startsWith("blob:") || (!isKnownNonImage && original.includes("/storage/"));
+  };
   const today = getTodayKey();
   const monthKey = today.slice(0, 7);
   const previousMonthKey = monthKeyWithOffset(today, -1);
@@ -10320,31 +10327,21 @@ function HomeDashboard({
   const pendingReceiptPhotos = receiptPhotos.filter((item) => !item.is_processed);
   const pendingMaintenancePhotos = maintenancePhotos.filter((item) => !item.is_processed);
   const urgentMaintenancePhotos = maintenancePhotos.filter((item) => item.is_urgent && !item.is_processed);
-  const recentPhotoItems = [
-    ...receiptPhotos.flatMap((photo) =>
-      (photo.image_urls || []).filter(Boolean).map((url, index) => ({
-        id: `${photo.id}-receipt-${index}`,
-        url,
-        type: "입고",
-        title: photo.vendor_name || "입고사진",
-        meta: photo.memo || "입고내역",
-        date: photo.receipt_date || photo.created_at || "",
-        tab: "receipt_photos",
-      }))
-    ),
-    ...maintenancePhotos.flatMap((photo) =>
-      (photo.image_urls || []).filter(Boolean).map((url, index) => ({
-        id: `${photo.id}-maintenance-${index}`,
-        url,
-        type: "정비",
-        title: photo.equipment_name || "정비사진",
-        meta: photo.memo || "정비작업",
-        date: photo.maint_date || photo.created_at || "",
-        tab: "maintenance_photos",
-      }))
-    ),
-  ]
+  const recentPhotoItems = [...maints]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .flatMap((maint) =>
+      (maint.image_urls || (maint.image_url ? [maint.image_url] : []))
+        .filter((url) => isHomeImageUrl(url))
+        .map((url, index) => ({
+          id: `${maint.id}-maint-lookup-${index}`,
+          url,
+          type: "정비",
+          title: maint.warehouse || "정비사진",
+          meta: maint.title || maint.detail || "정비작업",
+          date: maint.date || "",
+          tab: "maint_list",
+        }))
+    )
     .slice(0, 4);
 
   if (currentRole === "field") {
@@ -10684,8 +10681,7 @@ function HomeDashboard({
           <div className="modern-home-panel-head">
             <h3>최근 사진</h3>
             <div className="home-panel-link-group">
-              <button onClick={() => setMenuTab?.("receipt_photos")}>입고사진 ›</button>
-              <button onClick={() => setMenuTab?.("maintenance_photos")}>정비사진 ›</button>
+              <button onClick={() => setMenuTab?.("maint_list")}>정비조회 ›</button>
             </div>
           </div>
           {recentPhotoItems.length ? (
@@ -10701,7 +10697,7 @@ function HomeDashboard({
               ))}
             </div>
           ) : (
-            <div className="modern-home-empty">최근 등록된 사진이 없습니다.</div>
+            <div className="modern-home-empty">정비조회에 등록된 사진이 없습니다.</div>
           )}
         </div>
 
