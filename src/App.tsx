@@ -1380,7 +1380,7 @@ export default function App() {
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "" });
 
-  const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
+  const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
   const [vendorAddressSearchOpen, setVendorAddressSearchOpen] = useState(false);
@@ -2204,7 +2204,7 @@ export default function App() {
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
 
-    setVendorForm({ code: nextVendorCode(nextVendors), name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
+    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
     setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
@@ -3820,7 +3820,7 @@ export default function App() {
     if (error) return alert(`거래처 저장 실패: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
-    setVendorForm({ code: nextVendorCode(next), name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
+    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
     setEditingVendorId("");
     showToast(existing ? "거래처 정보를 수정했습니다." : "거래처를 등록했습니다.");
   };
@@ -4590,7 +4590,7 @@ export default function App() {
     if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
     setVendors([]);
     setVendorImportMessage("거래처 전체 삭제 완료");
-    setVendorForm({ code: nextVendorCode([]), name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
+    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
   };
 
   const deleteItem = async (id: string) => {
@@ -7421,7 +7421,7 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5 vendor-register-grid"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="기본주소"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="주소 검색을 눌러 입력하세요" /><button type="button" onClick={openVendorAddressSearch}>주소 검색</button></div></Field><Field label="상세주소"><input ref={vendorAddressDetailRef} value={vendorForm.address_detail} onChange={(e) => setVendorForm({ ...vendorForm, address_detail: e.target.value })} placeholder="건물명, 층, 호수 등" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5 vendor-register-grid"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} placeholder="거래처코드 직접 입력" /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="기본주소"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="주소 검색을 눌러 입력하세요" /><button type="button" onClick={openVendorAddressSearch}>주소 검색</button></div></Field><Field label="상세주소"><input ref={vendorAddressDetailRef} value={vendorForm.address_detail} onChange={(e) => setVendorForm({ ...vendorForm, address_detail: e.target.value })} placeholder="건물명, 층, 호수 등" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
