@@ -1383,6 +1383,41 @@ export default function App() {
   const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "", address: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
+  useEffect(() => {
+    const postcodeWindow = window as any;
+    if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode || document.getElementById("kakao-postcode-script")) return;
+
+    const script = document.createElement("script");
+    script.id = "kakao-postcode-script";
+    script.src = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
+  const openVendorAddressSearch = () => {
+    const postcodeWindow = window as any;
+    const Postcode = postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode;
+    if (!Postcode) {
+      alert("주소 검색 기능을 불러오는 중입니다. 잠시 후 다시 눌러주세요.");
+      return;
+    }
+
+    new Postcode({
+      oncomplete: (data: any) => {
+        const selectedAddress = data.userSelectedType === "J"
+          ? data.jibunAddress
+          : data.roadAddress || data.address;
+        setVendorForm((prev) => ({ ...prev, address: selectedAddress || data.address || "" }));
+      },
+      width: 500,
+      height: 600,
+    }).open({
+      popupTitle: "거래처 주소 검색",
+      popupKey: "vendorAddressSearch",
+      left: Math.max(0, Math.round(window.screen.width / 2 - 250)),
+      top: Math.max(0, Math.round(window.screen.height / 2 - 300)),
+    });
+  };
   const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
   const [warehouseForm, setWarehouseForm] = useState({ group: "", code: nextCode(warehouses), name: "" });
   const [editingGroupId, setEditingGroupId] = useState("");
@@ -7324,7 +7359,7 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="주소"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="사업장 주소" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="주소"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="주소 검색 후 상세주소를 입력하세요" /><button type="button" onClick={openVendorAddressSearch}>주소 검색</button></div></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
@@ -22637,6 +22672,23 @@ html,body,#root{
 }
 
 /* ===== Full Menu Visual Consistency Audit ===== */
+.vendor-address-input{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  min-width:0;
+}
+.vendor-address-input>button{
+  min-width:88px;
+  min-height:42px;
+  padding:8px 13px;
+  border:1px solid #bfdbfe;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:950;
+  white-space:nowrap;
+}
 .app input[type="checkbox"]{
   flex:0 0 17px;
   width:17px !important;
@@ -22826,6 +22878,8 @@ html,body,#root{
 }
 
 @media(max-width:900px){
+  .vendor-address-input{grid-template-columns:1fr}
+  .vendor-address-input>button{width:100%}
   .app input[type="checkbox"]{
     flex-basis:18px;
     width:18px !important;
