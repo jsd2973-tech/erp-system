@@ -3,7 +3,7 @@ import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck } from "lucide-react";
 
-type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string };
+type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string };
 type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
@@ -1380,7 +1380,7 @@ export default function App() {
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "" });
 
-  const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "" });
+  const [vendorForm, setVendorForm] = useState({ code: nextVendorCode(vendors), name: "", owner: "", phone: "", mobile: "", address: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
   const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
@@ -2136,7 +2136,7 @@ export default function App() {
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
 
-    setVendorForm({ code: nextVendorCode(nextVendors), name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode(nextVendors), name: "", owner: "", phone: "", mobile: "", address: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
     setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
@@ -3752,7 +3752,7 @@ export default function App() {
     if (error) return alert(`거래처 저장 실패: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
     setVendors(next);
-    setVendorForm({ code: nextVendorCode(next), name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode(next), name: "", owner: "", phone: "", mobile: "", address: "" });
     setEditingVendorId("");
     showToast(existing ? "거래처 정보를 수정했습니다." : "거래처를 등록했습니다.");
   };
@@ -3771,6 +3771,7 @@ export default function App() {
           owner: String(pick(r, ["대표자", "대표자명"]) || "").trim(),
           phone: String(pick(r, ["전화", "전화번호", "연락처"]) || "").trim(),
           mobile: String(pick(r, ["모바일", "휴대폰", "휴대전화"]) || "").trim(),
+          address: String(pick(r, ["주소", "사업장주소", "소재지"]) || "").trim(),
         };
       })
       .filter((x) => x.name);
@@ -4441,7 +4442,7 @@ export default function App() {
 
   const editVendor = (v: Vendor) => {
     setEditingVendorId(v.id);
-    setVendorForm({ code: v.code || "", name: v.name || "", owner: v.owner || "", phone: v.phone || "", mobile: v.mobile || "" });
+    setVendorForm({ code: v.code || "", name: v.name || "", owner: v.owner || "", phone: v.phone || "", mobile: v.mobile || "", address: v.address || "" });
   };
 
   const editGroup = (g: Group) => {
@@ -4520,7 +4521,7 @@ export default function App() {
     if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
     setVendors([]);
     setVendorImportMessage("거래처 전체 삭제 완료");
-    setVendorForm({ code: nextVendorCode([]), name: "", owner: "", phone: "", mobile: "" });
+    setVendorForm({ code: nextVendorCode([]), name: "", owner: "", phone: "", mobile: "", address: "" });
   };
 
   const deleteItem = async (id: string) => {
@@ -7323,7 +7324,7 @@ export default function App() {
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
+          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="주소"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="사업장 주소" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
         )}
 
         {menuTab === "warehouse_groups" && (
@@ -11158,7 +11159,7 @@ function MaintenanceStats({ maints }: { maints: Maint[] }) {
 
 
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
-  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
+  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>주소</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{v.address || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
 }
 
 /*
