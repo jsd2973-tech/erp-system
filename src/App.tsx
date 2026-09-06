@@ -3813,9 +3813,22 @@ export default function App() {
   const saveVendor = async () => {
     if (editingVendorId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!vendorForm.name) return;
-    const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : vendors.find((v) => v.code === vendorForm.code || v.name === vendorForm.name);
-    const payload: Vendor = { id: existing?.id || uid(), ...vendorForm };
+    const code = vendorForm.code.trim();
+    const name = vendorForm.name.trim();
+    if (!name) return;
+
+    const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : undefined;
+    if (editingVendorId && !existing) return alert("수정할 거래처를 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.");
+
+    const duplicate = vendors.find(
+      (v) => v.id !== editingVendorId && ((code !== "" && v.code.trim() === code) || v.name.trim() === name)
+    );
+    if (duplicate) {
+      const duplicateField = code !== "" && duplicate.code.trim() === code ? "거래처코드" : "거래처명";
+      return alert(`같은 ${duplicateField}의 거래처가 이미 있습니다. 기존 거래처를 선택해 수정해 주세요.`);
+    }
+
+    const payload: Vendor = { ...vendorForm, id: existing?.id || uid(), code, name };
     const { error } = await supabase.from("vendors").upsert(payload);
     if (error) return alert(`거래처 저장 실패: ${error.message}`);
     const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
