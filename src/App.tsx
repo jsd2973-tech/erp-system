@@ -23563,15 +23563,15 @@ html,body,#root{
 }
 
 /* ===== Bid Notices: Phase 1 ===== */
-.bid-notice-page{display:grid;gap:18px}
+.bid-notice-page{display:grid;gap:13px}
 .bid-notice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 26px;border-radius:20px;background:linear-gradient(135deg,#10233f,#1d4f91);color:#fff;box-shadow:0 14px 30px rgba(15,35,63,.16)}
 .bid-notice-head>div:first-child>span{display:block;margin-bottom:6px;color:#93c5fd;font-size:12px;font-weight:900;letter-spacing:.12em}
-.bid-notice-head h2{margin:0 0 7px;font-size:27px}
+.bid-notice-head h2{margin:0 0 7px;color:#fff;font-size:27px;text-shadow:0 1px 2px rgba(0,0,0,.18)}
 .bid-notice-head p{margin:0;color:#dbeafe;font-size:14px}
 .bid-notice-stage{display:grid;justify-items:center;gap:4px;min-width:150px;padding:14px 18px;border:1px solid rgba(255,255,255,.24);border-radius:15px;background:rgba(255,255,255,.1)}
 .bid-notice-stage b{font-size:16px}.bid-notice-stage span{color:#dbeafe;font-size:12px}
-.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:19px 21px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
-.bid-keyword-group{display:grid;gap:10px}.bid-keyword-group strong{color:#334155;font-size:13px}
+.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
+.bid-keyword-group{display:grid;gap:8px;min-width:0;padding:12px 13px;border:1px solid #e3ebf5;border-radius:13px;background:#f8fbff;text-align:left}.bid-keyword-group:nth-child(2){background:#fffafa}.bid-keyword-group strong{color:#25364d;font-size:13px}
 .bid-keyword-group>div{display:flex;flex-wrap:wrap;gap:7px}
 .bid-keyword-group span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
 .bid-keyword-group span.include{background:#e8f2ff;color:#1d4ed8}.bid-keyword-group span.exclude{background:#fff0f0;color:#c24141}
@@ -23580,10 +23580,10 @@ html,body,#root{
 .bid-keyword-chips span button{display:grid;place-items:center;width:18px;height:18px;min-width:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.72);color:currentColor;font-size:16px;line-height:1}
 .bid-keyword-add{display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:7px !important}
 .bid-keyword-add input{width:100%;min-width:0}.bid-keyword-add button{min-width:60px;font-weight:800}
-.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding-top:15px;border-top:1px solid #e7edf4}
+.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding:3px 4px 0}
 .bid-keyword-actions span{padding:0;color:#64748b;font-size:12px;font-weight:600}.bid-keyword-actions button{white-space:nowrap}
-.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 20px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
-.bid-range-group{display:grid;align-content:start;gap:10px;min-width:0}.bid-range-group>strong{color:#334155;font-size:13px}.bid-range-group>small{color:#718096;font-size:11px;line-height:1.45}
+.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
+.bid-range-group{display:grid;align-content:start;gap:9px;min-width:0;padding:12px 13px;border:1px solid #e3ebf5;border-radius:13px;background:#f8fbff;text-align:left}.bid-range-group>strong{color:#25364d;font-size:13px}.bid-range-group>small{color:#718096;font-size:11px;line-height:1.45}
 .bid-region-buttons,.bid-date-quick{display:flex;flex-wrap:wrap;gap:7px}.bid-region-buttons button,.bid-date-quick button{padding:8px 11px;border:1px solid #d8e1ec;border-radius:9px;background:#f8fafc;color:#526176;font-size:12px;font-weight:800}
 .bid-region-buttons button.active{border-color:#7db2ff;background:#e8f2ff;color:#1d4ed8;box-shadow:0 0 0 2px rgba(59,130,246,.08)}
 .bid-date-inputs{display:grid;grid-template-columns:minmax(125px,1fr) auto minmax(125px,1fr);align-items:center;gap:8px}.bid-date-inputs input{width:100%;min-width:0}.bid-date-inputs span{color:#718096;font-weight:800}
