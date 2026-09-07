@@ -734,6 +734,7 @@ const updateNoticeHideValue = () => getTodayKey();
 const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
   { key: "site_notices", label: "공지" },
+  { key: "bid_notices", label: "입찰공고" },
   { key: "activity_logs", label: "작업로그" },
   { key: "trash_bin", label: "휴지통" },
   { key: "layout", label: "생산라인" },
@@ -5618,6 +5619,7 @@ export default function App() {
           {canAccessTab("home") && <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setOpenMenuGroup(null); }}><HomeIcon size={17} /> 홈</button>}
           {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => { setMenuTab("site_notices"); setOpenMenuGroup(null); }}><Bell size={17} /> 공지</button>}
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
+          {canAccessTab("bid_notices") && <button className={menuTab === "bid_notices" ? "active" : ""} onClick={() => { setMenuTab("bid_notices"); setOpenMenuGroup(null); }}><FileCheck2 size={17} /> 입찰공고</button>}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
@@ -7095,6 +7097,8 @@ export default function App() {
           />
         )}
 
+        {menuTab === "bid_notices" && <BidNoticePage />}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
@@ -8138,6 +8142,7 @@ export default function App() {
               {mobileSheet === "more" && (
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
+                  {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
@@ -8160,7 +8165,7 @@ export default function App() {
               {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
               {canAccessTab("maintenance_photos") && <button className={menuTab === "maintenance_photos" ? "active" : ""} onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진</button>}
               {canAccessTab("maintenance_schedules") && <button className={["maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>일정</button>}
-              <button className={mobileSheet === "more" || menuTab === "site_notices" ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices", "bid_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           ) : (
             <>
@@ -8168,7 +8173,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
@@ -9484,6 +9489,64 @@ function Home({
 
 
 
+function BidNoticePage() {
+  const [source, setSource] = useState<"all" | "g2b" | "lh">("all");
+  const [search, setSearch] = useState("");
+  const includeKeywords = ["골재", "잡석", "쇄석", "혼합골재"];
+  const excludeKeywords = ["순환골재"];
+
+  return (
+    <section className="bid-notice-page">
+      <div className="bid-notice-head">
+        <div>
+          <span>PUBLIC BID</span>
+          <h2>입찰공고</h2>
+          <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
+        </div>
+        <div className="bid-notice-stage">
+          <b>1단계</b>
+          <span>기본 화면 구성 완료</span>
+        </div>
+      </div>
+
+      <div className="bid-keyword-panel">
+        <div className="bid-keyword-group">
+          <strong>포함 키워드</strong>
+          <div>{includeKeywords.map((keyword) => <span className="include" key={keyword}>{keyword}</span>)}</div>
+        </div>
+        <div className="bid-keyword-group">
+          <strong>제외 키워드</strong>
+          <div>{excludeKeywords.map((keyword) => <span className="exclude" key={keyword}>{keyword}</span>)}</div>
+        </div>
+      </div>
+
+      <div className="bid-filter-bar">
+        <div className="bid-source-tabs" aria-label="공고 출처 선택">
+          <button className={source === "all" ? "active" : ""} onClick={() => setSource("all")}>전체</button>
+          <button className={source === "g2b" ? "active" : ""} onClick={() => setSource("g2b")}>나라장터</button>
+          <button className={source === "lh" ? "active" : ""} onClick={() => setSource("lh")}>LH</button>
+        </div>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="공고명 또는 발주기관 검색" aria-label="입찰공고 검색" />
+        <button type="button" className="primary" disabled title="2단계 API 연동 후 사용할 수 있습니다.">공고 새로고침</button>
+      </div>
+
+      <div className="bid-list-head">
+        <span>출처</span>
+        <span>공고명 · 발주기관</span>
+        <span>공고금액</span>
+        <span>마감일</span>
+      </div>
+      <div className="bid-empty-state">
+        <FileCheck2 size={42} />
+        <strong>공개 입찰공고 연동 준비 중입니다</strong>
+        <p>다음 단계에서 공식 API를 연결하면 별도 사이트 로그인 없이 조건에 맞는 공고가 여기에 표시됩니다.</p>
+        <small>포함 키워드 중 하나가 있고, ‘순환골재’가 없는 공고만 표시됩니다.</small>
+      </div>
+    </section>
+  );
+}
+
+
 function SiteNoticePage({
   siteNotices,
   allSiteNotices,
@@ -10161,7 +10224,7 @@ function BackupPermissionPage({
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
     { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
     { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
-    { label: "공통·기초", keys: ["layout", "vendors", "warehouse_groups", "items", "permits"] },
+    { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },
   ].map((group) => ({
     ...group,
     items: ERP_PERMISSION_MODULES.filter((module) => group.keys.includes(module.key)),
@@ -23231,6 +23294,33 @@ html,body,#root{
     padding:10px !important;
     text-align:center;
   }
+}
+
+/* ===== Bid Notices: Phase 1 ===== */
+.bid-notice-page{display:grid;gap:18px}
+.bid-notice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 26px;border-radius:20px;background:linear-gradient(135deg,#10233f,#1d4f91);color:#fff;box-shadow:0 14px 30px rgba(15,35,63,.16)}
+.bid-notice-head>div:first-child>span{display:block;margin-bottom:6px;color:#93c5fd;font-size:12px;font-weight:900;letter-spacing:.12em}
+.bid-notice-head h2{margin:0 0 7px;font-size:27px}
+.bid-notice-head p{margin:0;color:#dbeafe;font-size:14px}
+.bid-notice-stage{display:grid;justify-items:center;gap:4px;min-width:150px;padding:14px 18px;border:1px solid rgba(255,255,255,.24);border-radius:15px;background:rgba(255,255,255,.1)}
+.bid-notice-stage b{font-size:16px}.bid-notice-stage span{color:#dbeafe;font-size:12px}
+.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:19px 21px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
+.bid-keyword-group{display:grid;gap:10px}.bid-keyword-group strong{color:#334155;font-size:13px}
+.bid-keyword-group>div{display:flex;flex-wrap:wrap;gap:7px}
+.bid-keyword-group span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
+.bid-keyword-group span.include{background:#e8f2ff;color:#1d4ed8}.bid-keyword-group span.exclude{background:#fff0f0;color:#c24141}
+.bid-filter-bar{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:center;gap:12px;padding:15px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
+.bid-source-tabs{display:flex;gap:5px;padding:4px;border-radius:11px;background:#eef2f7}
+.bid-source-tabs button{border:0;background:transparent;color:#64748b;font-weight:800}
+.bid-source-tabs button.active{background:#fff;color:#1d4ed8;box-shadow:0 2px 7px rgba(15,23,42,.1)}
+.bid-filter-bar input{width:100%;min-width:0}
+.bid-list-head{display:grid;grid-template-columns:110px minmax(260px,1fr) 150px 140px;gap:14px;padding:0 20px;color:#64748b;font-size:12px;font-weight:900}
+.bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
+.bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
+@media(max-width:700px){
+  .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
+  .bid-keyword-panel{grid-template-columns:1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+  .bid-list-head{display:none}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
 
 `;
