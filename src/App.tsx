@@ -9690,8 +9690,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
         </div>
         <div className="bid-notice-stage">
-          <b>4단계</b>
-          <span>지역·기간 조건 조회</span>
+          <b>연동 완료</b>
+          <span>나라장터 · LH</span>
         </div>
       </div>
 
@@ -23564,26 +23564,26 @@ html,body,#root{
 
 /* ===== Bid Notices: Phase 1 ===== */
 .bid-notice-page{display:grid;gap:13px}
-.bid-notice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 26px;border-radius:20px;background:linear-gradient(135deg,#10233f,#1d4f91);color:#fff;box-shadow:0 14px 30px rgba(15,35,63,.16)}
+.bid-notice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px;border-radius:18px;background:linear-gradient(135deg,#10233f,#1d4f91);color:#fff;box-shadow:0 12px 26px rgba(15,35,63,.14)}
 .bid-notice-head>div:first-child>span{display:block;margin-bottom:6px;color:#93c5fd;font-size:12px;font-weight:900;letter-spacing:.12em}
-.bid-notice-head h2{margin:0 0 7px;color:#fff;font-size:27px;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+.bid-notice-head h2{margin:0 0 5px;color:#fff;font-size:25px;text-shadow:0 1px 2px rgba(0,0,0,.18)}
 .bid-notice-head p{margin:0;color:#dbeafe;font-size:14px}
-.bid-notice-stage{display:grid;justify-items:center;gap:4px;min-width:150px;padding:14px 18px;border:1px solid rgba(255,255,255,.24);border-radius:15px;background:rgba(255,255,255,.1)}
+.bid-notice-stage{display:grid;justify-items:center;gap:3px;min-width:145px;padding:11px 16px;border:1px solid rgba(255,255,255,.24);border-radius:13px;background:rgba(255,255,255,.1)}
 .bid-notice-stage b{font-size:16px}.bid-notice-stage span{color:#dbeafe;font-size:12px}
-.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
-.bid-keyword-group{display:grid;gap:8px;min-width:0;padding:12px 13px;border:1px solid #e3ebf5;border-radius:13px;background:#f8fbff;text-align:left}.bid-keyword-group:nth-child(2){background:#fffafa}.bid-keyword-group strong{color:#25364d;font-size:13px}
+.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:13px 16px 10px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
+.bid-keyword-group{display:grid;grid-template-columns:auto minmax(0,auto) minmax(180px,1fr);align-items:center;gap:9px;min-width:0;text-align:left}.bid-keyword-group:first-child{padding-right:15px;border-right:1px solid #e7edf4}.bid-keyword-group:nth-child(2){padding-left:15px}.bid-keyword-group strong{color:#25364d;font-size:13px;white-space:nowrap}
 .bid-keyword-group>div{display:flex;flex-wrap:wrap;gap:7px}
 .bid-keyword-group span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
 .bid-keyword-group span.include{background:#e8f2ff;color:#1d4ed8}.bid-keyword-group span.exclude{background:#fff0f0;color:#c24141}
-.bid-keyword-chips{min-height:33px;align-items:center}.bid-keyword-chips em{color:#94a3b8;font-size:12px;font-style:normal}
+.bid-keyword-chips{min-height:33px;align-items:center;flex-wrap:nowrap !important}.bid-keyword-chips em{color:#94a3b8;font-size:12px;font-style:normal}
 .bid-keyword-chips span{display:inline-flex;align-items:center;gap:7px}
 .bid-keyword-chips span button{display:grid;place-items:center;width:18px;height:18px;min-width:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.72);color:currentColor;font-size:16px;line-height:1}
 .bid-keyword-add{display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:7px !important}
 .bid-keyword-add input{width:100%;min-width:0}.bid-keyword-add button{min-width:60px;font-weight:800}
-.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding:3px 4px 0}
+.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;margin-top:9px;padding-top:9px;border-top:1px solid #edf1f6}
 .bid-keyword-actions span{padding:0;color:#64748b;font-size:12px;font-weight:600}.bid-keyword-actions button{white-space:nowrap}
-.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
-.bid-range-group{display:grid;align-content:start;gap:9px;min-width:0;padding:12px 13px;border:1px solid #e3ebf5;border-radius:13px;background:#f8fbff;text-align:left}.bid-range-group>strong{color:#25364d;font-size:13px}.bid-range-group>small{color:#718096;font-size:11px;line-height:1.45}
+.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:13px 16px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
+.bid-range-group{display:grid;grid-template-columns:auto auto minmax(220px,1fr);align-items:center;align-content:start;gap:8px 10px;min-width:0;text-align:left}.bid-range-group:first-child{grid-template-columns:auto minmax(0,1fr);padding-right:15px;border-right:1px solid #e7edf4}.bid-range-group:nth-child(2){padding-left:15px}.bid-range-group>strong{color:#25364d;font-size:13px;white-space:nowrap}.bid-range-group>small{grid-column:1/-1;color:#718096;font-size:11px;line-height:1.4}
 .bid-region-buttons,.bid-date-quick{display:flex;flex-wrap:wrap;gap:7px}.bid-region-buttons button,.bid-date-quick button{padding:8px 11px;border:1px solid #d8e1ec;border-radius:9px;background:#f8fafc;color:#526176;font-size:12px;font-weight:800}
 .bid-region-buttons button.active{border-color:#7db2ff;background:#e8f2ff;color:#1d4ed8;box-shadow:0 0 0 2px rgba(59,130,246,.08)}
 .bid-date-inputs{display:grid;grid-template-columns:minmax(125px,1fr) auto minmax(125px,1fr);align-items:center;gap:8px}.bid-date-inputs input{width:100%;min-width:0}.bid-date-inputs span{color:#718096;font-weight:800}
@@ -23603,11 +23603,12 @@ html,body,#root{
 .bid-notice-amount{width:100%;padding-top:9px;border-top:1px solid #edf1f6;color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:100%}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline i{padding:3px 7px;border-radius:999px;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline i.open{background:#dcfce7;color:#15803d}.bid-notice-deadline i.closed{background:#f1f5f9;color:#64748b}.bid-notice-deadline a{margin-left:auto;color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
 .bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
-@media(min-width:2200px){.bid-notice-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:2800px){.bid-notice-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:1250px){.bid-notice-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1500px){.bid-keyword-group{grid-template-columns:auto minmax(0,1fr)}.bid-keyword-add{grid-column:1/-1}.bid-range-group{grid-template-columns:auto minmax(0,1fr)}.bid-range-group .bid-date-inputs{grid-column:1/-1}}
 @media(max-width:700px){
   .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
-  .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+  .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-group:first-child,.bid-range-group:first-child{padding-right:0;padding-bottom:12px;border-right:0;border-bottom:1px solid #e7edf4}.bid-keyword-group:nth-child(2),.bid-range-group:nth-child(2){padding-top:12px;padding-left:0}.bid-keyword-chips{flex-wrap:wrap !important}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
   .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-notice-list{grid-template-columns:1fr}.bid-notice-row{grid-template-columns:1fr;min-height:0;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a{-webkit-line-clamp:unset}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
 
