@@ -56,8 +56,8 @@ const fetchOperation = async (
     inqryEndDt: end,
     numOfRows: "100",
     pageNo: "1",
-    bidNtceNm: keyword,
   });
+  if (keyword) params.set("bidNtceNm", keyword);
   const response = await fetch(`${G2B_BASE_URL}/${operation.path}?${params.toString()}`);
   const body = await response.text();
   if (!response.ok) throw new Error(`나라장터 연결 실패 (${response.status})`);
@@ -98,28 +98,57 @@ export default {
 
     const endDate = new Date();
     const beginDate = new Date(endDate);
-    beginDate.setDate(beginDate.getDate() - 60);
+    // 나라장터 검색 API의 안정적인 기간 조회를 위해 최근 30일로 제한합니다.
+    beginDate.setDate(beginDate.getDate() - 30);
 
     try {
-      const settled = await Promise.allSettled(
+      const primarySettled = await Promise.allSettled(
         G2B_OPERATIONS.flatMap((operation) => include.map((keyword) =>
           fetchOperation(operation, keyword, normalizedServiceKey, dateTimeKey(beginDate), dateTimeKey(endDate, true))
         )),
       );
-      const successful = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      let allSettled = [...primarySettled];
+      let successful = primarySettled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (!successful.length) {
-        const firstError = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+        const firstError = primarySettled.find((result): result is PromiseRejectedResult => result.status === "rejected");
         throw firstError?.reason || new Error("나라장터 공고를 불러오지 못했습니다.");
+      }
+
+      let fetchedItems = successful.flat();
+      // 키워드 검색이 빈 배열로 정상 응답하는 경우 최근 7일 전체 공고를
+      // 한 번 더 조회한 뒤 ERP에서 키워드를 직접 적용합니다.
+      if (!fetchedItems.length) {
+        const fallbackBeginDate = new Date(endDate);
+        fallbackBeginDate.setDate(fallbackBeginDate.getDate() - 7);
+        const fallbackSettled = await Promise.allSettled(
+          G2B_OPERATIONS.map((operation) => fetchOperation(
+            operation,
+            "",
+            normalizedServiceKey,
+            dateTimeKey(fallbackBeginDate),
+            dateTimeKey(endDate, true),
+          )),
+        );
+        allSettled = [...allSettled, ...fallbackSettled];
+        const fallbackSuccessful = fallbackSettled.flatMap((result) =>
+          result.status === "fulfilled" ? [result.value] : []
+        );
+        successful = [...successful, ...fallbackSuccessful];
+        fetchedItems = fallbackSuccessful.flat();
       }
 
       const now = Date.now();
       const seen = new Set<string>();
-      const notices = successful.flat()
+      const includeLower = include.map((keyword) => keyword.toLowerCase());
+      const notices = fetchedItems
         .filter((item) => {
           const title = textValue(item.bidNtceNm).toLowerCase();
           const deadlineText = textValue(item.bidClseDt);
           const deadline = deadlineText ? new Date(deadlineText.replace(" ", "T")).getTime() : Number.POSITIVE_INFINITY;
-          return title && !exclude.some((keyword) => title.includes(keyword)) && (Number.isNaN(deadline) || deadline >= now);
+          return title
+            && includeLower.some((keyword) => title.includes(keyword))
+            && !exclude.some((keyword) => title.includes(keyword))
+            && (Number.isNaN(deadline) || deadline >= now);
         })
         .map((item) => {
           const bidNo = textValue(item.bidNtceNo);
@@ -145,8 +174,13 @@ export default {
         })
         .sort((a, b) => b.noticeDate.localeCompare(a.noticeDate));
 
-      const failedCalls = settled.length - successful.length;
-      return json({ notices, fetchedAt: new Date().toISOString(), failedCalls });
+      const failedCalls = allSettled.filter((result) => result.status === "rejected").length;
+      return json({
+        notices,
+        fetchedAt: new Date().toISOString(),
+        failedCalls,
+        diagnostics: { receivedCount: fetchedItems.length, matchedCount: notices.length },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "나라장터 공고를 불러오지 못했습니다.";
       return json({ error: message }, 502);
