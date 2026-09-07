@@ -781,6 +781,7 @@ function SearchSelect({
   value,
   options,
   onChange,
+  onSelect,
   placeholder,
   variant = "default",
 }: {
@@ -789,6 +790,7 @@ function SearchSelect({
   value: string;
   options: any[];
   onChange: (value: string) => void;
+  onSelect?: (option: any) => void;
   placeholder?: string;
   variant?: "default" | "item";
 }) {
@@ -801,8 +803,9 @@ function SearchSelect({
       .map((o) => {
         if (typeof o === "string") {
           const text = String(o || "").trim();
-          return { label: text, value: text, search: text.toLowerCase(), code: "", name: text, spec: "", unit: "", price: 0 };
+          return { id: "", label: text, value: text, search: text.toLowerCase(), code: "", name: text, spec: "", unit: "", price: 0 };
         }
+        const id = String(o?.id || "").trim();
         const label = String(o?.label || o?.name || o?.value || "").trim();
         const value = String(o?.value || o?.name || o?.label || "").trim();
         const code = String(o?.code || "").trim();
@@ -811,7 +814,7 @@ function SearchSelect({
         const unit = String(o?.unit || "").trim();
         const price = Number(o?.price || 0);
         const search = `${label} ${value} ${code} ${name} ${spec} ${unit}`.toLowerCase();
-        return { label, value, search, code, name, spec, unit, price };
+        return { id, label, value, search, code, name, spec, unit, price };
       })
       .filter((o) => o.label || o.value);
   }, [options]);
@@ -829,7 +832,8 @@ function SearchSelect({
   const selectOption = (index = activeIndex) => {
     const option = filtered[index] || filtered[0];
     if (!option) return false;
-    onChange(option.value);
+    if (onSelect) onSelect(option);
+    else onChange(option.value);
     setQuery("");
     setOpen(false);
     setActiveIndex(0);
@@ -2390,6 +2394,7 @@ export default function App() {
   }, [groups, warehouses]);
   const itemOptions = useMemo(
     () => items.map((i) => ({
+      id: i.id,
       label: i.name,
       value: i.name,
       code: i.code,
@@ -2409,11 +2414,12 @@ export default function App() {
     );
   }, [items, itemSearch]);
 
-  const updateRow = (index: number, key: keyof PurchaseRow, value: any) => {
+  const updateRow = (index: number, key: keyof PurchaseRow, value: any, selectedItem?: Partial<Item>) => {
     const next = [...rows];
     next[index] = { ...next[index], [key]: value };
     if (key === "item") {
-      const item = items.find((i) => i.name === value);
+      const exactMatches = items.filter((i) => i.name === value);
+      const item = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
       if (item) {
         next[index].spec = item.spec || "";
         next[index].price = item.price || 0;
@@ -4107,12 +4113,13 @@ export default function App() {
   };
 
 
-  const updateMaintItem = (index: number, key: keyof MaintItem, value: any) => {
+  const updateMaintItem = (index: number, key: keyof MaintItem, value: any, selectedItem?: Partial<Item>) => {
     const next = [...maintItems];
     next[index] = { ...next[index], [key]: value };
 
     if (key === "item") {
-      const found = items.find((it) => it.name === value);
+      const exactMatches = items.filter((it) => it.name === value);
+      const found = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
       if (found) {
         next[index].spec = found.spec || "";
         next[index].price = found.price || 0;
@@ -7129,6 +7136,7 @@ export default function App() {
       value={r.item}
       options={itemOptions}
       onChange={(v) => updateRow(i, "item", v)}
+      onSelect={(option) => updateRow(i, "item", option.name || option.value, option)}
       placeholder="품목 검색"
       variant="item"
     />
@@ -7162,6 +7170,7 @@ export default function App() {
                     value={r.item}
                     options={itemOptions}
                     onChange={(value) => updateRow(i, "item", value)}
+                    onSelect={(option) => updateRow(i, "item", option.name || option.value, option)}
                     placeholder="품목명 검색"
                     variant="item"
                   />
@@ -7600,6 +7609,7 @@ export default function App() {
                               value={r.item}
                               options={itemOptions}
                               onChange={(v) => updateMaintItem(i, "item", v)}
+                              onSelect={(option) => updateMaintItem(i, "item", option.name || option.value, option)}
                               placeholder="품목 검색"
                               variant="item"
                             />
@@ -7649,6 +7659,7 @@ export default function App() {
                       value={r.item}
                       options={itemOptions}
                       onChange={(value) => updateMaintItem(i, "item", value)}
+                      onSelect={(option) => updateMaintItem(i, "item", option.name || option.value, option)}
                       placeholder="품목명 검색"
                       variant="item"
                     />
