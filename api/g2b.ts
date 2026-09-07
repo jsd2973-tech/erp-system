@@ -20,10 +20,38 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 });
 
 const dateTimeKey = (date: Date, endOfDay = false) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}${month}${day}${endOfDay ? "2359" : "0000"}`;
+};
+
+const parseDateInput = (value: string | null, fallback: Date) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return fallback;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+};
+
+const splitDateRanges = (from: Date, to: Date) => {
+  const ranges: Array<{ from: Date; to: Date }> = [];
+  let cursor = new Date(from);
+  while (cursor <= to) {
+    const rangeEnd = new Date(cursor);
+    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 29);
+    if (rangeEnd > to) rangeEnd.setTime(to.getTime());
+    ranges.push({ from: new Date(cursor), to: new Date(rangeEnd) });
+    cursor = new Date(rangeEnd);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return ranges;
+};
+
+const settleInBatches = async <T>(tasks: Array<() => Promise<T>>, batchSize = 20) => {
+  const results: PromiseSettledResult<T>[] = [];
+  for (let index = 0; index < tasks.length; index += batchSize) {
+    results.push(...await Promise.allSettled(tasks.slice(index, index + batchSize).map((task) => task())));
+  }
+  return results;
 };
 
 const toItems = (payload: any): G2bRawItem[] => {
@@ -96,17 +124,27 @@ export default {
       .split(",").map((item) => item.trim().toLowerCase()).filter(Boolean).slice(0, 10);
     if (!include.length) return json({ error: "포함 키워드가 필요합니다." }, 400);
 
-    const endDate = new Date();
-    const beginDate = new Date(endDate);
-    // 나라장터 검색 API의 안정적인 기간 조회를 위해 최근 30일로 제한합니다.
-    beginDate.setDate(beginDate.getDate() - 30);
+    const today = new Date();
+    const defaultEndDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const defaultBeginDate = new Date(defaultEndDate);
+    defaultBeginDate.setUTCDate(defaultBeginDate.getUTCDate() - 29);
+    const beginDate = parseDateInput(requestUrl.searchParams.get("from"), defaultBeginDate);
+    const endDate = parseDateInput(requestUrl.searchParams.get("to"), defaultEndDate);
+    const rangeDays = Math.floor((endDate.getTime() - beginDate.getTime()) / 86400000) + 1;
+    if (rangeDays < 1) return json({ error: "시작일은 종료일보다 늦을 수 없습니다." }, 400);
+    if (rangeDays > 90) return json({ error: "조회기간은 최대 90일까지 선택할 수 있습니다." }, 400);
+    const dateRanges = splitDateRanges(beginDate, endDate);
 
     try {
-      const primarySettled = await Promise.allSettled(
-        G2B_OPERATIONS.flatMap((operation) => include.map((keyword) =>
-          fetchOperation(operation, keyword, normalizedServiceKey, dateTimeKey(beginDate), dateTimeKey(endDate, true))
-        )),
-      );
+      const primarySettled: PromiseSettledResult<G2bFetchedItem[]>[] = [];
+      // 최대 90일 선택 시에도 나라장터에는 30일 단위로 순차 요청합니다.
+      for (const range of dateRanges) {
+        primarySettled.push(...await settleInBatches(
+          G2B_OPERATIONS.flatMap((operation) => include.map((keyword) => () =>
+            fetchOperation(operation, keyword, normalizedServiceKey, dateTimeKey(range.from), dateTimeKey(range.to, true))
+          )),
+        ));
+      }
       let allSettled = [...primarySettled];
       let successful = primarySettled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (!successful.length) {
@@ -118,17 +156,18 @@ export default {
       // 키워드 검색이 빈 배열로 정상 응답하는 경우 최근 7일 전체 공고를
       // 한 번 더 조회한 뒤 ERP에서 키워드를 직접 적용합니다.
       if (!fetchedItems.length) {
-        const fallbackBeginDate = new Date(endDate);
-        fallbackBeginDate.setDate(fallbackBeginDate.getDate() - 7);
-        const fallbackSettled = await Promise.allSettled(
-          G2B_OPERATIONS.map((operation) => fetchOperation(
-            operation,
-            "",
-            normalizedServiceKey,
-            dateTimeKey(fallbackBeginDate),
-            dateTimeKey(endDate, true),
-          )),
-        );
+        const fallbackSettled: PromiseSettledResult<G2bFetchedItem[]>[] = [];
+        for (const range of dateRanges) {
+          fallbackSettled.push(...await settleInBatches(
+            G2B_OPERATIONS.map((operation) => () => fetchOperation(
+              operation,
+              "",
+              normalizedServiceKey,
+              dateTimeKey(range.from),
+              dateTimeKey(range.to, true),
+            )),
+          ));
+        }
         allSettled = [...allSettled, ...fallbackSettled];
         const fallbackSuccessful = fallbackSettled.flatMap((result) =>
           result.status === "fulfilled" ? [result.value] : []
@@ -160,6 +199,7 @@ export default {
             bidNo,
             title: textValue(item.bidNtceNm),
             agency: textValue(item.dminsttNm) || textValue(item.ntceInsttNm),
+            regionText: [item.dminsttNm, item.ntceInsttNm, item.prtcptLmtRgnNm].map(textValue).filter(Boolean).join(" "),
             noticeDate: textValue(item.bidNtceDt),
             deadline: textValue(item.bidClseDt),
             amount: Number(item.asignBdgtAmt || item.presmptPrce || 0),
