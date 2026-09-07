@@ -22,7 +22,7 @@ const parseDateInput = (value: string | null, fallback: Date) => {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 };
 
-const decodeXml = (value: string) => value
+const decodeXml = (value: string) => value.trim()
   .replace(/^<!\[CDATA\[/, "")
   .replace(/\]\]>$/, "")
   .replace(/&lt;/g, "<")
@@ -44,8 +44,13 @@ const parseItems = (xml: string): LhRawItem[] => {
   }
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((match) => {
     const itemXml = match[1];
-    const tags = [...itemXml.matchAll(/<([A-Za-z0-9]+)>([\s\S]*?)<\/\1>/g)];
-    return Object.fromEntries(tags.map((tag) => [tag[1], decodeXml(tag[2])])) as LhRawItem;
+    const fields = [
+      "bidNum", "bidDegree", "cstrtnJobGbNm", "bidKind", "bidnmKor", "zoneHqCd",
+      "bidProgrsStatus", "tndrCtrctMedCd", "tndrbidRegDt", "presmtPrc", "addtTax",
+      "designPrc", "fdmtlAmt", "tndrdocAcptBgninDtm", "tndrdocAcptEndDtm", "openDtm",
+      "zoneRstrct1", "zoneRstrct2", "zoneRstrct3", "zoneRstrct4",
+    ];
+    return Object.fromEntries(fields.map((field) => [field, tagValue(itemXml, field)])) as LhRawItem;
   });
 };
 
@@ -54,6 +59,18 @@ const normalizeServiceKey = (serviceKey: string) => {
     return decodeURIComponent(serviceKey.trim());
   } catch {
     return serviceKey.trim();
+  }
+};
+
+const responseText = async (response: Response) => {
+  const bytes = await response.arrayBuffer();
+  const utf8 = new TextDecoder("utf-8").decode(bytes);
+  const replacementCount = (utf8.match(/�/g) || []).length;
+  if (replacementCount < 3) return utf8;
+  try {
+    return new TextDecoder("euc-kr").decode(bytes);
+  } catch {
+    return utf8;
   }
 };
 
@@ -66,7 +83,7 @@ const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: n
     tndrbidRegDtEnd: dateKey(to),
   });
   const response = await fetch(`${LH_BASE_URL}?${params.toString()}`);
-  const body = await response.text();
+  const body = await responseText(response);
   if (!response.ok) throw new Error(`LH 연결 실패 (${response.status})`);
   const items = parseItems(body);
   const totalCount = Number(tagValue(body, "totalCount") || items.length);
