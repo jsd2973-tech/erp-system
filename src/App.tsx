@@ -9495,6 +9495,13 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [includeInput, setIncludeInput] = useState("");
   const [excludeInput, setExcludeInput] = useState("");
   const [keywordMessage, setKeywordMessage] = useState("");
+  const [bidNotices, setBidNotices] = useState<Array<{
+    id: string; source: string; businessType: string; bidNo: string; title: string;
+    agency: string; noticeDate: string; deadline: string; amount: number; url: string;
+  }>>([]);
+  const [bidLoading, setBidLoading] = useState(false);
+  const [bidError, setBidError] = useState("");
+  const [bidFetchedAt, setBidFetchedAt] = useState("");
   const [keywords, setKeywords] = useState<{ include: string[]; exclude: string[] }>(() => {
     try {
       const saved = window.localStorage.getItem("erp_bid_keyword_settings_v1");
@@ -9543,6 +9550,40 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     addKeyword(kind);
   };
 
+  const loadG2bNotices = async () => {
+    setBidLoading(true);
+    setBidError("");
+    try {
+      const params = new URLSearchParams({ include: keywords.include.join(","), exclude: keywords.exclude.join(",") });
+      const response = await fetch(`/api/g2b?${params.toString()}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || `공고 조회 실패 (${response.status})`);
+      setBidNotices(Array.isArray(payload?.notices) ? payload.notices : []);
+      setBidFetchedAt(payload?.fetchedAt || new Date().toISOString());
+      if (payload?.failedCalls) setBidError(`일부 공고 조회 ${payload.failedCalls}건이 실패했습니다. 표시된 공고는 정상 조회분입니다.`);
+    } catch (error) {
+      setBidNotices([]);
+      setBidError(error instanceof Error ? error.message : "나라장터 공고를 불러오지 못했습니다.");
+    } finally {
+      setBidLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadG2bNotices();
+    // 첫 진입 시 저장된 키워드로 한 번만 조회합니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleBidNotices = bidNotices.filter((notice) => {
+    if (source === "lh") return false;
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return true;
+    return `${notice.title} ${notice.agency} ${notice.bidNo}`.toLowerCase().includes(keyword);
+  });
+  const formatBidAmount = (amount: number) => amount > 0 ? `${amount.toLocaleString("ko-KR")}원` : "금액 미공개";
+  const formatBidDate = (value: string) => value ? value.slice(0, 16) : "미정";
+
   return (
     <section className="bid-notice-page">
       <div className="bid-notice-head">
@@ -9552,8 +9593,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
         </div>
         <div className="bid-notice-stage">
-          <b>2단계</b>
-          <span>키워드 관리 기능</span>
+          <b>3단계</b>
+          <span>나라장터 공고 연동</span>
         </div>
       </div>
 
@@ -9600,8 +9641,14 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <button className={source === "lh" ? "active" : ""} onClick={() => setSource("lh")}>LH</button>
         </div>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="공고명 또는 발주기관 검색" aria-label="입찰공고 검색" />
-        <button type="button" className="primary" disabled title="다음 API 연동 단계부터 사용할 수 있습니다.">공고 새로고침</button>
+        <button type="button" className="primary" onClick={loadG2bNotices} disabled={bidLoading || source === "lh"}>{bidLoading ? "공고 불러오는 중..." : "공고 새로고침"}</button>
       </div>
+
+      <div className="bid-result-summary">
+        <div><strong>{source === "lh" ? 0 : visibleBidNotices.length}</strong><span>표시 공고</span></div>
+        <p>{source === "lh" ? "LH 공고는 다음 단계에서 연결합니다." : bidFetchedAt ? `마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "나라장터 연결 대기 중"}</p>
+      </div>
+      {bidError && <div className="bid-api-error">{bidError}</div>}
 
       <div className="bid-list-head">
         <span>출처</span>
@@ -9609,12 +9656,28 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         <span>공고금액</span>
         <span>마감일</span>
       </div>
-      <div className="bid-empty-state">
-        <FileCheck2 size={42} />
-        <strong>공개 입찰공고 연동 준비 중입니다</strong>
-        <p>다음 단계에서 공식 API를 연결하면 별도 사이트 로그인 없이 조건에 맞는 공고가 여기에 표시됩니다.</p>
-        <small>포함 키워드 중 하나가 있고, 제외 키워드가 없는 공고만 표시됩니다.</small>
-      </div>
+      {visibleBidNotices.length ? (
+        <div className="bid-notice-list">
+          {visibleBidNotices.map((notice) => (
+            <article className="bid-notice-row" key={notice.id}>
+              <div className="bid-notice-source"><b>{notice.source}</b><span>{notice.businessType}</span></div>
+              <div className="bid-notice-main">
+                <a href={notice.url} target="_blank" rel="noreferrer">{notice.title}</a>
+                <span>{notice.agency || "기관 미표시"} · {notice.bidNo}</span>
+              </div>
+              <strong className="bid-notice-amount">{formatBidAmount(notice.amount)}</strong>
+              <div className="bid-notice-deadline"><span>{formatBidDate(notice.deadline)}</span><a href={notice.url} target="_blank" rel="noreferrer">원문 보기</a></div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="bid-empty-state">
+          <FileCheck2 size={42} />
+          <strong>{bidLoading ? "나라장터 공고를 불러오고 있습니다" : source === "lh" ? "LH 공고 연동 준비 중입니다" : "조건에 맞는 진행 중 공고가 없습니다"}</strong>
+          <p>{source === "lh" ? "LH 공식 API는 다음 단계에서 연결합니다." : "포함 키워드 또는 검색어를 바꾸고 공고 새로고침을 눌러보세요."}</p>
+          <small>포함 키워드 중 하나가 있고, 제외 키워드가 없는 진행 중 공고만 표시됩니다.</small>
+        </div>
+      )}
     </section>
   );
 }
@@ -23394,13 +23457,21 @@ html,body,#root{
 .bid-source-tabs button{border:0;background:transparent;color:#64748b;font-weight:800}
 .bid-source-tabs button.active{background:#fff;color:#1d4ed8;box-shadow:0 2px 7px rgba(15,23,42,.1)}
 .bid-filter-bar input{width:100%;min-width:0}
+.bid-result-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;border:1px solid #dce5f0;border-radius:14px;background:#fff}
+.bid-result-summary>div{display:flex;align-items:baseline;gap:7px}.bid-result-summary strong{color:#1d4ed8;font-size:22px}.bid-result-summary span,.bid-result-summary p{margin:0;color:#64748b;font-size:12px;font-weight:700}
+.bid-api-error{padding:12px 15px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b42318;font-size:13px;font-weight:700;line-height:1.5}
 .bid-list-head{display:grid;grid-template-columns:110px minmax(260px,1fr) 150px 140px;gap:14px;padding:0 20px;color:#64748b;font-size:12px;font-weight:900}
+.bid-notice-list{display:grid;gap:9px}
+.bid-notice-row{display:grid;grid-template-columns:110px minmax(260px,1fr) 150px 140px;align-items:center;gap:14px;padding:17px 20px;border:1px solid #dce5f0;border-radius:15px;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.04)}
+.bid-notice-source{display:grid;justify-items:start;gap:5px}.bid-notice-source b{padding:5px 8px;border-radius:7px;background:#e8f2ff;color:#1d4ed8;font-size:11px}.bid-notice-source span{color:#64748b;font-size:11px;font-weight:800}
+.bid-notice-main{display:grid;gap:6px;min-width:0}.bid-notice-main a{overflow:hidden;color:#172033;font-size:14px;font-weight:900;line-height:1.45;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.bid-notice-main a:hover{color:#1d4ed8;text-decoration:underline}.bid-notice-main span{overflow:hidden;color:#718096;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.bid-notice-amount{color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:grid;justify-items:end;gap:6px}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline a{color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
 .bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
 @media(max-width:700px){
   .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
   .bid-keyword-panel{grid-template-columns:1fr}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
-  .bid-list-head{display:none}.bid-empty-state{min-height:230px;padding:34px 18px}
+  .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-list-head{display:none}.bid-notice-row{grid-template-columns:1fr;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
 
 `;
