@@ -4027,7 +4027,7 @@ export default function App() {
     const merged = [...existingItems];
 
     imported.forEach((row) => {
-      const idx = merged.findIndex((i) => (row.code && i.code === row.code) || (row.name && i.name === row.name));
+      const idx = merged.findIndex((i) => row.code && i.code === row.code);
       if (idx >= 0) {
         merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
       } else {
