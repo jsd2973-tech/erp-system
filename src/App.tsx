@@ -3879,33 +3879,43 @@ export default function App() {
   const saveGroup = async () => {
     if (editingGroupId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!groupForm.name) return;
+    const nextGroupName = groupForm.name.trim();
+    if (!nextGroupName) return;
     const previousGroup = editingGroupId ? groups.find((group) => group.id === editingGroupId) : undefined;
-    const payload: Group = { id: editingGroupId || uid(), ...groupForm };
+    const payload: Group = { id: editingGroupId || uid(), ...groupForm, name: nextGroupName };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
     if (error) return alert(`저장 실패: ${error.message}`);
 
-    let nextWarehouses = warehouses;
-    if (previousGroup && previousGroup.name !== payload.name) {
-      const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group === previousGroup.name);
+    if (previousGroup && previousGroup.name.trim() !== payload.name) {
+      const previousGroupName = previousGroup.name.trim();
+      const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group.trim() === previousGroupName);
       if (linkedWarehouses.length) {
-        const { error: warehouseError } = await supabase
+        const linkedWarehouseIds = linkedWarehouses.map((warehouse) => warehouse.id);
+        const { data: updatedWarehouses, error: warehouseError } = await supabase
           .from("warehouses")
           .update({ group: payload.name })
-          .eq("group", previousGroup.name);
-        if (warehouseError) {
-          const { error: rollbackError } = await supabase.from("warehouse_groups").upsert(previousGroup);
-          if (rollbackError) {
-            return alert(`세부창고 연결 변경 실패: ${warehouseError.message}\n대분류 이름 복구도 실패했습니다: ${rollbackError.message}`);
+          .in("id", linkedWarehouseIds)
+          .select("id, group");
+        const updatedIds = new Set((updatedWarehouses || []).map((warehouse: any) => String(warehouse.id)));
+        const allWarehousesUpdated = linkedWarehouseIds.every((id) => updatedIds.has(String(id)));
+
+        if (warehouseError || !allWarehousesUpdated) {
+          if (updatedIds.size) {
+            await supabase.from("warehouses").update({ group: previousGroup.name }).in("id", Array.from(updatedIds));
           }
-          return alert(`세부창고 연결 변경에 실패하여 대분류 이름을 원래대로 복구했습니다: ${warehouseError.message}`);
+          const { error: rollbackError } = await supabase.from("warehouse_groups").upsert(previousGroup);
+          const failureMessage = warehouseError?.message || "일부 세부창고가 변경되지 않았습니다.";
+          if (rollbackError) {
+            return alert(`세부창고 연결 변경 실패: ${failureMessage}\n대분류 이름 복구도 실패했습니다: ${rollbackError.message}`);
+          }
+          return alert(`세부창고 연결 변경에 실패하여 대분류 이름을 원래대로 복구했습니다: ${failureMessage}`);
         }
-        nextWarehouses = warehouses.map((warehouse) =>
-          warehouse.group === previousGroup.name ? { ...warehouse, group: payload.name } : warehouse
-        );
-        setWarehouses(nextWarehouses);
+
+        setWarehouses((current) => current.map((warehouse) =>
+          linkedWarehouseIds.includes(warehouse.id) ? { ...warehouse, group: payload.name } : warehouse
+        ));
         setWarehouseForm((current) =>
-          current.group === previousGroup.name ? { ...current, group: payload.name } : current
+          current.group.trim() === previousGroupName ? { ...current, group: payload.name } : current
         );
       }
     }
