@@ -2537,6 +2537,19 @@ export default function App() {
     const excelRows = await readExcelRows(file);
     if (!excelRows.length) return alert("엑셀에서 구매내역을 찾지 못했습니다.");
 
+    const existingPurchaseRes = await fetchAllRows("purchases", "date", 1000);
+    if (existingPurchaseRes.error) return alert(`기존 구매내역 불러오기 실패: ${existingPurchaseRes.error.message}`);
+    const existingPurchases = ((existingPurchaseRes.data || []) as any[]).map(toPurchase);
+
+    const purchaseImportToken = (value: string) => {
+      let hash = 2166136261;
+      for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(36);
+    };
+
     const workingGroups = [...groups];
     const newGroups: Group[] = [];
 
@@ -2595,7 +2608,9 @@ export default function App() {
         total: total || supply + vat,
       };
 
-      const key = `${date}-${no}`;
+      const vendorKey = normalizeVendorName(vendor);
+      const warehouseKey = normalizeWarehouseImportText(warehouse);
+      const key = `${date}|${no}|${vendorKey}|${warehouseKey}`;
       const prev = grouped.get(key);
 
       if (prev) {
@@ -2608,8 +2623,18 @@ export default function App() {
         return;
       }
 
+      const legacyId = `purchase-import-${date}-${no}`;
+      const importId = `${legacyId}-${purchaseImportToken(`${vendorKey}|${warehouseKey}`)}`;
+      const existingPurchase = existingPurchases.find((purchase) => purchase.id === importId)
+        || existingPurchases.find((purchase) =>
+          purchase.id === legacyId
+          && purchase.date === date
+          && normalizeVendorName(purchase.vendor) === vendorKey
+          && normalizeWarehouseImportText(purchase.warehouse) === warehouseKey
+        );
+
       grouped.set(key, {
-        id: `purchase-import-${date}-${no}`,
+        id: existingPurchase?.id || importId,
         date,
         vendor,
         warehouse,
@@ -2618,8 +2643,9 @@ export default function App() {
         vatTotal: purchaseRow.vat,
         total: purchaseRow.total,
         itemSummary: getPurchaseItemSummary({ itemSummary: purchaseRow.item, rows: [purchaseRow] }),
-        image_urls: [],
-        image_url: "",
+        taxInvoiceReceived: Boolean(existingPurchase?.taxInvoiceReceived),
+        image_urls: [...(existingPurchase?.image_urls || [])],
+        image_url: existingPurchase?.image_url || "",
       });
     });
 
