@@ -3880,9 +3880,35 @@ export default function App() {
     if (editingGroupId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
     if (!canCreateRecords) return alert("등록 권한이 없습니다.");
     if (!groupForm.name) return;
+    const previousGroup = editingGroupId ? groups.find((group) => group.id === editingGroupId) : undefined;
     const payload: Group = { id: editingGroupId || uid(), ...groupForm };
     const { error } = await supabase.from("warehouse_groups").upsert(payload);
     if (error) return alert(`저장 실패: ${error.message}`);
+
+    let nextWarehouses = warehouses;
+    if (previousGroup && previousGroup.name !== payload.name) {
+      const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group === previousGroup.name);
+      if (linkedWarehouses.length) {
+        const { error: warehouseError } = await supabase
+          .from("warehouses")
+          .update({ group: payload.name })
+          .eq("group", previousGroup.name);
+        if (warehouseError) {
+          const { error: rollbackError } = await supabase.from("warehouse_groups").upsert(previousGroup);
+          if (rollbackError) {
+            return alert(`세부창고 연결 변경 실패: ${warehouseError.message}\n대분류 이름 복구도 실패했습니다: ${rollbackError.message}`);
+          }
+          return alert(`세부창고 연결 변경에 실패하여 대분류 이름을 원래대로 복구했습니다: ${warehouseError.message}`);
+        }
+        nextWarehouses = warehouses.map((warehouse) =>
+          warehouse.group === previousGroup.name ? { ...warehouse, group: payload.name } : warehouse
+        );
+        setWarehouses(nextWarehouses);
+        setWarehouseForm((current) =>
+          current.group === previousGroup.name ? { ...current, group: payload.name } : current
+        );
+      }
+    }
     const next = editingGroupId ? groups.map((g) => (g.id === editingGroupId ? payload : g)) : [...groups, payload];
     setGroups(next);
     setGroupForm({ code: nextCode(next), name: "" });
