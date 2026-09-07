@@ -7097,7 +7097,7 @@ export default function App() {
           />
         )}
 
-        {menuTab === "bid_notices" && <BidNoticePage />}
+        {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
@@ -9489,11 +9489,59 @@ function Home({
 
 
 
-function BidNoticePage() {
+function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [source, setSource] = useState<"all" | "g2b" | "lh">("all");
   const [search, setSearch] = useState("");
-  const includeKeywords = ["골재", "잡석", "쇄석", "혼합골재"];
-  const excludeKeywords = ["순환골재"];
+  const [includeInput, setIncludeInput] = useState("");
+  const [excludeInput, setExcludeInput] = useState("");
+  const [keywordMessage, setKeywordMessage] = useState("");
+  const [keywords, setKeywords] = useState<{ include: string[]; exclude: string[] }>(() => {
+    try {
+      const saved = window.localStorage.getItem("erp_bid_keyword_settings_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed?.include) && Array.isArray(parsed?.exclude)) {
+          return { include: parsed.include, exclude: parsed.exclude };
+        }
+      }
+    } catch {
+      // 저장값이 손상된 경우 기본 키워드를 사용합니다.
+    }
+    return { include: ["골재", "잡석", "쇄석", "혼합골재"], exclude: ["순환골재"] };
+  });
+  const canEditKeywords = currentRole === "admin" || currentRole === "office";
+
+  const addKeyword = (kind: "include" | "exclude") => {
+    if (!canEditKeywords) return;
+    const value = (kind === "include" ? includeInput : excludeInput).trim();
+    if (!value) return setKeywordMessage("추가할 키워드를 입력해 주세요.");
+    if ([...keywords.include, ...keywords.exclude].some((keyword) => keyword.toLowerCase() === value.toLowerCase())) {
+      return setKeywordMessage("이미 등록된 키워드입니다.");
+    }
+    setKeywords((current) => ({ ...current, [kind]: [...current[kind], value] }));
+    if (kind === "include") setIncludeInput("");
+    else setExcludeInput("");
+    setKeywordMessage("변경사항을 저장해 주세요.");
+  };
+
+  const removeKeyword = (kind: "include" | "exclude", keyword: string) => {
+    if (!canEditKeywords) return;
+    setKeywords((current) => ({ ...current, [kind]: current[kind].filter((item) => item !== keyword) }));
+    setKeywordMessage("변경사항을 저장해 주세요.");
+  };
+
+  const saveKeywords = () => {
+    if (!canEditKeywords) return;
+    if (!keywords.include.length) return setKeywordMessage("포함 키워드는 한 개 이상 필요합니다.");
+    window.localStorage.setItem("erp_bid_keyword_settings_v1", JSON.stringify(keywords));
+    setKeywordMessage("키워드 설정을 저장했습니다.");
+  };
+
+  const handleKeywordKeyDown = (event: React.KeyboardEvent<HTMLInputElement>, kind: "include" | "exclude") => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addKeyword(kind);
+  };
 
   return (
     <section className="bid-notice-page">
@@ -9504,19 +9552,44 @@ function BidNoticePage() {
           <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
         </div>
         <div className="bid-notice-stage">
-          <b>1단계</b>
-          <span>기본 화면 구성 완료</span>
+          <b>2단계</b>
+          <span>키워드 관리 기능</span>
         </div>
       </div>
 
       <div className="bid-keyword-panel">
         <div className="bid-keyword-group">
           <strong>포함 키워드</strong>
-          <div>{includeKeywords.map((keyword) => <span className="include" key={keyword}>{keyword}</span>)}</div>
+          <div className="bid-keyword-chips">
+            {keywords.include.map((keyword) => (
+              <span className="include" key={keyword}>{keyword}{canEditKeywords && <button type="button" onClick={() => removeKeyword("include", keyword)} aria-label={`${keyword} 삭제`}>×</button>}</span>
+            ))}
+          </div>
+          {canEditKeywords && (
+            <div className="bid-keyword-add">
+              <input value={includeInput} onChange={(event) => setIncludeInput(event.target.value)} onKeyDown={(event) => handleKeywordKeyDown(event, "include")} placeholder="포함 키워드 입력" />
+              <button type="button" onClick={() => addKeyword("include")}>추가</button>
+            </div>
+          )}
         </div>
         <div className="bid-keyword-group">
           <strong>제외 키워드</strong>
-          <div>{excludeKeywords.map((keyword) => <span className="exclude" key={keyword}>{keyword}</span>)}</div>
+          <div className="bid-keyword-chips">
+            {keywords.exclude.map((keyword) => (
+              <span className="exclude" key={keyword}>{keyword}{canEditKeywords && <button type="button" onClick={() => removeKeyword("exclude", keyword)} aria-label={`${keyword} 삭제`}>×</button>}</span>
+            ))}
+            {!keywords.exclude.length && <em>등록된 제외 키워드가 없습니다.</em>}
+          </div>
+          {canEditKeywords && (
+            <div className="bid-keyword-add">
+              <input value={excludeInput} onChange={(event) => setExcludeInput(event.target.value)} onKeyDown={(event) => handleKeywordKeyDown(event, "exclude")} placeholder="제외 키워드 입력" />
+              <button type="button" onClick={() => addKeyword("exclude")}>추가</button>
+            </div>
+          )}
+        </div>
+        <div className="bid-keyword-actions">
+          <span>{canEditKeywords ? (keywordMessage || "키워드를 추가하거나 × 버튼으로 삭제한 뒤 저장하세요.") : "관리자 또는 사무실직원이 키워드를 변경할 수 있습니다."}</span>
+          {canEditKeywords && <button type="button" className="primary" onClick={saveKeywords}>키워드 저장</button>}
         </div>
       </div>
 
@@ -9527,7 +9600,7 @@ function BidNoticePage() {
           <button className={source === "lh" ? "active" : ""} onClick={() => setSource("lh")}>LH</button>
         </div>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="공고명 또는 발주기관 검색" aria-label="입찰공고 검색" />
-        <button type="button" className="primary" disabled title="2단계 API 연동 후 사용할 수 있습니다.">공고 새로고침</button>
+        <button type="button" className="primary" disabled title="다음 API 연동 단계부터 사용할 수 있습니다.">공고 새로고침</button>
       </div>
 
       <div className="bid-list-head">
@@ -9540,7 +9613,7 @@ function BidNoticePage() {
         <FileCheck2 size={42} />
         <strong>공개 입찰공고 연동 준비 중입니다</strong>
         <p>다음 단계에서 공식 API를 연결하면 별도 사이트 로그인 없이 조건에 맞는 공고가 여기에 표시됩니다.</p>
-        <small>포함 키워드 중 하나가 있고, ‘순환골재’가 없는 공고만 표시됩니다.</small>
+        <small>포함 키워드 중 하나가 있고, 제외 키워드가 없는 공고만 표시됩니다.</small>
       </div>
     </section>
   );
@@ -23309,6 +23382,13 @@ html,body,#root{
 .bid-keyword-group>div{display:flex;flex-wrap:wrap;gap:7px}
 .bid-keyword-group span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
 .bid-keyword-group span.include{background:#e8f2ff;color:#1d4ed8}.bid-keyword-group span.exclude{background:#fff0f0;color:#c24141}
+.bid-keyword-chips{min-height:33px;align-items:center}.bid-keyword-chips em{color:#94a3b8;font-size:12px;font-style:normal}
+.bid-keyword-chips span{display:inline-flex;align-items:center;gap:7px}
+.bid-keyword-chips span button{display:grid;place-items:center;width:18px;height:18px;min-width:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.72);color:currentColor;font-size:16px;line-height:1}
+.bid-keyword-add{display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:7px !important}
+.bid-keyword-add input{width:100%;min-width:0}.bid-keyword-add button{min-width:60px;font-weight:800}
+.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding-top:15px;border-top:1px solid #e7edf4}
+.bid-keyword-actions span{padding:0;color:#64748b;font-size:12px;font-weight:600}.bid-keyword-actions button{white-space:nowrap}
 .bid-filter-bar{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:center;gap:12px;padding:15px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
 .bid-source-tabs{display:flex;gap:5px;padding:4px;border-radius:11px;background:#eef2f7}
 .bid-source-tabs button{border:0;background:transparent;color:#64748b;font-weight:800}
@@ -23319,7 +23399,7 @@ html,body,#root{
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
 @media(max-width:700px){
   .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
-  .bid-keyword-panel{grid-template-columns:1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+  .bid-keyword-panel{grid-template-columns:1fr}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
   .bid-list-head{display:none}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
 
