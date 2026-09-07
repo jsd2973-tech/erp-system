@@ -80,6 +80,14 @@ export default {
 
     const serviceKey = process.env.G2B_SERVICE_KEY;
     if (!serviceKey) return json({ error: "Vercel에 G2B_SERVICE_KEY가 설정되지 않았습니다." }, 503);
+    // data.go.kr 화면에 Encoding/Decoding 구분 없이 일반 인증키만
+    // 표시되는 경우까지 지원합니다. URLSearchParams에는 원문 키를 전달해야 합니다.
+    let normalizedServiceKey = serviceKey.trim();
+    try {
+      normalizedServiceKey = decodeURIComponent(normalizedServiceKey);
+    } catch {
+      // 이미 디코딩된 키이거나 변환할 필요가 없는 키는 그대로 사용합니다.
+    }
 
     const requestUrl = new URL(request.url);
     const include = (requestUrl.searchParams.get("include") || "골재,잡석,쇄석,혼합골재")
@@ -95,7 +103,7 @@ export default {
     try {
       const settled = await Promise.allSettled(
         G2B_OPERATIONS.flatMap((operation) => include.map((keyword) =>
-          fetchOperation(operation, keyword, serviceKey, dateTimeKey(beginDate), dateTimeKey(endDate, true))
+          fetchOperation(operation, keyword, normalizedServiceKey, dateTimeKey(beginDate), dateTimeKey(endDate, true))
         )),
       );
       const successful = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
