@@ -313,7 +313,8 @@ const permitStableId = (company: string, title: string) => {
 
 const normalizeVendorName = (value: string) =>
   String(value || "")
-    .replace(/[\s㈜\(\)\[\]주식회사]/g, "")
+    .replace(/주식회사|㈜|\(\s*주\s*\)|（\s*주\s*）/g, "")
+    .replace(/[\s\(\)\[\]（）]/g, "")
     .toLowerCase();
 
 const bankCodeByName = (name: string) => {
@@ -1824,8 +1825,8 @@ export default function App() {
     const key = normalizeVendorName(vendorName);
     if (!key) return undefined;
 
-    return vendorAccounts.find((a) => normalizeVendorName(a.vendor_name) === key)
-      || vendorAccounts.find((a) => key.includes(normalizeVendorName(a.vendor_name)) || normalizeVendorName(a.vendor_name).includes(key));
+    const exactMatches = vendorAccounts.filter((account) => normalizeVendorName(account.vendor_name) === key);
+    return exactMatches.length === 1 ? exactMatches[0] : undefined;
   };
 
   const applyBulkTransferEdits = (rows: BulkTransferRow[]) =>
