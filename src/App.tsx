@@ -1629,6 +1629,7 @@ export default function App() {
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
+  const bulkTransferFilterKeyRef = useRef("");
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
   const [permitForm, setPermitForm] = useState({
@@ -1673,6 +1674,19 @@ export default function App() {
     if (transferWarehouseOptions.length) transferWarehouseInitializedRef.current = true;
     previousTransferWarehouseOptionsRef.current = transferWarehouseOptions;
   }, [transferWarehouseOptions]);
+
+  useEffect(() => {
+    const filterKey = `${transferMonth}|${[...selectedTransferWarehouses].sort().join("\u001f")}`;
+    if (!bulkTransferFilterKeyRef.current) {
+      bulkTransferFilterKeyRef.current = filterKey;
+      return;
+    }
+    if (bulkTransferFilterKeyRef.current === filterKey) return;
+
+    bulkTransferFilterKeyRef.current = filterKey;
+    setBulkTransferEdits({});
+    setSelectedBulkTransferIds([]);
+  }, [transferMonth, selectedTransferWarehouses]);
 
   const selectedTransferWarehouseSet = useMemo(() => new Set(selectedTransferWarehouses), [selectedTransferWarehouses]);
   const isTransferWarehouseFilterActive =
