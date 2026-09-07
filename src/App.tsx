@@ -9489,6 +9489,39 @@ function Home({
 
 
 
+type BidRegionFilter = "local" | "all" | "daejeon" | "sejong" | "chungnam";
+
+const BID_REGION_LABELS: Record<BidRegionFilter, string> = {
+  local: "우리 지역",
+  all: "전체 지역",
+  daejeon: "대전",
+  sejong: "세종",
+  chungnam: "충남",
+};
+
+const BID_REGION_KEYWORDS: Record<Exclude<BidRegionFilter, "local" | "all">, string[]> = {
+  daejeon: ["대전", "대전광역시"],
+  sejong: ["세종", "세종특별자치시"],
+  chungnam: [
+    "충남", "충청남도", "천안", "공주", "보령", "아산", "서산", "논산", "계룡", "당진",
+    "금산", "부여", "서천", "청양", "홍성", "예산", "태안",
+  ],
+};
+
+const toBidDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getBidQuickRange = (days: number) => {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - Math.max(0, days - 1));
+  return { from: toBidDateInput(from), to: toBidDateInput(to) };
+};
+
 function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [source, setSource] = useState<"all" | "g2b" | "lh">("all");
   const [search, setSearch] = useState("");
@@ -9502,6 +9535,23 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [bidLoading, setBidLoading] = useState(false);
   const [bidError, setBidError] = useState("");
   const [bidFetchedAt, setBidFetchedAt] = useState("");
+  const [bidFilters, setBidFilters] = useState<{ region: BidRegionFilter; from: string; to: string }>(() => {
+    const defaults = { region: "local" as BidRegionFilter, ...getBidQuickRange(30) };
+    try {
+      const saved = window.localStorage.getItem("erp_bid_filter_settings_v1");
+      if (!saved) return defaults;
+      const parsed = JSON.parse(saved);
+      const allowedRegions: BidRegionFilter[] = ["local", "all", "daejeon", "sejong", "chungnam"];
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+      return {
+        region: allowedRegions.includes(parsed?.region) ? parsed.region : defaults.region,
+        from: datePattern.test(parsed?.from || "") ? parsed.from : defaults.from,
+        to: datePattern.test(parsed?.to || "") ? parsed.to : defaults.to,
+      };
+    } catch {
+      return defaults;
+    }
+  });
   const [keywords, setKeywords] = useState<{ include: string[]; exclude: string[] }>(() => {
     try {
       const saved = window.localStorage.getItem("erp_bid_keyword_settings_v1");
@@ -9554,7 +9604,18 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     setBidLoading(true);
     setBidError("");
     try {
-      const params = new URLSearchParams({ include: keywords.include.join(","), exclude: keywords.exclude.join(",") });
+      const fromDate = new Date(`${bidFilters.from}T00:00:00`);
+      const toDate = new Date(`${bidFilters.to}T23:59:59`);
+      const rangeDays = Math.floor((toDate.getTime() - fromDate.getTime()) / 86400000) + 1;
+      if (!bidFilters.from || !bidFilters.to || Number.isNaN(rangeDays)) throw new Error("조회 시작일과 종료일을 선택해 주세요.");
+      if (rangeDays < 1) throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
+      if (rangeDays > 90) throw new Error("조회기간은 최대 90일까지 선택할 수 있습니다.");
+      const params = new URLSearchParams({
+        include: keywords.include.join(","),
+        exclude: keywords.exclude.join(","),
+        from: bidFilters.from,
+        to: bidFilters.to,
+      });
       const response = await fetch(`/api/g2b?${params.toString()}`);
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || `공고 조회 실패 (${response.status})`);
@@ -9575,8 +9636,27 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    window.localStorage.setItem("erp_bid_filter_settings_v1", JSON.stringify(bidFilters));
+  }, [bidFilters]);
+
+  const setQuickRange = (days: number) => {
+    setBidFilters((current) => ({ ...current, ...getBidQuickRange(days) }));
+  };
+
+  const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
+    if (bidFilters.region === "all") return true;
+    const text = `${notice.regionText || ""} ${notice.agency || ""}`.toLowerCase();
+    const matches = (region: "daejeon" | "sejong" | "chungnam") =>
+      BID_REGION_KEYWORDS[region].some((keyword) => text.includes(keyword.toLowerCase()));
+    return bidFilters.region === "local"
+      ? matches("daejeon") || matches("sejong") || matches("chungnam")
+      : matches(bidFilters.region);
+  };
+
   const visibleBidNotices = bidNotices.filter((notice) => {
     if (source === "lh") return false;
+    if (!matchesBidRegion(notice)) return false;
     const keyword = search.trim().toLowerCase();
     if (!keyword) return true;
     return `${notice.title} ${notice.agency} ${notice.bidNo}`.toLowerCase().includes(keyword);
@@ -9593,8 +9673,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
         </div>
         <div className="bid-notice-stage">
-          <b>3단계</b>
-          <span>나라장터 공고 연동</span>
+          <b>4단계</b>
+          <span>지역·기간 조건 조회</span>
         </div>
       </div>
 
@@ -9634,6 +9714,35 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         </div>
       </div>
 
+      <div className="bid-range-panel">
+        <div className="bid-range-group">
+          <strong>공고 지역</strong>
+          <div className="bid-region-buttons">
+            {(Object.keys(BID_REGION_LABELS) as BidRegionFilter[]).map((region) => (
+              <button
+                type="button"
+                key={region}
+                className={bidFilters.region === region ? "active" : ""}
+                onClick={() => setBidFilters((current) => ({ ...current, region }))}
+              >{BID_REGION_LABELS[region]}</button>
+            ))}
+          </div>
+          <small>우리 지역은 발주·수요기관 기준 대전, 세종, 충남 공고를 함께 표시합니다.</small>
+        </div>
+        <div className="bid-range-group">
+          <strong>조회기간</strong>
+          <div className="bid-date-quick">
+            {[7, 30, 90].map((days) => <button type="button" key={days} onClick={() => setQuickRange(days)}>최근 {days}일</button>)}
+          </div>
+          <div className="bid-date-inputs">
+            <input type="date" value={bidFilters.from} max={bidFilters.to} onChange={(event) => setBidFilters((current) => ({ ...current, from: event.target.value }))} aria-label="입찰공고 조회 시작일" />
+            <span>~</span>
+            <input type="date" value={bidFilters.to} min={bidFilters.from} max={toBidDateInput(new Date())} onChange={(event) => setBidFilters((current) => ({ ...current, to: event.target.value }))} aria-label="입찰공고 조회 종료일" />
+          </div>
+          <small>최대 90일까지 선택할 수 있으며 공고 새로고침을 누르면 적용됩니다.</small>
+        </div>
+      </div>
+
       <div className="bid-filter-bar">
         <div className="bid-source-tabs" aria-label="공고 출처 선택">
           <button className={source === "all" ? "active" : ""} onClick={() => setSource("all")}>전체</button>
@@ -9646,7 +9755,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
 
       <div className="bid-result-summary">
         <div><strong>{source === "lh" ? 0 : visibleBidNotices.length}</strong><span>표시 공고</span></div>
-        <p>{source === "lh" ? "LH 공고는 다음 단계에서 연결합니다." : bidFetchedAt ? `마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "나라장터 연결 대기 중"}</p>
+        <p>{source === "lh" ? "LH 공고는 다음 단계에서 연결합니다." : bidFetchedAt ? `${BID_REGION_LABELS[bidFilters.region]} · ${bidFilters.from} ~ ${bidFilters.to} · 마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "나라장터 연결 대기 중"}</p>
       </div>
       {bidError && <div className="bid-api-error">{bidError}</div>}
 
@@ -23452,6 +23561,11 @@ html,body,#root{
 .bid-keyword-add input{width:100%;min-width:0}.bid-keyword-add button{min-width:60px;font-weight:800}
 .bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;padding-top:15px;border-top:1px solid #e7edf4}
 .bid-keyword-actions span{padding:0;color:#64748b;font-size:12px;font-weight:600}.bid-keyword-actions button{white-space:nowrap}
+.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 20px;border:1px solid #dce5f0;border-radius:17px;background:#fff}
+.bid-range-group{display:grid;align-content:start;gap:10px;min-width:0}.bid-range-group>strong{color:#334155;font-size:13px}.bid-range-group>small{color:#718096;font-size:11px;line-height:1.45}
+.bid-region-buttons,.bid-date-quick{display:flex;flex-wrap:wrap;gap:7px}.bid-region-buttons button,.bid-date-quick button{padding:8px 11px;border:1px solid #d8e1ec;border-radius:9px;background:#f8fafc;color:#526176;font-size:12px;font-weight:800}
+.bid-region-buttons button.active{border-color:#7db2ff;background:#e8f2ff;color:#1d4ed8;box-shadow:0 0 0 2px rgba(59,130,246,.08)}
+.bid-date-inputs{display:grid;grid-template-columns:minmax(125px,1fr) auto minmax(125px,1fr);align-items:center;gap:8px}.bid-date-inputs input{width:100%;min-width:0}.bid-date-inputs span{color:#718096;font-weight:800}
 .bid-filter-bar{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:center;gap:12px;padding:15px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
 .bid-source-tabs{display:flex;gap:5px;padding:4px;border-radius:11px;background:#eef2f7}
 .bid-source-tabs button{border:0;background:transparent;color:#64748b;font-weight:800}
@@ -23470,7 +23584,7 @@ html,body,#root{
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
 @media(max-width:700px){
   .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
-  .bid-keyword-panel{grid-template-columns:1fr}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+  .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
   .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-list-head{display:none}.bid-notice-row{grid-template-columns:1fr;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
 
