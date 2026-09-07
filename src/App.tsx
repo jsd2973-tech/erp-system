@@ -9600,7 +9600,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     addKeyword(kind);
   };
 
-  const loadG2bNotices = async () => {
+  const loadBidNotices = async () => {
     setBidLoading(true);
     setBidError("");
     try {
@@ -9616,22 +9616,38 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         from: bidFilters.from,
         to: bidFilters.to,
       });
-      const response = await fetch(`/api/g2b?${params.toString()}`);
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || `공고 조회 실패 (${response.status})`);
-      setBidNotices(Array.isArray(payload?.notices) ? payload.notices : []);
-      setBidFetchedAt(payload?.fetchedAt || new Date().toISOString());
-      if (payload?.failedCalls) setBidError(`일부 공고 조회 ${payload.failedCalls}건이 실패했습니다. 표시된 공고는 정상 조회분입니다.`);
+      const targets = ["g2b", "lh"] as const;
+      const results = await Promise.allSettled(targets.map(async (target) => {
+        const response = await fetch(`/api/${target}?${params.toString()}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(`${target === "lh" ? "LH" : "나라장터"}: ${payload?.error || `공고 조회 실패 (${response.status})`}`);
+        return payload;
+      }));
+      const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      if (!successful.length) {
+        const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+        throw failed?.reason || new Error("입찰공고를 불러오지 못했습니다.");
+      }
+      const merged = successful
+        .flatMap((payload) => Array.isArray(payload?.notices) ? payload.notices : [])
+        .sort((a, b) => String(b.noticeDate || "").localeCompare(String(a.noticeDate || "")));
+      setBidNotices(merged);
+      setBidFetchedAt(new Date().toISOString());
+      const warnings = results.flatMap((result) => result.status === "rejected" ? [String(result.reason?.message || result.reason)] : []);
+      const partialFailures = successful.reduce((count, payload) => count + Number(payload?.failedCalls || 0), 0);
+      if (warnings.length || partialFailures) {
+        setBidError([...warnings, partialFailures ? `나라장터 일부 조회 ${partialFailures}건 실패` : ""].filter(Boolean).join(" · "));
+      }
     } catch (error) {
       setBidNotices([]);
-      setBidError(error instanceof Error ? error.message : "나라장터 공고를 불러오지 못했습니다.");
+      setBidError(error instanceof Error ? error.message : "입찰공고를 불러오지 못했습니다.");
     } finally {
       setBidLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadG2bNotices();
+    void loadBidNotices();
     // 첫 진입 시 저장된 키워드로 한 번만 조회합니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -9655,7 +9671,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   };
 
   const visibleBidNotices = bidNotices.filter((notice) => {
-    if (source === "lh") return false;
+    if (source === "g2b" && notice.source !== "나라장터") return false;
+    if (source === "lh" && notice.source !== "LH") return false;
     if (!matchesBidRegion(notice)) return false;
     const keyword = search.trim().toLowerCase();
     if (!keyword) return true;
@@ -9750,12 +9767,12 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <button className={source === "lh" ? "active" : ""} onClick={() => setSource("lh")}>LH</button>
         </div>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="공고명 또는 발주기관 검색" aria-label="입찰공고 검색" />
-        <button type="button" className="primary" onClick={loadG2bNotices} disabled={bidLoading || source === "lh"}>{bidLoading ? "공고 불러오는 중..." : "공고 새로고침"}</button>
+        <button type="button" className="primary" onClick={loadBidNotices} disabled={bidLoading}>{bidLoading ? "공고 불러오는 중..." : "공고 새로고침"}</button>
       </div>
 
       <div className="bid-result-summary">
-        <div><strong>{source === "lh" ? 0 : visibleBidNotices.length}</strong><span>표시 공고</span></div>
-        <p>{source === "lh" ? "LH 공고는 다음 단계에서 연결합니다." : bidFetchedAt ? `${BID_REGION_LABELS[bidFilters.region]} · ${bidFilters.from} ~ ${bidFilters.to} · 마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "나라장터 연결 대기 중"}</p>
+        <div><strong>{visibleBidNotices.length}</strong><span>표시 공고</span></div>
+        <p>{bidFetchedAt ? `${BID_REGION_LABELS[bidFilters.region]} · ${bidFilters.from} ~ ${bidFilters.to} · 마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "입찰공고 연결 대기 중"}</p>
       </div>
       {bidError && <div className="bid-api-error">{bidError}</div>}
 
@@ -9786,8 +9803,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
       ) : (
         <div className="bid-empty-state">
           <FileCheck2 size={42} />
-          <strong>{bidLoading ? "나라장터 공고를 불러오고 있습니다" : source === "lh" ? "LH 공고 연동 준비 중입니다" : "조건에 맞는 공고가 없습니다"}</strong>
-          <p>{source === "lh" ? "LH 공식 API는 다음 단계에서 연결합니다." : "포함 키워드 또는 검색어를 바꾸고 공고 새로고침을 눌러보세요."}</p>
+          <strong>{bidLoading ? "입찰공고를 불러오고 있습니다" : "조건에 맞는 공고가 없습니다"}</strong>
+          <p>포함 키워드 또는 검색어를 바꾸고 공고 새로고침을 눌러보세요.</p>
           <small>선택한 게시일 범위에서 포함 키워드가 있고 제외 키워드가 없는 공고를 표시합니다.</small>
         </div>
       )}
