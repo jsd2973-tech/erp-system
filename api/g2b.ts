@@ -182,16 +182,16 @@ export default {
       const notices = fetchedItems
         .filter((item) => {
           const title = textValue(item.bidNtceNm).toLowerCase();
-          const deadlineText = textValue(item.bidClseDt);
-          const deadline = deadlineText ? new Date(deadlineText.replace(" ", "T")).getTime() : Number.POSITIVE_INFINITY;
           return title
             && includeLower.some((keyword) => title.includes(keyword))
-            && !exclude.some((keyword) => title.includes(keyword))
-            && (Number.isNaN(deadline) || deadline >= now);
+            && !exclude.some((keyword) => title.includes(keyword));
         })
         .map((item) => {
           const bidNo = textValue(item.bidNtceNo);
           const bidOrd = textValue(item.bidNtceOrd) || "000";
+          const deadlineText = textValue(item.bidClseDt);
+          const deadlineTime = deadlineText ? new Date(deadlineText.replace(" ", "T")).getTime() : Number.POSITIVE_INFINITY;
+          const isClosed = !Number.isNaN(deadlineTime) && deadlineTime < now;
           return {
             id: `${bidNo}-${bidOrd}`,
             source: "나라장터",
@@ -201,7 +201,8 @@ export default {
             agency: textValue(item.dminsttNm) || textValue(item.ntceInsttNm),
             regionText: [item.dminsttNm, item.ntceInsttNm, item.prtcptLmtRgnNm].map(textValue).filter(Boolean).join(" "),
             noticeDate: textValue(item.bidNtceDt),
-            deadline: textValue(item.bidClseDt),
+            deadline: deadlineText,
+            status: isClosed ? "마감" : "진행중",
             amount: Number(item.asignBdgtAmt || item.presmptPrce || 0),
             url: textValue(item.bidNtceDtlUrl) || textValue(item.bidNtceUrl)
               || `https://www.g2b.go.kr/link/PNPE027_01/single/?bidPbancNo=${encodeURIComponent(bidNo)}&bidPbancOrd=${encodeURIComponent(bidOrd)}`,

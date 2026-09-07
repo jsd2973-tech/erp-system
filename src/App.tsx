@@ -9530,7 +9530,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [keywordMessage, setKeywordMessage] = useState("");
   const [bidNotices, setBidNotices] = useState<Array<{
     id: string; source: string; businessType: string; bidNo: string; title: string;
-    agency: string; noticeDate: string; deadline: string; amount: number; url: string;
+    agency: string; noticeDate: string; deadline: string; amount: number; url: string; status?: "진행중" | "마감";
   }>>([]);
   const [bidLoading, setBidLoading] = useState(false);
   const [bidError, setBidError] = useState("");
@@ -9763,7 +9763,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         <span>출처</span>
         <span>공고명 · 발주기관</span>
         <span>공고금액</span>
-        <span>마감일</span>
+        <span>마감일 · 상태</span>
       </div>
       {visibleBidNotices.length ? (
         <div className="bid-notice-list">
@@ -9775,16 +9775,20 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
                 <span>{notice.agency || "기관 미표시"} · {notice.bidNo}</span>
               </div>
               <strong className="bid-notice-amount">{formatBidAmount(notice.amount)}</strong>
-              <div className="bid-notice-deadline"><span>{formatBidDate(notice.deadline)}</span><a href={notice.url} target="_blank" rel="noreferrer">원문 보기</a></div>
+              <div className="bid-notice-deadline">
+                <span>{formatBidDate(notice.deadline)}</span>
+                <i className={notice.status === "마감" ? "closed" : "open"}>{notice.status || "진행중"}</i>
+                <a href={notice.url} target="_blank" rel="noreferrer">원문 보기</a>
+              </div>
             </article>
           ))}
         </div>
       ) : (
         <div className="bid-empty-state">
           <FileCheck2 size={42} />
-          <strong>{bidLoading ? "나라장터 공고를 불러오고 있습니다" : source === "lh" ? "LH 공고 연동 준비 중입니다" : "조건에 맞는 진행 중 공고가 없습니다"}</strong>
+          <strong>{bidLoading ? "나라장터 공고를 불러오고 있습니다" : source === "lh" ? "LH 공고 연동 준비 중입니다" : "조건에 맞는 공고가 없습니다"}</strong>
           <p>{source === "lh" ? "LH 공식 API는 다음 단계에서 연결합니다." : "포함 키워드 또는 검색어를 바꾸고 공고 새로고침을 눌러보세요."}</p>
-          <small>포함 키워드 중 하나가 있고, 제외 키워드가 없는 진행 중 공고만 표시됩니다.</small>
+          <small>선택한 게시일 범위에서 포함 키워드가 있고 제외 키워드가 없는 공고를 표시합니다.</small>
         </div>
       )}
     </section>
@@ -23579,7 +23583,7 @@ html,body,#root{
 .bid-notice-row{display:grid;grid-template-columns:110px minmax(260px,1fr) 150px 140px;align-items:center;gap:14px;padding:17px 20px;border:1px solid #dce5f0;border-radius:15px;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.04)}
 .bid-notice-source{display:grid;justify-items:start;gap:5px}.bid-notice-source b{padding:5px 8px;border-radius:7px;background:#e8f2ff;color:#1d4ed8;font-size:11px}.bid-notice-source span{color:#64748b;font-size:11px;font-weight:800}
 .bid-notice-main{display:grid;gap:6px;min-width:0}.bid-notice-main a{overflow:hidden;color:#172033;font-size:14px;font-weight:900;line-height:1.45;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}.bid-notice-main a:hover{color:#1d4ed8;text-decoration:underline}.bid-notice-main span{overflow:hidden;color:#718096;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
-.bid-notice-amount{color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:grid;justify-items:end;gap:6px}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline a{color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
+.bid-notice-amount{color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:grid;justify-items:end;gap:6px}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline i{padding:3px 7px;border-radius:999px;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline i.open{background:#dcfce7;color:#15803d}.bid-notice-deadline i.closed{background:#f1f5f9;color:#64748b}.bid-notice-deadline a{color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
 .bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
 @media(max-width:700px){
