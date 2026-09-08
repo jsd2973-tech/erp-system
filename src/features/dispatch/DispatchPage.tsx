@@ -51,12 +51,14 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
       supabase.from("dispatch_locations").select("*").order("name", { ascending: true }),
     ]);
 
-    const firstError = vehicleResult.error || driverResult.error || orderResult.error || assignmentResult.error || customerResult.error || locationResult.error;
-    if (firstError) {
-      setError(`배차관리 자료를 불러오지 못했습니다. 신규 테이블 SQL 적용 여부를 확인하세요. (${firstError.message})`);
+    const coreError = vehicleResult.error || driverResult.error || orderResult.error || assignmentResult.error;
+    if (coreError) {
+      setError(`기존 배차관리 자료를 불러오지 못했습니다. (${coreError.message})`);
       setLoading(false);
       return;
     }
+    const masterError = customerResult.error || locationResult.error;
+    if (masterError) setError(`배차 거래처·장소 SQL 적용 여부를 확인하세요. 기존 차량·기사·배차 자료는 계속 사용할 수 있습니다. (${masterError.message})`);
 
     const nextVehicles = (vehicleResult.data || []).map((row) => ({ ...row, id: String(row.id), vehicle_number: String(row.vehicle_number || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchVehicle[];
     const nextDrivers = (driverResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), phone: String(row.phone || ""), assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null, active: row.active !== false, memo: String(row.memo || "") })) as DispatchDriver[];
