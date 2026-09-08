@@ -5708,6 +5708,7 @@ export default function App() {
                 {menuButton("dispatch_list", "배차목록")}
                 {menuButton("dispatch_vehicles", "차량관리")}
                 {menuButton("dispatch_drivers", "기사관리")}
+                {menuButton("dispatch_basics", "배차 기초관리")}
               </div>
             </div>
           )}
@@ -7194,7 +7195,6 @@ export default function App() {
           <DispatchPage
             view={menuTab as DispatchView}
             supabase={supabase}
-            vendors={vendors.map((vendor) => ({ id: vendor.id, name: vendor.name, code: vendor.code }))}
             items={items.map((item) => ({ id: item.id, name: item.name, code: item.code, spec: item.spec }))}
             isAdmin={isAdmin}
             onNavigate={(view) => setMenuTab(view)}
@@ -8250,6 +8250,7 @@ export default function App() {
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}

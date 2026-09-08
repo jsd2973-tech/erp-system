@@ -3,6 +3,7 @@ export const DISPATCH_VIEWS = [
   "dispatch_list",
   "dispatch_vehicles",
   "dispatch_drivers",
+  "dispatch_basics",
 ] as const;
 
 export type DispatchView = (typeof DISPATCH_VIEWS)[number];
@@ -15,6 +16,28 @@ export type DispatchReferenceOption = {
   name: string;
   code?: string;
   spec?: string;
+};
+
+export type DispatchCustomer = {
+  id: string;
+  name: string;
+  active: boolean;
+  memo: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const DISPATCH_LOCATION_TYPES = ["상차지", "하차지", "공용"] as const;
+export type DispatchLocationType = (typeof DISPATCH_LOCATION_TYPES)[number];
+
+export type DispatchLocation = {
+  id: string;
+  name: string;
+  location_type: DispatchLocationType;
+  active: boolean;
+  memo: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type DispatchVehicle = {
@@ -71,8 +94,12 @@ export type DispatchOrderForm = {
   id: string;
   dispatch_date: string;
   vendor_id: string;
+  vendor_name: string;
+  save_vendor: boolean;
   loading_location: string;
+  save_loading_location: boolean;
   unloading_location: string;
+  save_unloading_location: boolean;
   item_id: string;
   total_volume: string;
   volume_per_trip: string;
