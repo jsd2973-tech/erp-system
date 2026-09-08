@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../supabaseClient";
 import DriverMobileApp from "./DriverMobileApp";
@@ -19,15 +19,20 @@ const toDriver = (row: Record<string, unknown>): DispatchDriver => ({
 export default function DispatchAuthGate({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [driver, setDriver] = useState<DispatchDriver | null>(null);
+  const resolvedUserIdRef = useRef<string | null>(null);
+  const resolveRequestRef = useRef(0);
 
-  const resolveSession = useCallback(async (session: Session | null) => {
+  const resolveSession = useCallback(async (session: Session | null, showChecking = true) => {
+    const requestId = ++resolveRequestRef.current;
+    resolvedUserIdRef.current = session?.user.id || null;
+
     if (!session) {
       setDriver(null);
       setChecking(false);
       return;
     }
 
-    setChecking(true);
+    if (showChecking) setChecking(true);
     const userEmail = String(session.user.email || "").trim().toLowerCase();
     const [adminResult, permissionResult] = await Promise.all([
       supabase.rpc("is_dispatch_admin"),
@@ -35,6 +40,8 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
         ? supabase.from("user_permissions").select("id").eq("email", userEmail).limit(1).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
+
+    if (requestId !== resolveRequestRef.current) return;
 
     if (adminResult.error || permissionResult.error) {
       console.error("ERP 계정 권한 확인 실패", adminResult.error || permissionResult.error);
@@ -56,6 +63,7 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
       .eq("active", true)
       .maybeSingle();
 
+    if (requestId !== resolveRequestRef.current) return;
     if (error) console.error("기사 계정 확인 실패", error);
     setDriver(!error && data ? toDriver(data) : null);
     setChecking(false);
@@ -69,11 +77,22 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active || !["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event)) return;
-      window.setTimeout(() => { if (active) void resolveSession(session); }, 0);
+      const nextUserId = session?.user.id || null;
+
+      // Supabase may emit SIGNED_IN again when an already authenticated tab regains
+      // focus. Rechecking through the full-screen gate would unmount every ERP form
+      // and discard unsaved React state, so only resolve when the user actually changed.
+      if (event === "SIGNED_IN" && nextUserId === resolvedUserIdRef.current) return;
+
+      const userChanged = nextUserId !== resolvedUserIdRef.current;
+      window.setTimeout(() => {
+        if (active) void resolveSession(session, userChanged);
+      }, 0);
     });
 
     return () => {
       active = false;
+      resolveRequestRef.current += 1;
       listener.subscription.unsubscribe();
     };
   }, [resolveSession]);
