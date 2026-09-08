@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
+import DispatchPage from "./features/dispatch/DispatchPage";
+import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -1294,7 +1296,6 @@ export default function App() {
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
   const [cardUses, setCardUses] = useState<CardUse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authPrefs, setAuthPrefs] = useState(() => readAuthPrefs());
@@ -1304,7 +1305,10 @@ export default function App() {
   const userEmail = session?.user?.email || "";
   const isAdmin = adminEmails.includes(userEmail);
 
-  const [menuTab, setMenuTab] = useState("home");
+  const [menuTab, setMenuTab] = useState(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab || "home";
+  });
   const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuHistoryReadyRef = useRef(false);
@@ -2193,7 +2197,6 @@ export default function App() {
 
 
   const loadAll = async () => {
-    setLoading(true);
     const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
       fetchAllRows("vendors", "code", 1000),
       fetchAllRows("warehouse_groups", "code", 1000),
@@ -2207,7 +2210,6 @@ export default function App() {
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
       console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
       alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
-      setLoading(false);
       return;
     }
 
@@ -2228,7 +2230,6 @@ export default function App() {
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
     setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -2283,7 +2284,6 @@ export default function App() {
 
       const approved = isAdmin || permissions.some((item) => item.email === userEmail);
       if (!approved) {
-        setLoading(false);
         return;
       }
 
@@ -2305,7 +2305,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session || !isPermissionApproved) return;
@@ -2341,7 +2341,7 @@ export default function App() {
     if (menuTab === "trash_bin") {
       loadDeletedRecords();
     }
-  }, [menuTab, session]);
+  }, [menuTab, session?.user?.id]);
 
 
   useEffect(() => {
@@ -2388,7 +2388,7 @@ export default function App() {
     }
 
     window.history.pushState(nextState, "", url);
-  }, [menuTab, session]);
+  }, [menuTab, session?.user?.id]);
 
   const vendorOptions = useMemo(
     () =>
@@ -5607,10 +5607,6 @@ export default function App() {
           </div>
         </header>
 
-        {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
-
-
-
         {showUpdateNotice && (
           <div className="update-popup-backdrop">
             <div className="update-popup">
@@ -5697,6 +5693,19 @@ export default function App() {
           {canAccessTab("site_notices") && <button className={menuTab === "site_notices" ? "active" : ""} onClick={() => { setMenuTab("site_notices"); setOpenMenuGroup(null); }}><Bell size={17} /> 공지</button>}
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
           {canAccessTab("bid_notices") && <button className={menuTab === "bid_notices" ? "active" : ""} onClick={() => { setMenuTab("bid_notices"); setOpenMenuGroup(null); }}><FileCheck2 size={17} /> 입찰공고</button>}
+
+          {isAdmin && (
+            <div className={`menu-group ${openMenuGroup === "dispatch" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "dispatch"} onClick={() => setOpenMenuGroup((current) => current === "dispatch" ? null : "dispatch")}><Truck size={17} /> 운행관리</button>
+              <div className="sub">
+                {menuButton("dispatch_register", "배차등록")}
+                {menuButton("dispatch_list", "배차목록")}
+                {menuButton("dispatch_vehicles", "차량관리")}
+                {menuButton("dispatch_drivers", "기사관리")}
+                {menuButton("dispatch_basics", "배차 기초관리")}
+              </div>
+            </div>
+          )}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
@@ -7176,6 +7185,16 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
+        {isAdmin && DISPATCH_VIEWS.includes(menuTab as DispatchView) && (
+          <DispatchPage
+            view={menuTab as DispatchView}
+            supabase={supabase}
+            isAdmin={isAdmin}
+            onNavigate={(view) => setMenuTab(view)}
+            onNotify={showToast}
+          />
+        )}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
@@ -8220,6 +8239,11 @@ export default function App() {
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
                   {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
@@ -8250,7 +8274,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
@@ -11714,7 +11738,6 @@ label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6
 .hero{width:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .main-title{margin:0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;color:white;text-shadow:0 4px 14px rgba(0,0,0,.35)}
 .hero p{margin:10px 0 0;color:#dbeafe;text-align:center;font-size:18px;font-weight:600;letter-spacing:2px}
-.loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}
 .app-toast{
   position:fixed;
   top:22px;
