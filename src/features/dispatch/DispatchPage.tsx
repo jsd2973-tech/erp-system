@@ -295,12 +295,14 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
 
   return (
     <div className="dispatch-page">
-      <header className="dispatch-hero">
-        <div><span>25.5T DUMP DISPATCH</span><h1>운행관리</h1><p>차량·기사·배차를 한 화면 흐름으로 관리합니다.</p></div>
-        <button type="button" onClick={() => void loadDispatchData()} disabled={initialLoading || refreshing}>{refreshing ? "새로고침 중..." : "새로고침"}</button>
-      </header>
-      <div className="dispatch-summary">
-        <div className="today"><span>오늘 배차</span><b>{summary.today}건</b></div><div className="waiting"><span>대기</span><b>{summary.waiting}건</b></div><div className="active"><span>진행중</span><b>{summary.active}건</b></div><div className="done"><span>완료</span><b>{summary.done}건</b></div>
+      <div className="dispatch-command-bar">
+        <header className="dispatch-hero">
+          <div><span>DISPATCH CONTROL</span><h1>운행관리</h1><p>차량·기사·배차 현황을 관리합니다.</p></div>
+          <button type="button" onClick={() => void loadDispatchData()} disabled={initialLoading || refreshing}>{refreshing ? "새로고침 중..." : "새로고침"}</button>
+        </header>
+        <div className="dispatch-summary" aria-label="배차 현황 요약">
+          <div className="today"><span>오늘 배차</span><b>{summary.today}</b><small>건</small></div><div className="waiting"><span>대기</span><b>{summary.waiting}</b><small>건</small></div><div className="active"><span>진행중</span><b>{summary.active}</b><small>건</small></div><div className="done"><span>완료</span><b>{summary.done}</b><small>건</small></div>
+        </div>
       </div>
       <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
       {error && <div className="dispatch-load-error">{error}</div>}
