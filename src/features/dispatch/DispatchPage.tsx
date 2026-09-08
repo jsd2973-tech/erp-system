@@ -5,14 +5,13 @@ import DispatchRegister from "./DispatchRegister";
 import DispatchBasics from "./DispatchBasics";
 import DriverManagement from "./DriverManagement";
 import VehicleManagement from "./VehicleManagement";
-import type { DispatchCustomer, DispatchDriver, DispatchLocation, DispatchLocationType, DispatchOrder, DispatchOrderForm, DispatchOrderVehicle, DispatchOrderWithVehicles, DispatchReferenceOption, DispatchVehicle, DispatchView } from "./dispatchTypes";
+import type { DispatchCustomer, DispatchDriver, DispatchItem, DispatchLocation, DispatchLocationType, DispatchOrder, DispatchOrderForm, DispatchOrderVehicle, DispatchOrderWithVehicles, DispatchVehicle, DispatchView } from "./dispatchTypes";
 import { createDispatchId, dispatchToday, toPositiveNumber, calculateEstimatedTrips } from "./dispatchUtils";
 import "./dispatch.css";
 
 type DispatchPageProps = {
   view: DispatchView;
   supabase: SupabaseClient;
-  items: DispatchReferenceOption[];
   isAdmin: boolean;
   onNavigate: (view: DispatchView) => void;
   onNotify: (message: string) => void;
@@ -26,13 +25,14 @@ const viewLabels: Record<DispatchView, string> = {
   dispatch_basics: "배차 기초관리",
 };
 
-const normalizedMasterName = (value: string) => value.trim().toLocaleLowerCase("ko-KR");
+const normalizedMasterName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 
-export default function DispatchPage({ view, supabase, items, isAdmin, onNavigate, onNotify }: DispatchPageProps) {
+export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNotify }: DispatchPageProps) {
   const [vehicles, setVehicles] = useState<DispatchVehicle[]>([]);
   const [drivers, setDrivers] = useState<DispatchDriver[]>([]);
   const [customers, setCustomers] = useState<DispatchCustomer[]>([]);
   const [locations, setLocations] = useState<DispatchLocation[]>([]);
+  const [items, setItems] = useState<DispatchItem[]>([]);
   const [orders, setOrders] = useState<DispatchOrderWithVehicles[]>([]);
   const [editingOrder, setEditingOrder] = useState<DispatchOrderWithVehicles | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,13 +42,14 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
   const loadDispatchData = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [vehicleResult, driverResult, orderResult, assignmentResult, customerResult, locationResult] = await Promise.all([
+    const [vehicleResult, driverResult, orderResult, assignmentResult, customerResult, locationResult, itemResult] = await Promise.all([
       supabase.from("dispatch_vehicles").select("*").order("vehicle_number", { ascending: true }),
       supabase.from("dispatch_drivers").select("*").order("name", { ascending: true }),
       supabase.from("dispatch_orders").select("*").order("dispatch_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("dispatch_order_vehicles").select("*").order("created_at", { ascending: true }),
       supabase.from("dispatch_customers").select("*").order("name", { ascending: true }),
       supabase.from("dispatch_locations").select("*").order("name", { ascending: true }),
+      supabase.from("dispatch_items").select("*").order("name", { ascending: true }),
     ]);
 
     const coreError = vehicleResult.error || driverResult.error || orderResult.error || assignmentResult.error;
@@ -57,13 +58,14 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
       setLoading(false);
       return;
     }
-    const masterError = customerResult.error || locationResult.error;
-    if (masterError) setError(`배차 거래처·장소 SQL 적용 여부를 확인하세요. 기존 차량·기사·배차 자료는 계속 사용할 수 있습니다. (${masterError.message})`);
+    const masterError = customerResult.error || locationResult.error || itemResult.error;
+    if (masterError) setError(`배차 거래처·장소·품목 SQL 적용 여부를 확인하세요. 기존 차량·기사·배차 자료는 계속 사용할 수 있습니다. (${masterError.message})`);
 
     const nextVehicles = (vehicleResult.data || []).map((row) => ({ ...row, id: String(row.id), vehicle_number: String(row.vehicle_number || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchVehicle[];
     const nextDrivers = (driverResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), phone: String(row.phone || ""), assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null, active: row.active !== false, memo: String(row.memo || "") })) as DispatchDriver[];
     const nextCustomers = (customerResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchCustomer[];
     const nextLocations = (locationResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), location_type: String(row.location_type || "공용") as DispatchLocationType, active: row.active !== false, memo: String(row.memo || "") })) as DispatchLocation[];
+    const nextItems = (itemResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchItem[];
     const assignments = (assignmentResult.data || []).map((row) => ({ ...row, id: String(row.id), order_id: String(row.order_id), vehicle_id: String(row.vehicle_id) })) as DispatchOrderVehicle[];
     const assignmentMap = new Map<string, string[]>();
     assignments.forEach((assignment) => assignmentMap.set(assignment.order_id, [...(assignmentMap.get(assignment.order_id) || []), assignment.vehicle_id]));
@@ -89,6 +91,7 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
     setDrivers(nextDrivers);
     setCustomers(nextCustomers);
     setLocations(nextLocations);
+    setItems(nextItems);
     setOrders(nextOrders);
     setLoading(false);
   }, [supabase]);
@@ -149,16 +152,31 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
     return true;
   };
 
+  const saveItem = async (item: DispatchItem) => {
+    const name = item.name.trim().replace(/\s+/g, " ");
+    const duplicate = items.some((existing) => existing.id !== item.id && normalizedMasterName(existing.name) === normalizedMasterName(name));
+    if (duplicate) { setError("이미 등록된 배차 품목입니다."); return false; }
+    setSaving(true);
+    const { error: saveError } = await supabase.from("dispatch_items").upsert({ id: item.id || createDispatchId(), name, active: item.active, memo: item.memo.trim() });
+    setSaving(false);
+    if (saveError) { setError(saveError.code === "23505" ? "이미 등록된 배차 품목입니다." : `품목 저장 실패: ${saveError.message}`); return false; }
+    await loadDispatchData();
+    onNotify(item.id ? "배차 품목을 수정했습니다." : "배차 품목을 등록했습니다.");
+    return true;
+  };
+
   const saveOrder = async (form: DispatchOrderForm) => {
-    const item = items.find((option) => option.id === form.item_id);
     const vendorName = form.vendor_name.trim();
-    if (!vendorName || !item) {
-      setError("입력한 거래처 또는 선택한 품목을 확인해 주세요.");
+    const itemName = form.item_name.trim().replace(/\s+/g, " ");
+    if (!vendorName || !itemName) {
+      setError("입력한 거래처 또는 품목을 확인해 주세요.");
       return false;
     }
 
     let selectedCustomer = customers.find((customer) => customer.id === form.vendor_id)
       || customers.find((customer) => normalizedMasterName(customer.name) === normalizedMasterName(vendorName));
+    let selectedItem = items.find((item) => item.id === form.item_id)
+      || items.find((item) => normalizedMasterName(item.name) === normalizedMasterName(itemName));
 
     setSaving(true);
     if (!selectedCustomer && form.save_vendor) {
@@ -170,6 +188,17 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
         return false;
       }
       selectedCustomer = customer;
+    }
+
+    if (!selectedItem && form.save_item) {
+      const item: DispatchItem = { id: createDispatchId(), name: itemName, active: true, memo: "" };
+      const { error: itemError } = await supabase.from("dispatch_items").insert(item);
+      if (itemError) {
+        setSaving(false);
+        setError(itemError.code === "23505" ? "같은 이름의 배차 품목이 이미 있습니다. 새로고침 후 선택해 주세요." : `신규 품목 저장 실패: ${itemError.message}`);
+        return false;
+      }
+      selectedItem = item;
     }
 
     const pendingLocations = new Map<string, { id: string; name: string; location_type: DispatchLocationType; active: boolean; memo: string }>();
@@ -201,8 +230,8 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
       vendor_name: vendorName,
       loading_location: form.loading_location.trim(),
       unloading_location: form.unloading_location.trim(),
-      item_id: item.id,
-      item_name: item.name,
+      item_id: selectedItem?.id || null,
+      item_name: itemName,
       total_volume: totalVolume,
       volume_per_trip: volumePerTrip,
       estimated_trip_count: calculateEstimatedTrips(totalVolume, volumePerTrip),
@@ -257,7 +286,7 @@ export default function DispatchPage({ view, supabase, items, isAdmin, onNavigat
         {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} onEdit={editOrder} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}
-        {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} />}
+        {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} items={items} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} onSaveItem={saveItem} />}
       </>}
     </div>
   );

@@ -11,14 +11,16 @@ export type DispatchView = (typeof DISPATCH_VIEWS)[number];
 export const DISPATCH_STATUSES = ["대기", "진행중", "완료", "취소"] as const;
 export type DispatchStatus = (typeof DISPATCH_STATUSES)[number];
 
-export type DispatchReferenceOption = {
+export type DispatchCustomer = {
   id: string;
   name: string;
-  code?: string;
-  spec?: string;
+  active: boolean;
+  memo: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
-export type DispatchCustomer = {
+export type DispatchItem = {
   id: string;
   name: string;
   active: boolean;
@@ -101,6 +103,8 @@ export type DispatchOrderForm = {
   unloading_location: string;
   save_unloading_location: boolean;
   item_id: string;
+  item_name: string;
+  save_item: boolean;
   total_volume: string;
   volume_per_trip: string;
   status: DispatchStatus;

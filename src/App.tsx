@@ -7195,7 +7195,6 @@ export default function App() {
           <DispatchPage
             view={menuTab as DispatchView}
             supabase={supabase}
-            items={items.map((item) => ({ id: item.id, name: item.name, code: item.code, spec: item.spec }))}
             isAdmin={isAdmin}
             onNavigate={(view) => setMenuTab(view)}
             onNotify={showToast}

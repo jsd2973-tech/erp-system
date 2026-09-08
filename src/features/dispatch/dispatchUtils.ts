@@ -40,6 +40,8 @@ export const emptyDispatchOrderForm = (): DispatchOrderForm => ({
   unloading_location: "",
   save_unloading_location: false,
   item_id: "",
+  item_name: "",
+  save_item: false,
   total_volume: "",
   volume_per_trip: "17",
   status: "대기",

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import DispatchCombobox from "./DispatchCombobox";
-import type { DispatchCustomer, DispatchLocation, DispatchOrderForm, DispatchOrderWithVehicles, DispatchReferenceOption, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchCustomer, DispatchItem, DispatchLocation, DispatchOrderForm, DispatchOrderWithVehicles, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
 import { calculateEstimatedTrips, emptyDispatchOrderForm } from "./dispatchUtils";
 
 type DispatchRegisterProps = {
   customers: DispatchCustomer[];
   locations: DispatchLocation[];
-  items: DispatchReferenceOption[];
+  items: DispatchItem[];
   vehicles: DispatchVehicle[];
   editingOrder: DispatchOrderWithVehicles | null;
   saving: boolean;
@@ -15,7 +15,7 @@ type DispatchRegisterProps = {
   onCancelEdit: () => void;
 };
 
-const normalizedName = (value: string) => value.trim().toLocaleLowerCase("ko-KR");
+const normalizedName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 
 export default function DispatchRegister({ customers, locations, items, vehicles, editingOrder, saving, onSave, onCancelEdit }: DispatchRegisterProps) {
   const [form, setForm] = useState<DispatchOrderForm>(emptyDispatchOrderForm);
@@ -25,9 +25,11 @@ export default function DispatchRegister({ customers, locations, items, vehicles
   const customerOptions = useMemo(() => customers.filter((customer) => customer.active || customer.id === form.vendor_id).map((customer) => ({ id: customer.id, name: customer.name, detail: customer.memo })), [customers, form.vendor_id]);
   const loadingOptions = useMemo(() => locations.filter((location) => location.active && (location.location_type === "상차지" || location.location_type === "공용")).map((location) => ({ id: location.id, name: location.name, detail: location.location_type })), [locations]);
   const unloadingOptions = useMemo(() => locations.filter((location) => location.active && (location.location_type === "하차지" || location.location_type === "공용")).map((location) => ({ id: location.id, name: location.name, detail: location.location_type })), [locations]);
+  const itemOptions = useMemo(() => items.filter((item) => item.active || item.id === form.item_id).map((item) => ({ id: item.id, name: item.name, detail: item.memo })), [items, form.item_id]);
   const isNewCustomer = !!form.vendor_name.trim() && !customers.some((customer) => normalizedName(customer.name) === normalizedName(form.vendor_name));
   const isNewLoadingLocation = !!form.loading_location.trim() && !locations.some((location) => normalizedName(location.name) === normalizedName(form.loading_location));
   const isNewUnloadingLocation = !!form.unloading_location.trim() && !locations.some((location) => normalizedName(location.name) === normalizedName(form.unloading_location));
+  const isNewItem = !!form.item_name.trim() && !items.some((item) => normalizedName(item.name) === normalizedName(form.item_name));
 
   useEffect(() => {
     if (!editingOrder) return setForm(emptyDispatchOrderForm());
@@ -42,6 +44,8 @@ export default function DispatchRegister({ customers, locations, items, vehicles
       unloading_location: editingOrder.unloading_location,
       save_unloading_location: false,
       item_id: editingOrder.item_id || "",
+      item_name: editingOrder.item_name,
+      save_item: false,
       total_volume: String(editingOrder.total_volume),
       volume_per_trip: String(editingOrder.volume_per_trip),
       status: editingOrder.status,
@@ -58,7 +62,7 @@ export default function DispatchRegister({ customers, locations, items, vehicles
     if (!form.vendor_name.trim()) return setError("거래처를 입력하세요.");
     if (!form.loading_location.trim()) return setError("상차지를 입력하세요.");
     if (!form.unloading_location.trim()) return setError("하차지를 입력하세요.");
-    if (!form.item_id) return setError("품목을 선택하세요.");
+    if (!form.item_name.trim()) return setError("품목을 입력하세요.");
     if (!estimatedTrips) return setError("총 물량과 1대 기준 물량을 확인하세요.");
     setError("");
     const saved = await onSave(form);
@@ -74,7 +78,10 @@ export default function DispatchRegister({ customers, locations, items, vehicles
           <DispatchCombobox label="거래처" required value={form.vendor_name} options={customerOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, vendor_name: value, vendor_id: selectedId || "", save_vendor: selectedId ? false : form.save_vendor })} />
           {isNewCustomer && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_vendor} onChange={(event) => setForm({ ...form, save_vendor: event.target.checked })} />신규 거래처로 저장</label>}
         </div>
-        <label><span>품목 *</span><select value={form.item_id} onChange={(event) => setForm({ ...form, item_id: event.target.value })}><option value="">품목 선택</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name}{item.spec ? ` · ${item.spec}` : ""}</option>)}</select></label>
+        <div className="dispatch-combobox-field">
+          <DispatchCombobox label="품목" required value={form.item_name} options={itemOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, item_name: value, item_id: selectedId || "", save_item: selectedId ? false : form.save_item })} />
+          {isNewItem && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_item} onChange={(event) => setForm({ ...form, save_item: event.target.checked })} />신규 품목으로 저장</label>}
+        </div>
         <div className="dispatch-combobox-field">
           <DispatchCombobox label="상차지" required value={form.loading_location} options={loadingOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, loading_location: value, save_loading_location: selectedId ? false : form.save_loading_location })} />
           {isNewLoadingLocation && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_loading_location} onChange={(event) => setForm({ ...form, save_loading_location: event.target.checked })} />상차지 목록에 저장</label>}
