@@ -19,6 +19,10 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
     const name = form.name.trim();
     if (!name) return setError("기사 이름을 입력하세요.");
     if (form.auth_user_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(form.auth_user_id)) return setError("Supabase Auth User UUID 형식을 확인하세요.");
+    const vehicleConflict = form.active && form.assigned_vehicle_id
+      ? drivers.find((driver) => driver.id !== form.id && driver.active && driver.assigned_vehicle_id === form.assigned_vehicle_id)
+      : null;
+    if (vehicleConflict) return setError(`이 차량은 활성 기사 ${vehicleConflict.name}님에게 이미 연결되어 있습니다.`);
     setError("");
     const saved = await onSave({ ...form, name, phone: form.phone.trim(), memo: form.memo.trim() });
     if (saved) setForm(emptyDriver());

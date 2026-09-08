@@ -2,12 +2,38 @@
 -- 기존 테이블/데이터를 삭제하거나 초기화하지 않습니다.
 -- Supabase SQL Editor에서 이 파일 전체를 한 번 실행하세요. 재실행해도 안전하게 작성했습니다.
 
+do $$
+declare
+  duplicate_vehicles text;
+begin
+  select string_agg(vehicle_number || ' (' || driver_count || '명)', ', ' order by vehicle_number)
+  into duplicate_vehicles
+  from (
+    select vehicle.vehicle_number, count(*) as driver_count
+    from public.dispatch_drivers driver
+    join public.dispatch_vehicles vehicle on vehicle.id = driver.assigned_vehicle_id
+    where driver.active = true
+      and driver.assigned_vehicle_id is not null
+    group by vehicle.id, vehicle.vehicle_number
+    having count(*) > 1
+  ) duplicates;
+
+  if duplicate_vehicles is not null then
+    raise exception '활성 기사 중 같은 차량에 중복 연결된 기사가 있습니다: %. 기사관리에서 차량당 활성 기사 1명으로 정리한 뒤 다시 실행해 주세요.', duplicate_vehicles;
+  end if;
+end;
+$$;
+
 alter table public.dispatch_drivers
   add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
 
 create unique index if not exists dispatch_drivers_auth_user_id_key
   on public.dispatch_drivers (auth_user_id)
   where auth_user_id is not null;
+
+create unique index if not exists dispatch_drivers_active_vehicle_key
+  on public.dispatch_drivers (assigned_vehicle_id)
+  where active = true and assigned_vehicle_id is not null;
 
 create table if not exists public.dispatch_trips (
   id uuid primary key default gen_random_uuid(),

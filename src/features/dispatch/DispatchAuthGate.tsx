@@ -4,8 +4,6 @@ import { supabase } from "../../supabaseClient";
 import DriverMobileApp from "./DriverMobileApp";
 import type { DispatchDriver } from "./dispatchTypes";
 
-const ERP_ADMIN_EMAILS = new Set(["jsd2973@gmail.com"]);
-
 const toDriver = (row: Record<string, unknown>): DispatchDriver => ({
   id: String(row.id),
   name: String(row.name || ""),
@@ -23,13 +21,34 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
   const [driver, setDriver] = useState<DispatchDriver | null>(null);
 
   const resolveSession = useCallback(async (session: Session | null) => {
-    if (!session || ERP_ADMIN_EMAILS.has(String(session.user.email || "").toLowerCase())) {
+    if (!session) {
       setDriver(null);
       setChecking(false);
       return;
     }
 
     setChecking(true);
+    const userEmail = String(session.user.email || "").trim().toLowerCase();
+    const [adminResult, permissionResult] = await Promise.all([
+      supabase.rpc("is_dispatch_admin"),
+      userEmail
+        ? supabase.from("user_permissions").select("id").eq("email", userEmail).limit(1).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (adminResult.error || permissionResult.error) {
+      console.error("ERP 계정 권한 확인 실패", adminResult.error || permissionResult.error);
+      setDriver(null);
+      setChecking(false);
+      return;
+    }
+
+    if (adminResult.data === true || permissionResult.data) {
+      setDriver(null);
+      setChecking(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("dispatch_drivers")
       .select("*")
