@@ -1,19 +1,21 @@
 import { useMemo, useState } from "react";
 import DispatchDetail from "./DispatchDetail";
-import type { DispatchFilters, DispatchOrderWithVehicles, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchFilters, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
 type DispatchListProps = {
   orders: DispatchOrderWithVehicles[];
   vehicles: DispatchVehicle[];
+  drivers: DispatchDriver[];
+  trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
   compact?: boolean;
 };
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, vehicles, onEdit, compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, vehicles, drivers, trips, onEdit, compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
 
@@ -39,17 +41,17 @@ export default function DispatchList({ orders, vehicles, onEdit, compact = false
       </div>}
       <div className="dispatch-table-wrap">
         <table className="dispatch-table dispatch-order-table">
-          <thead><tr><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>1대 기준</th><th>예상</th><th>배정</th><th>상태</th><th>메모</th></tr></thead>
+          <thead><tr><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>1회 기준</th><th>예정 회차</th><th>배정 차량</th><th>상태</th><th>메모</th></tr></thead>
           <tbody>
             {!filtered.length ? <tr><td colSpan={9} className="dispatch-empty">조건에 맞는 배차가 없습니다.</td></tr> : filtered.map((order) => (
               <tr key={order.id} className={selectedId === order.id ? "selected" : ""} onClick={() => setSelectedId(order.id)}>
-                <td>{order.dispatch_date}</td><td className="dispatch-strong">{order.vendor_name}</td><td>{order.item_name}</td><td>{formatVolume(order.total_volume)}</td><td>{formatVolume(order.volume_per_trip)}</td><td>{order.estimated_trip_count}대</td><td>{order.vehicle_ids.length}대</td><td><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td><td>{order.memo || "-"}</td>
+                <td>{order.dispatch_date}</td><td className="dispatch-strong">{order.vendor_name}</td><td>{order.item_name}</td><td>{formatVolume(order.total_volume)}</td><td>{formatVolume(order.volume_per_trip)}</td><td>{order.estimated_trip_count}회</td><td>{order.vehicle_ids.length}대</td><td><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td><td>{order.memo || "-"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} onEdit={onEdit} onClose={() => setSelectedId("")} />}
+      {selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={trips.filter((trip) => trip.dispatch_order_id === selectedOrder.id)} onEdit={onEdit} onClose={() => setSelectedId("")} />}
     </section>
   );
 }

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { createClient } from "@supabase/supabase-js";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
+import { supabase } from "./supabaseClient";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -94,19 +94,6 @@ type MaintenancePhoto = {
 };
 
 
-
-const supabase = createClient(
-  "https://jqdvxmatbmmeubtoogvl.supabase.co",
-  "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7",
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: window.localStorage,
-    },
-  }
-);
 
 const toPurchase = (p: any): Purchase => ({
   id: p.id,

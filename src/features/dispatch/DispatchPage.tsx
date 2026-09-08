@@ -5,7 +5,7 @@ import DispatchRegister from "./DispatchRegister";
 import DispatchBasics from "./DispatchBasics";
 import DriverManagement from "./DriverManagement";
 import VehicleManagement from "./VehicleManagement";
-import type { DispatchCustomer, DispatchDriver, DispatchItem, DispatchLocation, DispatchLocationType, DispatchOrder, DispatchOrderForm, DispatchOrderVehicle, DispatchOrderWithVehicles, DispatchVehicle, DispatchView } from "./dispatchTypes";
+import type { DispatchCustomer, DispatchDriver, DispatchItem, DispatchLocation, DispatchLocationType, DispatchOrder, DispatchOrderForm, DispatchOrderVehicle, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle, DispatchView } from "./dispatchTypes";
 import { createDispatchId, dispatchToday, toPositiveNumber, calculateEstimatedTrips } from "./dispatchUtils";
 import "./dispatch.css";
 
@@ -34,6 +34,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
   const [locations, setLocations] = useState<DispatchLocation[]>([]);
   const [items, setItems] = useState<DispatchItem[]>([]);
   const [orders, setOrders] = useState<DispatchOrderWithVehicles[]>([]);
+  const [trips, setTrips] = useState<DispatchTrip[]>([]);
   const [editingOrder, setEditingOrder] = useState<DispatchOrderWithVehicles | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,7 +47,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     if (isInitialLoad) setInitialLoading(true);
     else setRefreshing(true);
     setError("");
-    const [vehicleResult, driverResult, orderResult, assignmentResult, customerResult, locationResult, itemResult] = await Promise.all([
+    const [vehicleResult, driverResult, orderResult, assignmentResult, customerResult, locationResult, itemResult, tripResult] = await Promise.all([
       supabase.from("dispatch_vehicles").select("*").order("vehicle_number", { ascending: true }),
       supabase.from("dispatch_drivers").select("*").order("name", { ascending: true }),
       supabase.from("dispatch_orders").select("*").order("dispatch_date", { ascending: false }).order("created_at", { ascending: false }),
@@ -54,6 +55,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       supabase.from("dispatch_customers").select("*").order("name", { ascending: true }),
       supabase.from("dispatch_locations").select("*").order("name", { ascending: true }),
       supabase.from("dispatch_items").select("*").order("name", { ascending: true }),
+      supabase.from("dispatch_trips").select("*").order("created_at", { ascending: false }),
     ]);
 
     const coreError = vehicleResult.error || driverResult.error || orderResult.error || assignmentResult.error;
@@ -67,7 +69,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     if (masterError) setError(`배차 거래처·장소·품목 SQL 적용 여부를 확인하세요. 기존 차량·기사·배차 자료는 계속 사용할 수 있습니다. (${masterError.message})`);
 
     const nextVehicles = (vehicleResult.data || []).map((row) => ({ ...row, id: String(row.id), vehicle_number: String(row.vehicle_number || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchVehicle[];
-    const nextDrivers = (driverResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), phone: String(row.phone || ""), assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null, active: row.active !== false, memo: String(row.memo || "") })) as DispatchDriver[];
+    const nextDrivers = (driverResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), phone: String(row.phone || ""), assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null, auth_user_id: row.auth_user_id ? String(row.auth_user_id) : null, active: row.active !== false, memo: String(row.memo || "") })) as DispatchDriver[];
     const nextCustomers = (customerResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchCustomer[];
     const nextLocations = (locationResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), location_type: String(row.location_type || "공용") as DispatchLocationType, active: row.active !== false, memo: String(row.memo || "") })) as DispatchLocation[];
     const nextItems = (itemResult.data || []).map((row) => ({ ...row, id: String(row.id), name: String(row.name || ""), active: row.active !== false, memo: String(row.memo || "") })) as DispatchItem[];
@@ -91,6 +93,19 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       memo: String(row.memo || ""),
       vehicle_ids: assignmentMap.get(String(row.id)) || [],
     })) as DispatchOrderWithVehicles[];
+    const nextTrips = (tripResult.data || []).map((row) => ({
+      ...row,
+      id: String(row.id),
+      dispatch_order_id: String(row.dispatch_order_id),
+      vehicle_id: String(row.vehicle_id),
+      driver_id: String(row.driver_id),
+      trip_no: Number(row.trip_no || 0),
+      actual_volume: Number(row.actual_volume || 0),
+      status: row.status,
+      loading_completed_at: row.loading_completed_at ? String(row.loading_completed_at) : null,
+      unloading_completed_at: row.unloading_completed_at ? String(row.unloading_completed_at) : null,
+      created_at: String(row.created_at || ""),
+    })) as DispatchTrip[];
 
     setVehicles(nextVehicles);
     setDrivers(nextDrivers);
@@ -98,6 +113,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     if (!locationResult.error) setLocations(nextLocations);
     if (!itemResult.error) setItems(nextItems);
     setOrders(nextOrders);
+    if (!tripResult.error) setTrips(nextTrips);
     hasLoadedRef.current = true;
     setInitialLoading(false);
     setRefreshing(false);
@@ -121,11 +137,11 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
 
   const saveDriver = async (driver: DispatchDriver) => {
     setSaving(true);
-    const payload = { id: driver.id || createDispatchId(), name: driver.name, phone: driver.phone, assigned_vehicle_id: driver.assigned_vehicle_id, active: driver.active, memo: driver.memo };
+    const payload = { id: driver.id || createDispatchId(), name: driver.name, phone: driver.phone, assigned_vehicle_id: driver.assigned_vehicle_id, auth_user_id: driver.auth_user_id, active: driver.active, memo: driver.memo };
     const { error: saveError } = await supabase.from("dispatch_drivers").upsert(payload);
     setSaving(false);
     if (saveError) {
-      setError(`기사 저장 실패: ${saveError.message}`);
+      setError(saveError.code === "23505" ? "이미 다른 기사에게 연결된 로그인 User UUID입니다." : `기사 저장 실패: ${saveError.message}`);
       return false;
     }
     await loadDispatchData();
@@ -289,8 +305,8 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
       {error && <div className="dispatch-load-error">{error}</div>}
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
-        {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} onEdit={editOrder} compact /></>}
-        {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} onEdit={editOrder} />}
+        {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
+        {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}
         {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} items={items} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} onSaveItem={saveItem} />}

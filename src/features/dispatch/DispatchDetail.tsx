@@ -1,15 +1,23 @@
-import type { DispatchOrderWithVehicles, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
 type DispatchDetailProps = {
   order: DispatchOrderWithVehicles;
   vehicles: DispatchVehicle[];
+  drivers: DispatchDriver[];
+  trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
   onClose?: () => void;
 };
 
-export default function DispatchDetail({ order, vehicles, onEdit, onClose }: DispatchDetailProps) {
+const koreaDateTime = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) : "-";
+
+export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit, onClose }: DispatchDetailProps) {
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
+  const completedTrips = trips.filter((trip) => trip.status === "완료");
+  const activeTrips = trips.filter((trip) => trip.status === "상차대기" || trip.status === "진행중");
+  const actualVolume = completedTrips.reduce((sum, trip) => sum + trip.actual_volume, 0);
 
   return (
     <section className="dispatch-detail">
@@ -21,9 +29,12 @@ export default function DispatchDetail({ order, vehicles, onEdit, onClose }: Dis
         <div><span>거래처</span><b>{order.vendor_name}</b></div>
         <div><span>품목</span><b>{order.item_name}</b></div>
         <div><span>총 물량</span><b>{formatVolume(order.total_volume)}</b></div>
-        <div><span>1대 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
-        <div><span>예상 운행</span><b>{order.estimated_trip_count}대</b></div>
+        <div><span>1회 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
+        <div><span>예정 총 회차</span><b>{order.estimated_trip_count}회</b></div>
         <div><span>배정 차량</span><b>{order.vehicle_ids.length}대</b></div>
+        <div><span>완료 회차</span><b>{completedTrips.length}회</b></div>
+        <div><span>진행 중 회차</span><b>{activeTrips.length}회</b></div>
+        <div><span>실제 운송량</span><b>{formatVolume(actualVolume)}</b></div>
         <div><span>상차지</span><b>{order.loading_location}</b></div>
         <div><span>하차지</span><b>{order.unloading_location}</b></div>
         <div><span>상태</span><b><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></b></div>
@@ -32,6 +43,17 @@ export default function DispatchDetail({ order, vehicles, onEdit, onClose }: Dis
       <div className="dispatch-assigned-list">
         <span>배정 차량번호</span>
         <div>{order.vehicle_ids.length ? order.vehicle_ids.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
+      </div>
+      <div className="dispatch-trip-history">
+        <span>실제 운행기록</span>
+        <div className="dispatch-table-wrap">
+          <table className="dispatch-table">
+            <thead><tr><th>차량</th><th>기사</th><th>회차</th><th>상차시각</th><th>하차시각</th><th>운송량</th><th>상태</th></tr></thead>
+            <tbody>{!trips.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : trips.map((trip) => <tr key={trip.id}>
+              <td>{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td>{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td>{formatVolume(trip.actual_volume)}</td><td>{trip.status}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
       </div>
     </section>
   );

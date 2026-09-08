@@ -8,7 +8,7 @@ type DriverManagementProps = {
   onSave: (driver: DispatchDriver) => Promise<boolean>;
 };
 
-const emptyDriver = (): DispatchDriver => ({ id: "", name: "", phone: "", assigned_vehicle_id: null, active: true, memo: "" });
+const emptyDriver = (): DispatchDriver => ({ id: "", name: "", phone: "", assigned_vehicle_id: null, auth_user_id: null, active: true, memo: "" });
 
 export default function DriverManagement({ drivers, vehicles, saving, onSave }: DriverManagementProps) {
   const [form, setForm] = useState<DispatchDriver>(emptyDriver);
@@ -18,6 +18,11 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   const submit = async () => {
     const name = form.name.trim();
     if (!name) return setError("기사 이름을 입력하세요.");
+    if (form.auth_user_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(form.auth_user_id)) return setError("Supabase Auth User UUID 형식을 확인하세요.");
+    const vehicleConflict = form.active && form.assigned_vehicle_id
+      ? drivers.find((driver) => driver.id !== form.id && driver.active && driver.assigned_vehicle_id === form.assigned_vehicle_id)
+      : null;
+    if (vehicleConflict) return setError(`이 차량은 활성 기사 ${vehicleConflict.name}님에게 이미 연결되어 있습니다.`);
     setError("");
     const saved = await onSave({ ...form, name, phone: form.phone.trim(), memo: form.memo.trim() });
     if (saved) setForm(emptyDriver());
@@ -34,6 +39,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <label><span>기사명 *</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="기사 이름" /></label>
         <label><span>연락처</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="010-0000-0000" /></label>
         <label><span>담당 차량</span><select value={form.assigned_vehicle_id || ""} onChange={(event) => setForm({ ...form, assigned_vehicle_id: event.target.value || null })}><option value="">미지정</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number}{vehicle.active ? "" : " (미사용)"}</option>)}</select></label>
+        <label><span>기사 로그인 User UUID</span><input value={form.auth_user_id || ""} onChange={(event) => setForm({ ...form, auth_user_id: event.target.value.trim() || null })} placeholder="Supabase Auth 사용자 UUID" /></label>
         <label><span>상태</span><select value={form.active ? "active" : "inactive"} onChange={(event) => setForm({ ...form, active: event.target.value === "active" })}><option value="active">사용</option><option value="inactive">미사용</option></select></label>
         <label className="dispatch-wide"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="기사 관련 메모" /></label>
       </div>
@@ -45,11 +51,12 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
 
       <div className="dispatch-table-wrap">
         <table className="dispatch-table">
-          <thead><tr><th>기사명</th><th>연락처</th><th>담당 차량</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
+          <thead><tr><th>기사명</th><th>연락처</th><th>담당 차량</th><th>로그인 연결</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
           <tbody>
-            {!drivers.length ? <tr><td colSpan={6} className="dispatch-empty">등록된 기사가 없습니다.</td></tr> : drivers.map((driver) => (
+            {!drivers.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 기사가 없습니다.</td></tr> : drivers.map((driver) => (
               <tr key={driver.id}>
                 <td className="dispatch-strong">{driver.name}</td><td>{driver.phone || "-"}</td><td>{driver.assigned_vehicle_id ? vehicleById.get(driver.assigned_vehicle_id)?.vehicle_number || "연결 차량 확인 필요" : "미지정"}</td>
+                <td>{driver.auth_user_id ? <span className="dispatch-active-pill on">연결됨</span> : <span className="dispatch-active-pill off">미연결</span>}</td>
                 <td><span className={`dispatch-active-pill ${driver.active ? "on" : "off"}`}>{driver.active ? "사용" : "미사용"}</span></td><td>{driver.memo || "-"}</td>
                 <td><button type="button" onClick={() => { setForm({ ...driver }); setError(""); }}>수정</button></td>
               </tr>
