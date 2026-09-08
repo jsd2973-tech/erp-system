@@ -1296,7 +1296,6 @@ export default function App() {
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
   const [cardUses, setCardUses] = useState<CardUse[]>([]);
-  const [loading, setLoading] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authPrefs, setAuthPrefs] = useState(() => readAuthPrefs());
@@ -2195,7 +2194,6 @@ export default function App() {
 
 
   const loadAll = async () => {
-    setLoading(true);
     const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
       fetchAllRows("vendors", "code", 1000),
       fetchAllRows("warehouse_groups", "code", 1000),
@@ -2209,7 +2207,6 @@ export default function App() {
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
       console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
       alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
-      setLoading(false);
       return;
     }
 
@@ -2230,7 +2227,6 @@ export default function App() {
     setGroupForm({ code: nextCode(nextGroups), name: "" });
     setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
     setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -2285,7 +2281,6 @@ export default function App() {
 
       const approved = isAdmin || permissions.some((item) => item.email === userEmail);
       if (!approved) {
-        setLoading(false);
         return;
       }
 
@@ -2307,7 +2302,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session || !isPermissionApproved) return;
@@ -2343,7 +2338,7 @@ export default function App() {
     if (menuTab === "trash_bin") {
       loadDeletedRecords();
     }
-  }, [menuTab, session]);
+  }, [menuTab, session?.user?.id]);
 
 
   useEffect(() => {
@@ -2390,7 +2385,7 @@ export default function App() {
     }
 
     window.history.pushState(nextState, "", url);
-  }, [menuTab, session]);
+  }, [menuTab, session?.user?.id]);
 
   const vendorOptions = useMemo(
     () =>
@@ -5608,10 +5603,6 @@ export default function App() {
             <p>통합 관리 시스템</p>
           </div>
         </header>
-
-        {loading && <div className="loading">Supabase 데이터 불러오는 중...</div>}
-
-
 
         {showUpdateNotice && (
           <div className="update-popup-backdrop">
@@ -11744,7 +11735,6 @@ label{font-size:13px;font-weight:700;color:#334155;display:block;margin-bottom:6
 .hero{width:100%;background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;border-radius:24px;padding:26px 32px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .main-title{margin:0;text-align:center;font-size:42px;font-weight:900;letter-spacing:4px;color:white;text-shadow:0 4px 14px rgba(0,0,0,.35)}
 .hero p{margin:10px 0 0;color:#dbeafe;text-align:center;font-size:18px;font-weight:600;letter-spacing:2px}
-.loading{background:#fef3c7;color:#92400e;border-radius:12px;padding:12px 16px;margin:14px 0}
 .app-toast{
   position:fixed;
   top:22px;
