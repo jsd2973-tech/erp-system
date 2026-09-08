@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import DispatchList from "./DispatchList";
 import DispatchRegister from "./DispatchRegister";
@@ -35,12 +35,16 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
   const [items, setItems] = useState<DispatchItem[]>([]);
   const [orders, setOrders] = useState<DispatchOrderWithVehicles[]>([]);
   const [editingOrder, setEditingOrder] = useState<DispatchOrderWithVehicles | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const hasLoadedRef = useRef(false);
 
   const loadDispatchData = useCallback(async () => {
-    setLoading(true);
+    const isInitialLoad = !hasLoadedRef.current;
+    if (isInitialLoad) setInitialLoading(true);
+    else setRefreshing(true);
     setError("");
     const [vehicleResult, driverResult, orderResult, assignmentResult, customerResult, locationResult, itemResult] = await Promise.all([
       supabase.from("dispatch_vehicles").select("*").order("vehicle_number", { ascending: true }),
@@ -55,7 +59,8 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     const coreError = vehicleResult.error || driverResult.error || orderResult.error || assignmentResult.error;
     if (coreError) {
       setError(`기존 배차관리 자료를 불러오지 못했습니다. (${coreError.message})`);
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
       return;
     }
     const masterError = customerResult.error || locationResult.error || itemResult.error;
@@ -89,11 +94,13 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
 
     setVehicles(nextVehicles);
     setDrivers(nextDrivers);
-    setCustomers(nextCustomers);
-    setLocations(nextLocations);
-    setItems(nextItems);
+    if (!customerResult.error) setCustomers(nextCustomers);
+    if (!locationResult.error) setLocations(nextLocations);
+    if (!itemResult.error) setItems(nextItems);
     setOrders(nextOrders);
-    setLoading(false);
+    hasLoadedRef.current = true;
+    setInitialLoading(false);
+    setRefreshing(false);
   }, [supabase]);
 
   useEffect(() => { void loadDispatchData(); }, [loadDispatchData]);
@@ -274,14 +281,14 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     <div className="dispatch-page">
       <header className="dispatch-hero">
         <div><span>25.5T DUMP DISPATCH</span><h1>운행관리</h1><p>차량·기사·배차를 한 화면 흐름으로 관리합니다.</p></div>
-        <button type="button" onClick={() => void loadDispatchData()} disabled={loading}>새로고침</button>
+        <button type="button" onClick={() => void loadDispatchData()} disabled={initialLoading || refreshing}>{refreshing ? "새로고침 중..." : "새로고침"}</button>
       </header>
       <div className="dispatch-summary">
         <div><span>오늘 배차</span><b>{summary.today}건</b></div><div><span>대기</span><b>{summary.waiting}건</b></div><div><span>진행중</span><b>{summary.active}건</b></div><div><span>완료</span><b>{summary.done}건</b></div>
       </div>
       <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
       {error && <div className="dispatch-load-error">{error}</div>}
-      {loading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
+      {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} onEdit={editOrder} compact /></>}
         {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} onEdit={editOrder} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
