@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { createClient } from "@supabase/supabase-js";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
+import DispatchPage from "./features/dispatch/DispatchPage";
+import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -5698,6 +5700,18 @@ export default function App() {
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
           {canAccessTab("bid_notices") && <button className={menuTab === "bid_notices" ? "active" : ""} onClick={() => { setMenuTab("bid_notices"); setOpenMenuGroup(null); }}><FileCheck2 size={17} /> 입찰공고</button>}
 
+          {isAdmin && (
+            <div className={`menu-group ${openMenuGroup === "dispatch" ? "expanded" : ""}`}>
+              <button type="button" aria-expanded={openMenuGroup === "dispatch"} onClick={() => setOpenMenuGroup((current) => current === "dispatch" ? null : "dispatch")}><Truck size={17} /> 운행관리</button>
+              <div className="sub">
+                {menuButton("dispatch_register", "배차등록")}
+                {menuButton("dispatch_list", "배차목록")}
+                {menuButton("dispatch_vehicles", "차량관리")}
+                {menuButton("dispatch_drivers", "기사관리")}
+              </div>
+            </div>
+          )}
+
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
               <button type="button" aria-expanded={openMenuGroup === "purchase"} onClick={() => setOpenMenuGroup((current) => current === "purchase" ? null : "purchase")}><ShoppingCart size={17} /> 구매</button>
@@ -7176,6 +7190,18 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
+        {isAdmin && DISPATCH_VIEWS.includes(menuTab as DispatchView) && (
+          <DispatchPage
+            view={menuTab as DispatchView}
+            supabase={supabase}
+            vendors={vendors.map((vendor) => ({ id: vendor.id, name: vendor.name, code: vendor.code }))}
+            items={items.map((item) => ({ id: item.id, name: item.name, code: item.code, spec: item.spec }))}
+            isAdmin={isAdmin}
+            onNavigate={(view) => setMenuTab(view)}
+            onNotify={showToast}
+          />
+        )}
+
         {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
@@ -8220,6 +8246,10 @@ export default function App() {
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
                   {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
@@ -8250,7 +8280,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
