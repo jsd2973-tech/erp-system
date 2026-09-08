@@ -22,24 +22,24 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
   return (
     <section className="dispatch-detail">
       <div className="dispatch-section-head">
-        <div><h2>배차상세</h2><p>{order.dispatch_date} · {order.vendor_name}</p></div>
-        <div className="dispatch-detail-actions">{onClose && <button type="button" onClick={onClose}>닫기</button>}<button type="button" className="dispatch-primary" onClick={() => onEdit(order)}>수정</button></div>
+        <div className="dispatch-detail-heading"><span>{order.dispatch_date}</span><h2>{order.vendor_name}</h2><p>{order.item_name}</p></div>
+        <div className="dispatch-detail-actions"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span>{onClose && <button type="button" onClick={onClose}>닫기</button>}<button type="button" className="dispatch-primary" onClick={() => onEdit(order)}>수정</button></div>
+      </div>
+      <div className="dispatch-route">
+        <div><span>상차지</span><b>{order.loading_location}</b></div>
+        <i aria-hidden="true">→</i>
+        <div><span>하차지</span><b>{order.unloading_location}</b></div>
       </div>
       <div className="dispatch-detail-grid">
-        <div><span>거래처</span><b>{order.vendor_name}</b></div>
-        <div><span>품목</span><b>{order.item_name}</b></div>
         <div><span>총 물량</span><b>{formatVolume(order.total_volume)}</b></div>
         <div><span>1회 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
         <div><span>예정 총 회차</span><b>{order.estimated_trip_count}회</b></div>
         <div><span>배정 차량</span><b>{order.vehicle_ids.length}대</b></div>
         <div><span>완료 회차</span><b>{completedTrips.length}회</b></div>
         <div><span>진행 중 회차</span><b>{activeTrips.length}회</b></div>
-        <div><span>실제 운송량</span><b>{formatVolume(actualVolume)}</b></div>
-        <div><span>상차지</span><b>{order.loading_location}</b></div>
-        <div><span>하차지</span><b>{order.unloading_location}</b></div>
-        <div><span>상태</span><b><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></b></div>
-        <div className="dispatch-detail-wide"><span>메모</span><b>{order.memo || "-"}</b></div>
+        <div className="dispatch-detail-emphasis"><span>실제 운송량</span><b>{formatVolume(actualVolume)}</b></div>
       </div>
+      {order.memo && <div className="dispatch-detail-note"><span>메모</span><p>{order.memo}</p></div>}
       <div className="dispatch-assigned-list">
         <span>배정 차량번호</span>
         <div>{order.vehicle_ids.length ? order.vehicle_ids.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
@@ -50,7 +50,7 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
           <table className="dispatch-table">
             <thead><tr><th>차량</th><th>기사</th><th>회차</th><th>상차시각</th><th>하차시각</th><th>운송량</th><th>상태</th></tr></thead>
             <tbody>{!trips.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : trips.map((trip) => <tr key={trip.id}>
-              <td>{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td>{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td>{formatVolume(trip.actual_volume)}</td><td>{trip.status}</td>
+              <td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
             </tr>)}</tbody>
           </table>
         </div>

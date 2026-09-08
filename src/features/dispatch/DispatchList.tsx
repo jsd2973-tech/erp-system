@@ -37,7 +37,7 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
         <label><span>거래처</span><input value={filters.vendor} onChange={(event) => setFilters({ ...filters, vendor: event.target.value })} placeholder="거래처 검색" /></label>
         <label><span>품목</span><input value={filters.item} onChange={(event) => setFilters({ ...filters, item: event.target.value })} placeholder="품목 검색" /></label>
         <label><span>상태</span><select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value as DispatchFilters["status"] })}><option value="">전체</option>{DISPATCH_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
-        <button type="button" onClick={() => setFilters(emptyFilters)}>초기화</button>
+        <button type="button" className="dispatch-filter-reset" onClick={() => setFilters(emptyFilters)}>초기화</button>
       </div>}
       <div className="dispatch-table-wrap">
         <table className="dispatch-table dispatch-order-table">
@@ -45,7 +45,15 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
           <tbody>
             {!filtered.length ? <tr><td colSpan={9} className="dispatch-empty">조건에 맞는 배차가 없습니다.</td></tr> : filtered.map((order) => (
               <tr key={order.id} className={selectedId === order.id ? "selected" : ""} onClick={() => setSelectedId(order.id)}>
-                <td>{order.dispatch_date}</td><td className="dispatch-strong">{order.vendor_name}</td><td>{order.item_name}</td><td>{formatVolume(order.total_volume)}</td><td>{formatVolume(order.volume_per_trip)}</td><td>{order.estimated_trip_count}회</td><td>{order.vehicle_ids.length}대</td><td><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td><td>{order.memo || "-"}</td>
+                <td className="dispatch-date-cell">{order.dispatch_date}</td>
+                <td className="dispatch-strong">{order.vendor_name}</td>
+                <td className="dispatch-item-cell">{order.item_name}</td>
+                <td className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
+                <td className="dispatch-number-cell">{formatVolume(order.volume_per_trip)}</td>
+                <td className="dispatch-count-cell">{order.estimated_trip_count}회</td>
+                <td className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
+                <td><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td>
+                <td className="dispatch-memo-cell" title={order.memo || ""}>{order.memo || "-"}</td>
               </tr>
             ))}
           </tbody>

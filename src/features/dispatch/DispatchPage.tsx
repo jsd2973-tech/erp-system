@@ -300,9 +300,9 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
         <button type="button" onClick={() => void loadDispatchData()} disabled={initialLoading || refreshing}>{refreshing ? "새로고침 중..." : "새로고침"}</button>
       </header>
       <div className="dispatch-summary">
-        <div><span>오늘 배차</span><b>{summary.today}건</b></div><div><span>대기</span><b>{summary.waiting}건</b></div><div><span>진행중</span><b>{summary.active}건</b></div><div><span>완료</span><b>{summary.done}건</b></div>
+        <div className="today"><span>오늘 배차</span><b>{summary.today}건</b></div><div className="waiting"><span>대기</span><b>{summary.waiting}건</b></div><div className="active"><span>진행중</span><b>{summary.active}건</b></div><div className="done"><span>완료</span><b>{summary.done}건</b></div>
       </div>
-      <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
+      <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
       {error && <div className="dispatch-load-error">{error}</div>}
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
