@@ -2955,15 +2955,24 @@ export default function App() {
     if (!validFiles) return uploadedUrls;
 
     for (const file of validFiles) {
-      const isImage = file.type.startsWith("image/");
+      const isImage =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || "");
+
       const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = isImage ? "jpg" : getUploadFileExtension(file);
+      const ext = getUploadFileExtension(
+        uploadFile,
+        getUploadFileExtension(file, isImage ? "jpg" : "bin")
+      );
+      const uploadContentType =
+        uploadFile.type || file.type || "application/octet-stream";
+
       const fileName = `card-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
       const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
         cacheControl: "3600",
         upsert: false,
-        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
+        contentType: uploadContentType,
       });
 
       if (error) {
@@ -7397,11 +7406,10 @@ export default function App() {
 
             <div className="between">
               <label className={`upload${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
-                <Upload size={16} /> {cardUploading ? "영수증 업로드 중..." : "영수증 여러 장 업로드"}
+                <Upload size={16} /> {cardUploading ? "영수증 업로드 중..." : "영수증 사진/파일 선택"}
                 <input
                   type="file"
                   accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
-                  capture="environment"
                   multiple
                   disabled={cardUploading}
                   onChange={async (e) => {
