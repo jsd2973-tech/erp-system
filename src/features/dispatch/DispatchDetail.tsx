@@ -29,8 +29,8 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
         <div><span>거래처</span><b>{order.vendor_name}</b></div>
         <div><span>품목</span><b>{order.item_name}</b></div>
         <div><span>총 물량</span><b>{formatVolume(order.total_volume)}</b></div>
-        <div><span>1대 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
-        <div><span>예상 운행</span><b>{order.estimated_trip_count}대</b></div>
+        <div><span>1회 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
+        <div><span>예정 총 회차</span><b>{order.estimated_trip_count}회</b></div>
         <div><span>배정 차량</span><b>{order.vehicle_ids.length}대</b></div>
         <div><span>완료 회차</span><b>{completedTrips.length}회</b></div>
         <div><span>진행 중 회차</span><b>{activeTrips.length}회</b></div>

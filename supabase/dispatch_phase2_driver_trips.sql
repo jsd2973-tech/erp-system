@@ -293,9 +293,9 @@ as $$
 declare
   v_driver_id text := public.current_dispatch_driver_id();
   v_trip public.dispatch_trips%rowtype;
+  v_order public.dispatch_orders%rowtype;
   v_volume numeric;
   v_completed_volume numeric;
-  v_total_volume numeric;
 begin
   select trip.* into v_trip
   from public.dispatch_trips trip
@@ -304,37 +304,54 @@ begin
   if v_driver_id is null or v_trip.id is null or v_trip.driver_id <> v_driver_id then
     raise exception '본인의 운행기록만 변경할 수 있습니다.';
   end if;
-  if v_trip.status = '완료' then
-    return v_trip;
-  end if;
-  if v_trip.status <> '진행중' or v_trip.loading_completed_at is null then
-    raise exception '상차 완료 후 하차 완료를 처리해 주세요.';
+
+  select dispatch_order.* into v_order
+  from public.dispatch_orders dispatch_order
+  where dispatch_order.id = v_trip.dispatch_order_id
+  for update;
+  if v_order.id is null then
+    raise exception '해당 운행의 배차를 찾을 수 없습니다.';
   end if;
 
-  v_volume := coalesce(p_actual_volume, v_trip.actual_volume);
-  if v_volume is null or v_volume <= 0 then
-    raise exception '실제 운송량은 0보다 커야 합니다.';
-  end if;
+  if v_trip.status <> '완료' then
+    if v_trip.status <> '진행중' or v_trip.loading_completed_at is null then
+      raise exception '상차 완료 후 하차 완료를 처리해 주세요.';
+    end if;
 
-  update public.dispatch_trips trip
-  set status = '완료', actual_volume = v_volume, unloading_completed_at = now()
-  where trip.id = p_trip_id
-  returning trip.* into v_trip;
+    v_volume := coalesce(p_actual_volume, v_trip.actual_volume);
+    if v_volume is null or v_volume <= 0 then
+      raise exception '실제 운송량은 0보다 커야 합니다.';
+    end if;
+
+    update public.dispatch_trips trip
+    set status = '완료', actual_volume = v_volume, unloading_completed_at = now()
+    where trip.id = p_trip_id
+    returning trip.* into v_trip;
+  end if;
 
   select coalesce(sum(trip.actual_volume), 0) into v_completed_volume
   from public.dispatch_trips trip
   where trip.dispatch_order_id = v_trip.dispatch_order_id and trip.status = '완료';
-  select dispatch_order.total_volume into v_total_volume
-  from public.dispatch_orders dispatch_order
-  where dispatch_order.id = v_trip.dispatch_order_id;
 
   update public.dispatch_orders dispatch_order
-  set status = case when v_completed_volume >= v_total_volume then '완료' else '진행중' end
+  set status = case when v_completed_volume >= v_order.total_volume then '완료' else '진행중' end
   where dispatch_order.id = v_trip.dispatch_order_id and dispatch_order.status <> '취소';
 
   return v_trip;
 end;
 $$;
+
+-- 이전 함수 실행 후 운행은 모두 완료됐지만 배차 상태만 남은 자료를 안전하게 보정합니다.
+-- 취소 배차와 운행기록은 변경하지 않으며, 재실행해도 같은 결과를 유지합니다.
+update public.dispatch_orders dispatch_order
+set status = '완료'
+where dispatch_order.status not in ('완료', '취소')
+  and coalesce((
+    select sum(trip.actual_volume)
+    from public.dispatch_trips trip
+    where trip.dispatch_order_id = dispatch_order.id
+      and trip.status = '완료'
+  ), 0) >= dispatch_order.total_volume;
 
 revoke all on function public.start_dispatch_trip(text) from public;
 revoke all on function public.complete_dispatch_loading(uuid) from public;

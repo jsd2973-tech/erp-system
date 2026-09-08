@@ -63,7 +63,7 @@ export default function DispatchRegister({ customers, locations, items, vehicles
     if (!form.loading_location.trim()) return setError("상차지를 입력하세요.");
     if (!form.unloading_location.trim()) return setError("하차지를 입력하세요.");
     if (!form.item_name.trim()) return setError("품목을 입력하세요.");
-    if (!estimatedTrips) return setError("총 물량과 1대 기준 물량을 확인하세요.");
+    if (!estimatedTrips) return setError("총 물량과 1회 기준 물량을 확인하세요.");
     setError("");
     const saved = await onSave(form);
     if (saved) setForm(emptyDispatchOrderForm());
@@ -91,14 +91,14 @@ export default function DispatchRegister({ customers, locations, items, vehicles
           {isNewUnloadingLocation && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_unloading_location} onChange={(event) => setForm({ ...form, save_unloading_location: event.target.checked })} />하차지 목록에 저장</label>}
         </div>
         <label><span>총 물량(루베) *</span><input inputMode="decimal" value={form.total_volume} onChange={(event) => setForm({ ...form, total_volume: event.target.value })} placeholder="340" /></label>
-        <label><span>1대 기준(루베) *</span><input inputMode="decimal" value={form.volume_per_trip} onChange={(event) => setForm({ ...form, volume_per_trip: event.target.value })} placeholder="17" /></label>
-        <label><span>예상 운행대수</span><input value={estimatedTrips ? `${estimatedTrips}대` : "-"} readOnly /></label>
+        <label><span>1회 기준(루베) *</span><input inputMode="decimal" value={form.volume_per_trip} onChange={(event) => setForm({ ...form, volume_per_trip: event.target.value })} placeholder="17" /></label>
+        <label><span>예정 총 회차</span><input value={estimatedTrips ? `${estimatedTrips}회` : "-"} readOnly /></label>
         <label><span>상태</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as DispatchOrderForm["status"] })}>{DISPATCH_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
         <label className="dispatch-wide"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="배차 관련 메모" /></label>
       </div>
 
       <div className="dispatch-vehicle-picker">
-        <div><strong>차량 배정</strong><span>선택 {form.vehicle_ids.length}대 / 예상 {estimatedTrips}대</span></div>
+        <div><strong>차량 배정</strong><span>배정 차량 {form.vehicle_ids.length}대 / 예정 총 {estimatedTrips}회</span></div>
         <div className="dispatch-vehicle-options">
           {!selectableVehicles.length ? <p className="dispatch-empty">사용 가능한 차량이 없습니다. 차량관리에서 먼저 등록하세요.</p> : selectableVehicles.map((vehicle) => (
             <label key={vehicle.id} className={form.vehicle_ids.includes(vehicle.id) ? "selected" : ""}><input type="checkbox" checked={form.vehicle_ids.includes(vehicle.id)} onChange={() => toggleVehicle(vehicle.id)} /><b>{vehicle.vehicle_number}</b>{!vehicle.active && <small>미사용</small>}</label>
