@@ -6,7 +6,7 @@ do $$
 declare
   duplicate_vehicles text;
 begin
-  select string_agg(vehicle_number || ' (' || driver_count || '명)', ', ' order by vehicle_number)
+  select string_agg(duplicates.vehicle_number || ' (' || duplicates.driver_count || '명)', ', ' order by duplicates.vehicle_number)
   into duplicate_vehicles
   from (
     select vehicle.vehicle_number, count(*) as driver_count
@@ -132,16 +132,16 @@ revoke insert, update, delete on public.dispatch_trips from authenticated;
 drop policy if exists dispatch_drivers_read_own on public.dispatch_drivers;
 create policy dispatch_drivers_read_own on public.dispatch_drivers
 for select to authenticated
-using (auth_user_id = auth.uid());
+using (dispatch_drivers.auth_user_id = auth.uid());
 
 drop policy if exists dispatch_vehicles_driver_read_assigned on public.dispatch_vehicles;
 create policy dispatch_vehicles_driver_read_assigned on public.dispatch_vehicles
 for select to authenticated
 using (
-  id = public.current_dispatch_vehicle_id()
+  dispatch_vehicles.id = public.current_dispatch_vehicle_id()
   or exists (
     select 1 from public.dispatch_trips trip
-    where trip.vehicle_id = id
+    where trip.vehicle_id = dispatch_vehicles.id
       and trip.driver_id = public.current_dispatch_driver_id()
   )
 );
@@ -149,17 +149,17 @@ using (
 drop policy if exists dispatch_orders_driver_read_assigned on public.dispatch_orders;
 create policy dispatch_orders_driver_read_assigned on public.dispatch_orders
 for select to authenticated
-using (public.can_driver_read_dispatch_order(id));
+using (public.can_driver_read_dispatch_order(dispatch_orders.id));
 
 drop policy if exists dispatch_order_vehicles_driver_read_assigned on public.dispatch_order_vehicles;
 create policy dispatch_order_vehicles_driver_read_assigned on public.dispatch_order_vehicles
 for select to authenticated
 using (
-  vehicle_id = public.current_dispatch_vehicle_id()
+  dispatch_order_vehicles.vehicle_id = public.current_dispatch_vehicle_id()
   or exists (
     select 1
     from public.dispatch_trips trip
-    where trip.dispatch_order_id = order_id
+    where trip.dispatch_order_id = dispatch_order_vehicles.order_id
       and trip.driver_id = public.current_dispatch_driver_id()
   )
 );
@@ -172,7 +172,7 @@ using (public.is_dispatch_admin());
 drop policy if exists dispatch_trips_driver_read_own on public.dispatch_trips;
 create policy dispatch_trips_driver_read_own on public.dispatch_trips
 for select to authenticated
-using (driver_id = public.current_dispatch_driver_id());
+using (dispatch_trips.driver_id = public.current_dispatch_driver_id());
 
 create or replace function public.start_dispatch_trip(p_order_id text)
 returns public.dispatch_trips
@@ -187,9 +187,9 @@ declare
   v_trip public.dispatch_trips%rowtype;
   v_trip_no integer;
 begin
-  select * into v_driver
-  from public.dispatch_drivers
-  where auth_user_id = auth.uid() and active = true;
+  select driver.* into v_driver
+  from public.dispatch_drivers driver
+  where driver.auth_user_id = auth.uid() and driver.active = true;
 
   if v_driver.id is null then
     raise exception '활성 기사 계정 연결을 확인해 주세요.';
@@ -198,7 +198,9 @@ begin
     raise exception '담당 차량이 지정되지 않았습니다.';
   end if;
 
-  select * into v_order from public.dispatch_orders where id = p_order_id;
+  select dispatch_order.* into v_order
+  from public.dispatch_orders dispatch_order
+  where dispatch_order.id = p_order_id;
   if v_order.id is null then
     raise exception '배차를 찾을 수 없습니다.';
   end if;
@@ -218,23 +220,23 @@ begin
 
   perform pg_advisory_xact_lock(hashtextextended(p_order_id || ':' || v_driver.assigned_vehicle_id, 0));
 
-  select * into v_existing
-  from public.dispatch_trips
-  where dispatch_order_id = p_order_id
-    and vehicle_id = v_driver.assigned_vehicle_id
-    and driver_id = v_driver.id
-    and status in ('상차대기', '진행중')
-  order by trip_no desc
+  select trip.* into v_existing
+  from public.dispatch_trips trip
+  where trip.dispatch_order_id = p_order_id
+    and trip.vehicle_id = v_driver.assigned_vehicle_id
+    and trip.driver_id = v_driver.id
+    and trip.status in ('상차대기', '진행중')
+  order by trip.trip_no desc
   limit 1;
 
   if v_existing.id is not null then
     return v_existing;
   end if;
 
-  select coalesce(max(trip_no), 0) + 1 into v_trip_no
-  from public.dispatch_trips
-  where dispatch_order_id = p_order_id
-    and vehicle_id = v_driver.assigned_vehicle_id;
+  select coalesce(max(trip.trip_no), 0) + 1 into v_trip_no
+  from public.dispatch_trips trip
+  where trip.dispatch_order_id = p_order_id
+    and trip.vehicle_id = v_driver.assigned_vehicle_id;
 
   insert into public.dispatch_trips (
     dispatch_order_id, vehicle_id, driver_id, trip_no, actual_volume, status
@@ -242,9 +244,9 @@ begin
     p_order_id, v_driver.assigned_vehicle_id, v_driver.id, v_trip_no, v_order.volume_per_trip, '상차대기'
   ) returning * into v_trip;
 
-  update public.dispatch_orders
+  update public.dispatch_orders dispatch_order
   set status = '진행중'
-  where id = p_order_id and status = '대기';
+  where dispatch_order.id = p_order_id and dispatch_order.status = '대기';
 
   return v_trip;
 end;
@@ -260,7 +262,10 @@ declare
   v_driver_id text := public.current_dispatch_driver_id();
   v_trip public.dispatch_trips%rowtype;
 begin
-  select * into v_trip from public.dispatch_trips where id = p_trip_id for update;
+  select trip.* into v_trip
+  from public.dispatch_trips trip
+  where trip.id = p_trip_id
+  for update;
   if v_driver_id is null or v_trip.id is null or v_trip.driver_id <> v_driver_id then
     raise exception '본인의 운행기록만 변경할 수 있습니다.';
   end if;
@@ -271,10 +276,10 @@ begin
     raise exception '상차 완료 처리할 수 없는 상태입니다.';
   end if;
 
-  update public.dispatch_trips
+  update public.dispatch_trips trip
   set status = '진행중', loading_completed_at = now()
-  where id = p_trip_id
-  returning * into v_trip;
+  where trip.id = p_trip_id
+  returning trip.* into v_trip;
   return v_trip;
 end;
 $$;
@@ -292,7 +297,10 @@ declare
   v_completed_volume numeric;
   v_total_volume numeric;
 begin
-  select * into v_trip from public.dispatch_trips where id = p_trip_id for update;
+  select trip.* into v_trip
+  from public.dispatch_trips trip
+  where trip.id = p_trip_id
+  for update;
   if v_driver_id is null or v_trip.id is null or v_trip.driver_id <> v_driver_id then
     raise exception '본인의 운행기록만 변경할 수 있습니다.';
   end if;
@@ -308,20 +316,21 @@ begin
     raise exception '실제 운송량은 0보다 커야 합니다.';
   end if;
 
-  update public.dispatch_trips
+  update public.dispatch_trips trip
   set status = '완료', actual_volume = v_volume, unloading_completed_at = now()
-  where id = p_trip_id
-  returning * into v_trip;
+  where trip.id = p_trip_id
+  returning trip.* into v_trip;
 
-  select coalesce(sum(actual_volume), 0) into v_completed_volume
-  from public.dispatch_trips
-  where dispatch_order_id = v_trip.dispatch_order_id and status = '완료';
-  select total_volume into v_total_volume
-  from public.dispatch_orders where id = v_trip.dispatch_order_id;
+  select coalesce(sum(trip.actual_volume), 0) into v_completed_volume
+  from public.dispatch_trips trip
+  where trip.dispatch_order_id = v_trip.dispatch_order_id and trip.status = '완료';
+  select dispatch_order.total_volume into v_total_volume
+  from public.dispatch_orders dispatch_order
+  where dispatch_order.id = v_trip.dispatch_order_id;
 
-  update public.dispatch_orders
+  update public.dispatch_orders dispatch_order
   set status = case when v_completed_volume >= v_total_volume then '완료' else '진행중' end
-  where id = v_trip.dispatch_order_id and status <> '취소';
+  where dispatch_order.id = v_trip.dispatch_order_id and dispatch_order.status <> '취소';
 
   return v_trip;
 end;
