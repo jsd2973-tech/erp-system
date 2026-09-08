@@ -18,7 +18,10 @@ const emptyItem = (): DispatchItem => ({ id: "", name: "", active: true, memo: "
 const normalizeSearch = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 
 export default function DispatchBasics({ customers, locations, items, saving, onSaveCustomer, onSaveLocation, onSaveItem }: DispatchBasicsProps) {
-  const [tab, setTab] = useState<"customer" | "location" | "item">("customer");
+  const [tab, setTab] = useState<"customer" | "location" | "item">(() => {
+    const saved = sessionStorage.getItem("dispatchBasicsTab");
+    return saved === "location" || saved === "item" ? saved : "customer";
+  });
   const [customerForm, setCustomerForm] = useState<DispatchCustomer>(emptyCustomer);
   const [locationForm, setLocationForm] = useState<DispatchLocation>(emptyLocation);
   const [itemForm, setItemForm] = useState<DispatchItem>(emptyItem);
@@ -51,6 +54,7 @@ export default function DispatchBasics({ customers, locations, items, saving, on
   };
 
   const changeTab = (nextTab: "customer" | "location" | "item") => {
+    sessionStorage.setItem("dispatchBasicsTab", nextTab);
     setTab(nextTab);
     setError("");
   };
