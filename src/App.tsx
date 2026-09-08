@@ -1305,7 +1305,10 @@ export default function App() {
   const userEmail = session?.user?.email || "";
   const isAdmin = adminEmails.includes(userEmail);
 
-  const [menuTab, setMenuTab] = useState("home");
+  const [menuTab, setMenuTab] = useState(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab || "home";
+  });
   const [openMenuGroup, setOpenMenuGroup] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuHistoryReadyRef = useRef(false);
