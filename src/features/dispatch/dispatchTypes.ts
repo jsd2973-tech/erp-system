@@ -56,9 +56,27 @@ export type DispatchDriver = {
   name: string;
   phone: string;
   assigned_vehicle_id: string | null;
+  auth_user_id: string | null;
   active: boolean;
   memo: string;
   created_at?: string;
+  updated_at?: string;
+};
+
+export const DISPATCH_TRIP_STATUSES = ["상차대기", "진행중", "완료", "취소"] as const;
+export type DispatchTripStatus = (typeof DISPATCH_TRIP_STATUSES)[number];
+
+export type DispatchTrip = {
+  id: string;
+  dispatch_order_id: string;
+  vehicle_id: string;
+  driver_id: string;
+  trip_no: number;
+  actual_volume: number;
+  status: DispatchTripStatus;
+  loading_completed_at: string | null;
+  unloading_completed_at: string | null;
+  created_at: string;
   updated_at?: string;
 };
 

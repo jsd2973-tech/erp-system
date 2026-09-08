@@ -1,19 +1,21 @@
 import { useMemo, useState } from "react";
 import DispatchDetail from "./DispatchDetail";
-import type { DispatchFilters, DispatchOrderWithVehicles, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchFilters, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
 type DispatchListProps = {
   orders: DispatchOrderWithVehicles[];
   vehicles: DispatchVehicle[];
+  drivers: DispatchDriver[];
+  trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
   compact?: boolean;
 };
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, vehicles, onEdit, compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, vehicles, drivers, trips, onEdit, compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
 
@@ -49,7 +51,7 @@ export default function DispatchList({ orders, vehicles, onEdit, compact = false
           </tbody>
         </table>
       </div>
-      {selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} onEdit={onEdit} onClose={() => setSelectedId("")} />}
+      {selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={trips.filter((trip) => trip.dispatch_order_id === selectedOrder.id)} onEdit={onEdit} onClose={() => setSelectedId("")} />}
     </section>
   );
 }
