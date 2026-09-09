@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, CirclePlay, CircleCheckBig, Boxes, ArrowUp, ArrowDown } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import DispatchList from "./DispatchList";
 import DispatchRegister from "./DispatchRegister";
@@ -331,14 +332,38 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
   };
 
   const summary = useMemo(() => {
-    const todayOrders = orders.filter((order) => order.dispatch_date === dispatchToday());
+    const today = dispatchToday();
+    const yesterday = new Date(Date.parse(today + "T00:00:00+09:00") - 86400000);
+    const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+    });
+    const dateKey = (date: Date) => {
+      const parts = Object.fromEntries(dateFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+      return `${parts.year}-${parts.month}-${parts.day}`;
+    };
+    const yesterdayKey = dateKey(yesterday);
+    let actualVolumeToday = 0;
+    let actualVolumeYesterday = 0;
+    for (const trip of trips) {
+      if (trip.status !== "완료" || !trip.unloading_completed_at) continue;
+      const completedAt = new Date(trip.unloading_completed_at);
+      if (!Number.isFinite(completedAt.getTime()) || !Number.isFinite(trip.actual_volume)) continue;
+      const completedDay = dateKey(completedAt);
+      if (completedDay === today) actualVolumeToday += trip.actual_volume;
+      else if (completedDay === yesterdayKey) actualVolumeYesterday += trip.actual_volume;
+    }
+    // DB quantities have two decimal places; avoid floating-point residue in the delta.
+    actualVolumeToday = Math.round(actualVolumeToday * 100) / 100;
+    actualVolumeYesterday = Math.round(actualVolumeYesterday * 100) / 100;
     return {
-      today: todayOrders.length,
-      waiting: orders.filter((order) => order.status === "대기").length,
+      today: orders.filter((order) => order.dispatch_date === today).length,
       active: orders.filter((order) => order.status === "진행중").length,
       done: orders.filter((order) => order.status === "완료").length,
+      actualVolumeToday,
+      actualVolumeYesterday,
+      actualVolumeDiff: Math.round((actualVolumeToday - actualVolumeYesterday) * 100) / 100,
     };
-  }, [orders]);
+  }, [orders, trips]);
 
   if (!isAdmin) return <section className="dispatch-panel"><p className="dispatch-error">배차관리는 관리자만 사용할 수 있습니다.</p></section>;
 
@@ -350,7 +375,41 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
           <button type="button" onClick={() => void loadDispatchData()} disabled={initialLoading || refreshing}>{refreshing ? "새로고침 중..." : "새로고침"}</button>
         </header>
         <div className="dispatch-summary" aria-label="배차 현황 요약">
-          <div className="today"><span>오늘 배차</span><b>{summary.today}</b><small>건</small></div><div className="waiting"><span>대기</span><b>{summary.waiting}</b><small>건</small></div><div className="active"><span>진행중</span><b>{summary.active}</b><small>건</small></div><div className="done"><span>완료</span><b>{summary.done}</b><small>건</small></div>
+          <article className="dispatch-kpi-card today">
+            <div className="dispatch-kpi-icon"><CalendarDays aria-hidden="true" /></div>
+            <div className="dispatch-kpi-body">
+              <span className="dispatch-kpi-label">오늘 배차</span>
+              <div className="dispatch-kpi-value"><strong>{summary.today.toLocaleString("ko-KR")}</strong><small>건</small></div>
+              <span className="dispatch-kpi-caption">오늘 배차일 기준</span>
+            </div>
+          </article>
+          <article className="dispatch-kpi-card active">
+            <div className="dispatch-kpi-icon"><CirclePlay aria-hidden="true" /></div>
+            <div className="dispatch-kpi-body">
+              <span className="dispatch-kpi-label">진행중</span>
+              <div className="dispatch-kpi-value"><strong>{summary.active.toLocaleString("ko-KR")}</strong><small>건</small></div>
+              <span className="dispatch-kpi-caption">전체 배차 기준</span>
+            </div>
+          </article>
+          <article className="dispatch-kpi-card done">
+            <div className="dispatch-kpi-icon"><CircleCheckBig aria-hidden="true" /></div>
+            <div className="dispatch-kpi-body">
+              <span className="dispatch-kpi-label">완료</span>
+              <div className="dispatch-kpi-value"><strong>{summary.done.toLocaleString("ko-KR")}</strong><small>건</small></div>
+              <span className="dispatch-kpi-caption">전체 배차 기준</span>
+            </div>
+          </article>
+          <article className="dispatch-kpi-card volume">
+            <div className="dispatch-kpi-icon"><Boxes aria-hidden="true" /></div>
+            <div className="dispatch-kpi-body">
+              <span className="dispatch-kpi-label">실제 운송량</span>
+              <div className="dispatch-kpi-value"><strong>{summary.actualVolumeToday.toLocaleString("ko-KR")}</strong><small>루베</small></div>
+              <div className={`dispatch-kpi-delta ${summary.actualVolumeDiff > 0 ? "up" : summary.actualVolumeDiff < 0 ? "down" : "same"}`} title={`전일 실제 운송량 ${summary.actualVolumeYesterday.toLocaleString("ko-KR")}루베 · 한국시간 하차 완료일 기준`}>
+                {summary.actualVolumeDiff > 0 ? <ArrowUp aria-hidden="true" /> : summary.actualVolumeDiff < 0 ? <ArrowDown aria-hidden="true" /> : null}
+                <span>전일 대비 {summary.actualVolumeDiff > 0 ? "+" : ""}{summary.actualVolumeDiff.toLocaleString("ko-KR")}루베</span>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
       <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>

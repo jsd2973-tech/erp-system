@@ -4,7 +4,6 @@ import './index.css'
 import App from './App.tsx'
 import DispatchAuthGate from './features/dispatch/DispatchAuthGate.tsx'
 import './features/dispatch/dispatch-premium.css'
-import './features/dispatch/dispatch-kpi-card.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
