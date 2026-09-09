@@ -6,20 +6,24 @@ import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
 type DispatchListProps = {
   orders: DispatchOrderWithVehicles[];
+  deletedOrders?: DispatchOrderWithVehicles[];
   vehicles: DispatchVehicle[];
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
   onDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
+  onRestore?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
+  onPermanentDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
   deletingOrderId?: string;
   compact?: boolean;
 };
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, vehicles, drivers, trips, onEdit, onDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
+  const [showTrash, setShowTrash] = useState(false);
 
   const filtered = useMemo(() => orders.filter((order) =>
     (!filters.from || order.dispatch_date >= filters.from)
@@ -36,7 +40,7 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
     if (!onDelete) return;
     const tripCount = trips.filter((trip) => trip.dispatch_order_id === order.id).length;
     const confirmed = window.confirm(
-      `${order.dispatch_date} / ${order.vendor_name} / ${order.item_name} 배차를 삭제할까요?\n\n연결된 운행기록 ${tripCount}건도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
+      `${order.dispatch_date} / ${order.vendor_name} / ${order.item_name} 배차를 휴지통으로 이동할까요?\n\n연결된 운행기록 ${tripCount}건은 삭제하지 않고 그대로 보존됩니다. 휴지통에서 복구할 수 있습니다.`,
     );
     if (!confirmed) return;
     const deleted = await onDelete(order);
@@ -46,7 +50,10 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
   const listPanel = <section className="dispatch-panel dispatch-list-panel">
     <div className="dispatch-section-head">
       <div><h2>{compact ? "최근 배차" : "배차 조회"}</h2><p>{compact ? "최근 등록된 배차를 확인합니다." : "조건으로 배차를 찾고 행을 선택해 상세와 운행기록을 확인합니다."}</p></div>
-      <span className="dispatch-count">총 {filtered.length}건</span>
+      <div className="dispatch-row-actions">
+        {!compact && <button type="button" onClick={() => setShowTrash((value) => !value)}>{showTrash ? "배차목록 보기" : `휴지통 ${deletedOrders.length}건`}</button>}
+        <span className="dispatch-count">총 {filtered.length}건</span>
+      </div>
     </div>
     {!compact && <div className="dispatch-filter-grid">
       <label><span>시작일</span><input type="date" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} /></label>
@@ -75,7 +82,7 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
               <td>
                 <div className="dispatch-row-actions">
                   <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id); }}>상세보기</button>
-                  {!compact && onDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={(event) => { event.stopPropagation(); void requestDelete(order); }}>{deletingOrderId === order.id ? "삭제 중..." : "삭제"}</button>}
+                  {!compact && onDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={(event) => { event.stopPropagation(); void requestDelete(order); }}>{deletingOrderId === order.id ? "이동 중..." : "휴지통"}</button>}
                 </div>
               </td>
             </tr>
@@ -85,13 +92,45 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
     </div>
   </section>;
 
+  const trashPanel = !compact && showTrash ? <section className="dispatch-panel dispatch-list-panel">
+    <div className="dispatch-section-head">
+      <div><h2>배차 휴지통</h2><p>잘못 삭제한 배차를 복구하거나 필요할 때만 영구삭제합니다.</p></div>
+      <span className="dispatch-count">총 {deletedOrders.length}건</span>
+    </div>
+    <div className="dispatch-table-wrap">
+      <table className="dispatch-table dispatch-order-table">
+        <thead><tr><th>No</th><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>예정 회차</th><th>배정 차량</th><th>작업</th></tr></thead>
+        <tbody>
+          {!deletedOrders.length ? <tr><td colSpan={8} className="dispatch-empty">휴지통이 비어 있습니다.</td></tr> : deletedOrders.map((order, index) => (
+            <tr key={order.id}>
+              <td className="dispatch-count-cell">{index + 1}</td>
+              <td className="dispatch-date-cell">{order.dispatch_date}</td>
+              <td className="dispatch-strong">{order.vendor_name}</td>
+              <td>{order.item_name}</td>
+              <td className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
+              <td className="dispatch-count-cell">{order.estimated_trip_count}회</td>
+              <td className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
+              <td><div className="dispatch-row-actions">
+                {onRestore && <button type="button" disabled={deletingOrderId === order.id} onClick={() => void onRestore(order)}>{deletingOrderId === order.id ? "처리 중..." : "복구"}</button>}
+                {onPermanentDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={() => {
+                  const tripCount = trips.filter((trip) => trip.dispatch_order_id === order.id).length;
+                  if (window.confirm(`${order.dispatch_date} / ${order.vendor_name} 배차를 영구삭제할까요?\n\n운행기록 ${tripCount}건도 함께 삭제되며 이후 복구할 수 없습니다.`)) void onPermanentDelete(order);
+                }}>영구삭제</button>}
+              </div></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section> : null;
+
   if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div>;
 
   return (
     <div className="dispatch-list-workspace dispatch-list-workspace-stacked">
-      {listPanel}
-      {selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>}
-      {selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
+      {showTrash ? trashPanel : listPanel}
+      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
+      {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
     </div>
   );
 }
