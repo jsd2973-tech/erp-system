@@ -1,0 +1,480 @@
+/* Final PC visual pass: keep dispatch logic untouched, only tighten layout and hierarchy. */
+
+.dispatch-page {
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px 16px 48px;
+  background: #eef3f8;
+}
+
+.dispatch-command-bar {
+  min-height: 58px;
+  padding: 8px 10px 8px 18px;
+  border: 1px solid #d8e2ec;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(31, 52, 76, .05);
+}
+
+.dispatch-hero {
+  min-width: 0;
+  gap: 16px;
+}
+
+.dispatch-hero > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dispatch-hero span {
+  display: none;
+}
+
+.dispatch-hero h1 {
+  margin: 0;
+  color: #16263a;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.dispatch-hero p {
+  color: #7a8797;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dispatch-hero button {
+  min-height: 34px;
+  padding: 0 13px;
+  border-color: #cbd7e4;
+  color: #36516f;
+  font-size: 12px;
+}
+
+.dispatch-summary {
+  grid-template-columns: repeat(4, 112px);
+  gap: 7px;
+}
+
+.dispatch-summary > div {
+  min-height: 38px;
+  padding: 5px 9px 5px 13px;
+  border-color: #dde6ef;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.dispatch-summary > div::before {
+  left: 6px;
+  height: 20px;
+}
+
+.dispatch-summary span {
+  font-size: 10.5px;
+}
+
+.dispatch-summary b {
+  font-size: 18px;
+}
+
+.dispatch-summary small {
+  margin-bottom: 3px;
+  font-size: 9px;
+}
+
+.dispatch-tabs {
+  margin-top: 0;
+  padding: 0 8px;
+  border: 1px solid #d8e2ec;
+  border-radius: 9px;
+  box-shadow: 0 1px 4px rgba(31, 52, 76, .035);
+}
+
+.dispatch-tabs button {
+  min-height: 42px;
+  padding: 0 18px;
+  color: #5a697c;
+  font-size: 13px;
+}
+
+.dispatch-tabs button.active {
+  color: #145f9f;
+  background: #f7fbff;
+}
+
+.dispatch-tabs button.active::after {
+  right: 17px;
+  left: 17px;
+  height: 3px;
+}
+
+.dispatch-panel,
+.dispatch-trip-history,
+.dispatch-detail,
+.dispatch-detail-empty {
+  border-color: #d7e1eb;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(31, 52, 76, .04);
+}
+
+.dispatch-panel {
+  padding: 15px 16px;
+}
+
+.dispatch-section-head {
+  align-items: center;
+  margin-bottom: 11px;
+}
+
+.dispatch-section-head h2 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.015em;
+}
+
+.dispatch-section-head p {
+  margin-top: 3px;
+  font-size: 12.5px;
+}
+
+.dispatch-count,
+.dispatch-editing-pill {
+  min-height: 25px;
+  padding: 0 9px;
+  font-size: 10.5px;
+}
+
+/* Registration */
+.order-form-grid {
+  gap: 11px 12px;
+  padding: 14px;
+  border-color: #dfe7ef;
+  background: #f9fbfd;
+}
+
+.dispatch-form-grid label > span,
+.dispatch-combobox > span,
+.dispatch-filter-grid span,
+.dispatch-management-form label > span,
+.dispatch-basic-search span {
+  color: #455569;
+  font-size: 12.5px;
+  font-weight: 750;
+}
+
+.dispatch-form-grid input,
+.dispatch-form-grid select,
+.dispatch-filter-grid input,
+.dispatch-filter-grid select,
+.dispatch-basic-search input,
+.dispatch-management-form input,
+.dispatch-management-form select,
+.dispatch-management-form textarea {
+  height: 41px;
+  border-color: #c9d5e2;
+  border-radius: 7px;
+  padding: 0 11px;
+  font-size: 13.5px;
+}
+
+.dispatch-form-grid input[readonly] {
+  border-color: #b9d3e8;
+  background: #eaf4fc;
+  color: #155f9d;
+}
+
+.dispatch-vehicle-picker {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-color: #d8e4ef;
+  background: #f6f9fc;
+}
+
+.dispatch-vehicle-picker > div:first-child {
+  margin-bottom: 6px;
+}
+
+.dispatch-vehicle-options:has(.dispatch-empty) {
+  min-height: 0;
+}
+
+.dispatch-vehicle-options .dispatch-empty {
+  padding: 8px 0 !important;
+}
+
+.dispatch-vehicle-options label {
+  min-height: 36px;
+  border-radius: 7px;
+}
+
+.dispatch-actions {
+  margin-top: 10px;
+}
+
+.dispatch-actions button,
+.dispatch-detail-actions button,
+.dispatch-management-actions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+
+/* List workspace */
+.dispatch-list-workspace {
+  grid-template-columns: minmax(0, 72fr) minmax(330px, 28fr);
+  gap: 10px;
+}
+
+.dispatch-list-panel {
+  padding-bottom: 14px;
+}
+
+.dispatch-filter-grid {
+  grid-template-columns: 1fr 1fr 1.25fr 1.25fr .8fr auto;
+  gap: 8px;
+  margin: 0 -16px 10px;
+  padding: 10px 16px;
+  border-color: #e2e9f0;
+  background: #f7f9fc;
+}
+
+.dispatch-filter-reset {
+  min-width: 66px;
+  height: 41px;
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+
+.dispatch-table-wrap {
+  border-color: #dbe4ed;
+  border-radius: 8px;
+}
+
+.dispatch-table {
+  font-size: 13px;
+}
+
+.dispatch-table th {
+  height: 39px;
+  padding: 8px 10px;
+  background: #f0f4f8;
+  color: #4b5b70;
+  font-size: 11.5px;
+  letter-spacing: -.01em;
+}
+
+.dispatch-table td {
+  height: 43px;
+  padding: 8px 10px;
+  color: #26364a;
+}
+
+.dispatch-table tbody tr:hover td {
+  background: #f6faff;
+}
+
+.dispatch-table tbody tr.selected td {
+  background: #eaf4fd;
+}
+
+.dispatch-table tbody tr.selected td:first-child {
+  box-shadow: inset 4px 0 #2b79ba;
+}
+
+.dispatch-status,
+.dispatch-active-pill,
+.dispatch-trip-status {
+  min-height: 23px;
+  padding: 0 9px;
+  font-size: 10.5px;
+}
+
+.dispatch-detail-column {
+  top: 10px;
+}
+
+.dispatch-detail-empty {
+  min-height: 168px;
+  padding: 28px 20px;
+  background: linear-gradient(180deg, #fff 0%, #f8fbfe 100%);
+}
+
+.dispatch-detail-empty::before {
+  content: "▦";
+  display: block;
+  margin-bottom: 8px;
+  color: #8ca8c0;
+  font-size: 28px;
+}
+
+.dispatch-detail-empty strong {
+  color: #20344b;
+  font-size: 16px;
+}
+
+.dispatch-detail-empty p {
+  font-size: 12.5px;
+}
+
+.dispatch-detail > .dispatch-section-head {
+  padding: 14px 15px;
+  background: #f7fafc;
+}
+
+.dispatch-detail-heading h2 {
+  color: #18314a;
+  font-size: 18px;
+}
+
+.dispatch-detail-heading p {
+  font-size: 12.5px;
+}
+
+.dispatch-detail-column .dispatch-route {
+  margin: 11px 13px 0;
+}
+
+.dispatch-route {
+  border-color: #dce6ef;
+  background: #f8fafc;
+}
+
+.dispatch-route > div {
+  padding: 10px 12px;
+}
+
+.dispatch-route span {
+  font-size: 10px;
+}
+
+.dispatch-route b {
+  font-size: 13.5px;
+}
+
+.dispatch-detail-column .dispatch-detail-grid {
+  margin: 9px 13px 0;
+  gap: 1px;
+}
+
+.dispatch-detail-column .dispatch-detail-grid > div {
+  min-height: 56px;
+  padding: 9px 10px;
+}
+
+.dispatch-detail-grid span {
+  font-size: 10px;
+}
+
+.dispatch-detail-grid b {
+  font-size: 13.5px;
+}
+
+.dispatch-detail-column .dispatch-detail-grid > .dispatch-detail-emphasis b {
+  font-size: 18px;
+}
+
+.dispatch-detail-column .dispatch-detail-note {
+  margin: 9px 13px 0;
+}
+
+.dispatch-detail-column .dispatch-assigned-list {
+  padding: 11px 13px 14px;
+}
+
+.dispatch-assigned-list strong {
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+.dispatch-trip-history {
+  padding: 14px 16px 16px;
+}
+
+.dispatch-trip-history-head h3 {
+  font-size: 15px;
+}
+
+.dispatch-trip-history-head p {
+  font-size: 11.5px;
+}
+
+/* Vehicle / driver / basics: stronger form-list hierarchy without changing behavior. */
+.vehicle-form-grid,
+.driver-form-grid,
+.dispatch-basic-form {
+  padding: 12px;
+  border-color: #dfe7ef;
+  background: #f8fafc;
+}
+
+.dispatch-basic-tabs {
+  margin-bottom: 12px;
+}
+
+.dispatch-basic-tabs button {
+  min-height: 37px;
+  font-size: 12px;
+}
+
+/* Critical: prevent CSS grid from stretching sparse screens to fill viewport. */
+.dispatch-page > * {
+  align-self: start;
+}
+
+@media (max-width: 1400px) {
+  .dispatch-summary {
+    grid-template-columns: repeat(4, 98px);
+  }
+
+  .dispatch-summary > div {
+    padding-left: 12px;
+  }
+
+  .dispatch-list-workspace {
+    grid-template-columns: minmax(0, 68fr) minmax(320px, 32fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  .dispatch-command-bar {
+    flex-wrap: wrap;
+  }
+
+  .dispatch-summary {
+    grid-template-columns: repeat(4, minmax(86px, 1fr));
+    width: 100%;
+  }
+
+  .dispatch-list-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatch-detail-column {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .dispatch-page {
+    padding: 10px 8px 82px;
+  }
+
+  .dispatch-command-bar {
+    display: grid;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .dispatch-hero > div {
+    display: block;
+  }
+
+  .dispatch-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
