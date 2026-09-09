@@ -61,6 +61,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const [tab, setTab] = useState<DriverTab>("today");
   const [todayOrders, setTodayOrders] = useState<DispatchOrder[]>([]);
   const [todayTrips, setTodayTrips] = useState<DispatchTrip[]>([]);
+  const [allTodayTrips, setAllTodayTrips] = useState<DispatchTrip[]>([]);
   const [historyTrips, setHistoryTrips] = useState<DispatchTrip[]>([]);
   const [ordersById, setOrdersById] = useState<Map<string, DispatchOrder>>(new Map());
   const [vehicle, setVehicle] = useState<DispatchVehicle | null>(null);
@@ -80,6 +81,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
       setVehicle(null);
       setTodayOrders([]);
       setTodayTrips([]);
+      setAllTodayTrips([]);
       setLoading(false);
       return;
     }
@@ -107,11 +109,22 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
     }
 
     const nextOrders = (orderResult.data || []).map((row) => normalizeOrder(row));
+    const todayOrderIds = nextOrders.map((order) => order.id);
+    const allTripResult = todayOrderIds.length
+      ? await supabase.from("dispatch_trips").select("*").in("dispatch_order_id", todayOrderIds).order("created_at", { ascending: false })
+      : { data: [], error: null };
+    if (allTripResult.error) {
+      setError(`전체 운행 진행상황을 불러오지 못했습니다. (${allTripResult.error.message})`);
+      setLoading(false);
+      return;
+    }
+
     const nextVehicle = vehicleResult.data ? { ...vehicleResult.data, id: String(vehicleResult.data.id), vehicle_number: String(vehicleResult.data.vehicle_number || ""), active: vehicleResult.data.active !== false, memo: String(vehicleResult.data.memo || "") } as DispatchVehicle : null;
     setVehicle(nextVehicle);
     if (nextVehicle) setVehiclesById((current) => new Map(current).set(nextVehicle.id, nextVehicle));
     setTodayOrders(nextOrders);
     setTodayTrips((tripResult.data || []).map((row) => normalizeTrip(row)));
+    setAllTodayTrips((allTripResult.data || []).map((row) => normalizeTrip(row)));
     setOrdersById((current) => new Map([...current, ...nextOrders.map((order) => [order.id, order] as const)]));
     setLoading(false);
   }, [driver.assigned_vehicle_id, driver.id, supabase]);
@@ -150,6 +163,9 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const selectedOrder = todayOrders.find((order) => order.id === selectedOrderId) || null;
   const activeTrip = todayTrips.find((trip) => trip.dispatch_order_id === selectedOrderId && (trip.status === "상차대기" || trip.status === "진행중")) || null;
   const latestCompletedTrip = todayTrips.find((trip) => trip.dispatch_order_id === selectedOrderId && trip.status === "완료") || null;
+  const selectedOrderAllTrips = selectedOrder ? allTodayTrips.filter((trip) => trip.dispatch_order_id === selectedOrder.id) : [];
+  const selectedOrderCompleted = selectedOrderAllTrips.filter((trip) => trip.status === "완료").length;
+  const selectedOrderRemaining = selectedOrder ? Math.max(selectedOrder.estimated_trip_count - selectedOrderCompleted, 0) : 0;
 
   useEffect(() => {
     if (activeTrip) setActualVolume(String(activeTrip.actual_volume));
@@ -190,10 +206,19 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
           <section>
             <div className="driver-mobile-title"><div><span>{dispatchToday()}</span><h2>오늘 배차</h2></div><button type="button" onClick={() => void loadOrders()}>새로고침</button></div>
             {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : todayOrders.map((order) => {
-              const orderTrips = todayTrips.filter((trip) => trip.dispatch_order_id === order.id);
+              const orderTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id);
+              const completedTrips = orderTrips.filter((trip) => trip.status === "완료").length;
+              const remainingTrips = Math.max(order.estimated_trip_count - completedTrips, 0);
+              const myCompletedTrips = todayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료").length;
               return <article className="driver-order-card" key={order.id}>
                 <div className="driver-order-card-head"><span>{order.status}</span><strong>{order.vendor_name}</strong><em>{order.item_name}</em></div>
-                <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>예정 회차</dt><dd>{order.estimated_trip_count}회</dd></div><div><dt>완료 회차</dt><dd>{orderTrips.filter((trip) => trip.status === "완료").length}회</dd></div><div><dt>차량</dt><dd>{vehicle?.vehicle_number || "-"}</dd></div></dl>
+                <div className="driver-shared-progress">
+                  <div><span>예정</span><strong>{order.estimated_trip_count}<small>회</small></strong></div>
+                  <div><span>전체 완료</span><strong>{completedTrips}<small>회</small></strong></div>
+                  <div className="remaining"><span>남은 회차</span><strong>{remainingTrips}<small>회</small></strong></div>
+                </div>
+                <p className="driver-shared-progress-note">배정된 모든 차량의 운행을 합산한 진행상황입니다. · 내 완료 {myCompletedTrips}회</p>
+                <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>차량</dt><dd>{vehicle?.vehicle_number || "-"}</dd></div></dl>
                 {order.memo && <p className="driver-order-memo">{order.memo}</p>}
                 <button type="button" className="driver-main-action" onClick={() => chooseOrder(order.id)}>운행 입력</button>
               </article>;
@@ -205,6 +230,11 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
           <section>
             <div className="driver-mobile-title"><div><span>운행 입력</span><h2>{selectedOrder ? `${selectedOrder.vendor_name} · ${selectedOrder.item_name}` : "배차를 선택하세요"}</h2></div></div>
             {!selectedOrder ? <div className="driver-mobile-empty"><p>오늘 배차에서 운행할 배차를 선택해 주세요.</p><button type="button" onClick={() => setTab("today")}>오늘 배차 보기</button></div> : <article className="driver-trip-card">
+              <div className="driver-shared-progress driver-shared-progress-compact">
+                <div><span>예정</span><strong>{selectedOrder.estimated_trip_count}<small>회</small></strong></div>
+                <div><span>전체 완료</span><strong>{selectedOrderCompleted}<small>회</small></strong></div>
+                <div className="remaining"><span>남은 회차</span><strong>{selectedOrderRemaining}<small>회</small></strong></div>
+              </div>
               <dl><div><dt>상차 → 하차</dt><dd>{selectedOrder.loading_location} → {selectedOrder.unloading_location}</dd></div><div><dt>차량 / 기사</dt><dd>{vehicle?.vehicle_number || "-"} / {driver.name}</dd></div><div><dt>기본 운송량</dt><dd>{formatVolume(selectedOrder.volume_per_trip)}</dd></div></dl>
               {activeTrip ? <>
                 <div className="driver-trip-number">제 {activeTrip.trip_no}회 · {activeTrip.status}</div>
@@ -213,7 +243,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
                 {activeTrip.status === "진행중" && <><label className="driver-volume-input"><span>실제 운송량(루베)</span><input inputMode="decimal" value={actualVolume} onChange={(event) => setActualVolume(event.target.value)} /></label><button type="button" className="driver-big-button unloading" disabled={saving || !(Number(actualVolume) > 0)} onClick={() => void runTripAction("complete_dispatch_unloading", { p_trip_id: activeTrip.id, p_actual_volume: Number(actualVolume) })}>{saving ? "저장 중..." : "하차 완료"}</button></>}
               </> : <>
                 {latestCompletedTrip && <div className="driver-complete-notice">{latestCompletedTrip.trip_no}회 운행을 완료했습니다.</div>}
-                <button type="button" className="driver-big-button start" disabled={saving || selectedOrder.status === "완료" || selectedOrder.status === "취소"} onClick={() => void runTripAction("start_dispatch_trip", { p_order_id: selectedOrder.id })}>{saving ? "시작 중..." : latestCompletedTrip ? "다음 운행 시작" : "운행 시작"}</button>
+                <button type="button" className="driver-big-button start" disabled={saving || selectedOrder.status === "완료" || selectedOrder.status === "취소" || selectedOrderRemaining <= 0} onClick={() => void runTripAction("start_dispatch_trip", { p_order_id: selectedOrder.id })}>{saving ? "시작 중..." : selectedOrderRemaining <= 0 ? "전체 운행 완료" : latestCompletedTrip ? "다음 운행 시작" : "운행 시작"}</button>
               </>}
             </article>}
           </section>
