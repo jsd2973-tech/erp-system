@@ -1,0 +1,506 @@
+/* Final reference pass: visually align the whole PC dispatch suite with the approved mock.
+   CSS only. No data/save/auth/RPC/mobile behavior changes. */
+
+.dispatch-page {
+  gap: 14px;
+  padding: 18px 20px 36px;
+  background: #eef3f8;
+}
+
+/* ---------- Top title / KPI area ---------- */
+.dispatch-command-bar {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px 20px;
+  border: 1px solid #d7e1ec;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgba(29, 48, 72, .05);
+}
+
+.dispatch-hero {
+  min-height: 42px;
+}
+
+.dispatch-hero > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.dispatch-hero h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: #112b49;
+  font-size: 29px;
+  font-weight: 900;
+  letter-spacing: -.045em;
+}
+
+.dispatch-hero h1::after {
+  content: "/ 배차관리";
+  color: #112b49;
+}
+
+.dispatch-hero p {
+  color: #738196;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dispatch-hero button {
+  min-width: 82px;
+  height: 38px;
+  border: 1px solid #c8d7e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #315778;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.dispatch-summary {
+  grid-template-columns: repeat(4, minmax(180px, 220px));
+  gap: 12px;
+  width: auto;
+}
+
+.dispatch-summary > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  min-height: 82px;
+  padding: 13px 15px;
+  border-radius: 11px;
+  border: 1px solid #dbe5ef;
+  background: #f8fafc;
+  box-shadow: none;
+}
+
+.dispatch-summary > div::before { display: none !important; }
+
+.dispatch-summary span {
+  grid-column: 1 / -1;
+  margin-bottom: 3px;
+  color: #607086;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left !important;
+}
+
+.dispatch-summary b {
+  color: #152a43;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: left !important;
+}
+
+.dispatch-summary small {
+  align-self: end;
+  margin: 0 0 2px 5px;
+  color: #8090a2;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: left !important;
+}
+
+.dispatch-summary .today { border-left: 4px solid #2c7dcc; }
+.dispatch-summary .waiting { border-left: 4px solid #8d9bab; }
+.dispatch-summary .active { border-left: 4px solid #2679d5; background: #f3f8ff; }
+.dispatch-summary .active b { color: #1765b6; }
+.dispatch-summary .done { border-left: 4px solid #2da66c; background: #f3fbf6; }
+.dispatch-summary .done b { color: #178254; }
+
+/* ---------- Main tabs ---------- */
+.dispatch-tabs {
+  display: inline-flex;
+  gap: 2px;
+  width: fit-content;
+  padding: 4px;
+  border: 1px solid #d8e2ed;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(29, 48, 72, .04);
+}
+
+.dispatch-tabs button {
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 7px;
+  color: #56687e;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.dispatch-tabs button.active {
+  background: #1769d2;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(23, 105, 210, .18);
+}
+
+/* ---------- Shared panel hierarchy ---------- */
+.dispatch-panel,
+.dispatch-detail,
+.dispatch-trip-history {
+  border: 1px solid #d8e2ed;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(29, 48, 72, .045);
+}
+
+.dispatch-panel { padding: 18px; }
+
+.dispatch-section-head {
+  min-height: 54px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.dispatch-section-head h2 {
+  color: #132b47;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.dispatch-section-head p {
+  margin-top: 4px;
+  color: #78879a;
+  font-size: 12.5px;
+}
+
+/* ---------- Filter / list table ---------- */
+.dispatch-filter-grid {
+  gap: 10px;
+  margin: 0 -18px 14px;
+  padding: 12px 18px;
+  border-top: 1px solid #e5ebf2;
+  border-bottom: 1px solid #e5ebf2;
+  background: #f7f9fc;
+}
+
+.dispatch-filter-grid label > span {
+  margin-bottom: 6px;
+  color: #55667a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dispatch-filter-grid input,
+.dispatch-filter-grid select,
+.dispatch-filter-reset {
+  height: 42px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.dispatch-table-wrap {
+  border: 1px solid #dce5ee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.dispatch-order-table {
+  width: 100%;
+  min-width: 1080px;
+  table-layout: fixed;
+}
+
+.dispatch-order-table th {
+  height: 44px;
+  padding: 9px 10px;
+  background: #edf2f7;
+  color: #46586d;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.dispatch-order-table td {
+  height: 48px;
+  padding: 9px 10px;
+  color: #24384f;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dispatch-order-table tbody tr.selected td {
+  background: #e8f3ff;
+}
+
+.dispatch-order-table tbody tr.selected td:first-child {
+  box-shadow: inset 4px 0 #1769d2;
+}
+
+.dispatch-order-table td:nth-child(4),
+.dispatch-order-table td:nth-child(5) {
+  font-weight: 800;
+}
+
+.dispatch-memo-cell {
+  width: 72px !important;
+  max-width: 72px !important;
+}
+
+.dispatch-order-table td:last-child button {
+  min-width: 64px;
+  height: 29px;
+  border-radius: 6px;
+}
+
+/* ---------- Full-width detail block ---------- */
+.dispatch-list-workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "list"
+    "detail"
+    "trips";
+  gap: 12px;
+}
+
+.dispatch-list-panel { grid-area: list; }
+.dispatch-detail-column {
+  grid-area: detail;
+  position: static;
+  width: 100%;
+}
+.dispatch-list-workspace > .dispatch-trip-history { grid-area: trips; }
+
+.dispatch-detail {
+  overflow: hidden;
+}
+
+.dispatch-detail-titlebar {
+  min-height: 66px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #dfe7ef;
+  background: #f7f9fc;
+}
+
+.dispatch-detail-eyebrow {
+  color: #60758d;
+  font-size: 10.5px;
+  font-weight: 850;
+}
+
+.dispatch-detail-titlebar h2 {
+  margin-top: 3px;
+  color: #17314f;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.dispatch-detail-titlebar p {
+  margin-top: 2px;
+  color: #6f7f93;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dispatch-detail-kv {
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid #e4ebf2;
+}
+
+.dispatch-detail-kv > div {
+  min-height: 62px;
+  border-right: 1px solid #e4ebf2;
+}
+
+.dispatch-detail-kv > div:last-child { border-right: 0; }
+
+.dispatch-route {
+  margin: 14px 16px 0;
+  min-height: 58px;
+  border: 1px solid #dae4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.dispatch-route > div {
+  min-height: 58px;
+}
+
+.dispatch-route b {
+  margin-top: 4px;
+  color: #213a55;
+  font-size: 13.5px;
+  font-weight: 850;
+}
+
+.dispatch-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  margin: 12px 16px 0;
+  border: 1px solid #dce5ee;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.dispatch-detail-grid > div {
+  min-height: 74px;
+  padding: 11px 8px;
+  border-right: 1px solid #e2e9f0;
+  background: #fff;
+}
+
+.dispatch-detail-grid > div:last-child { border-right: 0; }
+
+.dispatch-detail-grid span {
+  color: #758398;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.dispatch-detail-grid b {
+  margin-top: 5px;
+  color: #1f354e;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.dispatch-detail-grid > .dispatch-detail-emphasis {
+  grid-column: auto !important;
+  background: #edf6ff;
+}
+
+.dispatch-detail-grid > .dispatch-detail-emphasis b {
+  color: #1263b7;
+  font-size: 19px;
+}
+
+.dispatch-assigned-list {
+  padding: 13px 16px 8px;
+}
+
+.dispatch-detail-note {
+  margin: 8px 16px 14px;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid #e1e8ef;
+  border-left: 3px solid #6d9fd3;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+/* ---------- Trip table ---------- */
+.dispatch-trip-history {
+  padding: 16px 18px 18px;
+}
+
+.dispatch-trip-history-head h3 {
+  color: #132b47;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.dispatch-trip-history-head p {
+  color: #7b899b;
+  font-size: 12px;
+}
+
+.dispatch-trip-history .dispatch-table th {
+  height: 42px;
+  background: #edf2f7;
+  color: #46586d;
+  font-size: 11.5px;
+  font-weight: 900;
+}
+
+.dispatch-trip-history .dispatch-table td {
+  height: 44px;
+  color: #24384f;
+  font-size: 12.5px;
+}
+
+/* ---------- Registration / vehicles / drivers / basics ---------- */
+.order-form-grid,
+.vehicle-form-grid,
+.driver-form-grid,
+.dispatch-basic-form {
+  padding: 18px;
+  gap: 14px 16px;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.dispatch-form-grid label > span,
+.dispatch-combobox > span,
+.dispatch-management-form label > span,
+.dispatch-basic-search span {
+  margin-bottom: 7px;
+  color: #4e6178;
+  font-size: 12.5px;
+  font-weight: 850;
+}
+
+.dispatch-form-grid input,
+.dispatch-form-grid select,
+.dispatch-management-form input,
+.dispatch-management-form select,
+.dispatch-basic-search input {
+  height: 44px;
+  border-radius: 7px;
+  font-size: 13.5px;
+}
+
+.dispatch-actions button {
+  min-height: 40px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 850;
+}
+
+.dispatch-vehicle-picker {
+  padding: 14px 16px;
+  background: #f6f9fc;
+}
+
+.dispatch-basic-tabs button {
+  min-height: 38px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table th {
+  height: 43px;
+  font-size: 12px;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td {
+  height: 46px;
+  font-size: 13px;
+}
+
+@media (max-width: 1500px) {
+  .dispatch-summary {
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+    width: 100%;
+  }
+
+  .dispatch-detail-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .dispatch-detail-grid > .dispatch-detail-emphasis {
+    grid-column: span 2 !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .dispatch-summary {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .dispatch-detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dispatch-detail-grid > .dispatch-detail-emphasis {
+    grid-column: span 2 !important;
+  }
+}
