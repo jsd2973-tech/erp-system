@@ -25,12 +25,12 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
 
   return (
     <section className="dispatch-trip-history">
-      <div className="dispatch-trip-history-head"><div><h3>실제 운행기록</h3><p>기사 모바일에서 등록된 운행 내역입니다.</p></div><span>{trips.length}건</span></div>
+      <div className="dispatch-trip-history-head"><div><h3>실제 운행 내역</h3><p>기사 모바일에서 등록된 실제 회차별 운행 정보입니다.</p></div><span>{trips.length}건</span></div>
       <div className="dispatch-table-wrap">
         <table className="dispatch-table">
-          <thead><tr><th>차량번호</th><th>기사</th><th>회차</th><th>상차 완료시간</th><th>하차 완료시간</th><th>실제 운송량</th><th>상태</th></tr></thead>
-          <tbody>{!trips.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : trips.map((trip) => <tr key={trip.id}>
-            <td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
+          <thead><tr><th>No</th><th>차량번호</th><th>기사</th><th>회차</th><th>상차 완료시간</th><th>하차 완료시간</th><th>실제 운송량</th><th>상태</th></tr></thead>
+          <tbody>{!trips.length ? <tr><td colSpan={8} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : trips.map((trip, index) => <tr key={trip.id}>
+            <td className="dispatch-count-cell">{index + 1}</td><td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -46,15 +46,23 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
 
   return (
     <section className="dispatch-detail">
-      <div className="dispatch-section-head">
-        <div className="dispatch-detail-heading"><span>{order.dispatch_date}</span><h2>{order.vendor_name}</h2><p>{order.item_name}</p></div>
+      <div className="dispatch-detail-titlebar">
+        <div><span className="dispatch-detail-eyebrow">배차 상세정보</span><h2>{order.vendor_name}</h2><p>{order.item_name}</p></div>
         <div className="dispatch-detail-actions"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span>{onClose && <button type="button" onClick={onClose}>닫기</button>}<button type="button" className="dispatch-primary" onClick={() => onEdit(order)}>수정</button></div>
       </div>
+
+      <div className="dispatch-detail-kv">
+        <div><span>배차일</span><b>{order.dispatch_date}</b></div>
+        <div><span>거래처</span><b>{order.vendor_name}</b></div>
+        <div><span>품목</span><b>{order.item_name}</b></div>
+      </div>
+
       <div className="dispatch-route">
         <div><span>상차지</span><b>{order.loading_location}</b></div>
         <i aria-hidden="true">→</i>
         <div><span>하차지</span><b>{order.unloading_location}</b></div>
       </div>
+
       <div className="dispatch-detail-grid">
         <div><span>총 물량</span><b>{formatVolume(order.total_volume)}</b></div>
         <div><span>1회 기준</span><b>{formatVolume(order.volume_per_trip)}</b></div>
@@ -64,11 +72,13 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
         <div><span>진행 중 회차</span><b>{activeTrips.length}회</b></div>
         <div className="dispatch-detail-emphasis"><span>실제 운송량</span><b>{formatVolume(actualVolume)}</b></div>
       </div>
-      {order.memo && <div className="dispatch-detail-note"><span>메모</span><p>{order.memo}</p></div>}
+
       <div className="dispatch-assigned-list">
-        <span>배정 차량번호</span>
+        <span>배정 차량</span>
         <div>{order.vehicle_ids.length ? order.vehicle_ids.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
       </div>
+
+      <div className="dispatch-detail-note"><span>메모</span><p>{order.memo || "-"}</p></div>
       {showTrips && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={trips} />}
     </section>
   );
