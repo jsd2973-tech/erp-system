@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import type { DispatchDriver, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
@@ -58,7 +59,7 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
 
       <div className="dispatch-route">
         <div><span>상차지</span><b>{order.loading_location}</b></div>
-        <i aria-hidden="true">→</i>
+        <i aria-hidden="true"><ArrowRight size={16} /></i>
         <div><span>하차지</span><b>{order.unloading_location}</b></div>
       </div>
 
