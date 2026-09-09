@@ -1,10 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import './features/dispatch/dispatch-polish.css'
-import './features/dispatch/dispatch-modern.css'
 import App from './App.tsx'
 import DispatchAuthGate from './features/dispatch/DispatchAuthGate.tsx'
+import './features/dispatch/dispatch-polish.css'
+import './features/dispatch/dispatch-modern.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
