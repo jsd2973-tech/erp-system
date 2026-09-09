@@ -1,0 +1,444 @@
+/* Unified visual system for the full dispatch PC suite.
+   Presentation only: no save/data/auth/RPC/mobile behavior changes. */
+
+/* ---------- Shared page rhythm ---------- */
+.dispatch-page {
+  padding: 14px 18px 34px;
+  background: #eef3f8;
+}
+
+.dispatch-page > .dispatch-panel,
+.dispatch-page > .dispatch-list-workspace,
+.dispatch-page > .dispatch-compact-list {
+  margin-top: 0;
+}
+
+.dispatch-panel {
+  border: 1px solid #d7e2ec;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(25, 48, 76, .045);
+}
+
+.dispatch-section-head {
+  min-height: 48px;
+  margin-bottom: 14px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #e5ebf2;
+}
+
+.dispatch-section-head > div:first-child {
+  min-width: 0;
+}
+
+.dispatch-section-head h2 {
+  margin: 0;
+  color: #102840;
+  font-size: 20px;
+  font-weight: 850;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+}
+
+.dispatch-section-head p {
+  margin: 4px 0 0;
+  color: #7b899b;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/* ---------- Shared form language ---------- */
+.order-form-grid,
+.vehicle-form-grid,
+.driver-form-grid,
+.dispatch-basic-form {
+  gap: 12px 14px;
+  padding: 16px;
+  border: 1px solid #dfe7ef;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.dispatch-form-grid label > span,
+.dispatch-combobox > span,
+.dispatch-management-form label > span,
+.dispatch-basic-search span {
+  display: block;
+  margin-bottom: 6px;
+  color: #43566d;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.dispatch-form-grid input,
+.dispatch-form-grid select,
+.dispatch-management-form input,
+.dispatch-management-form select,
+.dispatch-management-form textarea,
+.dispatch-basic-search input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #cbd7e3;
+  border-radius: 7px;
+  background: #fff;
+  color: #20364d;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.dispatch-form-grid input::placeholder,
+.dispatch-management-form input::placeholder,
+.dispatch-basic-search input::placeholder {
+  color: #9aa6b4;
+  font-weight: 500;
+}
+
+.dispatch-form-grid input:focus,
+.dispatch-form-grid select:focus,
+.dispatch-management-form input:focus,
+.dispatch-management-form select:focus,
+.dispatch-management-form textarea:focus,
+.dispatch-basic-search input:focus {
+  border-color: #6a9fda;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(23, 105, 210, .10);
+}
+
+.dispatch-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 14px;
+}
+
+.dispatch-actions button {
+  min-width: 92px;
+  min-height: 38px;
+}
+
+/* ---------- Registration ---------- */
+.order-form-grid {
+  grid-template-columns: 1fr 1.7fr 1.7fr 1fr;
+  align-items: start;
+}
+
+.dispatch-field-date { grid-column: 1; }
+.dispatch-field-customer { grid-column: 2 / span 2; }
+.dispatch-field-item { grid-column: 4; }
+.dispatch-field-loading { grid-column: 1 / span 2; }
+.dispatch-field-unloading { grid-column: 3 / span 2; }
+.dispatch-field-total { grid-column: 1; }
+.dispatch-field-per-trip { grid-column: 2; }
+.dispatch-field-estimated { grid-column: 3; }
+.dispatch-field-status { grid-column: 4; }
+.dispatch-field-memo { grid-column: 1 / span 4; }
+
+.dispatch-field-estimated input {
+  border-color: #bfd5ea;
+  background: #eaf4fd;
+  color: #155fa4;
+  font-weight: 850;
+  text-align: center;
+}
+
+.dispatch-save-master {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: #65778b;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.dispatch-save-master input {
+  width: 14px;
+  height: 14px;
+}
+
+.dispatch-vehicle-picker {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid #d8e3ed;
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+
+.dispatch-vehicle-picker > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 9px;
+}
+
+.dispatch-vehicle-picker > div:first-child strong {
+  color: #20364d;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.dispatch-vehicle-picker > div:first-child span {
+  color: #2a659f;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.dispatch-vehicle-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dispatch-vehicle-options label {
+  min-width: 116px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid #ccd9e6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.dispatch-vehicle-options label.selected {
+  border-color: #7cabdf;
+  background: #eaf4fd;
+  box-shadow: inset 3px 0 #1769d2;
+}
+
+/* ---------- Vehicle management ---------- */
+.vehicle-form-grid {
+  grid-template-columns: 1.1fr .7fr 2.2fr;
+}
+
+.vehicle-form-grid .dispatch-wide {
+  grid-column: auto;
+}
+
+/* ---------- Driver management ---------- */
+.driver-form-grid {
+  grid-template-columns: 1fr 1.1fr 1.05fr 1.75fr .7fr;
+}
+
+.driver-form-grid .dispatch-wide {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Basics ---------- */
+.dispatch-basic-tabs {
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #d8e2ec;
+  border-radius: 9px;
+  background: #f3f6fa;
+}
+
+.dispatch-basic-tabs button {
+  min-width: 84px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  color: #5c6c80;
+  font-size: 12.5px;
+  font-weight: 750;
+}
+
+.dispatch-basic-tabs button.active {
+  background: #1769d2;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(23,105,210,.16);
+}
+
+.dispatch-basic-form {
+  grid-template-columns: 1.4fr .7fr 2fr;
+}
+
+.dispatch-basic-form .dispatch-wide {
+  grid-column: auto;
+}
+
+.dispatch-basic-search {
+  display: grid;
+  grid-template-columns: minmax(180px, 320px);
+  margin: 0 0 12px;
+}
+
+/* ---------- Management tables ---------- */
+.dispatch-panel > .dispatch-table-wrap {
+  margin-top: 2px;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table th,
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td {
+  height: 44px;
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table th {
+  background: #eef3f8;
+  color: #4b5d72;
+  font-size: 11.5px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td {
+  color: #26394f;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td.dispatch-strong,
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td:nth-child(1) {
+  text-align: left;
+  font-weight: 800;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table td:nth-last-child(2) {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table button {
+  min-width: 54px;
+  height: 30px;
+  border: 1px solid #c7d7e8;
+  border-radius: 6px;
+  background: #fff;
+  color: #27659e;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dispatch-panel > .dispatch-table-wrap .dispatch-table button:hover {
+  border-color: #8eb5dc;
+  background: #edf6ff;
+}
+
+/* ---------- List/detail screen alignment ---------- */
+.dispatch-list-panel .dispatch-section-head {
+  margin-bottom: 0;
+}
+
+.dispatch-filter-grid label {
+  min-width: 0;
+}
+
+.dispatch-filter-grid label > span {
+  text-align: center;
+}
+
+.dispatch-order-table th,
+.dispatch-order-table td {
+  vertical-align: middle;
+}
+
+.dispatch-order-table th:nth-child(4),
+.dispatch-order-table th:nth-child(5),
+.dispatch-order-table th:nth-child(10),
+.dispatch-order-table td:nth-child(4),
+.dispatch-order-table td:nth-child(5),
+.dispatch-order-table td:nth-child(10) {
+  text-align: left !important;
+}
+
+.dispatch-order-table th:not(:nth-child(4)):not(:nth-child(5)):not(:nth-child(10)),
+.dispatch-order-table td:not(:nth-child(4)):not(:nth-child(5)):not(:nth-child(10)) {
+  text-align: center !important;
+}
+
+.dispatch-order-table td:nth-child(10) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dispatch-detail-titlebar {
+  align-items: flex-start;
+}
+
+.dispatch-detail-titlebar h2,
+.dispatch-detail-titlebar p,
+.dispatch-detail-eyebrow {
+  text-align: left;
+}
+
+.dispatch-detail-kv > div,
+.dispatch-detail-grid > div {
+  text-align: center;
+}
+
+.dispatch-detail-kv span,
+.dispatch-detail-grid span {
+  display: block;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.dispatch-detail-kv b,
+.dispatch-detail-grid b {
+  display: block;
+  text-align: center;
+}
+
+.dispatch-route > div {
+  text-align: center;
+}
+
+.dispatch-route span,
+.dispatch-route b {
+  display: block;
+  text-align: center;
+}
+
+.dispatch-trip-history .dispatch-table th,
+.dispatch-trip-history .dispatch-table td {
+  text-align: center;
+}
+
+.dispatch-trip-history .dispatch-table td:nth-child(2),
+.dispatch-trip-history .dispatch-table td:nth-child(3) {
+  text-align: left;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1500px) {
+  .order-form-grid { grid-template-columns: 1fr 1.5fr 1.5fr 1fr; }
+  .driver-form-grid { grid-template-columns: 1fr 1fr 1fr 1.4fr .75fr; }
+}
+
+@media (max-width: 1180px) {
+  .order-form-grid,
+  .driver-form-grid,
+  .vehicle-form-grid,
+  .dispatch-basic-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dispatch-field-customer,
+  .dispatch-field-loading,
+  .dispatch-field-unloading,
+  .dispatch-field-memo,
+  .driver-form-grid .dispatch-wide {
+    grid-column: 1 / -1;
+  }
+
+  .dispatch-field-date,
+  .dispatch-field-item,
+  .dispatch-field-total,
+  .dispatch-field-per-trip,
+  .dispatch-field-estimated,
+  .dispatch-field-status {
+    grid-column: auto;
+  }
+}
