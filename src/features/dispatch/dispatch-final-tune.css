@@ -39,30 +39,33 @@
   min-height: 38px;
 }
 
-/* Keep the trip table directly under the list instead of waiting for the tall detail panel. */
-.dispatch-list-workspace {
-  grid-template-columns: minmax(0, 72fr) minmax(340px, 28fr);
+/* Reference layout: full-width list -> full-width detail -> full-width trips. */
+.dispatch-list-workspace.dispatch-list-workspace-stacked {
+  display: grid;
+  grid-template-columns: 1fr;
   grid-template-areas:
-    "list detail"
-    "trips detail";
+    "list"
+    "detail"
+    "trips";
   align-items: start;
   gap: 10px;
 }
 
-.dispatch-list-panel {
+.dispatch-list-workspace-stacked > .dispatch-list-panel {
   grid-area: list;
   min-height: 0;
 }
 
-.dispatch-detail-column {
+.dispatch-list-workspace-stacked > .dispatch-detail,
+.dispatch-list-workspace-stacked > .dispatch-detail-empty {
   grid-area: detail;
-  align-self: start;
+  width: 100%;
 }
 
-.dispatch-list-workspace > .dispatch-trip-history {
+.dispatch-list-workspace-stacked > .dispatch-trip-history {
   grid-area: trips;
-  grid-column: auto;
-  align-self: start;
+  width: 100%;
+  margin-top: 0;
 }
 
 /* Section title alignment */
@@ -98,8 +101,7 @@
 }
 
 .dispatch-filter-grid input,
-.dispatch-filter-grid select,
-.dispatch-filter-reset {
+.dispatch-filter-grid select {
   text-align: left;
 }
 
@@ -108,21 +110,21 @@
 }
 
 .dispatch-order-table {
-  min-width: 980px;
+  min-width: 1080px;
   table-layout: fixed;
 }
 
-.dispatch-order-table th:nth-child(1) { width: 42px; }
-.dispatch-order-table th:nth-child(2) { width: 74px; }
-.dispatch-order-table th:nth-child(3) { width: 100px; }
-.dispatch-order-table th:nth-child(4) { width: 125px; }
-.dispatch-order-table th:nth-child(5) { width: 105px; }
-.dispatch-order-table th:nth-child(6) { width: 82px; }
-.dispatch-order-table th:nth-child(7) { width: 82px; }
-.dispatch-order-table th:nth-child(8) { width: 78px; }
-.dispatch-order-table th:nth-child(9) { width: 78px; }
+.dispatch-order-table th:nth-child(1) { width: 44px; }
+.dispatch-order-table th:nth-child(2) { width: 78px; }
+.dispatch-order-table th:nth-child(3) { width: 104px; }
+.dispatch-order-table th:nth-child(4) { width: 140px; }
+.dispatch-order-table th:nth-child(5) { width: 110px; }
+.dispatch-order-table th:nth-child(6) { width: 86px; }
+.dispatch-order-table th:nth-child(7) { width: 86px; }
+.dispatch-order-table th:nth-child(8) { width: 82px; }
+.dispatch-order-table th:nth-child(9) { width: 82px; }
 .dispatch-order-table th:nth-child(10) { width: 78px; }
-.dispatch-order-table th:nth-child(11) { width: 78px; }
+.dispatch-order-table th:nth-child(11) { width: 84px; }
 
 /* Table alignment: text columns left, numeric/status/action columns centered. */
 .dispatch-order-table th,
@@ -158,6 +160,11 @@
   text-align: left;
 }
 
+.dispatch-order-table td:nth-child(4),
+.dispatch-order-table td:nth-child(5) {
+  font-weight: 750;
+}
+
 .dispatch-memo-cell {
   width: 78px;
   max-width: 78px !important;
@@ -170,94 +177,163 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 56px;
-  height: 26px;
+  min-width: 58px;
+  height: 28px;
   margin: 0 auto;
 }
 
-.dispatch-detail-column .dispatch-detail {
-  min-height: 0;
-}
-
-.dispatch-detail-titlebar {
-  padding: 13px 14px;
-}
-
-.dispatch-detail-titlebar > div:first-child {
-  min-width: 0;
-}
-
-.dispatch-detail-actions {
-  align-self: center;
-}
-
-.dispatch-detail-kv > div,
-.dispatch-detail-grid > div {
-  min-height: 50px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-
-.dispatch-detail-kv span,
-.dispatch-detail-grid span {
-  margin-bottom: 4px;
-  text-align: center;
-}
-
-.dispatch-detail-kv b,
-.dispatch-detail-grid b {
-  text-align: center;
-}
-
-.dispatch-route > div {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-
-.dispatch-route span,
-.dispatch-route b {
-  text-align: center;
-}
-
-.dispatch-assigned-list {
-  text-align: left;
-}
-
-.dispatch-assigned-list > span {
-  display: block;
-  margin-bottom: 7px;
-  text-align: left;
-}
-
-.dispatch-detail-note {
-  margin-bottom: 0;
-  max-height: 44px;
+/* Full-width detail, closer to the generated reference mock. */
+.dispatch-list-workspace-stacked > .dispatch-detail {
   overflow: hidden;
+  border-radius: 12px;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-titlebar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #dfe7ef;
+  background: #f8fafc;
 }
 
-.dispatch-detail-note span {
-  flex: 0 0 auto;
-}
-
-.dispatch-detail-note p {
+.dispatch-list-workspace-stacked .dispatch-detail-titlebar > div:first-child {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px 12px;
   min-width: 0;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-eyebrow {
+  grid-column: 1 / -1;
+  color: #5d7188;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-titlebar h2 {
+  margin: 0;
+  color: #152d47;
+  font-size: 21px;
+  font-weight: 850;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-titlebar p {
+  margin: 0;
+  color: #607186;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-kv {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-bottom: 1px solid #e1e8ef;
+  background: #fff;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-kv > div {
+  min-height: 58px;
+  padding: 11px 14px;
+  border-right: 1px solid #e6ebf1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-kv > div:last-child {
+  border-right: 0;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-kv span,
+.dispatch-list-workspace-stacked .dispatch-detail-grid span {
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-kv b,
+.dispatch-list-workspace-stacked .dispatch-detail-grid b {
+  text-align: center;
+}
+
+.dispatch-list-workspace-stacked .dispatch-route {
+  display: grid;
+  grid-template-columns: 1fr 44px 1fr;
+  align-items: center;
+  margin: 12px 14px 0;
+}
+
+.dispatch-list-workspace-stacked .dispatch-route > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 10px 14px 0;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-grid > div {
+  min-height: 72px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-grid > div b {
+  font-size: 17px;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-grid > .dispatch-detail-emphasis b {
+  font-size: 21px;
+}
+
+.dispatch-list-workspace-stacked .dispatch-assigned-list {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 8px;
+  text-align: left;
+}
+
+.dispatch-list-workspace-stacked .dispatch-assigned-list > span {
+  margin: 0;
+  text-align: left;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-note {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  min-height: 46px;
+  margin: 0 14px 14px;
+  padding: 8px 12px;
+  max-height: none;
+  overflow: visible;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-note span,
+.dispatch-list-workspace-stacked .dispatch-detail-note p {
+  margin: 0;
+  text-align: left;
+}
+
+.dispatch-list-workspace-stacked .dispatch-detail-note p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: left;
-}
-
-.dispatch-trip-history {
-  margin-top: 0;
 }
 
 .dispatch-trip-history-head {
@@ -268,10 +344,6 @@
 .dispatch-trip-history .dispatch-table td {
   height: 40px;
   vertical-align: middle;
-}
-
-.dispatch-trip-history .dispatch-table th,
-.dispatch-trip-history .dispatch-table td {
   text-align: center;
 }
 
@@ -287,17 +359,17 @@
     width: 100%;
   }
 
-  .dispatch-list-workspace {
-    grid-template-columns: minmax(0, 68fr) minmax(330px, 32fr);
+  .dispatch-list-workspace-stacked .dispatch-detail-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1180px) {
-  .dispatch-list-workspace {
+  .dispatch-list-workspace.dispatch-list-workspace-stacked {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "list"
-      "detail"
-      "trips";
+  }
+
+  .dispatch-list-workspace-stacked .dispatch-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
