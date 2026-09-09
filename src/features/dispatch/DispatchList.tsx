@@ -67,13 +67,13 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
     </div>
   </section>;
 
-  if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} onClose={() => setSelectedId("")} />}</div>;
+  if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div>;
 
   return (
     <div className="dispatch-list-workspace">
       {listPanel}
       <aside className="dispatch-detail-column" aria-label="선택 배차 상세">
-        {selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} onClose={() => setSelectedId("")} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>}
+        {selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>}
       </aside>
       {selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
     </div>
