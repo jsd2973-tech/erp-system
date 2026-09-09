@@ -73,28 +73,28 @@ export default function DispatchRegister({ customers, locations, items, vehicles
     <section className="dispatch-panel">
       <div className="dispatch-section-head"><div><h2>{form.id ? "배차 수정" : "신규 배차등록"}</h2><p>25.5톤 덤프 기준 배차를 등록합니다.</p></div>{form.id && <span className="dispatch-editing-pill">수정 중</span>}</div>
       <div className="dispatch-form-grid order-form-grid">
-        <label><span>날짜 *</span><input type="date" value={form.dispatch_date} onChange={(event) => setForm({ ...form, dispatch_date: event.target.value })} /></label>
-        <div className="dispatch-combobox-field">
+        <label className="dispatch-field-date"><span>날짜 *</span><input type="date" value={form.dispatch_date} onChange={(event) => setForm({ ...form, dispatch_date: event.target.value })} /></label>
+        <div className="dispatch-combobox-field dispatch-field-customer">
           <DispatchCombobox label="거래처" required value={form.vendor_name} options={customerOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, vendor_name: value, vendor_id: selectedId || "", save_vendor: selectedId ? false : form.save_vendor })} />
           {isNewCustomer && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_vendor} onChange={(event) => setForm({ ...form, save_vendor: event.target.checked })} />신규 거래처로 저장</label>}
         </div>
-        <div className="dispatch-combobox-field">
+        <div className="dispatch-combobox-field dispatch-field-item">
           <DispatchCombobox label="품목" required value={form.item_name} options={itemOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, item_name: value, item_id: selectedId || "", save_item: selectedId ? false : form.save_item })} />
           {isNewItem && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_item} onChange={(event) => setForm({ ...form, save_item: event.target.checked })} />신규 품목으로 저장</label>}
         </div>
-        <div className="dispatch-combobox-field">
+        <div className="dispatch-combobox-field dispatch-field-loading">
           <DispatchCombobox label="상차지" required value={form.loading_location} options={loadingOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, loading_location: value, save_loading_location: selectedId ? false : form.save_loading_location })} />
           {isNewLoadingLocation && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_loading_location} onChange={(event) => setForm({ ...form, save_loading_location: event.target.checked })} />상차지 목록에 저장</label>}
         </div>
-        <div className="dispatch-combobox-field">
+        <div className="dispatch-combobox-field dispatch-field-unloading">
           <DispatchCombobox label="하차지" required value={form.unloading_location} options={unloadingOptions} placeholder="검색 또는 직접 입력" onChange={(value, selectedId) => setForm({ ...form, unloading_location: value, save_unloading_location: selectedId ? false : form.save_unloading_location })} />
           {isNewUnloadingLocation && <label className="dispatch-save-master"><input type="checkbox" checked={form.save_unloading_location} onChange={(event) => setForm({ ...form, save_unloading_location: event.target.checked })} />하차지 목록에 저장</label>}
         </div>
-        <label><span>총 물량(루베) *</span><input inputMode="decimal" value={form.total_volume} onChange={(event) => setForm({ ...form, total_volume: event.target.value })} placeholder="340" /></label>
-        <label><span>1회 기준(루베) *</span><input inputMode="decimal" value={form.volume_per_trip} onChange={(event) => setForm({ ...form, volume_per_trip: event.target.value })} placeholder="17" /></label>
-        <label><span>예정 총 회차</span><input value={estimatedTrips ? `${estimatedTrips}회` : "-"} readOnly /></label>
-        <label><span>상태</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as DispatchOrderForm["status"] })}>{DISPATCH_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
-        <label className="dispatch-wide"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="배차 관련 메모" /></label>
+        <label className="dispatch-field-total"><span>총 물량(루베) *</span><input inputMode="decimal" value={form.total_volume} onChange={(event) => setForm({ ...form, total_volume: event.target.value })} placeholder="총 물량 입력" /></label>
+        <label className="dispatch-field-per-trip"><span>1회 기준(루베) *</span><input inputMode="decimal" value={form.volume_per_trip} onChange={(event) => setForm({ ...form, volume_per_trip: event.target.value })} placeholder="17" /></label>
+        <label className="dispatch-field-estimated"><span>예정 총 회차</span><input value={estimatedTrips ? `${estimatedTrips}회` : "-"} readOnly /></label>
+        <label className="dispatch-field-status"><span>상태</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as DispatchOrderForm["status"] })}>{DISPATCH_STATUSES.map((status) => <option key={status}>{status}</option>)}</select></label>
+        <label className="dispatch-wide dispatch-field-memo"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="배차 관련 메모" /></label>
       </div>
 
       <div className="dispatch-vehicle-picker">
