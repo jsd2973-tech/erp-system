@@ -73,8 +73,8 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     const vehicleId = driver.assigned_vehicle_id;
     if (!vehicleId) {
@@ -159,6 +159,25 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
 
   useEffect(() => { void loadOrders(); }, [loadOrders]);
   useEffect(() => { if (tab === "history") void loadHistory(); }, [loadHistory, tab]);
+
+  useEffect(() => {
+    if (tab !== "today" && tab !== "input") return;
+
+    const refresh = () => void loadOrders(true);
+    const intervalId = window.setInterval(refresh, 10000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [loadOrders, tab]);
 
   const selectedOrder = todayOrders.find((order) => order.id === selectedOrderId) || null;
   const activeTrip = todayTrips.find((trip) => trip.dispatch_order_id === selectedOrderId && (trip.status === "상차대기" || trip.status === "진행중")) || null;
