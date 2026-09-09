@@ -39,6 +39,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState("");
   const [error, setError] = useState("");
   const hasLoadedRef = useRef(false);
 
@@ -276,6 +277,21 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     return true;
   };
 
+  const deleteOrder = async (order: DispatchOrderWithVehicles) => {
+    setDeletingOrderId(order.id);
+    setError("");
+    const { error: deleteError } = await supabase.rpc("delete_dispatch_order", { p_order_id: order.id });
+    setDeletingOrderId("");
+    if (deleteError) {
+      setError(`배차 삭제 실패: ${deleteError.message}`);
+      return false;
+    }
+    if (editingOrder?.id === order.id) setEditingOrder(null);
+    await loadDispatchData();
+    onNotify("배차와 연결된 운행기록을 삭제했습니다.");
+    return true;
+  };
+
   const editOrder = (order: DispatchOrderWithVehicles) => {
     setEditingOrder(order);
     onNavigate("dispatch_register");
@@ -308,7 +324,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       {error && <div className="dispatch-load-error">{error}</div>}
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
-        {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} />}
+        {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} deletingOrderId={deletingOrderId} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}
         {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} items={items} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} onSaveItem={saveItem} />}
