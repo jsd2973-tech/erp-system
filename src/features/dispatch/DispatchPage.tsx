@@ -34,6 +34,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
   const [locations, setLocations] = useState<DispatchLocation[]>([]);
   const [items, setItems] = useState<DispatchItem[]>([]);
   const [orders, setOrders] = useState<DispatchOrderWithVehicles[]>([]);
+  const [deletedOrders, setDeletedOrders] = useState<DispatchOrderWithVehicles[]>([]);
   const [trips, setTrips] = useState<DispatchTrip[]>([]);
   const [editingOrder, setEditingOrder] = useState<DispatchOrderWithVehicles | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -77,7 +78,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     const assignments = (assignmentResult.data || []).map((row) => ({ ...row, id: String(row.id), order_id: String(row.order_id), vehicle_id: String(row.vehicle_id) })) as DispatchOrderVehicle[];
     const assignmentMap = new Map<string, string[]>();
     assignments.forEach((assignment) => assignmentMap.set(assignment.order_id, [...(assignmentMap.get(assignment.order_id) || []), assignment.vehicle_id]));
-    const nextOrders = (orderResult.data || []).map((row) => ({
+    const normalizedOrders = (orderResult.data || []).map((row) => ({
       ...row,
       id: String(row.id),
       dispatch_date: String(row.dispatch_date || ""),
@@ -93,7 +94,10 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       status: row.status,
       memo: String(row.memo || ""),
       vehicle_ids: assignmentMap.get(String(row.id)) || [],
-    })) as DispatchOrderWithVehicles[];
+      deleted_at: row.deleted_at ? String(row.deleted_at) : null,
+    })) as (DispatchOrderWithVehicles & { deleted_at?: string | null })[];
+    const nextOrders = normalizedOrders.filter((order) => !order.deleted_at);
+    const nextDeletedOrders = normalizedOrders.filter((order) => Boolean(order.deleted_at));
     const nextTrips = (tripResult.data || []).map((row) => ({
       ...row,
       id: String(row.id),
@@ -114,6 +118,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     if (!locationResult.error) setLocations(nextLocations);
     if (!itemResult.error) setItems(nextItems);
     setOrders(nextOrders);
+    setDeletedOrders(nextDeletedOrders);
     if (!tripResult.error) setTrips(nextTrips);
     hasLoadedRef.current = true;
     setInitialLoading(false);
@@ -283,12 +288,40 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     const { error: deleteError } = await supabase.rpc("delete_dispatch_order", { p_order_id: order.id });
     setDeletingOrderId("");
     if (deleteError) {
-      setError(`배차 삭제 실패: ${deleteError.message}`);
+      setError(`배차 휴지통 이동 실패: ${deleteError.message}`);
       return false;
     }
     if (editingOrder?.id === order.id) setEditingOrder(null);
     await loadDispatchData();
-    onNotify("배차와 연결된 운행기록을 삭제했습니다.");
+    onNotify("배차를 휴지통으로 이동했습니다. 운행기록은 보존됩니다.");
+    return true;
+  };
+
+  const restoreOrder = async (order: DispatchOrderWithVehicles) => {
+    setDeletingOrderId(order.id);
+    setError("");
+    const { error: restoreError } = await supabase.rpc("restore_dispatch_order", { p_order_id: order.id });
+    setDeletingOrderId("");
+    if (restoreError) {
+      setError(`배차 복구 실패: ${restoreError.message}`);
+      return false;
+    }
+    await loadDispatchData();
+    onNotify("배차를 복구했습니다.");
+    return true;
+  };
+
+  const permanentlyDeleteOrder = async (order: DispatchOrderWithVehicles) => {
+    setDeletingOrderId(order.id);
+    setError("");
+    const { error: permanentError } = await supabase.rpc("permanently_delete_dispatch_order", { p_order_id: order.id });
+    setDeletingOrderId("");
+    if (permanentError) {
+      setError(`배차 영구삭제 실패: ${permanentError.message}`);
+      return false;
+    }
+    await loadDispatchData();
+    onNotify("배차와 연결된 운행기록을 영구삭제했습니다.");
     return true;
   };
 
@@ -324,7 +357,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       {error && <div className="dispatch-load-error">{error}</div>}
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
-        {view === "dispatch_list" && <DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} deletingOrderId={deletingOrderId} />}
+        {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={deletedOrders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} onRestore={restoreOrder} onPermanentDelete={permanentlyDeleteOrder} deletingOrderId={deletingOrderId} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}
         {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} items={items} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} onSaveItem={saveItem} />}
