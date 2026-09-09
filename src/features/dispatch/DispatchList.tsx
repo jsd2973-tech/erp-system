@@ -10,12 +10,14 @@ type DispatchListProps = {
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
+  onDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
+  deletingOrderId?: string;
   compact?: boolean;
 };
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, vehicles, drivers, trips, onEdit, compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, vehicles, drivers, trips, onEdit, onDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
 
@@ -29,6 +31,17 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
 
   const selectedOrder = orders.find((order) => order.id === selectedId) || (!compact ? filtered[0] : undefined);
   const selectedTrips = selectedOrder ? trips.filter((trip) => trip.dispatch_order_id === selectedOrder.id) : [];
+
+  const requestDelete = async (order: DispatchOrderWithVehicles) => {
+    if (!onDelete) return;
+    const tripCount = trips.filter((trip) => trip.dispatch_order_id === order.id).length;
+    const confirmed = window.confirm(
+      `${order.dispatch_date} / ${order.vendor_name} / ${order.item_name} 배차를 삭제할까요?\n\n연결된 운행기록 ${tripCount}건도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
+    );
+    if (!confirmed) return;
+    const deleted = await onDelete(order);
+    if (deleted && selectedId === order.id) setSelectedId("");
+  };
 
   const listPanel = <section className="dispatch-panel dispatch-list-panel">
     <div className="dispatch-section-head">
@@ -59,7 +72,12 @@ export default function DispatchList({ orders, vehicles, drivers, trips, onEdit,
               <td className="dispatch-count-cell">{order.estimated_trip_count}회</td>
               <td className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
               <td className="dispatch-memo-cell" title={order.memo || ""}>{order.memo || "-"}</td>
-              <td><button type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id); }}>상세보기</button></td>
+              <td>
+                <div className="dispatch-row-actions">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id); }}>상세보기</button>
+                  {!compact && onDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={(event) => { event.stopPropagation(); void requestDelete(order); }}>{deletingOrderId === order.id ? "삭제 중..." : "삭제"}</button>}
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
