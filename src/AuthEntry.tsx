@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import { toLoginEmail } from "./authLogin";
@@ -102,7 +102,7 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   page: { minHeight: "100vh", display: "grid", placeItems: "center", background: "#f2f5f9", padding: 20, fontFamily: "inherit" },
   card: { width: "min(420px, 100%)", background: "#fff", borderRadius: 22, padding: 32, boxShadow: "0 20px 50px rgba(30,45,65,.12)", border: "1px solid #e6ebf1" },
   badge: { display: "inline-block", fontSize: 12, fontWeight: 900, letterSpacing: 1.2, color: "#35506f", background: "#eef3f8", borderRadius: 999, padding: "7px 10px", marginBottom: 14 },
