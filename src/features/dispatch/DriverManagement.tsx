@@ -17,6 +17,12 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : "";
 
+  const editDriver = (driver: DispatchDriver) => {
+    setForm({ ...driver });
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const submit = async () => {
     const name = form.name.trim();
     if (!name) return setError("기사 이름을 입력하세요.");
@@ -33,7 +39,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   return (
     <section className="dispatch-panel">
       <div className="dispatch-section-head">
-        <div><h2>기사관리</h2><p>기사 기본정보와 현재 담당 차량을 연결합니다.</p></div>
+        <div><h2>기사관리</h2><p>기사 기본정보와 현재 담당 차량, 로그인 연결을 관리합니다.</p></div>
         <span className="dispatch-count">근무 {drivers.filter((driver) => driver.active).length}명</span>
       </div>
 
@@ -53,7 +59,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <button type="button" className="dispatch-primary" disabled={saving} onClick={submit}>{saving ? "저장 중..." : form.id ? "수정 저장" : "기사 등록"}</button>
       </div>
 
-      <div className="dispatch-table-wrap">
+      <div className="dispatch-table-wrap dispatch-management-desktop-table">
         <table className="dispatch-table">
           <thead><tr><th>기사명</th><th>연락처</th><th>담당 차량</th><th>로그인 연결</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
           <tbody>
@@ -62,11 +68,28 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
                 <td className="dispatch-strong">{driver.name}</td><td>{driver.phone || "-"}</td><td>{driver.assigned_vehicle_id ? vehicleById.get(driver.assigned_vehicle_id)?.vehicle_number || "연결 차량 확인 필요" : "미지정"}</td>
                 <td>{driver.auth_user_id ? <span className="dispatch-active-pill on">연결됨</span> : <span className="dispatch-active-pill off">미연결</span>}</td>
                 <td><span className={`dispatch-active-pill ${driver.active ? "on" : "off"}`}>{driver.active ? "사용" : "미사용"}</span></td><td>{driver.memo || "-"}</td>
-                <td><button type="button" onClick={() => { setForm({ ...driver }); setError(""); }}>수정</button></td>
+                <td><button type="button" onClick={() => editDriver(driver)}>수정</button></td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="dispatch-management-mobile-list">
+        {!drivers.length ? <div className="dispatch-mobile-empty">등록된 기사가 없습니다.</div> : drivers.map((driver) => (
+          <article className="dispatch-management-mobile-card" key={driver.id}>
+            <div className="dispatch-management-mobile-card-head">
+              <div><strong>{driver.name}</strong><span>{driver.assigned_vehicle_id ? vehicleById.get(driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요" : "차량 미지정"}</span></div>
+              <span className={`dispatch-active-pill ${driver.active ? "on" : "off"}`}>{driver.active ? "사용" : "미사용"}</span>
+            </div>
+            <div className="dispatch-management-mobile-grid">
+              <div><span>연락처</span><b>{driver.phone || "-"}</b></div>
+              <div><span>로그인</span>{driver.auth_user_id ? <b className="ok">연결됨</b> : <b>미연결</b>}</div>
+              <div className="wide"><span>메모</span><b>{driver.memo || "-"}</b></div>
+            </div>
+            <button type="button" className="dispatch-mobile-edit-button" onClick={() => editDriver(driver)}>수정</button>
+          </article>
+        ))}
       </div>
     </section>
   );
