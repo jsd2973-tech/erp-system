@@ -24,7 +24,9 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [expandedDriverId, setExpandedDriverId] = useState("");
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const orderById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders]);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -37,18 +39,14 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     ]);
     const loadError = tripResult.error || orderResult.error || assignmentResult.error;
     if (loadError) {
-      setError(`기사 현황을 불러오지 못했습니다. (${loadError.message})`);
+      setError(`운행현황을 불러오지 못했습니다. (${loadError.message})`);
       setLoading(false);
       return;
     }
     const assignments = assignmentResult.data || [];
     setOrders((orderResult.data || []).map((row) => ({
-      id: String(row.id),
-      vendor_name: String(row.vendor_name || ""),
-      item_name: String(row.item_name || ""),
-      loading_location: String(row.loading_location || ""),
-      unloading_location: String(row.unloading_location || ""),
-      status: String(row.status || ""),
+      id: String(row.id), vendor_name: String(row.vendor_name || ""), item_name: String(row.item_name || ""),
+      loading_location: String(row.loading_location || ""), unloading_location: String(row.unloading_location || ""), status: String(row.status || ""),
       vehicle_ids: assignments.filter((a) => String(a.order_id) === String(row.id)).map((a) => String(a.vehicle_id)),
     })));
     setTrips((tripResult.data || []).map((row) => ({
@@ -88,7 +86,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     const last = mine[0] || null;
     const lastAt = last?.unloading_completed_at || last?.loading_completed_at || last?.created_at;
     const lastText = !last ? "오늘 활동 없음" : last.status === "완료" ? `${koreaTime(lastAt)} 하차완료` : last.status === "진행중" ? `${koreaTime(lastAt)} 상차완료` : `${koreaTime(lastAt)} 운행시작`;
-    return { driver, completed, state, currentOrder, lastText };
+    return { driver, mine, completed, state, currentOrder, lastText };
   }).sort((a, b) => {
     const rank: Record<DriverState, number> = { "운행중": 0, "상차대기": 1, "대기": 2, "운행 완료": 3, "미사용": 4 };
     return rank[a.state] - rank[b.state] || a.driver.name.localeCompare(b.driver.name, "ko-KR");
@@ -102,9 +100,9 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     volume: trips.filter((t) => t.status === "완료").reduce((sum, t) => sum + (Number.isFinite(t.actual_volume) ? t.actual_volume : 0), 0),
   }), [drivers, rows, trips]);
 
-  return <div className="driver-status-dashboard">
+  return <section className="driver-status-dashboard">
     <div className="driver-status-head">
-      <div><span className="driver-status-eyebrow">LIVE DRIVER CONTROL · {dispatchToday()}</span><h2>기사 현황</h2><p>오늘 기사별 운행 상태와 실적을 실시간으로 확인합니다.</p></div>
+      <div><span className="driver-status-eyebrow">LIVE DRIVER CONTROL · {dispatchToday()}</span><h2>운행현황</h2><p>기사별 현재 상태와 오늘 운행내역을 한눈에 확인합니다.</p></div>
       <button type="button" onClick={() => void load()} disabled={loading}>{loading ? "확인 중..." : "새로고침"}</button>
     </div>
     <div className="driver-status-kpis">
@@ -116,24 +114,45 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     </div>
     <div className="driver-status-live"><i />실시간 자동 갱신 · 10초{updatedAt ? ` · ${koreaTime(updatedAt.toISOString())} 기준` : ""}</div>
     {error && <div className="driver-status-error">{error}</div>}
+
     <div className="driver-status-cards">{rows.map((row) => {
       const volume = row.completed.reduce((sum, t) => sum + (Number.isFinite(t.actual_volume) ? t.actual_volume : 0), 0);
-      const compact = row.state === "대기" || row.state === "운행 완료" || row.state === "미사용";
-      return <article key={row.driver.id} className={`driver-status-card driver-card-${row.state.replace(/\s/g, "-")} ${compact ? "is-compact" : ""}`}>
-        <div className="driver-status-card-top">
-          <div className="driver-identity"><span className="driver-avatar">{row.driver.name.trim().slice(0, 1) || "기"}</span><div><strong>{row.driver.name}</strong><span>{row.driver.assigned_vehicle_id ? vehicleById.get(row.driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요" : "차량 미지정"}</span></div></div>
-          <b className={`driver-state state-${row.state.replace(/\s/g, "-")}`}><i />{row.state}</b>
-        </div>
-        <div className="driver-current">
-          <span>현재 배차</span><strong>{row.currentOrder ? `${row.currentOrder.vendor_name} · ${row.currentOrder.item_name}` : "배차 없음"}</strong>
-          {row.currentOrder && (row.currentOrder.loading_location || row.currentOrder.unloading_location) && <em>{row.currentOrder.loading_location || "상차지 미지정"} <b>→</b> {row.currentOrder.unloading_location || "하차지 미지정"}</em>}
-        </div>
-        <div className="driver-status-stats">
-          <div><span>오늘 완료</span><strong>{row.completed.length}<small>회</small></strong></div>
-          <div><span>오늘 운송량</span><strong>{formatVolume(volume)}</strong></div>
-        </div>
-        <div className="driver-last"><span>마지막 활동</span><strong>{row.lastText}</strong></div>
+      const expanded = expandedDriverId === row.driver.id;
+      return <article key={row.driver.id} className={`driver-status-card driver-card-${row.state.replace(/\s/g, "-")}`}>
+        <button type="button" className="driver-card-main" onClick={() => setExpandedDriverId(expanded ? "" : row.driver.id)} aria-expanded={expanded}>
+          <div className="driver-status-card-top">
+            <div className="driver-identity"><span className="driver-avatar">{row.driver.name.trim().slice(0, 1) || "기"}</span><div><strong>{row.driver.name}</strong><span>{row.driver.assigned_vehicle_id ? vehicleById.get(row.driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요" : "차량 미지정"}</span></div></div>
+            <b className={`driver-state state-${row.state.replace(/\s/g, "-")}`}><i />{row.state}</b>
+          </div>
+          <div className="driver-current">
+            <span>현재 배차</span><strong>{row.currentOrder ? `${row.currentOrder.vendor_name} · ${row.currentOrder.item_name}` : "배차 없음"}</strong>
+            {row.currentOrder && <em>{row.currentOrder.loading_location || "상차지 미지정"} <b>→</b> {row.currentOrder.unloading_location || "하차지 미지정"}</em>}
+          </div>
+          <div className="driver-status-stats"><div><span>오늘 완료</span><strong>{row.completed.length}<small>회</small></strong></div><div><span>오늘 운송량</span><strong>{formatVolume(volume)}</strong></div></div>
+          <div className="driver-last"><span>마지막 활동</span><strong>{row.lastText}</strong><b className="driver-detail-toggle">{expanded ? "접기" : "운행내역 보기"}</b></div>
+        </button>
+
+        {expanded && <div className="driver-trip-history">
+          <div className="driver-trip-history-head"><strong>오늘의 운행내역</strong><span>총 {row.mine.length}회 기록</span></div>
+          {!row.mine.length ? <div className="driver-trip-empty">오늘 등록된 운행내역이 없습니다.</div> : <div className="driver-trip-list">
+            {[...row.mine].sort((a, b) => a.trip_no - b.trip_no).map((trip) => {
+              const order = orderById.get(trip.dispatch_order_id);
+              const start = koreaTime(trip.created_at);
+              const loading = koreaTime(trip.loading_completed_at);
+              const unloading = koreaTime(trip.unloading_completed_at);
+              return <div key={trip.id} className="driver-trip-row">
+                <div className="driver-trip-no"><strong>{trip.trip_no}회</strong><span className={`trip-status trip-${trip.status}`}>{trip.status}</span></div>
+                <div className="driver-trip-info">
+                  <strong>{order ? `${order.vendor_name} · ${order.item_name}` : "배차 정보 확인 필요"}</strong>
+                  <span>{order ? `${order.loading_location || "상차지 미지정"} → ${order.unloading_location || "하차지 미지정"}` : "-"}</span>
+                  <em>시작 {start} · 상차 {loading} · 하차 {unloading}</em>
+                </div>
+                <div className="driver-trip-volume">{trip.status === "완료" ? formatVolume(trip.actual_volume) : "-"}</div>
+              </div>;
+            })}
+          </div>}
+        </div>}
       </article>;
     })}</div>
-  </div>;
+  </section>;
 }
