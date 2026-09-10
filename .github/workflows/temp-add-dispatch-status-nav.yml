@@ -22,30 +22,25 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('src/App.tsx')
           s = p.read_text(encoding='utf-8')
-          desktop_old = '''                {menuButton("dispatch_register", "배차등록")}
-                {menuButton("dispatch_list", "배차목록")}
-                {menuButton("dispatch_vehicles", "차량관리")}'''
-          desktop_new = '''                {menuButton("dispatch_register", "배차등록")}
-                {menuButton("dispatch_list", "배차목록")}
-                {menuButton("dispatch_status", "운행현황")}
-                {menuButton("dispatch_vehicles", "차량관리")}'''
-          mobile_old = '''                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}'''
-          mobile_new = '''                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}'''
+
           if 'menuButton("dispatch_status", "운행현황")' not in s:
-              if desktop_old not in s:
-                  raise SystemExit('desktop navigation pattern not found')
-              s = s.replace(desktop_old, desktop_new, 1)
+              pattern = r'(?P<indent>^[ \t]*)\{menuButton\("dispatch_list", "배차목록"\)\}[ \t]*$'
+              replacement = lambda m: m.group(0) + '\n' + m.group('indent') + '{menuButton("dispatch_status", "운행현황")}'
+              s, count = re.subn(pattern, replacement, s, count=1, flags=re.MULTILINE)
+              if count != 1:
+                  raise SystemExit('desktop 배차목록 menu line not found')
+
           if 'setMenuTab("dispatch_status")' not in s:
-              if mobile_old not in s:
-                  raise SystemExit('mobile navigation pattern not found')
-              s = s.replace(mobile_old, mobile_new, 1)
+              pattern = r'(?P<indent>^[ \t]*)\{isAdmin && <button onClick=\{\(\) => \{ setMenuTab\("dispatch_list"\); setMobileSheet\(""\); \}\}>배차목록</button>\}[ \t]*$'
+              replacement = lambda m: m.group(0) + '\n' + m.group('indent') + '{isAdmin && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}'
+              s, count = re.subn(pattern, replacement, s, count=1, flags=re.MULTILINE)
+              if count != 1:
+                  raise SystemExit('mobile 배차목록 menu line not found')
+
           p.write_text(s, encoding='utf-8')
           PY
       - name: Commit navigation fix
