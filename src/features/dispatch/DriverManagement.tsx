@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toLoginEmail } from "../../authLogin";
 import type { DispatchDriver, DispatchVehicle } from "./dispatchTypes";
+import DriverStatusDashboard from "./DriverStatusDashboard";
 
 type DriverManagementProps = {
   drivers: DispatchDriver[];
@@ -32,7 +33,9 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
 
   return (
     <section className="dispatch-panel">
-      <div className="dispatch-section-head">
+      <DriverStatusDashboard drivers={drivers} vehicles={vehicles} />
+
+      <div className="dispatch-section-head driver-admin-management-head">
         <div><h2>기사관리</h2><p>기사 기본정보와 현재 담당 차량을 연결합니다.</p></div>
         <span className="dispatch-count">근무 {drivers.filter((driver) => driver.active).length}명</span>
       </div>
