@@ -22,17 +22,38 @@ const koreaDateTime = (value: string | null) => value ? new Intl.DateTimeFormat(
 export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHistoryProps) {
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
+  const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no || a.created_at.localeCompare(b.created_at));
 
   return (
     <section className="dispatch-trip-history">
       <div className="dispatch-trip-history-head"><div><h3>실제 운행 내역</h3><p>기사 모바일에서 등록된 실제 회차별 운행 정보입니다.</p></div><span>{trips.length}건</span></div>
-      <div className="dispatch-table-wrap">
+
+      <div className="dispatch-table-wrap dispatch-trip-desktop-table">
         <table className="dispatch-table">
           <thead><tr><th>No</th><th>차량번호</th><th>기사</th><th>회차</th><th>상차 완료시간</th><th>하차 완료시간</th><th>실제 운송량</th><th>상태</th></tr></thead>
-          <tbody>{!trips.length ? <tr><td colSpan={8} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : trips.map((trip, index) => <tr key={trip.id}>
+          <tbody>{!sortedTrips.length ? <tr><td colSpan={8} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : sortedTrips.map((trip, index) => <tr key={trip.id}>
             <td className="dispatch-count-cell">{index + 1}</td><td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
           </tr>)}</tbody>
         </table>
+      </div>
+
+      <div className="dispatch-trip-mobile-list">
+        {!sortedTrips.length ? <div className="dispatch-trip-mobile-empty">등록된 운행기록이 없습니다.</div> : sortedTrips.map((trip) => (
+          <article key={trip.id} className="dispatch-trip-mobile-card">
+            <div className="dispatch-trip-mobile-head">
+              <strong>{trip.trip_no}회차</strong>
+              <span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span>
+            </div>
+            <div className="dispatch-trip-mobile-main">
+              <div><b>{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</b><span>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</span></div>
+              <strong>{formatVolume(trip.actual_volume)}</strong>
+            </div>
+            <div className="dispatch-trip-mobile-times">
+              <div><span>상차 완료</span><b>{koreaDateTime(trip.loading_completed_at)}</b></div>
+              <div><span>하차 완료</span><b>{koreaDateTime(trip.unloading_completed_at)}</b></div>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
