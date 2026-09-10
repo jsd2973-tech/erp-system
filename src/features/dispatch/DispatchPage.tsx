@@ -302,7 +302,7 @@ export default function DispatchPage({ view, supabase, isAdmin, allowedViews, on
     setEditingOrder(null);
     await loadDispatchData();
     onNotify(form.id ? "배차를 수정했습니다." : "배차를 등록했습니다.");
-    onNavigate("dispatch_list");
+    if (allowedViews.includes("dispatch_list")) onNavigate("dispatch_list");
     return true;
   };
 
