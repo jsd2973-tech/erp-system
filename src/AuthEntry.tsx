@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import { toLoginEmail } from "./authLogin";
@@ -55,61 +55,94 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
     setPassword("");
   };
 
-  if (checking) {
-    return <div style={styles.page}><div style={styles.card}>로그인 확인 중...</div></div>;
-  }
+  const shell = (content: ReactNode) => (
+    <div className="erp-auth-page">
+      <style>{authCss}</style>
+      <div className="erp-auth-shell">
+        <section className="erp-auth-brand">
+          <span className="erp-auth-kicker">TAEMYUNG ERP</span>
+          <h1>태명산업개발</h1>
+          <p>구매, 카드, 정비, 운행을 하나의 시스템에서 관리합니다.</p>
+          <div className="erp-auth-brand-line" />
+          <small>통합 관리 시스템</small>
+        </section>
+        <section className="erp-auth-login">{content}</section>
+      </div>
+    </div>
+  );
 
+  if (checking) return shell(<div className="erp-auth-checking">로그인 확인 중...</div>);
   if (session) return <>{children}</>;
 
-  return (
-    <div style={styles.page}>
-      <form
-        style={styles.card}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void login();
-        }}
-      >
-        <div style={styles.badge}>TAEMYUNG ERP</div>
-        <h1 style={styles.title}>태명산업개발</h1>
-        <p style={styles.subtitle}>통합 관리 시스템 로그인</p>
+  return shell(
+    <form
+      className="erp-auth-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void login();
+      }}
+    >
+      <div className="erp-auth-mobile-brand">TAEMYUNG ERP</div>
+      <div className="erp-auth-form-head">
+        <span>ERP LOGIN</span>
+        <h2>로그인</h2>
+        <p>이름 또는 사내 아이디로 로그인하세요.</p>
+      </div>
 
-        <label style={styles.label}>이름 또는 아이디</label>
-        <input
-          value={loginName}
-          onChange={(event) => { setLoginName(event.target.value); setError(""); }}
-          placeholder="예: 김철수"
-          autoComplete="username"
-          style={styles.input}
-        />
+      <label>이름 또는 아이디</label>
+      <input
+        value={loginName}
+        onChange={(event) => { setLoginName(event.target.value); setError(""); }}
+        placeholder="예: 이상섭"
+        autoComplete="username"
+      />
 
-        <label style={styles.label}>비밀번호</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => { setPassword(event.target.value); setError(""); }}
-          placeholder="비밀번호"
-          autoComplete="current-password"
-          style={styles.input}
-        />
+      <label>비밀번호</label>
+      <input
+        type="password"
+        value={password}
+        onChange={(event) => { setPassword(event.target.value); setError(""); }}
+        placeholder="비밀번호"
+        autoComplete="current-password"
+      />
 
-        {error && <div style={styles.error}>{error}</div>}
-        <button type="submit" disabled={submitting} style={{ ...styles.button, opacity: submitting ? 0.65 : 1 }}>
-          {submitting ? "로그인 중..." : "로그인"}
-        </button>
-      </form>
-    </div>
+      {error && <div className="erp-auth-error">{error}</div>}
+      <button type="submit" disabled={submitting}>{submitting ? "로그인 중..." : "로그인"}</button>
+    </form>
   );
 }
 
-const styles: Record<string, CSSProperties> = {
-  page: { minHeight: "100vh", display: "grid", placeItems: "center", background: "#f2f5f9", padding: 20, fontFamily: "inherit" },
-  card: { width: "min(420px, 100%)", background: "#fff", borderRadius: 22, padding: 32, boxShadow: "0 20px 50px rgba(30,45,65,.12)", border: "1px solid #e6ebf1" },
-  badge: { display: "inline-block", fontSize: 12, fontWeight: 900, letterSpacing: 1.2, color: "#35506f", background: "#eef3f8", borderRadius: 999, padding: "7px 10px", marginBottom: 14 },
-  title: { margin: 0, fontSize: 28, lineHeight: 1.2, color: "#182535" },
-  subtitle: { margin: "8px 0 26px", color: "#68788b", fontSize: 14 },
-  label: { display: "block", margin: "14px 0 7px", fontSize: 13, fontWeight: 800, color: "#33465a" },
-  input: { width: "100%", boxSizing: "border-box", height: 48, border: "1px solid #d7dee7", borderRadius: 12, padding: "0 14px", fontSize: 16, outline: "none", background: "#fff" },
-  error: { marginTop: 14, padding: "11px 12px", borderRadius: 10, background: "#fff2f2", color: "#b72d2d", fontSize: 13, fontWeight: 700 },
-  button: { width: "100%", height: 50, border: 0, borderRadius: 12, marginTop: 20, background: "#253d59", color: "#fff", fontSize: 16, fontWeight: 900, cursor: "pointer" },
-};
+const authCss = `
+.erp-auth-page{min-height:100vh;display:grid;place-items:center;padding:36px;background:linear-gradient(135deg,#edf3f8 0%,#f8fafc 55%,#eaf1f7 100%);font-family:inherit;color:#17304a}
+.erp-auth-shell{width:min(1040px,100%);min-height:600px;display:grid;grid-template-columns:1.08fr .92fr;overflow:hidden;border:1px solid #dbe4ed;border-radius:28px;background:#fff;box-shadow:0 30px 80px rgba(28,48,72,.14)}
+.erp-auth-brand{position:relative;display:flex;flex-direction:column;justify-content:center;padding:64px;background:linear-gradient(145deg,#173b60 0%,#244f78 60%,#315f88 100%);color:#fff}
+.erp-auth-brand:after{content:"";position:absolute;width:280px;height:280px;right:-90px;bottom:-90px;border:1px solid rgba(255,255,255,.12);border-radius:50%}
+.erp-auth-kicker{display:inline-flex;width:max-content;margin-bottom:22px;padding:7px 10px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em}
+.erp-auth-brand h1{margin:0;font-size:42px;line-height:1.08;letter-spacing:-.045em}
+.erp-auth-brand p{max-width:420px;margin:18px 0 0;color:#d7e3ee;font-size:16px;line-height:1.7}
+.erp-auth-brand-line{width:52px;height:3px;margin:32px 0 16px;border-radius:999px;background:#8fc5ef}
+.erp-auth-brand small{color:#c7d7e5;font-size:12px;font-weight:700;letter-spacing:.08em}
+.erp-auth-login{display:grid;place-items:center;padding:54px}
+.erp-auth-form{width:min(390px,100%)}
+.erp-auth-mobile-brand{display:none}
+.erp-auth-form-head span{display:block;margin-bottom:7px;color:#4f7190;font-size:10px;font-weight:900;letter-spacing:.14em}
+.erp-auth-form-head h2{margin:0;color:#172b40;font-size:30px;letter-spacing:-.035em}
+.erp-auth-form-head p{margin:8px 0 28px;color:#748296;font-size:13px}
+.erp-auth-form label{display:block;margin:15px 0 7px;color:#344a60;font-size:12px;font-weight:850}
+.erp-auth-form input{box-sizing:border-box;width:100%;height:50px;border:1px solid #cfd9e4;border-radius:11px;padding:0 14px;background:#fff;color:#1d3146;font-size:15px;outline:none;transition:border-color .15s,box-shadow .15s}
+.erp-auth-form input:focus{border-color:#5e98cc;box-shadow:0 0 0 3px rgba(63,132,193,.12)}
+.erp-auth-form button{width:100%;height:50px;margin-top:22px;border:0;border-radius:11px;background:linear-gradient(180deg,#2d638f,#234f76);color:#fff;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 8px 18px rgba(35,79,118,.18)}
+.erp-auth-form button:disabled{opacity:.6;cursor:not-allowed}
+.erp-auth-error{margin-top:13px;padding:10px 12px;border-radius:9px;background:#fff0f0;color:#b22c2c;font-size:12px;font-weight:750}
+.erp-auth-checking{color:#607489;font-size:14px;font-weight:800}
+@media(max-width:760px){
+  .erp-auth-page{padding:18px;background:#eef3f8}
+  .erp-auth-shell{display:block;min-height:0;border-radius:20px;box-shadow:0 18px 44px rgba(30,45,65,.12)}
+  .erp-auth-brand{display:none}
+  .erp-auth-login{padding:30px 24px 28px}
+  .erp-auth-mobile-brand{display:inline-flex;margin-bottom:18px;padding:6px 9px;border-radius:999px;background:#eef3f8;color:#35506f;font-size:10px;font-weight:900;letter-spacing:.11em}
+  .erp-auth-form-head h2{font-size:26px}
+  .erp-auth-form-head p{margin-bottom:22px}
+  .erp-auth-form input,.erp-auth-form button{height:48px}
+}
+`;
