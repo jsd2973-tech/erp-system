@@ -164,11 +164,16 @@ on public.dispatch_drivers for update to authenticated
 using (public.has_dispatch_permission('dispatch_drivers'))
 with check (public.has_dispatch_permission('dispatch_drivers'));
 
+-- 배차등록 중 신규 마스터 INSERT 또는 배차 기초관리
+-- 기존 마스터 UPDATE는 아래처럼 dispatch_basics만 허용
 -- 배차 기초관리
 drop policy if exists dispatch_customers_staff_insert on public.dispatch_customers;
 create policy dispatch_customers_staff_insert
 on public.dispatch_customers for insert to authenticated
-with check (public.has_dispatch_permission('dispatch_basics'));
+with check (
+  public.has_dispatch_permission('dispatch_register')
+  or public.has_dispatch_permission('dispatch_basics')
+);
 
 drop policy if exists dispatch_customers_staff_update on public.dispatch_customers;
 create policy dispatch_customers_staff_update
@@ -179,7 +184,10 @@ with check (public.has_dispatch_permission('dispatch_basics'));
 drop policy if exists dispatch_locations_staff_insert on public.dispatch_locations;
 create policy dispatch_locations_staff_insert
 on public.dispatch_locations for insert to authenticated
-with check (public.has_dispatch_permission('dispatch_basics'));
+with check (
+  public.has_dispatch_permission('dispatch_register')
+  or public.has_dispatch_permission('dispatch_basics')
+);
 
 drop policy if exists dispatch_locations_staff_update on public.dispatch_locations;
 create policy dispatch_locations_staff_update
@@ -190,7 +198,10 @@ with check (public.has_dispatch_permission('dispatch_basics'));
 drop policy if exists dispatch_items_staff_insert on public.dispatch_items;
 create policy dispatch_items_staff_insert
 on public.dispatch_items for insert to authenticated
-with check (public.has_dispatch_permission('dispatch_basics'));
+with check (
+  public.has_dispatch_permission('dispatch_register')
+  or public.has_dispatch_permission('dispatch_basics')
+);
 
 drop policy if exists dispatch_items_staff_update on public.dispatch_items;
 create policy dispatch_items_staff_update
