@@ -6,12 +6,13 @@ type DriverManagementProps = {
   drivers: DispatchDriver[];
   vehicles: DispatchVehicle[];
   saving: boolean;
+  canManageAuthUserId: boolean;
   onSave: (driver: DispatchDriver) => Promise<boolean>;
 };
 
 const emptyDriver = (): DispatchDriver => ({ id: "", name: "", phone: "", assigned_vehicle_id: null, auth_user_id: null, active: true, memo: "" });
 
-export default function DriverManagement({ drivers, vehicles, saving, onSave }: DriverManagementProps) {
+export default function DriverManagement({ drivers, vehicles, saving, canManageAuthUserId, onSave }: DriverManagementProps) {
   const [form, setForm] = useState<DispatchDriver>(emptyDriver);
   const [error, setError] = useState("");
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
@@ -26,7 +27,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   const submit = async () => {
     const name = form.name.trim();
     if (!name) return setError("기사 이름을 입력하세요.");
-    if (form.auth_user_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(form.auth_user_id)) return setError("Supabase Auth User UUID 형식을 확인하세요.");
+    if (canManageAuthUserId && form.auth_user_id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(form.auth_user_id)) return setError("Supabase Auth User UUID 형식을 확인하세요.");
     const vehicleConflict = form.active && form.assigned_vehicle_id
       ? drivers.find((driver) => driver.id !== form.id && driver.active && driver.assigned_vehicle_id === form.assigned_vehicle_id)
       : null;
@@ -39,7 +40,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   return (
     <section className="dispatch-panel">
       <div className="dispatch-section-head">
-        <div><h2>기사관리</h2><p>기사 기본정보와 현재 담당 차량, 로그인 연결을 관리합니다.</p></div>
+        <div><h2>기사관리</h2><p>기사 기본정보와 현재 담당 차량을 관리합니다. 로그인 연결은 관리자만 변경할 수 있습니다.</p></div>
         <span className="dispatch-count">근무 {drivers.filter((driver) => driver.active).length}명</span>
       </div>
 
@@ -48,7 +49,11 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <label><span>연락처</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="010-0000-0000" /></label>
         <label><span>담당 차량</span><select value={form.assigned_vehicle_id || ""} onChange={(event) => setForm({ ...form, assigned_vehicle_id: event.target.value || null })}><option value="">미지정</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number}{vehicle.active ? "" : " (미사용)"}</option>)}</select></label>
         <label><span>Supabase 내부 로그인 계정</span><input value={internalLoginEmail} readOnly placeholder="기사명을 입력하면 자동 생성" /></label>
-        <label><span>기사 로그인 User UUID</span><input value={form.auth_user_id || ""} onChange={(event) => setForm({ ...form, auth_user_id: event.target.value.trim() || null })} placeholder="Supabase Auth 사용자 UUID" /></label>
+        {canManageAuthUserId ? (
+          <label><span>기사 로그인 User UUID</span><input value={form.auth_user_id || ""} onChange={(event) => setForm({ ...form, auth_user_id: event.target.value.trim() || null })} placeholder="Supabase Auth 사용자 UUID" /></label>
+        ) : (
+          <label><span>기사 로그인 연결</span><input value={form.auth_user_id ? "연결됨 · 관리자만 변경 가능" : "미연결 · 관리자만 변경 가능"} readOnly /></label>
+        )}
         <label><span>상태</span><select value={form.active ? "active" : "inactive"} onChange={(event) => setForm({ ...form, active: event.target.value === "active" })}><option value="active">사용</option><option value="inactive">미사용</option></select></label>
         <label className="dispatch-wide"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="기사 관련 메모" /></label>
       </div>
