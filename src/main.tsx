@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './cardInputCompat'
 import App from './App.tsx'
 import AuthEntry from './AuthEntry.tsx'
 import DispatchAuthGate from './features/dispatch/DispatchAuthGate.tsx'
