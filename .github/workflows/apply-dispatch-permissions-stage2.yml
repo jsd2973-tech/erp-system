@@ -18,8 +18,17 @@ jobs:
         with:
           ref: fix/priority5-auth-bid-date
           fetch-depth: 0
-      - name: Inspect DispatchPage call
-        run: grep -n -A8 -B4 'DispatchPage' src/App.tsx | tail -30
+      - name: Patch DispatchPage render gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('{isAdmin && DISPATCH_VIEWS.includes(menuTab as DispatchView) && (', '{DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (', 1)
+          if 'allowedViews={DISPATCH_VIEWS.filter((dispatchView) => canAccessTab(dispatchView))}' not in s:
+              s = s.replace('            isAdmin={isAdmin}\n            onNavigate=', '            isAdmin={isAdmin}\n            allowedViews={DISPATCH_VIEWS.filter((dispatchView) => canAccessTab(dispatchView))}\n            onNavigate=', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Apply source patch
         run: python scripts/apply_dispatch_permissions_stage2.py
       - name: Install dependencies
