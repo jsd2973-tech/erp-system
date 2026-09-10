@@ -186,6 +186,13 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const selectedOrderCompleted = selectedOrderAllTrips.filter((trip) => trip.status === "완료").length;
   const selectedOrderRemaining = selectedOrder ? Math.max(selectedOrder.estimated_trip_count - selectedOrderCompleted, 0) : 0;
 
+  const isOrderCompleted = (order: DispatchOrder) => {
+    const completedTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료").length;
+    return order.status === "완료" || Math.max(order.estimated_trip_count - completedTrips, 0) <= 0;
+  };
+
+  const sortedTodayOrders = [...todayOrders].sort((left, right) => Number(isOrderCompleted(left)) - Number(isOrderCompleted(right)));
+
   useEffect(() => {
     if (activeTrip) setActualVolume(String(activeTrip.actual_volume));
     else if (selectedOrder) setActualVolume(String(selectedOrder.volume_per_trip));
@@ -224,7 +231,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
         {!loading && tab === "today" && (
           <section>
             <div className="driver-mobile-title"><div><span>{dispatchToday()}</span><h2>오늘 배차</h2></div><button type="button" onClick={() => void loadOrders()}>새로고침</button></div>
-            {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : todayOrders.map((order) => {
+            {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : sortedTodayOrders.map((order) => {
               const orderTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id);
               const completedTrips = orderTrips.filter((trip) => trip.status === "완료").length;
               const remainingTrips = Math.max(order.estimated_trip_count - completedTrips, 0);
