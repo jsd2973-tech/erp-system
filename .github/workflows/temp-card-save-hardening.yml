@@ -2,8 +2,10 @@ name: One-time card save hardening
 
 on:
   push:
-    branches: [main]
-    paths: [.github/workflows/temp-card-save-hardening.yml]
+    branches:
+      - main
+    paths:
+      - .github/workflows/temp-card-save-hardening.yml
 
 permissions:
   contents: write
@@ -16,22 +18,18 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
       - name: Harden card entry save validation
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('src/App.tsx')
-          s=p.read_text(encoding='utf-8')
-          old='''    const cardDate = cardForm.date || getTodayKey();
+          p = Path('src/App.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = '''    const cardDate = cardForm.date || getTodayKey();
     if (!cardForm.place || !Number(cardForm.amount || 0)) {
       return alert("사용일자, 사용처, 금액을 확인하세요.");
     }
     cardSavingRef.current = true;'''
-          new='''    const cardDate = cardForm.date || getTodayKey();
+          new = '''    const cardDate = cardForm.date || getTodayKey();
     const cardPlace = String(cardForm.place || "").trim();
     const cardUserName = String(cardForm.user_name || "").trim();
     const normalizedAmountText = String(cardForm.amount ?? "")
@@ -46,24 +44,24 @@ jobs:
     cardSavingRef.current = true;'''
           if old not in s:
               raise SystemExit('card validation pattern not found')
-          s=s.replace(old,new,1)
-          old2='''        user_name: cardForm.user_name,
+          s = s.replace(old, new, 1)
+          old2 = '''        user_name: cardForm.user_name,
         place: cardForm.place,
         amount: Number(cardForm.amount || 0),'''
-          new2='''        user_name: cardUserName,
+          new2 = '''        user_name: cardUserName,
         place: cardPlace,
         amount: cardAmount,'''
           if old2 not in s:
               raise SystemExit('card payload pattern not found')
-          s=s.replace(old2,new2,1)
-          p.write_text(s,encoding='utf-8')
+          s = s.replace(old2, new2, 1)
+          p.write_text(s, encoding='utf-8')
           PY
-      - name: Build
-        run: |
-          npm ci
-          npm run build
       - name: Commit fix
         run: |
+          if git diff --quiet -- src/App.tsx; then
+            echo "No change needed"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "4189826+github-actions[bot]@users.noreply.github.com"
           git add src/App.tsx
