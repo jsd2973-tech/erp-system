@@ -6,6 +6,7 @@ import AuthEntry from './AuthEntry.tsx'
 import DispatchAuthGate from './features/dispatch/DispatchAuthGate.tsx'
 import './features/dispatch/dispatch-premium.css'
 import './features/dispatch/dispatch-responsive.css'
+import './features/dispatch/dispatch-mobile-fixes.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
