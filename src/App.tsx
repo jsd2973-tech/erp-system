@@ -3,7 +3,7 @@ import * as XLSX from "xlsx-js-style";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
-import { supabase } from "./supabaseClient";
+import { isSupabaseTestMode, supabase } from "./supabaseClient";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -1294,9 +1294,10 @@ export default function App() {
   const [authPrefs, setAuthPrefs] = useState(() => readAuthPrefs());
   const [loginForm, setLoginForm] = useState(() => ({ email: readAuthPrefs().email || "", password: "" }));
   const [loginError, setLoginError] = useState("");
-  const adminEmails = ["jsd2973@gmail.com"];
+  const testAdminEmail = isSupabaseTestMode ? String(import.meta.env.VITE_TEST_ADMIN_EMAIL || "").trim().toLowerCase() : "";
+  const adminEmails = ["jsd2973@gmail.com", ...(testAdminEmail ? [testAdminEmail] : [])];
   const userEmail = session?.user?.email || "";
-  const isAdmin = adminEmails.includes(userEmail);
+  const isAdmin = adminEmails.includes(userEmail.toLowerCase());
 
   const [menuTab, setMenuTab] = useState(() => {
     const tab = new URLSearchParams(window.location.search).get("tab");
