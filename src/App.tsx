@@ -725,6 +725,12 @@ const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
   { key: "site_notices", label: "공지" },
   { key: "bid_notices", label: "입찰공고" },
+  { key: "dispatch_register", label: "운행관리 · 배차등록" },
+  { key: "dispatch_list", label: "운행관리 · 배차목록" },
+  { key: "dispatch_status", label: "운행관리 · 운행현황" },
+  { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
+  { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
+  { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
   { key: "activity_logs", label: "작업로그" },
   { key: "trash_bin", label: "휴지통" },
   { key: "layout", label: "생산라인" },
@@ -1338,9 +1344,10 @@ export default function App() {
     if (tab === "site_notices") return true;
     if (tab === "activity_logs") return isAdmin;
     if (tab === "trash_bin") return isAdmin;
+    const permissions = currentUserPermission?.permissions || {};
+    if (DISPATCH_VIEWS.includes(tab as DispatchView)) return isAdmin || !!permissions[tab];
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
-    const permissions = currentUserPermission?.permissions || {};
     return !!permissions[tab];
   };
 
@@ -1348,7 +1355,7 @@ export default function App() {
     if (isAdmin || currentRole === "office") return "home";
     return "home";
   };
-  const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
+  const canShowAny = (tabs: readonly string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
     canAccessTab(tab) ? <button className={menuTab === tab ? "active" : ""} onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
 
@@ -5690,7 +5697,7 @@ export default function App() {
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
           {canAccessTab("bid_notices") && <button className={menuTab === "bid_notices" ? "active" : ""} onClick={() => { setMenuTab("bid_notices"); setOpenMenuGroup(null); }}><FileCheck2 size={17} /> 입찰공고</button>}
 
-          {isAdmin && (
+          {canShowAny(DISPATCH_VIEWS) && (
             <div className={`menu-group ${openMenuGroup === "dispatch" ? "expanded" : ""}`}>
               <button type="button" aria-expanded={openMenuGroup === "dispatch"} onClick={() => setOpenMenuGroup((current) => current === "dispatch" ? null : "dispatch")}><Truck size={17} /> 운행관리</button>
               <div className="sub">
@@ -7182,11 +7189,12 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
-        {isAdmin && DISPATCH_VIEWS.includes(menuTab as DispatchView) && (
+        {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (
           <DispatchPage
             view={menuTab as DispatchView}
             supabase={supabase}
             isAdmin={isAdmin}
+            allowedViews={DISPATCH_VIEWS.filter((dispatchView) => canAccessTab(dispatchView))}
             onNavigate={(view) => setMenuTab(view)}
             onNotify={showToast}
           />
@@ -8235,12 +8243,12 @@ export default function App() {
                 <>
                   {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
                   {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
+                  {canAccessTab("dispatch_register") && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+                  {canAccessTab("dispatch_list") && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {canAccessTab("dispatch_status") && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
+                  {canAccessTab("dispatch_vehicles") && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+                  {canAccessTab("dispatch_drivers") && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+                  {canAccessTab("dispatch_basics") && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
                   {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
                   {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
                   {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}

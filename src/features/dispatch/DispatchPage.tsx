@@ -15,6 +15,7 @@ type DispatchPageProps = {
   view: DispatchView;
   supabase: SupabaseClient;
   isAdmin: boolean;
+  allowedViews: DispatchView[];
   onNavigate: (view: DispatchView) => void;
   onNotify: (message: string) => void;
 };
@@ -30,7 +31,7 @@ const viewLabels: Record<DispatchView, string> = {
 
 const normalizedMasterName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 
-export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNotify }: DispatchPageProps) {
+export default function DispatchPage({ view, supabase, isAdmin, allowedViews, onNavigate, onNotify }: DispatchPageProps) {
   const [vehicles, setVehicles] = useState<DispatchVehicle[]>([]);
   const [drivers, setDrivers] = useState<DispatchDriver[]>([]);
   const [customers, setCustomers] = useState<DispatchCustomer[]>([]);
@@ -366,7 +367,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
     };
   }, [orders, trips]);
 
-  if (!isAdmin) return <section className="dispatch-panel"><p className="dispatch-error">배차관리는 관리자만 사용할 수 있습니다.</p></section>;
+  if (!allowedViews.includes(view)) return <section className="dispatch-panel"><p className="dispatch-error">이 운행관리 메뉴의 사용 권한이 없습니다.</p></section>;
 
   return (
     <div className="dispatch-page">
@@ -413,11 +414,11 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
           </article>
         </div>
       </div>
-      <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
+      <nav className="dispatch-tabs">{(Object.keys(viewLabels) as DispatchView[]).filter((key) => allowedViews.includes(key)).map((key) => <button type="button" key={key} className={view === key ? "active" : ""} aria-current={view === key ? "page" : undefined} onClick={() => onNavigate(key)}>{viewLabels[key]}</button>)}</nav>
       {error && <div className="dispatch-load-error">{error}</div>}
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
-        {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
-        {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={deletedOrders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} onRestore={restoreOrder} onPermanentDelete={permanentlyDeleteOrder} deletingOrderId={deletingOrderId} />}
+        {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} canEdit compact /></>}
+        {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={isAdmin ? deletedOrders : []} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} canEdit={allowedViews.includes("dispatch_register")} onDelete={isAdmin ? deleteOrder : undefined} onRestore={isAdmin ? restoreOrder : undefined} onPermanentDelete={isAdmin ? permanentlyDeleteOrder : undefined} deletingOrderId={deletingOrderId} />}
         {view === "dispatch_status" && <DriverStatusDashboard drivers={drivers} vehicles={vehicles} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}

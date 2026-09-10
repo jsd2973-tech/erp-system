@@ -11,6 +11,7 @@ type DispatchListProps = {
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
+  canEdit?: boolean;
   onDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
   onRestore?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
   onPermanentDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
@@ -20,7 +21,7 @@ type DispatchListProps = {
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, canEdit = true, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
   const [showTrash, setShowTrash] = useState(false);
@@ -124,12 +125,12 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
     </div>
   </section> : null;
 
-  if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div>;
+  if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} />}</div>;
 
   return (
     <div className="dispatch-list-workspace dispatch-list-workspace-stacked">
       {showTrash ? trashPanel : listPanel}
-      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
+      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
       {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
     </div>
   );

@@ -7,7 +7,7 @@ type DispatchDetailProps = {
   vehicles: DispatchVehicle[];
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
-  onEdit: (order: DispatchOrderWithVehicles) => void;
+  onEdit?: (order: DispatchOrderWithVehicles) => void;
   showTrips?: boolean;
 };
 
@@ -69,7 +69,7 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
     <section className="dispatch-detail">
       <div className="dispatch-detail-titlebar">
         <div><span className="dispatch-detail-eyebrow">배차 상세정보</span><h2>{order.vendor_name}</h2><p>{order.item_name}</p></div>
-        <div className="dispatch-detail-actions"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span><button type="button" className="dispatch-primary" onClick={() => onEdit(order)}>수정</button></div>
+        <div className="dispatch-detail-actions"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span>{onEdit && <button type="button" className="dispatch-primary" onClick={() => onEdit(order)}>수정</button>}</div>
       </div>
 
       <div className="dispatch-detail-kv">
