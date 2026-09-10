@@ -229,6 +229,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
               const completedTrips = orderTrips.filter((trip) => trip.status === "완료").length;
               const remainingTrips = Math.max(order.estimated_trip_count - completedTrips, 0);
               const myCompletedTrips = todayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료").length;
+              const orderCompleted = order.status === "완료" || remainingTrips <= 0;
               return <article className="driver-order-card" key={order.id}>
                 <div className="driver-order-card-head"><span>{order.status}</span><strong>{order.vendor_name}</strong><em>{order.item_name}</em></div>
                 <div className="driver-shared-progress">
@@ -239,7 +240,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
                 <p className="driver-shared-progress-note">배정된 모든 차량의 운행을 합산한 진행상황입니다. · 내 완료 {myCompletedTrips}회</p>
                 <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>차량</dt><dd>{vehicle?.vehicle_number || "-"}</dd></div></dl>
                 {order.memo && <p className="driver-order-memo">{order.memo}</p>}
-                <button type="button" className="driver-main-action" onClick={() => chooseOrder(order.id)}>운행 입력</button>
+                <button type="button" className="driver-main-action" disabled={orderCompleted} onClick={() => { if (!orderCompleted) chooseOrder(order.id); }}>{orderCompleted ? "운행 완료" : "운행 입력"}</button>
               </article>;
             })}
           </section>
