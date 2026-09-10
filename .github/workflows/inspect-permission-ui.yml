@@ -1,0 +1,20 @@
+name: Inspect permission UI
+
+on:
+  push:
+    branches:
+      - fix/priority5-auth-bid-date
+    paths:
+      - .github/workflows/inspect-permission-ui.yml
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/priority5-auth-bid-date
+      - name: Inspect permission UI
+        run: |
+          grep -n -A80 -B30 'permission-checks' src/App.tsx | tail -140
+          grep -n -A80 -B30 'ERP_PERMISSION_MODULES' src/App.tsx | head -140
