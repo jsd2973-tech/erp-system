@@ -9606,18 +9606,24 @@ const BID_REGION_KEYWORDS: Record<Exclude<BidRegionFilter, "local" | "all">, str
   ],
 };
 
+const BID_FOLLOW_TODAY_KEY = "erp_bid_follow_today_v1";
+
 const toBidDateInput = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
 const getBidQuickRange = (days: number) => {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - Math.max(0, days - 1));
-  return { from: toBidDateInput(from), to: toBidDateInput(to) };
+  const toKey = toBidDateInput(new Date());
+  const to = new Date(`${toKey}T00:00:00+09:00`);
+  const from = new Date(to.getTime() - Math.max(0, days - 1) * 86400000);
+  return { from: toBidDateInput(from), to: toKey };
 };
 
 function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
@@ -9633,6 +9639,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [bidLoading, setBidLoading] = useState(false);
   const [bidError, setBidError] = useState("");
   const [bidFetchedAt, setBidFetchedAt] = useState("");
+  const [bidFollowToday, setBidFollowToday] = useState(() => window.localStorage.getItem(BID_FOLLOW_TODAY_KEY) !== "0");
   const [bidFilters, setBidFilters] = useState<{ region: BidRegionFilter; from: string; to: string }>(() => {
     const defaults = { region: "local" as BidRegionFilter, ...getBidQuickRange(30) };
     try {
@@ -9754,8 +9761,43 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     window.localStorage.setItem("erp_bid_filter_settings_v1", JSON.stringify(bidFilters));
   }, [bidFilters]);
 
+  useEffect(() => {
+    if (!bidFollowToday) return;
+
+    const syncBidRangeToKoreaToday = () => {
+      const today = toBidDateInput(new Date());
+      setBidFilters((current) => {
+        if (current.to === today) return current;
+        const fromTime = new Date(`${current.from}T00:00:00+09:00`).getTime();
+        const toTime = new Date(`${current.to}T00:00:00+09:00`).getTime();
+        const rangeDays = Number.isFinite(fromTime) && Number.isFinite(toTime)
+          ? Math.min(90, Math.max(1, Math.round((toTime - fromTime) / 86400000) + 1))
+          : 30;
+        return { ...current, ...getBidQuickRange(rangeDays) };
+      });
+    };
+
+    syncBidRangeToKoreaToday();
+    const timer = window.setInterval(syncBidRangeToKoreaToday, 10000);
+    window.addEventListener("focus", syncBidRangeToKoreaToday);
+    document.addEventListener("visibilitychange", syncBidRangeToKoreaToday);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", syncBidRangeToKoreaToday);
+      document.removeEventListener("visibilitychange", syncBidRangeToKoreaToday);
+    };
+  }, [bidFollowToday]);
+
   const setQuickRange = (days: number) => {
+    setBidFollowToday(true);
+    window.localStorage.setItem(BID_FOLLOW_TODAY_KEY, "1");
     setBidFilters((current) => ({ ...current, ...getBidQuickRange(days) }));
+  };
+
+  const setBidDateManually = (key: "from" | "to", value: string) => {
+    setBidFollowToday(false);
+    window.localStorage.setItem(BID_FOLLOW_TODAY_KEY, "0");
+    setBidFilters((current) => ({ ...current, [key]: value }));
   };
 
   const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
@@ -9850,9 +9892,9 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
             {[7, 30, 90].map((days) => <button type="button" key={days} onClick={() => setQuickRange(days)}>최근 {days}일</button>)}
           </div>
           <div className="bid-date-inputs">
-            <input type="date" value={bidFilters.from} max={bidFilters.to} onChange={(event) => setBidFilters((current) => ({ ...current, from: event.target.value }))} aria-label="입찰공고 조회 시작일" />
+            <input type="date" value={bidFilters.from} max={bidFilters.to} onChange={(event) => setBidDateManually("from", event.target.value)} aria-label="입찰공고 조회 시작일" />
             <span>~</span>
-            <input type="date" value={bidFilters.to} min={bidFilters.from} max={toBidDateInput(new Date())} onChange={(event) => setBidFilters((current) => ({ ...current, to: event.target.value }))} aria-label="입찰공고 조회 종료일" />
+            <input type="date" value={bidFilters.to} min={bidFilters.from} max={toBidDateInput(new Date())} onChange={(event) => setBidDateManually("to", event.target.value)} aria-label="입찰공고 조회 종료일" />
           </div>
           <small>최대 90일까지 선택할 수 있으며 공고 새로고침을 누르면 적용됩니다.</small>
         </div>
