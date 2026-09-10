@@ -147,7 +147,9 @@ export default function DispatchPage({ view, supabase, isAdmin, allowedViews, on
 
   const saveDriver = async (driver: DispatchDriver) => {
     setSaving(true);
-    const payload = { id: driver.id || createDispatchId(), name: driver.name, phone: driver.phone, assigned_vehicle_id: driver.assigned_vehicle_id, auth_user_id: driver.auth_user_id, active: driver.active, memo: driver.memo };
+    const existingDriver = driver.id ? drivers.find((item) => item.id === driver.id) : undefined;
+    const authUserId = isAdmin ? driver.auth_user_id : (existingDriver?.auth_user_id ?? null);
+    const payload = { id: driver.id || createDispatchId(), name: driver.name, phone: driver.phone, assigned_vehicle_id: driver.assigned_vehicle_id, auth_user_id: authUserId, active: driver.active, memo: driver.memo };
     const { error: saveError } = await supabase.from("dispatch_drivers").upsert(payload);
     setSaving(false);
     if (saveError) {
@@ -421,7 +423,7 @@ export default function DispatchPage({ view, supabase, isAdmin, allowedViews, on
         {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={isAdmin ? deletedOrders : []} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} canEdit={allowedViews.includes("dispatch_register")} onDelete={isAdmin ? deleteOrder : undefined} onRestore={isAdmin ? restoreOrder : undefined} onPermanentDelete={isAdmin ? permanentlyDeleteOrder : undefined} deletingOrderId={deletingOrderId} />}
         {view === "dispatch_status" && <DriverStatusDashboard drivers={drivers} vehicles={vehicles} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
-        {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}
+        {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} canManageAuthUserId={isAdmin} onSave={saveDriver} />}
         {view === "dispatch_basics" && <DispatchBasics customers={customers} locations={locations} items={items} saving={saving} onSaveCustomer={saveCustomer} onSaveLocation={saveLocation} onSaveItem={saveItem} />}
       </>}
     </div>
