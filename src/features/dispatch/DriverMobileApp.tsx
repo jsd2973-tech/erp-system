@@ -73,8 +73,8 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
+  const loadOrders = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     const vehicleId = driver.assigned_vehicle_id;
     if (!vehicleId) {
@@ -160,12 +160,38 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   useEffect(() => { void loadOrders(); }, [loadOrders]);
   useEffect(() => { if (tab === "history") void loadHistory(); }, [loadHistory, tab]);
 
+  useEffect(() => {
+    if (tab !== "today" && tab !== "input") return;
+
+    const refresh = () => void loadOrders(true);
+    const intervalId = window.setInterval(refresh, 10000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [loadOrders, tab]);
+
   const selectedOrder = todayOrders.find((order) => order.id === selectedOrderId) || null;
   const activeTrip = todayTrips.find((trip) => trip.dispatch_order_id === selectedOrderId && (trip.status === "상차대기" || trip.status === "진행중")) || null;
   const latestCompletedTrip = todayTrips.find((trip) => trip.dispatch_order_id === selectedOrderId && trip.status === "완료") || null;
   const selectedOrderAllTrips = selectedOrder ? allTodayTrips.filter((trip) => trip.dispatch_order_id === selectedOrder.id) : [];
   const selectedOrderCompleted = selectedOrderAllTrips.filter((trip) => trip.status === "완료").length;
   const selectedOrderRemaining = selectedOrder ? Math.max(selectedOrder.estimated_trip_count - selectedOrderCompleted, 0) : 0;
+
+  const isOrderCompleted = (order: DispatchOrder) => {
+    const completedTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료").length;
+    return order.status === "완료" || Math.max(order.estimated_trip_count - completedTrips, 0) <= 0;
+  };
+
+  const sortedTodayOrders = [...todayOrders].sort((left, right) => Number(isOrderCompleted(left)) - Number(isOrderCompleted(right)));
 
   useEffect(() => {
     if (activeTrip) setActualVolume(String(activeTrip.actual_volume));
@@ -205,11 +231,12 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
         {!loading && tab === "today" && (
           <section>
             <div className="driver-mobile-title"><div><span>{dispatchToday()}</span><h2>오늘 배차</h2></div><button type="button" onClick={() => void loadOrders()}>새로고침</button></div>
-            {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : todayOrders.map((order) => {
+            {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : sortedTodayOrders.map((order) => {
               const orderTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id);
               const completedTrips = orderTrips.filter((trip) => trip.status === "완료").length;
               const remainingTrips = Math.max(order.estimated_trip_count - completedTrips, 0);
               const myCompletedTrips = todayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료").length;
+              const orderCompleted = order.status === "완료" || remainingTrips <= 0;
               return <article className="driver-order-card" key={order.id}>
                 <div className="driver-order-card-head"><span>{order.status}</span><strong>{order.vendor_name}</strong><em>{order.item_name}</em></div>
                 <div className="driver-shared-progress">
@@ -220,7 +247,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
                 <p className="driver-shared-progress-note">배정된 모든 차량의 운행을 합산한 진행상황입니다. · 내 완료 {myCompletedTrips}회</p>
                 <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>차량</dt><dd>{vehicle?.vehicle_number || "-"}</dd></div></dl>
                 {order.memo && <p className="driver-order-memo">{order.memo}</p>}
-                <button type="button" className="driver-main-action" onClick={() => chooseOrder(order.id)}>운행 입력</button>
+                <button type="button" className="driver-main-action" disabled={orderCompleted} onClick={() => { if (!orderCompleted) chooseOrder(order.id); }}>{orderCompleted ? "운행 완료" : "운행 입력"}</button>
               </article>;
             })}
           </section>

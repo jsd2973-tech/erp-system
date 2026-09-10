@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toLoginEmail } from "../../authLogin";
 import type { DispatchDriver, DispatchVehicle } from "./dispatchTypes";
 
 type DriverManagementProps = {
@@ -14,6 +15,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
   const [form, setForm] = useState<DispatchDriver>(emptyDriver);
   const [error, setError] = useState("");
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : "";
 
   const submit = async () => {
     const name = form.name.trim();
@@ -39,10 +41,12 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <label><span>기사명 *</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="기사 이름" /></label>
         <label><span>연락처</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="010-0000-0000" /></label>
         <label><span>담당 차량</span><select value={form.assigned_vehicle_id || ""} onChange={(event) => setForm({ ...form, assigned_vehicle_id: event.target.value || null })}><option value="">미지정</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number}{vehicle.active ? "" : " (미사용)"}</option>)}</select></label>
+        <label><span>Supabase 내부 로그인 계정</span><input value={internalLoginEmail} readOnly placeholder="기사명을 입력하면 자동 생성" /></label>
         <label><span>기사 로그인 User UUID</span><input value={form.auth_user_id || ""} onChange={(event) => setForm({ ...form, auth_user_id: event.target.value.trim() || null })} placeholder="Supabase Auth 사용자 UUID" /></label>
         <label><span>상태</span><select value={form.active ? "active" : "inactive"} onChange={(event) => setForm({ ...form, active: event.target.value === "active" })}><option value="active">사용</option><option value="inactive">미사용</option></select></label>
         <label className="dispatch-wide"><span>메모</span><input value={form.memo} onChange={(event) => setForm({ ...form, memo: event.target.value })} placeholder="기사 관련 메모" /></label>
       </div>
+      {form.name.trim() && <p className="permission-id-help">기사님은 로그인 화면에서 <b>{form.name.trim()}</b> 이름 그대로 입력합니다. 위 내부 계정은 Supabase Auth 계정 생성용입니다.</p>}
       {error && <p className="dispatch-error">{error}</p>}
       <div className="dispatch-actions">
         {form.id && <button type="button" onClick={() => { setForm(emptyDriver()); setError(""); }}>수정 취소</button>}
