@@ -31,6 +31,15 @@ jobs:
           PY
       - name: Apply source patch
         run: python scripts/apply_dispatch_permissions_stage2.py
+      - name: Fix readonly dispatch view helper type
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('const canShowAny = (tabs: string[]) =>', 'const canShowAny = (tabs: readonly string[]) =>', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Install dependencies
         run: npm ci
       - name: TypeScript and build
