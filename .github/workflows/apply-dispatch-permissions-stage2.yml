@@ -18,6 +18,8 @@ jobs:
         with:
           ref: fix/priority5-auth-bid-date
           fetch-depth: 0
+      - name: Inspect DispatchPage call
+        run: grep -n -A8 -B4 'DispatchPage' src/App.tsx | tail -30
       - name: Apply source patch
         run: python scripts/apply_dispatch_permissions_stage2.py
       - name: Install dependencies
