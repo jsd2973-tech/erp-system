@@ -5696,6 +5696,7 @@ export default function App() {
               <div className="sub">
                 {menuButton("dispatch_register", "배차등록")}
                 {menuButton("dispatch_list", "배차목록")}
+                {menuButton("dispatch_status", "운행현황")}
                 {menuButton("dispatch_vehicles", "차량관리")}
                 {menuButton("dispatch_drivers", "기사관리")}
                 {menuButton("dispatch_basics", "배차 기초관리")}
@@ -8236,6 +8237,7 @@ export default function App() {
                   {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
                   {isAdmin && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
