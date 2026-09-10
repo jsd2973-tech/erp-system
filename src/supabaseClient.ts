@@ -1,8 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 
+const PROD_SUPABASE_URL = "https://jqdvxmatbmmeubtoogvl.supabase.co";
+const PROD_SUPABASE_KEY = "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7";
+const testMode = import.meta.env.VITE_SUPABASE_TEST_MODE === "1";
+const envUrl = String(import.meta.env.VITE_SUPABASE_URL || "").trim();
+const envKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+
+if (testMode && (!envUrl || !envKey)) {
+  throw new Error("테스트 Supabase 모드에는 VITE_SUPABASE_URL과 VITE_SUPABASE_ANON_KEY가 필요합니다.");
+}
+
+const supabaseUrl = testMode ? envUrl : PROD_SUPABASE_URL;
+const supabaseKey = testMode ? envKey : PROD_SUPABASE_KEY;
+
 export const supabase = createClient(
-  "https://jqdvxmatbmmeubtoogvl.supabase.co",
-  "sb_publishable_83Pb_nHMoZCduendoRwE5w_uJqiuvH7",
+  supabaseUrl,
+  supabaseKey,
   {
     auth: {
       persistSession: true,
@@ -12,3 +25,5 @@ export const supabase = createClient(
     },
   }
 );
+
+export const isSupabaseTestMode = testMode;
