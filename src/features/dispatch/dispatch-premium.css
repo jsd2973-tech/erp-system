@@ -361,7 +361,15 @@
   .dispatch-page .dispatch-summary {grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 @media(max-width:600px) {
-  .dispatch-page .dispatch-summary {grid-template-columns:1fr;gap:10px;}
+  .dispatch-page .dispatch-summary {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .dispatch-page .dispatch-kpi-card {gap:8px;padding:10px;min-height:94px;border-radius:12px;align-items:flex-start;}
+  .dispatch-page .dispatch-kpi-icon {flex-basis:28px;width:28px;height:28px;border-radius:8px;margin-top:2px;}
+  .dispatch-page .dispatch-kpi-icon svg {width:20px;height:20px;}
+  .dispatch-page .dispatch-kpi-body {gap:2px;}
+  .dispatch-page .dispatch-kpi-label {font-size:12px;}
+  .dispatch-page .dispatch-kpi-value {gap:3px;line-height:26px;flex-wrap:wrap;}
+  .dispatch-page .dispatch-kpi-value strong {font-size:23px;}
+  .dispatch-page .dispatch-kpi-value small {font-size:12px;}
 }
 
 /* Trash workspace */
