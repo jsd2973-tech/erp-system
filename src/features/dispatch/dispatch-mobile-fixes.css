@@ -127,3 +127,14 @@
   .dispatch-management-mobile-grid{grid-template-columns:1fr!important}
   .dispatch-management-mobile-grid>div.wide{grid-column:1!important}
 }
+
+
+/* Admin mobile: readable trip identity and consistent touch targets. */
+@media(max-width:760px){
+ .dispatch-page .dispatch-trip-mobile-main>div{min-width:0;display:grid;gap:4px}
+ .dispatch-page .dispatch-trip-mobile-main>div>b{font-size:15px;overflow-wrap:anywhere}
+ .dispatch-page .dispatch-trip-mobile-main>div>span{font-size:13px;color:#526176}
+ .dispatch-page .dispatch-trip-mobile-times span{font-size:12px}
+ .dispatch-page .dispatch-trip-mobile-times b{font-size:13px}
+ .dispatch-page .dispatch-management-mobile-card button{min-height:44px}
+}

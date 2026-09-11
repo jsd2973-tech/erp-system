@@ -421,3 +421,53 @@
 @media(max-width:760px){
   .dispatch-page{padding:10px 8px 82px}.dispatch-command-bar{padding:13px}.dispatch-hero{align-items:flex-start}.dispatch-hero>div{display:block}.dispatch-hero h1{font-size:22px}.dispatch-hero h1::after{content:""}.dispatch-tabs{width:100%;overflow-x:auto}.dispatch-tabs button{flex:0 0 auto}.dispatch-detail-grid{grid-template-columns:repeat(2,1fr)}.dispatch-detail-grid>.dispatch-detail-emphasis{grid-column:span 2}.dispatch-trash-head{align-items:flex-start;flex-direction:column}.dispatch-trash-head-actions{width:100%;justify-content:space-between}.dispatch-trash-table-wrap{margin:10px}
 }
+
+/* PC refinement: existing KPI and all mobile styles remain unchanged. */
+@media (min-width: 901px) {
+  .dispatch-page .dispatch-hero h1 {font-size:26px;font-weight:750;letter-spacing:-.035em;line-height:1.25;}
+  .dispatch-page .dispatch-hero p {font-weight:400;color:#64748b;}
+  .dispatch-page .dispatch-tabs {width:100%;padding:0;gap:20px;border:0;border-bottom:1px solid var(--dp-line);border-radius:0;background:transparent;box-shadow:none;}
+  .dispatch-page .dispatch-tabs button {min-height:44px;padding:0 6px;border:0;border-bottom:2px solid transparent;border-radius:0;font-size:14px;font-weight:600;background:transparent;box-shadow:none;}
+  .dispatch-page .dispatch-tabs button.active {border-bottom-color:var(--dp-blue);color:var(--dp-blue);background:transparent;box-shadow:none;}
+  .dispatch-page .dispatch-tabs button:hover {color:var(--dp-blue);background:#e8eff7;}
+  .dispatch-page .dispatch-panel,
+  .dispatch-page .dispatch-detail,
+  .dispatch-page .dispatch-trip-history {border-radius:10px;box-shadow:0 2px 6px rgba(25,47,73,.025);}
+  .dispatch-page .dispatch-section-head h2 {font-size:20px;font-weight:700;text-align:left;}
+  .dispatch-page .dispatch-section-head p,
+  .dispatch-page .dispatch-trip-history-head p {color:#64748b;font-size:13px;line-height:1.5;}
+  .dispatch-page .dispatch-section-head {min-height:48px;}
+  .dispatch-page .dispatch-basic-tabs {margin-left:0;margin-right:auto;}
+  .dispatch-page .dispatch-filter-grid label>span {font-weight:600;}
+  .dispatch-page .dispatch-table th {background:#f3f6fa;font-weight:600;font-size:12px;color:#526176;}
+  .dispatch-page .dispatch-table td {font-weight:400;font-size:14px;font-variant-numeric:tabular-nums;}
+  .dispatch-page .dispatch-order-table td:nth-child(4),
+  .dispatch-page .dispatch-order-table td:nth-child(5) {font-weight:600;}
+  .dispatch-page .dispatch-status,
+  .dispatch-page .dispatch-active-pill,
+  .dispatch-page .dispatch-trip-status {font-size:12px;font-weight:600;}
+  .dispatch-page .dispatch-form-grid label>span,
+  .dispatch-page .dispatch-combobox>span {font-weight:600;line-height:1.4;}
+  .dispatch-page .dispatch-form-grid input,
+  .dispatch-page .dispatch-form-grid select {font-weight:400;font-size:14px;}
+  .dispatch-page .dispatch-field-estimated input {font-weight:700;}
+  .dispatch-page .dispatch-actions .dispatch-primary,
+  .dispatch-page .dispatch-management-actions .dispatch-primary,
+  .dispatch-page .dispatch-detail-actions .dispatch-primary {background:var(--dp-blue);box-shadow:none;font-weight:600;font-size:13px;}
+  .dispatch-page .dispatch-detail-titlebar {background:#f8fafc;}
+  .dispatch-page .dispatch-detail-titlebar h2 {font-weight:700;}
+  .dispatch-page .dispatch-detail-grid {gap:0;border:1px solid var(--dp-line);border-radius:8px;overflow:hidden;}
+  .dispatch-page .dispatch-detail-grid>div {border:0;border-right:1px solid var(--dp-line);border-radius:0;box-shadow:none;min-height:76px;}
+  .dispatch-page .dispatch-detail-grid>div:last-child {border-right:0;}
+  .dispatch-page .dispatch-detail-grid span,
+  .dispatch-page .dispatch-detail-kv span,
+  .dispatch-page .dispatch-route span {font-size:12px;font-weight:500;color:#64748b;}
+  .dispatch-page .dispatch-detail-grid b {font-weight:700;}
+  .dispatch-page .dispatch-detail-grid>.dispatch-detail-emphasis {background:#edf5ff;}
+  .dispatch-page .dispatch-detail-note p {white-space:normal;overflow-wrap:anywhere;line-height:1.6;margin:0;}
+  .dispatch-page .dispatch-route b {overflow-wrap:anywhere;padding:0 10px;}
+  .dispatch-page button:focus-visible {outline:2px solid var(--dp-blue);outline-offset:3px;}
+}
+@media (min-width:1181px) {
+  .dispatch-page .driver-form-grid {grid-template-columns:repeat(3,minmax(0,1fr));}
+}
