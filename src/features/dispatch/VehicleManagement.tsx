@@ -46,15 +46,15 @@ export default function VehicleManagement({ vehicles, saving, onSave }: VehicleM
       </div>
 
       <div className="dispatch-table-wrap">
-        <table className="dispatch-table">
+        <table className="dispatch-record-table dispatch-table">
           <thead><tr><th>차량번호</th><th>차종</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
           <tbody>
             {!vehicles.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 차량이 없습니다.</td></tr> : vehicles.map((vehicle) => (
               <tr key={vehicle.id}>
-                <td className="dispatch-strong">{vehicle.vehicle_number}</td><td>25.5톤 덤프</td>
-                <td><span className={`dispatch-active-pill ${vehicle.active ? "on" : "off"}`}>{vehicle.active ? "사용" : "미사용"}</span></td>
-                <td>{vehicle.memo || "-"}</td>
-                <td><button type="button" onClick={() => { setForm({ ...vehicle }); setError(""); }}>수정</button></td>
+                <td data-label="차량번호" className="dispatch-strong">{vehicle.vehicle_number}</td><td data-label="차종">25.5톤 덤프</td>
+                <td data-label="상태"><span className={`dispatch-active-pill ${vehicle.active ? "on" : "off"}`}>{vehicle.active ? "사용" : "미사용"}</span></td>
+                <td data-label="메모">{vehicle.memo || "-"}</td>
+                <td data-label="관리"><button type="button" onClick={() => { setForm({ ...vehicle }); setError(""); }}>수정</button></td>
               </tr>
             ))}
           </tbody>
@@ -63,3 +63,4 @@ export default function VehicleManagement({ vehicles, saving, onSave }: VehicleM
     </section>
   );
 }
+

@@ -171,7 +171,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
       <div>
         <span className="driver-status-eyebrow">LIVE DRIVER CONTROL · {dispatchToday()}</span>
         <h2>운행현황</h2>
-        <p>왼쪽에서 기사를 선택하면 오른쪽에서 현재 배차와 오늘 운행내역을 확인할 수 있습니다.</p>
+        <p>기사를 선택하면 현재 배차와 오늘 운행내역을 확인할 수 있습니다.</p>
       </div>
       <button type="button" onClick={() => void load()} disabled={loading}>{loading ? "확인 중..." : "새로고침"}</button>
     </div>
@@ -286,3 +286,4 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     </div>
   </section>;
 }
+

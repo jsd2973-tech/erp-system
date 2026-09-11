@@ -471,3 +471,19 @@
 @media (min-width:1181px) {
   .dispatch-page .driver-form-grid {grid-template-columns:repeat(3,minmax(0,1fr));}
 }
+
+/* Shared detail readability and the four-field location editor. */
+@media(min-width:901px){
+ .dispatch-page .dispatch-location-form{grid-template-columns:2fr 1fr 1fr 2fr}
+ .dispatch-page .dispatch-detail-kv b,.dispatch-page .dispatch-detail-titlebar h2{overflow-wrap:anywhere;max-width:100%}
+ .dispatch-page .dispatch-trip-history-head{flex-wrap:wrap}
+ .dispatch-page .dispatch-table .dispatch-strong{font-weight:650}
+ .dispatch-page .dispatch-order-table td:nth-child(4),.dispatch-page .dispatch-order-table td:nth-child(5){overflow-wrap:anywhere}
+ .dispatch-page .dispatch-trash-table th{width:auto}
+ .dispatch-page .dispatch-trash-table th:first-child{width:44px}
+ .dispatch-page .dispatch-trash-table th:last-child{width:170px}
+ .dispatch-page .dispatch-trash-table td:nth-child(4){text-align:left}
+}
+@media(min-width:901px) and (max-width:1180px){
+ .dispatch-page .dispatch-location-form{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

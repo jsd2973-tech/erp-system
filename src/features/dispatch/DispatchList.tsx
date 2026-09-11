@@ -64,22 +64,22 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
       <button type="button" className="dispatch-filter-reset" onClick={() => setFilters(emptyFilters)}>초기화</button>
     </div>}
     <div className="dispatch-table-wrap">
-      <table className="dispatch-table dispatch-order-table">
+      <table className="dispatch-record-table dispatch-table dispatch-order-table">
         <thead><tr><th>No</th><th>상태</th><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>1회 기준</th><th>예정 회차</th><th>배정 차량</th><th>메모</th><th>작업</th></tr></thead>
         <tbody>
           {!filtered.length ? <tr><td colSpan={11} className="dispatch-empty">조건에 맞는 배차가 없습니다.</td></tr> : filtered.map((order, index) => (
             <tr key={order.id} className={selectedOrder?.id === order.id ? "selected" : ""} onClick={() => setSelectedId(order.id)}>
-              <td className="dispatch-count-cell">{index + 1}</td>
-              <td><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td>
-              <td className="dispatch-date-cell">{order.dispatch_date}</td>
-              <td className="dispatch-strong">{order.vendor_name}</td>
-              <td className="dispatch-item-cell">{order.item_name}</td>
-              <td className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
-              <td className="dispatch-number-cell">{formatVolume(order.volume_per_trip)}</td>
-              <td className="dispatch-count-cell">{order.estimated_trip_count}회</td>
-              <td className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
-              <td className="dispatch-memo-cell" title={order.memo || ""}>{order.memo || "-"}</td>
-              <td>
+              <td data-label="No" className="dispatch-count-cell">{index + 1}</td>
+              <td data-label="상태"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td>
+              <td data-label="날짜" className="dispatch-date-cell">{order.dispatch_date}</td>
+              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}</td>
+              <td data-label="품목" className="dispatch-item-cell">{order.item_name}</td>
+              <td data-label="총 물량" className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
+              <td data-label="1회 기준" className="dispatch-number-cell">{formatVolume(order.volume_per_trip)}</td>
+              <td data-label="예정 회차" className="dispatch-count-cell">{order.estimated_trip_count}회</td>
+              <td data-label="배정 차량" className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
+              <td data-label="메모" className="dispatch-memo-cell" title={order.memo || ""}>{order.memo || "-"}</td>
+              <td data-label="작업">
                 <div className="dispatch-row-actions">
                   <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id); }}>상세보기</button>
                   {!compact && onDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={(event) => { event.stopPropagation(); void requestDelete(order); }}>{deletingOrderId === order.id ? "이동 중..." : "휴지통"}</button>}
@@ -98,19 +98,19 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
       <div className="dispatch-trash-head-actions"><button type="button" className="dispatch-trash-back" onClick={() => setShowTrash(false)}>배차목록으로</button><span className="dispatch-count">총 {deletedOrders.length}건</span></div>
     </div>
     <div className="dispatch-table-wrap dispatch-trash-table-wrap">
-      <table className="dispatch-table dispatch-order-table dispatch-trash-table">
+      <table className="dispatch-record-table dispatch-table dispatch-order-table dispatch-trash-table">
         <thead><tr><th>No</th><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>예정 회차</th><th>배정 차량</th><th>작업</th></tr></thead>
         <tbody>
           {!deletedOrders.length ? <tr><td colSpan={8} className="dispatch-empty dispatch-trash-empty"><strong>휴지통이 비어 있습니다.</strong><span>삭제한 배차가 있으면 이곳에서 복구할 수 있습니다.</span></td></tr> : deletedOrders.map((order, index) => (
             <tr key={order.id}>
-              <td className="dispatch-count-cell">{index + 1}</td>
-              <td className="dispatch-date-cell">{order.dispatch_date}</td>
-              <td className="dispatch-strong">{order.vendor_name}</td>
-              <td>{order.item_name}</td>
-              <td className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
-              <td className="dispatch-count-cell">{order.estimated_trip_count}회</td>
-              <td className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
-              <td><div className="dispatch-row-actions dispatch-trash-row-actions">
+              <td data-label="No" className="dispatch-count-cell">{index + 1}</td>
+              <td data-label="날짜" className="dispatch-date-cell">{order.dispatch_date}</td>
+              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}</td>
+              <td data-label="품목">{order.item_name}</td>
+              <td data-label="총 물량" className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
+              <td data-label="예정 회차" className="dispatch-count-cell">{order.estimated_trip_count}회</td>
+              <td data-label="배정 차량" className="dispatch-count-cell">{order.vehicle_ids.length}대</td>
+              <td data-label="작업"><div className="dispatch-row-actions dispatch-trash-row-actions">
                 {onRestore && <button type="button" className="dispatch-restore-button" disabled={deletingOrderId === order.id} onClick={() => void onRestore(order)}>{deletingOrderId === order.id ? "처리 중..." : "복구"}</button>}
                 {onPermanentDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={() => {
                   const tripCount = trips.filter((trip) => trip.dispatch_order_id === order.id).length;
@@ -134,3 +134,4 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
     </div>
   );
 }
+
