@@ -239,3 +239,56 @@
  .dispatch-page .driver-status-kpis>div:last-child{grid-column:1/-1}
  .dispatch-page .driver-master-item{min-height:64px}
 }
+
+/* Consistent two-column phone layouts, including narrow 360px screens. */
+@media(max-width:760px){
+ .dispatch-page .order-form-grid{
+  grid-template-areas:"date item" "customer customer" "loading loading" "unloading unloading" "total pertrip" "estimated status" "memo memo"!important;
+  gap:8px 10px!important;align-items:start!important;
+ }
+ .dispatch-page .order-form-grid>.dispatch-field-date{grid-area:date!important}
+ .dispatch-page .order-form-grid>.dispatch-field-item{grid-area:item!important}
+ .dispatch-page .order-form-grid>.dispatch-field-customer{grid-area:customer!important}
+ .dispatch-page .order-form-grid>.dispatch-field-loading{grid-area:loading!important}
+ .dispatch-page .order-form-grid>.dispatch-field-unloading{grid-area:unloading!important}
+ .dispatch-page .order-form-grid>.dispatch-field-total{grid-area:total!important}
+ .dispatch-page .order-form-grid>.dispatch-field-per-trip{grid-area:pertrip!important}
+ .dispatch-page .order-form-grid>.dispatch-field-estimated{grid-area:estimated!important}
+ .dispatch-page .order-form-grid>.dispatch-field-status{grid-area:status!important}
+ .dispatch-page .order-form-grid>.dispatch-field-memo{grid-area:memo!important}
+ .dispatch-page .driver-form-grid{
+  grid-template-areas:"name phone" "vehicle status" "account account" "uuid uuid" "memo memo"!important;
+ }
+ .dispatch-page .driver-form-grid>label:nth-child(1){grid-area:name!important}
+ .dispatch-page .driver-form-grid>label:nth-child(2){grid-area:phone!important}
+ .dispatch-page .driver-form-grid>label:nth-child(3){grid-area:vehicle!important}
+ .dispatch-page .driver-form-grid>label:nth-child(4){grid-area:account!important}
+ .dispatch-page .driver-form-grid>label:nth-child(5){grid-area:uuid!important}
+ .dispatch-page .driver-form-grid>label:nth-child(6){grid-area:status!important}
+ .dispatch-page .driver-form-grid>label:nth-child(7){grid-area:memo!important}
+ .dispatch-page .vehicle-form-grid,.dispatch-page .driver-form-grid,.dispatch-page .dispatch-basic-form{gap:8px 10px!important;align-items:start!important}
+ .dispatch-page .dispatch-form-grid>label,.dispatch-page .dispatch-combobox-field{min-width:0!important}
+ .dispatch-page .dispatch-form-grid label>span{line-height:1.4;overflow-wrap:anywhere}
+ .dispatch-page .dispatch-vehicle-options{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ .dispatch-page .dispatch-vehicle-options label{min-width:0!important;gap:6px!important;padding:8px!important;flex-wrap:wrap!important}
+ .dispatch-page .dispatch-vehicle-options label b{min-width:0;overflow-wrap:anywhere;font-size:14px}
+ .dispatch-page .dispatch-vehicle-options>.dispatch-empty{grid-column:1/-1}
+ .dispatch-page .dispatch-record-table:not(.dispatch-order-table) tbody tr{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px 10px!important;align-content:start;min-height:0!important}
+ .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="거래처명"],
+ .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="장소명"]{grid-column:auto!important}
+ .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="메모"]{grid-column:1/-1!important;min-width:0;overflow-wrap:anywhere}
+ .dispatch-page .dispatch-detail-kv{grid-template-areas:"date item" "vendor vendor"!important;gap:0!important}
+ .dispatch-page .dispatch-detail-kv>div:nth-child(1){grid-area:date!important}
+ .dispatch-page .dispatch-detail-kv>div:nth-child(2){grid-area:vendor!important}
+ .dispatch-page .dispatch-detail-kv>div:nth-child(3){grid-area:item!important}
+ .dispatch-page .dispatch-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+ .dispatch-page .dispatch-detail-grid>div{min-height:52px!important;padding:7px!important}
+ .dispatch-page .dispatch-trip-mobile-times{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+ .dispatch-page .dispatch-trip-mobile-times>div{min-width:0;min-height:48px;padding:7px!important}
+ .dispatch-page .driver-detail-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+ .dispatch-page .driver-detail-stats>div{min-width:0;min-height:52px;padding:8px!important}
+ .dispatch-page .driver-detail-stats>div:last-child{grid-column:1/-1}
+ .dispatch-page .driver-trip-info{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+ .dispatch-page .driver-trip-info>span:first-child{grid-column:1/-1;display:flex;gap:6px}
+ .dispatch-page .driver-trip-info>span{min-width:0;padding:6px;background:#f6f9fc;border-radius:6px}
+}
