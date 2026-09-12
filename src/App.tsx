@@ -5697,6 +5697,7 @@ export default function App() {
                 {menuButton("dispatch_register", "배차등록")}
                 {menuButton("dispatch_list", "배차목록")}
                 {menuButton("dispatch_status", "운행현황")}
+                {menuButton("dispatch_results", "운송실적")}
                 {menuButton("dispatch_vehicles", "차량관리")}
                 {menuButton("dispatch_drivers", "기사관리")}
                 {menuButton("dispatch_basics", "배차 기초관리")}
@@ -8240,6 +8241,7 @@ export default function App() {
                   {isAdmin && <button aria-current={menuTab === "dispatch_register" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
                   {isAdmin && <button aria-current={menuTab === "dispatch_list" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
                   {isAdmin && <button aria-current={menuTab === "dispatch_status" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_results" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>}
                 </div></details>}
                 {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><Truck size={16} aria-hidden="true" />차량·기사</summary><div className="mobile-menu-items">
                   {isAdmin && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}

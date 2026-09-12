@@ -1,3 +1,4 @@
+import TransportResults from "./TransportResults";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, CirclePlay, CircleCheckBig, Boxes, ArrowUp, ArrowDown } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -23,6 +24,7 @@ const viewLabels: Record<DispatchView, string> = {
   dispatch_register: "배차등록",
   dispatch_list: "배차목록",
   dispatch_status: "운행현황",
+  dispatch_results: "운송실적",
   dispatch_vehicles: "차량관리",
   dispatch_drivers: "기사관리",
   dispatch_basics: "배차 기초관리",
@@ -418,6 +420,7 @@ export default function DispatchPage({ view, supabase, isAdmin, onNavigate, onNo
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
         {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={deletedOrders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} onRestore={restoreOrder} onPermanentDelete={permanentlyDeleteOrder} deletingOrderId={deletingOrderId} />}
+        {view === "dispatch_results" && <TransportResults supabase={supabase} vehicles={vehicles} />}
         {view === "dispatch_status" && <DriverStatusDashboard drivers={drivers} vehicles={vehicles} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} onSave={saveDriver} />}

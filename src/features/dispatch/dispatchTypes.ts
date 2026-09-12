@@ -2,6 +2,7 @@ export const DISPATCH_VIEWS = [
   "dispatch_register",
   "dispatch_list",
   "dispatch_status",
+  "dispatch_results",
   "dispatch_vehicles",
   "dispatch_drivers",
   "dispatch_basics",
