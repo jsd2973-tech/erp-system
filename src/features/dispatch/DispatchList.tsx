@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import DispatchDetail, { DispatchTripHistory } from "./DispatchDetail";
 import type { DispatchDriver, DispatchFilters, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
@@ -23,6 +23,20 @@ const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", 
 export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const detailDialog = useRef<HTMLDialogElement>(null);
+  const openDetail = (id: string) => {
+    setSelectedId(id);
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      setMobileDetailOpen(true);
+      detailDialog.current?.showModal();
+    }
+  };
+  const closeDetail = () => {
+    detailDialog.current?.close();
+    setMobileDetailOpen(false);
+  };
   const [showTrash, setShowTrash] = useState(false);
 
   const filtered = useMemo(() => orders.filter((order) =>
@@ -55,7 +69,9 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
         <span className="dispatch-count">총 {filtered.length}건</span>
       </div>
     </div>
-    {!compact && <div className="dispatch-filter-grid">
+    {!compact && <label className="dispatch-mobile-search"><span>거래처 검색</span><input value={filters.vendor} onChange={event => setFilters({ ...filters, vendor: event.target.value })} placeholder="거래처 검색" /></label>}
+    {!compact && <button type="button" className="dispatch-mobile-filter-toggle" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(value => !value)}>검색 조건 {Object.values(filters).filter(Boolean).length > 0 ? `· ${Object.values(filters).filter(Boolean).length}개 적용` : ""}<span>{filtersOpen ? "접기 −" : "펼치기 +"}</span></button>}
+    {!compact && <div className={`dispatch-filter-grid dispatch-collapsible-filters ${filtersOpen ? "is-open" : ""}`}>
       <label><span>시작일</span><input type="date" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} /></label>
       <label><span>종료일</span><input type="date" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} /></label>
       <label><span>거래처</span><input value={filters.vendor} onChange={(event) => setFilters({ ...filters, vendor: event.target.value })} placeholder="거래처 검색" /></label>
@@ -68,11 +84,11 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
         <thead><tr><th>No</th><th>상태</th><th>날짜</th><th>거래처</th><th>품목</th><th>총 물량</th><th>1회 기준</th><th>예정 회차</th><th>배정 차량</th><th>메모</th><th>작업</th></tr></thead>
         <tbody>
           {!filtered.length ? <tr><td colSpan={11} className="dispatch-empty">조건에 맞는 배차가 없습니다.</td></tr> : filtered.map((order, index) => (
-            <tr key={order.id} className={selectedOrder?.id === order.id ? "selected" : ""} onClick={() => setSelectedId(order.id)}>
+            <tr key={order.id} className={selectedOrder?.id === order.id ? "selected" : ""} onClick={() => openDetail(order.id)}>
               <td data-label="No" className="dispatch-count-cell">{index + 1}</td>
               <td data-label="상태"><span className={`dispatch-status ${dispatchStatusClass(order.status)}`}>{order.status}</span></td>
               <td data-label="날짜" className="dispatch-date-cell">{order.dispatch_date}</td>
-              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}</td>
+              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}<span className="dispatch-mobile-route">{order.loading_location} → {order.unloading_location}</span></td>
               <td data-label="품목" className="dispatch-item-cell">{order.item_name}</td>
               <td data-label="총 물량" className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
               <td data-label="1회 기준" className="dispatch-number-cell">{formatVolume(order.volume_per_trip)}</td>
@@ -81,7 +97,7 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
               <td data-label="메모" className="dispatch-memo-cell" title={order.memo || ""}>{order.memo || "-"}</td>
               <td data-label="작업">
                 <div className="dispatch-row-actions">
-                  <button type="button" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id); }}>상세보기</button>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); openDetail(order.id); }}>상세보기</button>
                   {!compact && onDelete && <button type="button" className="dispatch-delete-button" disabled={deletingOrderId === order.id} onClick={(event) => { event.stopPropagation(); void requestDelete(order); }}>{deletingOrderId === order.id ? "이동 중..." : "휴지통"}</button>}
                 </div>
               </td>
@@ -105,7 +121,7 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
             <tr key={order.id}>
               <td data-label="No" className="dispatch-count-cell">{index + 1}</td>
               <td data-label="날짜" className="dispatch-date-cell">{order.dispatch_date}</td>
-              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}</td>
+              <td data-label="거래처" className="dispatch-strong">{order.vendor_name}<span className="dispatch-mobile-route">{order.loading_location} → {order.unloading_location}</span></td>
               <td data-label="품목">{order.item_name}</td>
               <td data-label="총 물량" className="dispatch-number-cell">{formatVolume(order.total_volume)}</td>
               <td data-label="예정 회차" className="dispatch-count-cell">{order.estimated_trip_count}회</td>
@@ -124,13 +140,21 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
     </div>
   </section> : null;
 
-  if (compact) return <div className="dispatch-compact-list">{listPanel}{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div>;
+  const mobileDetail = <dialog ref={detailDialog} className="dispatch-mobile-detail-dialog" aria-label="배차 상세정보" onClose={() => setMobileDetailOpen(false)}>
+    <header className="dispatch-mobile-detail-header"><button type="button" autoFocus onClick={closeDetail}>← 목록으로</button><strong>배차 상세</strong></header>
+    {mobileDetailOpen && selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={(order) => { closeDetail(); onEdit(order); }} />}
+  </dialog>;
+
+  if (compact) return <div className="dispatch-compact-list">{listPanel}{mobileDetail}<div className="dispatch-desktop-detail">{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div></div>;
 
   return (
     <div className="dispatch-list-workspace dispatch-list-workspace-stacked">
       {showTrash ? trashPanel : listPanel}
+      {mobileDetail}
+      <div className="dispatch-desktop-detail">
       {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
       {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
+      </div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import MobileEditor from "./MobileEditor";
 import { useMemo, useState } from "react";
 import type { DispatchCustomer, DispatchItem, DispatchLocation, DispatchLocationType } from "./dispatchTypes";
 import { DISPATCH_LOCATION_TYPES } from "./dispatchTypes";
@@ -27,6 +28,7 @@ export default function DispatchBasics({ customers, locations, items, saving, on
   const [itemForm, setItemForm] = useState<DispatchItem>(emptyItem);
   const [itemSearch, setItemSearch] = useState("");
   const [error, setError] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
   const filteredItems = useMemo(() => {
     const keyword = normalizeSearch(itemSearch);
     return items.filter((item) => !keyword || normalizeSearch(`${item.name} ${item.memo}`).includes(keyword));
@@ -70,6 +72,7 @@ export default function DispatchBasics({ customers, locations, items, saving, on
 
       {tab === "customer" && (
         <>
+          <MobileEditor open={editorOpen} onToggle={() => setEditorOpen(value => !value)} title={customerForm.id ? "거래처 상세·수정" : "거래처 등록"}>
           <div className="dispatch-form-grid dispatch-basic-form">
             <label><span>거래처명 *</span><input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} placeholder="예: 유진세종" /></label>
             <label><span>상태</span><select value={customerForm.active ? "active" : "inactive"} onChange={(event) => setCustomerForm({ ...customerForm, active: event.target.value === "active" })}><option value="active">사용</option><option value="inactive">미사용</option></select></label>
@@ -77,14 +80,16 @@ export default function DispatchBasics({ customers, locations, items, saving, on
           </div>
           {error && <p className="dispatch-error">{error}</p>}
           <div className="dispatch-actions">{customerForm.id && <button type="button" onClick={() => setCustomerForm(emptyCustomer())}>수정 취소</button>}<button type="button" className="dispatch-primary" disabled={saving} onClick={submitCustomer}>{saving ? "저장 중..." : customerForm.id ? "수정 저장" : "거래처 등록"}</button></div>
+          </MobileEditor>
           <div className="dispatch-table-wrap"><table className="dispatch-record-table dispatch-table"><thead><tr><th>거래처명</th><th>상태</th><th>메모</th><th>관리</th></tr></thead><tbody>
-            {!customers.length ? <tr><td colSpan={4} className="dispatch-empty">등록된 배차 거래처가 없습니다.</td></tr> : customers.map((customer) => <tr key={customer.id}><td data-label="거래처명" className="dispatch-strong">{customer.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${customer.active ? "on" : "off"}`}>{customer.active ? "사용" : "미사용"}</span></td><td data-label="메모">{customer.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setCustomerForm({ ...customer }); setError(""); }}>수정</button></td></tr>)}
+            {!customers.length ? <tr><td colSpan={4} className="dispatch-empty">등록된 배차 거래처가 없습니다.</td></tr> : customers.map((customer) => <tr key={customer.id}><td data-label="거래처명" className="dispatch-strong">{customer.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${customer.active ? "on" : "off"}`}>{customer.active ? "사용" : "미사용"}</span></td><td data-label="메모">{customer.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setCustomerForm({ ...customer }); setError(""); }}>수정</button></td></tr>)}
           </tbody></table></div>
         </>
       )}
 
       {tab === "location" && (
         <>
+          <MobileEditor open={editorOpen} onToggle={() => setEditorOpen(value => !value)} title={locationForm.id ? "장소 상세·수정" : "장소 등록"}>
           <div className="dispatch-form-grid dispatch-basic-form dispatch-location-form">
             <label><span>장소명 *</span><input value={locationForm.name} onChange={(event) => setLocationForm({ ...locationForm, name: event.target.value })} placeholder="예: 세종 야적장" /></label>
             <label><span>장소 구분</span><select value={locationForm.location_type} onChange={(event) => setLocationForm({ ...locationForm, location_type: event.target.value as DispatchLocationType })}>{DISPATCH_LOCATION_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>
@@ -93,14 +98,16 @@ export default function DispatchBasics({ customers, locations, items, saving, on
           </div>
           {error && <p className="dispatch-error">{error}</p>}
           <div className="dispatch-actions">{locationForm.id && <button type="button" onClick={() => setLocationForm(emptyLocation())}>수정 취소</button>}<button type="button" className="dispatch-primary" disabled={saving} onClick={submitLocation}>{saving ? "저장 중..." : locationForm.id ? "수정 저장" : "장소 등록"}</button></div>
+          </MobileEditor>
           <div className="dispatch-table-wrap"><table className="dispatch-record-table dispatch-table"><thead><tr><th>장소명</th><th>구분</th><th>상태</th><th>메모</th><th>관리</th></tr></thead><tbody>
-            {!locations.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 배차 장소가 없습니다.</td></tr> : locations.map((location) => <tr key={location.id}><td data-label="장소명" className="dispatch-strong">{location.name}</td><td data-label="구분">{location.location_type}</td><td data-label="상태"><span className={`dispatch-active-pill ${location.active ? "on" : "off"}`}>{location.active ? "사용" : "미사용"}</span></td><td data-label="메모">{location.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setLocationForm({ ...location }); setError(""); }}>수정</button></td></tr>)}
+            {!locations.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 배차 장소가 없습니다.</td></tr> : locations.map((location) => <tr key={location.id}><td data-label="장소명" className="dispatch-strong">{location.name}</td><td data-label="구분">{location.location_type}</td><td data-label="상태"><span className={`dispatch-active-pill ${location.active ? "on" : "off"}`}>{location.active ? "사용" : "미사용"}</span></td><td data-label="메모">{location.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setLocationForm({ ...location }); setError(""); }}>수정</button></td></tr>)}
           </tbody></table></div>
         </>
       )}
 
       {tab === "item" && (
         <>
+          <MobileEditor open={editorOpen} onToggle={() => setEditorOpen(value => !value)} title={itemForm.id ? "품목 상세·수정" : "품목 등록"}>
           <div className="dispatch-form-grid dispatch-basic-form">
             <label><span>품목명 *</span><input value={itemForm.name} onChange={(event) => setItemForm({ ...itemForm, name: event.target.value })} placeholder="예: 모래" /></label>
             <label><span>상태</span><select value={itemForm.active ? "active" : "inactive"} onChange={(event) => setItemForm({ ...itemForm, active: event.target.value === "active" })}><option value="active">사용</option><option value="inactive">미사용</option></select></label>
@@ -108,9 +115,10 @@ export default function DispatchBasics({ customers, locations, items, saving, on
           </div>
           {error && <p className="dispatch-error">{error}</p>}
           <div className="dispatch-actions">{itemForm.id && <button type="button" onClick={() => setItemForm(emptyItem())}>수정 취소</button>}<button type="button" className="dispatch-primary" disabled={saving} onClick={submitItem}>{saving ? "저장 중..." : itemForm.id ? "수정 저장" : "품목 등록"}</button></div>
+          </MobileEditor>
           <label className="dispatch-basic-search"><span>품목 검색</span><input value={itemSearch} onChange={(event) => setItemSearch(event.target.value)} placeholder="품목명 또는 메모 검색" /></label>
           <div className="dispatch-table-wrap"><table className="dispatch-record-table dispatch-table"><thead><tr><th>품목명</th><th>상태</th><th>메모</th><th>관리</th></tr></thead><tbody>
-            {!filteredItems.length ? <tr><td colSpan={4} className="dispatch-empty">조건에 맞는 배차 품목이 없습니다.</td></tr> : filteredItems.map((item) => <tr key={item.id}><td data-label="품목명" className="dispatch-strong">{item.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${item.active ? "on" : "off"}`}>{item.active ? "사용" : "미사용"}</span></td><td data-label="메모">{item.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setItemForm({ ...item }); setError(""); }}>수정</button></td></tr>)}
+            {!filteredItems.length ? <tr><td colSpan={4} className="dispatch-empty">조건에 맞는 배차 품목이 없습니다.</td></tr> : filteredItems.map((item) => <tr key={item.id}><td data-label="품목명" className="dispatch-strong">{item.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${item.active ? "on" : "off"}`}>{item.active ? "사용" : "미사용"}</span></td><td data-label="메모">{item.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setItemForm({ ...item }); setError(""); }}>수정</button></td></tr>)}
           </tbody></table></div>
         </>
       )}

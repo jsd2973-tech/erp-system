@@ -1,3 +1,4 @@
+import MobileEditor from "./MobileEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import type { DispatchDriver, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
@@ -35,6 +36,8 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState("");
 
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
@@ -203,7 +206,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
               key={row.driver.id}
               type="button"
               className={`driver-master-item ${isSelected ? "selected" : ""}`}
-              onClick={() => setSelectedDriverId(row.driver.id)}
+              onClick={() => { setSelectedDriverId(row.driver.id); setDetailOpen(true); }}
             >
               <span className={`driver-master-state state-${row.state.replace(/\s/g, "-")}`}><i /></span>
               <span className="driver-master-identity">
@@ -219,6 +222,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
         </div>
       </aside>
 
+      <MobileEditor open={detailOpen} onToggle={() => setDetailOpen(value => !value)} title={selectedRow ? `${selectedRow.driver.name} 운행 상세` : "운행 상세"}>
       <main className="driver-detail-panel">
         {!selectedRow ? <div className="driver-detail-empty">등록된 기사가 없습니다.</div> : <>
           <div className="driver-detail-hero">
@@ -247,6 +251,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
             <div><span>오늘 전체 기록</span><strong>{selectedRow.mine.length}<small>회</small></strong></div>
           </div>
 
+          <MobileEditor open={historyOpen} onToggle={() => setHistoryOpen(value => !value)} title={`오늘의 운행내역 · ${selectedRow.mine.length}회`}>
           <section className="driver-trip-history driver-trip-history-detail">
             <div className="driver-trip-history-head">
               <div><strong>오늘의 운행내역</strong><p>배차별로 묶고 각 배차 안에서 1회차부터 순서대로 표시합니다.</p></div>
@@ -281,8 +286,10 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
               </section>)}
             </div>}
           </section>
+          </MobileEditor>
         </>}
       </main>
+      </MobileEditor>
     </div>
   </section>;
 }

@@ -178,3 +178,64 @@
  .dispatch-page .dispatch-record-table td[data-label="메모"]{display:flex;gap:8px;align-items:baseline}
  .dispatch-page .dispatch-detail-kv>div{padding:8px}
 }
+
+/* Mobile navigation and disclosure only: desktop layout and data stay intact. */
+.dispatch-mobile-filter-toggle,.dispatch-mobile-search,.dispatch-mobile-route,
+.dispatch-mobile-editor-toggle,.dispatch-mobile-history-toggle{display:none}
+.dispatch-desktop-detail{display:contents}
+.dispatch-mobile-detail-dialog:not([open]){display:none}
+@media(max-width:760px){
+ .dispatch-page .dispatch-mobile-search{display:grid;gap:5px;margin:0 0 8px;font-size:12px;color:#52657b}
+ .dispatch-mobile-search input{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid #dce5ef;border-radius:10px;font-size:16px;background:#fff}
+ .dispatch-page .dispatch-mobile-filter-toggle,.dispatch-mobile-editor-toggle,.dispatch-mobile-history-toggle{display:flex!important;justify-content:space-between;align-items:center;gap:8px;width:100%;min-height:44px;padding:10px 12px;margin:0 0 10px;border:1px solid #dce5ef;border-radius:10px;background:#f6f9fd;color:#234362;font-size:14px;font-weight:650}
+ .dispatch-mobile-filter-toggle span,.dispatch-mobile-editor-toggle span,.dispatch-mobile-history-toggle span{font-size:12px;color:#52657b;white-space:nowrap}
+ .dispatch-page .dispatch-collapsible-filters:not(.is-open),.dispatch-page .dispatch-collapsible-history:not(.is-open),.dispatch-mobile-editor:not(.is-open)>.dispatch-mobile-editor-content{display:none!important}
+ .dispatch-page .dispatch-collapsible-filters>label:nth-child(3){display:none!important}
+ .dispatch-desktop-detail{display:none}
+ .dispatch-mobile-detail-dialog[open]{position:fixed;inset:0;width:100%;max-width:none;height:100%;height:100dvh;max-height:none;margin:0;padding:0 12px max(24px,env(safe-area-inset-bottom));border:0;background:#f0f5fa;color:#18324f;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+ .dispatch-mobile-detail-dialog::backdrop{background:#18324f80}
+ body:has(.dispatch-mobile-detail-dialog[open]){overflow:hidden}
+ .dispatch-mobile-detail-header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:62px;margin:0 -12px 12px;padding:8px 12px;border-bottom:1px solid #dce5ef;background:#fff}
+ .dispatch-mobile-detail-header button{min-height:44px;padding:8px 12px;border:1px solid #dce5ef;border-radius:10px;background:#fff;color:#245e9c;font-size:14px}
+ .dispatch-mobile-detail-header strong{font-size:15px}
+ .dispatch-page .dispatch-order-table.dispatch-record-table tbody tr{height:auto!important;min-height:0!important;grid-auto-rows:min-content!important;align-content:start!important;gap:7px 12px!important;padding:12px!important}
+ .dispatch-page .dispatch-order-table.dispatch-record-table td{height:auto!important;min-height:0!important;font-size:14px!important;line-height:1.45!important}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="No"],.dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="1회 기준"],.dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="예정 회차"],.dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="메모"]{display:none!important}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="거래처"]{grid-column:1/-1;font-size:17px!important;order:-3}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="거래처"]::before{display:none}
+ .dispatch-page .dispatch-mobile-route{display:block;margin-top:4px;color:#63758a;font-size:13px;font-weight:500;overflow-wrap:anywhere}
+ .dispatch-page .dispatch-record-table td[data-label="작업"]::before,.dispatch-page .dispatch-record-table td[data-label="관리"]::before{display:none}
+ .dispatch-page .dispatch-record-table td[data-label="작업"] .dispatch-row-actions{display:flex;gap:8px;margin-top:5px}
+ .dispatch-page .dispatch-record-table td[data-label="작업"] button,.dispatch-page .dispatch-record-table td[data-label="관리"] button{min-height:44px!important;padding:8px 14px!important;font-size:13px!important}
+ .dispatch-page .dispatch-detail-kv{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .dispatch-page .dispatch-detail-kv>div{min-width:0;min-height:52px!important;text-align:left}
+ .dispatch-page .dispatch-detail-kv b{overflow-wrap:anywhere}
+ .dispatch-page .order-form-grid,.dispatch-page .dispatch-form-grid.vehicle-form-grid,.dispatch-page .dispatch-form-grid.driver-form-grid,.dispatch-page .dispatch-form-grid.dispatch-basic-form{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .dispatch-page .order-form-grid>*{grid-column:auto!important}
+ .dispatch-page .order-form-grid .dispatch-field-customer,.dispatch-page .order-form-grid .dispatch-field-loading,.dispatch-page .order-form-grid .dispatch-field-unloading,.dispatch-page .order-form-grid .dispatch-field-memo,.dispatch-page .dispatch-form-grid .dispatch-wide,.dispatch-page .driver-form-grid>label:nth-child(4),.dispatch-page .driver-form-grid>label:nth-child(5),.dispatch-page .dispatch-location-form>label:last-child{grid-column:1/-1!important}
+ .dispatch-page .dispatch-management-mobile-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .dispatch-page .dispatch-management-mobile-grid>div.wide{grid-column:1/-1!important}
+ .dispatch-page .dispatch-tabs button.active{box-shadow:inset 0 -3px 0 #0b4eaa!important;font-weight:750!important}
+ .mobile-more-sheet.role-mobile-sheet{top:auto!important;bottom:calc(80px + env(safe-area-inset-bottom))!important;padding:0 8px!important;max-height:none!important;overflow:visible!important}
+ .mobile-more-sheet.role-mobile-sheet .role-mobile-sheet-card{display:flex!important;flex-direction:column;max-height:calc(100dvh - 112px);padding:14px!important;overflow:hidden;border-radius:20px!important;background:#fff}
+ .mobile-more-sheet.role-mobile-sheet .role-mobile-sheet-head{flex-shrink:0;margin-bottom:10px}
+ .mobile-more-sheet.role-mobile-sheet .role-mobile-sheet-head button{min-height:44px}
+ .mobile-more-sheet.role-mobile-sheet .role-mobile-sheet-grid{overflow-y:auto;min-height:0;overscroll-behavior:contain;gap:8px;padding:0 2px}
+ .mobile-menu-group{grid-column:1/-1;border-bottom:1px solid #e8eef5;padding:0 0 8px}
+ .mobile-menu-group summary{cursor:pointer;padding:10px 2px;min-height:44px;box-sizing:border-box;color:#52657b;font-size:13px;font-weight:650}
+ .mobile-menu-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .mobile-more-sheet.role-mobile-sheet .mobile-menu-items button{min-height:44px!important;height:auto!important;border:0!important;border-radius:9px!important;padding:10px!important;background:#f5f7fa!important;text-align:left!important;color:#334155;font-size:13px!important;font-weight:550!important;white-space:normal}
+ .mobile-more-sheet.role-mobile-sheet .mobile-menu-items button[aria-current="page"]{background:#eaf2ff!important;color:#1769c2!important;font-weight:750!important}
+ .mobile-menu-footer{flex-shrink:0;padding-top:10px;margin-top:4px;border-top:1px solid #e8eef5}
+ .mobile-more-sheet.role-mobile-sheet .mobile-menu-footer button{width:100%;min-height:44px!important;margin:0!important;border:0!important;border-radius:10px!important;background:#fff4f4!important;color:#af3c3c!important;font-size:13px!important;font-weight:600!important}
+}
+@media(min-width:761px){
+ .dispatch-mobile-editor,.dispatch-mobile-editor-content{display:contents}
+}
+@media(max-width:760px){
+ .dispatch-mobile-editor{scroll-margin-top:12px}
+ .mobile-menu-group summary svg{display:inline-block;vertical-align:middle;margin-right:7px;color:#647e9b}
+ .dispatch-page .driver-status-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .dispatch-page .driver-status-kpis>div:last-child{grid-column:1/-1}
+ .dispatch-page .driver-master-item{min-height:64px}
+}

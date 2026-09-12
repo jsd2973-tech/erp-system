@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { DispatchDriver, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
@@ -20,6 +21,7 @@ type DispatchTripHistoryProps = {
 const koreaDateTime = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) : "-";
 
 export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHistoryProps) {
+  const [historyOpen, setHistoryOpen] = useState(false);
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
   const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no || a.created_at.localeCompare(b.created_at));
@@ -37,7 +39,8 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
         </table>
       </div>
 
-      <div className="dispatch-trip-mobile-list">
+      <button type="button" className="dispatch-mobile-history-toggle" aria-expanded={historyOpen} onClick={() => setHistoryOpen(value => !value)}>운행 {trips.length}건 · 완료 {trips.filter(trip => trip.status === "완료").length}건<span>{historyOpen ? "접기 −" : "내역 보기 +"}</span></button>
+      <div className={`dispatch-trip-mobile-list dispatch-collapsible-history ${historyOpen ? "is-open" : ""}`}>
         {!sortedTrips.length ? <div className="dispatch-trip-mobile-empty">등록된 운행기록이 없습니다.</div> : sortedTrips.map((trip) => (
           <article key={trip.id} className="dispatch-trip-mobile-card">
             <div className="dispatch-trip-mobile-head">
