@@ -292,3 +292,19 @@
  .dispatch-page .driver-trip-info>span:first-child{grid-column:1/-1;display:flex;gap:6px}
  .dispatch-page .driver-trip-info>span{min-width:0;padding:6px;background:#f6f9fc;border-radius:6px}
 }
+
+/* Phone screenshot follow-up: remove implicit grid tracks and spare action rows. */
+@media(max-width:760px){
+ .dispatch-page .dispatch-compact-list{grid-template-columns:minmax(0,1fr)!important;grid-template-areas:none!important;width:100%;min-width:0}
+ .dispatch-page .dispatch-compact-list>.dispatch-list-panel{grid-area:auto!important;min-width:0;width:100%;box-sizing:border-box}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="품목"]{display:flex!important;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="작업"]{grid-column:2!important;border-top:0!important;padding-top:0!important;align-self:center}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="작업"] .dispatch-row-actions{justify-content:flex-end;margin-top:0;gap:6px}
+ .dispatch-page .dispatch-order-table:not(.dispatch-trash-table) td[data-label="배정 차량"]{align-self:center}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) .dispatch-record-table tbody tr{grid-template-areas:"number type" "status action" "memo memo"!important;align-items:center;gap:7px 12px!important}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) td[data-label="차량번호"]{grid-area:number!important}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) td[data-label="차종"]{grid-area:type!important}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) td[data-label="상태"]{grid-area:status!important;display:flex;align-items:center;gap:8px}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) td[data-label="관리"]{grid-area:action!important;border:0!important;padding:0!important;justify-self:end}
+ .dispatch-page .dispatch-panel:has(.vehicle-form-grid) td[data-label="메모"]{grid-area:memo!important;border-top:1px solid #edf1f5;padding-top:6px!important;font-size:13px}
+}
