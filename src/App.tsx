@@ -1,3 +1,4 @@
+import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
@@ -4832,6 +4833,7 @@ export default function App() {
     setAuthPrefs(nextPrefs);
     writeAuthPrefs(nextPrefs);
 
+    try { await disableDevicePush(); } catch { /* Keep existing logout available. */ }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error(error);
@@ -5555,6 +5557,7 @@ export default function App() {
   return (
     <div>
       <style>{css}</style>
+      <PushSettings key={session.user.id} />
       {toast && (
         <div key={toast.id} className={`app-toast ${toast.tone}`} role="status" aria-live="polite">
           <div className="app-toast-icon"><CheckCircle2 size={21} /></div>
@@ -5697,6 +5700,7 @@ export default function App() {
                 {menuButton("dispatch_register", "배차등록")}
                 {menuButton("dispatch_list", "배차목록")}
                 {menuButton("dispatch_status", "운행현황")}
+                {menuButton("dispatch_results", "운송실적")}
                 {menuButton("dispatch_vehicles", "차량관리")}
                 {menuButton("dispatch_drivers", "기사관리")}
                 {menuButton("dispatch_basics", "배차 기초관리")}
@@ -5758,7 +5762,7 @@ export default function App() {
           {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => { setMenuTab("activity_logs"); setOpenMenuGroup(null); }}><ClipboardList size={17} /> 작업로그</button>}
           {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => { setMenuTab("trash_bin"); setOpenMenuGroup(null); }}><Trash2 size={17} /> 휴지통</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => { setMenuTab("backup_permissions"); setOpenMenuGroup(null); }}><ShieldCheck size={17} /> 백업/권한관리</button>}
-          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
@@ -8231,28 +8235,37 @@ export default function App() {
                 </>
               )}
 
-              {mobileSheet === "more" && (
-                <>
-                  {canAccessTab("site_notices") && <button onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
-                  {canAccessTab("bid_notices") && <button onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
-                  {canAccessTab("activity_logs") && <button onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
-                  {canAccessTab("trash_bin") && <button onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
-                  {canAccessTab("layout") && <button onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
-                  {canAccessTab("vendors") && <button onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
-                  {canAccessTab("warehouse_groups") && <button onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
-                  {canAccessTab("items") && <button onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>}
-                  {canAccessTab("permits") && <button onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>}
-                  {isAdmin && <button onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
-                  <button className="role-mobile-logout" onClick={logout}>로그아웃</button>
-                </>
-              )}
+              {mobileSheet === "more" && (<>
+                {(canAccessTab("site_notices") || canAccessTab("bid_notices")) && <details className="mobile-menu-group" open><summary><Bell size={16} aria-hidden="true" />소식</summary><div className="mobile-menu-items">
+                  {canAccessTab("site_notices") && <button aria-current={menuTab === "site_notices" ? "page" : undefined} onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
+                  {canAccessTab("bid_notices") && <button aria-current={menuTab === "bid_notices" ? "page" : undefined} onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
+                </div></details>}
+                {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><ClipboardList size={16} aria-hidden="true" />운행관리</summary><div className="mobile-menu-items">
+                  {isAdmin && <button aria-current={menuTab === "dispatch_register" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_list" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_status" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_results" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>}
+                </div></details>}
+                {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><Truck size={16} aria-hidden="true" />차량·기사</summary><div className="mobile-menu-items">
+                  {isAdmin && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+                  {isAdmin && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
+                </div></details>}
+                {(canAccessTab("layout") || canAccessTab("vendors") || canAccessTab("warehouse_groups") || canAccessTab("items")) && <details className="mobile-menu-group"><summary><Database size={16} aria-hidden="true" />기초등록</summary><div className="mobile-menu-items">
+                  {canAccessTab("layout") && <button aria-current={menuTab === "layout" ? "page" : undefined} onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
+                  {canAccessTab("vendors") && <button aria-current={menuTab === "vendors" ? "page" : undefined} onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
+                  {canAccessTab("warehouse_groups") && <button aria-current={menuTab === "warehouse_groups" ? "page" : undefined} onClick={() => { setMenuTab("warehouse_groups"); setMobileSheet(""); }}>창고등록</button>}
+                  {canAccessTab("items") && <button aria-current={menuTab === "items" ? "page" : undefined} onClick={() => { setMenuTab("items"); setMobileSheet(""); }}>품목등록</button>}
+                </div></details>}
+                {(canAccessTab("activity_logs") || canAccessTab("trash_bin") || canAccessTab("permits") || isAdmin) && <details className="mobile-menu-group"><summary><ShieldCheck size={16} aria-hidden="true" />시스템 관리</summary><div className="mobile-menu-items">
+                  {canAccessTab("activity_logs") && <button aria-current={menuTab === "activity_logs" ? "page" : undefined} onClick={() => { setMenuTab("activity_logs"); setMobileSheet(""); }}>작업로그</button>}
+                  {canAccessTab("trash_bin") && <button aria-current={menuTab === "trash_bin" ? "page" : undefined} onClick={() => { setMenuTab("trash_bin"); setMobileSheet(""); }}>휴지통</button>}
+                  {canAccessTab("permits") && <button aria-current={menuTab === "permits" ? "page" : undefined} onClick={() => { setMenuTab("permits"); setMobileSheet(""); }}>허가관리</button>}
+                  {isAdmin && <button aria-current={menuTab === "backup_permissions" ? "page" : undefined} onClick={() => { setMenuTab("backup_permissions"); setMobileSheet(""); }}>백업/권한관리</button>}
+                </div></details>}
+              </>)}
             </div>
+            {mobileSheet === "more" && <div className="mobile-menu-footer"><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button className="role-mobile-logout" onClick={logout}>로그아웃</button></div>}
           </div>
         </div>
 

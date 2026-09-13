@@ -1,3 +1,4 @@
+import MobileEditor from "./MobileEditor";
 import { useState } from "react";
 import { toLoginEmail } from "../../authLogin";
 import type { DispatchDriver, DispatchVehicle } from "./dispatchTypes";
@@ -14,10 +15,12 @@ const emptyDriver = (): DispatchDriver => ({ id: "", name: "", phone: "", assign
 export default function DriverManagement({ drivers, vehicles, saving, onSave }: DriverManagementProps) {
   const [form, setForm] = useState<DispatchDriver>(emptyDriver);
   const [error, setError] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : "";
 
   const editDriver = (driver: DispatchDriver) => {
+    setEditorOpen(true);
     setForm({ ...driver });
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -43,6 +46,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <span className="dispatch-count">근무 {drivers.filter((driver) => driver.active).length}명</span>
       </div>
 
+      <MobileEditor open={editorOpen} onToggle={() => setEditorOpen(value => !value)} title={form.id ? "기사 상세·수정" : "기사 등록"}>
       <div className="dispatch-form-grid driver-form-grid">
         <label><span>기사명 *</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="기사 이름" /></label>
         <label><span>연락처</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="010-0000-0000" /></label>
@@ -59,6 +63,7 @@ export default function DriverManagement({ drivers, vehicles, saving, onSave }: 
         <button type="button" className="dispatch-primary" disabled={saving} onClick={submit}>{saving ? "저장 중..." : form.id ? "수정 저장" : "기사 등록"}</button>
       </div>
 
+      </MobileEditor>
       <div className="dispatch-table-wrap dispatch-management-desktop-table">
         <table className="dispatch-table">
           <thead><tr><th>기사명</th><th>연락처</th><th>담당 차량</th><th>로그인 연결</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
