@@ -8,6 +8,13 @@
 .erp-push-dialog article{border-top:1px solid #e2e8f0;padding:12px 0}
 .erp-push-dialog time{font-size:12px;color:#64748b}
 
-.erp-push-preferences{display:grid;grid-template-columns:1fr 1fr;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;text-align:left}
-.erp-push-preferences label{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;cursor:pointer}
-.erp-push-preferences input[type="checkbox"]{width:20px;height:20px;min-height:20px;flex-shrink:0;accent-color:#2563eb}
+.erp-push-preferences{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;text-align:left}
+.erp-push-dialog .erp-push-preferences label{display:flex;align-items:center;gap:8px;min-width:0;min-height:44px;margin:0;padding:4px 0;font-size:14px;line-height:1.45;text-align:left;cursor:pointer}
+.erp-push-dialog .erp-push-preferences label span{min-width:0;flex:1;word-break:keep-all;overflow-wrap:normal;white-space:normal}
+/* Override legacy global mobile input width/min-height !important rules. */
+.erp-push-dialog .erp-push-preferences input[type="checkbox"]{appearance:auto!important;box-sizing:border-box!important;width:20px!important;min-width:20px!important;max-width:20px!important;height:20px!important;min-height:20px!important;max-height:20px!important;flex:0 0 20px!important;margin:0!important;padding:0!important;border-radius:4px!important;transform:none!important;accent-color:#2563eb}
+.erp-push-dialog .erp-push-preferences input[type="checkbox"]:focus-visible{outline:2px solid #2563eb;outline-offset:3px}
+.erp-push-dialog{text-align:left}
+.erp-push-dialog header{position:sticky;top:-20px;background:#fff;padding:8px 0;z-index:1}
+.erp-push-dialog h3{font-size:17px;margin:18px 0 10px}
+.erp-push-dialog p{margin:10px 0}
