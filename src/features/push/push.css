@@ -7,3 +7,7 @@
 .erp-push-dialog p{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 .erp-push-dialog article{border-top:1px solid #e2e8f0;padding:12px 0}
 .erp-push-dialog time{font-size:12px;color:#64748b}
+
+.erp-push-preferences{display:grid;grid-template-columns:1fr 1fr;gap:8px;border:1px solid #e2e8f0;border-radius:12px;padding:12px;text-align:left}
+.erp-push-preferences label{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;cursor:pointer}
+.erp-push-preferences input[type="checkbox"]{width:20px;height:20px;min-height:20px;flex-shrink:0;accent-color:#2563eb}

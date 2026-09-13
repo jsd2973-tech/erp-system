@@ -12,19 +12,32 @@ export async function disableDevicePush() {
   await supabase.functions.invoke('dispatch-push', { body: { action: 'unsubscribe', endpoint: subscription.endpoint } });
 }
 
+const preferenceLabels = {new_order:'새 배차',volume_change:'물량 변경',cancellation:'배차 취소',trip_progress:'매 탕 완료·잔여 물량'};
+type Preferences = Record<keyof typeof preferenceLabels, boolean>;
+
 type Notice = { id: string; title: string; body: string; created_at: string; order_id: string | null };
 
 export default function PushSettings() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const preferenceLoad = useRef(0);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [detail, setDetail] = useState<Record<string, string> | null>(null);
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
   const open = useCallback(async () => {
     if (!dialog.current?.open) dialog.current?.showModal();
-    const { data, error } = await supabase.from('dispatch_push_notices').select('id,title,body,created_at,order_id').order('created_at', { ascending: false }).limit(30);
+    const loadId = ++preferenceLoad.current;
+    setPreferences(null);
+    const [{ data, error }, settings] = await Promise.all([
+      supabase.from('dispatch_push_notices').select('id,title,body,created_at,order_id').order('created_at', { ascending: false }).limit(30),
+      supabase.functions.invoke('dispatch-push', { body: { action: 'preferences' } }),
+    ]);
+    if (loadId !== preferenceLoad.current) return;
+    if (!settings.error && settings.data?.preferences) setPreferences(settings.data.preferences);
+    else setMessage('알림 종류 설정을 불러오지 못했습니다. 창을 닫고 다시 열어 주세요.');
     if (error) setMessage('알림 내역을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.');
     else setNotices(data || []);
   }, []);
@@ -37,6 +50,17 @@ export default function PushSettings() {
     if (new URLSearchParams(location.search).get('push') === '1') void open();
     return () => { window.removeEventListener('ERP_OPEN_NOTIFICATIONS', request); navigator.serviceWorker?.removeEventListener('message', receive); };
   }, [open]);
+
+  const savePreferences = async () => {
+    if (!preferences) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('dispatch-push', { body: { action: 'save_preferences', preferences } });
+      if (error || data?.error) throw new Error();
+      setMessage('선택한 알림 종류를 저장했습니다. 이 계정의 등록 기기에 적용됩니다.');
+    } catch { setMessage('설정을 저장하지 못했습니다. 다시 시도해 주세요.'); }
+    finally { setBusy(false); }
+  };
 
   const enable = async () => {
     setBusy(true); setMessage('');
@@ -74,7 +98,13 @@ export default function PushSettings() {
   return <>
     <dialog ref={dialog} className="erp-push-dialog">
       <header><strong>운행관리 알림</strong><button type="button" onClick={() => dialog.current?.close()}>닫기</button></header>
-      <p>새 배차·물량 변경·취소 알림을 이 기기로 받습니다.</p>
+      <p>받고 싶은 알림을 선택하고 저장해 주세요.</p>
+      <fieldset className="erp-push-preferences" disabled={busy || !preferences}>
+        <legend>받을 알림 종류</legend>
+        {(Object.keys(preferenceLabels) as (keyof Preferences)[]).map(key => <label key={key}><input type="checkbox" checked={preferences?.[key] ?? false} onChange={event => { const checked = event.target.checked; setPreferences(current => current ? {...current, [key]:checked} : current); }} /><span>{preferenceLabels[key]}</span></label>)}
+      </fieldset>
+      <p>잔여 물량은 같은 배차의 기사님들이 완료한 실제 물량을 합산합니다. 설정은 계정별로 적용됩니다.</p>
+      <button type="button" disabled={busy || !preferences} onClick={() => void savePreferences()}>알림 종류 저장</button>
       {!supported ? <p>이 브라우저에서는 푸시 알림을 지원하지 않습니다. Chrome 또는 홈 화면에 추가한 웹앱에서 열어 주세요.</p> : <div className="erp-push-actions">
         <button disabled={busy} onClick={() => void enable()}>알림 수신 켜기</button>
         <button disabled={busy} onClick={() => void test()}>내 기기로 테스트</button>

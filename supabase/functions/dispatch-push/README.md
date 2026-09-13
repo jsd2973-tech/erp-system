@@ -9,3 +9,9 @@ Delivery runs each minute, claims up to 30 jobs, retries up to five times with a
 Notifications display the event title, customer, item and quantity in the OS notification, as requested. Opening further ERP details still requires login and existing RLS. Clicking focuses an existing ERP window without navigating or refreshing it. Logout unsubscribes the browser, and the worker rejects removed/expired sessions. Network/device/OS settings can delay or suppress delivery.
 
 Validation: `npm run build`, `node --test tests/transport-results.test.mjs`, and transactional `tests/dispatch-push.sql`. Physical push receipt still requires a signed-in phone with notification permission. Use More > notification settings > enable > test on my device. Preview domains have separate subscriptions; moving to a different domain requires registration again.
+
+## Per-account notification choices and trip progress
+
+Each account can save new-order, quantity-change, cancellation and trip-progress preferences. Existing three kinds default on; the new trip-progress kind defaults off. The Edge Function binds settings reads/writes to the validated user id. Queued messages recheck preferences before sending.
+
+A new completion event is captured once per trip id. The worker reads a fresh SQL aggregate of all committed completed trips for the order, so multiple drivers never decrement a separate counter. Notifications show the latest delivery-time aggregate (multiple completions within one scheduler interval can show the same latest total), remaining volume and estimated trips at the order's per-trip volume. Over-delivery is shown explicitly. Existing save/complete RPCs are unchanged. Tests: `node --test tests/push-preferences.test.mjs` and rollback-only `tests/push-progress.sql`.
