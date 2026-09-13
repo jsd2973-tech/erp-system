@@ -293,4 +293,3 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     </div>
   </section>;
 }
-

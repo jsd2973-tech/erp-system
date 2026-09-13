@@ -158,4 +158,3 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
     </div>
   );
 }
-

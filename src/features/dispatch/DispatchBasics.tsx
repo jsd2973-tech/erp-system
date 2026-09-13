@@ -125,4 +125,3 @@ export default function DispatchBasics({ customers, locations, items, saving, on
     </section>
   );
 }
-

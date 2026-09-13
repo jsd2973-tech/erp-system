@@ -67,4 +67,3 @@ export default function VehicleManagement({ vehicles, saving, onSave }: VehicleM
     </section>
   );
 }
-
