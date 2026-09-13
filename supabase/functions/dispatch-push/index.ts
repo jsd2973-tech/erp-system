@@ -98,11 +98,21 @@ Deno.serve(async req=>{
       return reply({ok:true});
     }
     if(body.action==='test') {
-      const device=await checked(db.from('dispatch_push_devices').select('*').eq('endpoint',String(body.endpoint)).eq('user_id',user.id).single());
+      const device=await checked(db.from('dispatch_push_devices').select('*').eq('endpoint',String(body.endpoint)).eq('user_id',user.id).maybeSingle());
+      if(!device) return reply({error:'이 주소의 기기 등록이 없습니다. 알림 수신 켜기를 누른 뒤 다시 테스트해 주세요.'},409);
       const minute=Math.floor(Date.now()/60000);
       const {data:notice,error:insertError}=await db.from('dispatch_push_notices').insert({user_id:user.id,event_key:`test:${minute}`,title:'테스트 알림',body:'이 기기의 푸시 알림 수신을 확인해 주세요.'}).select('id').single();
-      if(insertError) return reply({error:'테스트는 1분에 한 번 가능합니다.'},429);
-      await send(device,cfg,notice.id,'테스트 알림','거래처 · 품목 · 물량이 이 위치에 표시됩니다.');
+      if(insertError) return insertError.code==='23505'
+        ? reply({error:'테스트 알림은 계정당 1분에 한 번 가능합니다. 잠시 후 다시 눌러 주세요.'},429)
+        : reply({error:'테스트 기록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.'},500);
+      try {
+        await send(device,cfg,notice.id,'테스트 알림','거래처 · 품목 · 물량이 이 위치에 표시됩니다.');
+      } catch(error) {
+        const status=Number(error.statusCode)||503;
+        if(status===404 || status===410) return reply({error:'기존 알림 구독 또는 로그인 연결이 만료됐습니다. 알림 수신 켜기를 다시 눌러 주세요.'},409);
+        if(status===429) return reply({error:'휴대폰 푸시 서비스의 요청 제한입니다. 잠시 후 다시 시도해 주세요.'},429);
+        return reply({error:'푸시 서비스 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.'},502);
+      }
       return reply({ok:true});
     }
     return reply({error:'Unknown action'},400);

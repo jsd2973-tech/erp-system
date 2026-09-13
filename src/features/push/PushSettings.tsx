@@ -2,6 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import './push.css';
 
+async function pushErrorMessage(error: unknown, data: {error?: string} | null, fallback: string) {
+  if (data?.error) return data.error;
+  const context = (error as {context?: Response} | null)?.context;
+  if (context instanceof Response) {
+    try { const body = await context.clone().json(); if (typeof body.error === 'string') return body.error; } catch { /* Fall back to HTTP status. */ }
+    if (context.status === 429) return '테스트 알림은 1분에 한 번 가능합니다. 잠시 후 다시 눌러 주세요.';
+    if (context.status === 401) return '로그인 상태를 확인한 뒤 알림 수신을 다시 켜 주세요.';
+  }
+  return fallback;
+}
+
 export async function disableDevicePush() {
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration('/');
@@ -89,7 +100,7 @@ export default function PushSettings() {
       const subscription = await (await navigator.serviceWorker.getRegistration('/'))?.pushManager.getSubscription();
       if (!subscription) throw new Error('먼저 알림 수신을 켜 주세요.');
       const { error, data } = await supabase.functions.invoke('dispatch-push', { body: { action: 'test', endpoint: subscription.endpoint } });
-      if (error || data?.error) throw new Error('테스트 알림 전송에 실패했습니다. 수신 설정을 다시 확인해 주세요.');
+      if (error || data?.error) throw new Error(await pushErrorMessage(error, data, '알림 서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.'));
       setMessage('테스트 알림을 전송했습니다. 휴대폰 알림함을 확인해 주세요.');
     } catch (error) { setMessage(error instanceof Error ? error.message : '전송에 실패했습니다.'); }
     finally { setBusy(false); }
