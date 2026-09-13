@@ -32,4 +32,59 @@ export const supabase = createClient(
   }
 );
 
+// The isolated dispatch QA project intentionally contains only Auth,
+// user_permissions and dispatch-related tables. Keep unrelated ERP loaders from
+// failing there while leaving all normal/production behavior untouched.
+const TEST_MODE_SKIPPED_TABLES = new Set([
+  "vendors",
+  "warehouse_groups",
+  "warehouses",
+  "items",
+  "purchases",
+  "maints",
+  "card_uses",
+  "permit_renewals",
+  "vendor_accounts",
+  "receipt_photos",
+  "maintenance_photos",
+  "maintenance_schedules",
+  "site_notices",
+  "update_notices",
+  "activity_logs",
+  "deleted_records",
+]);
+
+if (testMode) {
+  const realFrom = supabase.from.bind(supabase);
+
+  (supabase as any).from = (table: string) => {
+    if (!TEST_MODE_SKIPPED_TABLES.has(table)) {
+      return realFrom(table);
+    }
+
+    const emptyResult = Promise.resolve({
+      data: [],
+      error: null,
+      count: 0,
+      status: 200,
+      statusText: "OK",
+    });
+
+    let emptyQuery: any;
+    emptyQuery = new Proxy(
+      {},
+      {
+        get(_target, property) {
+          if (property === "then") return emptyResult.then.bind(emptyResult);
+          if (property === "catch") return emptyResult.catch.bind(emptyResult);
+          if (property === "finally") return emptyResult.finally.bind(emptyResult);
+          return () => emptyQuery;
+        },
+      }
+    );
+
+    return emptyQuery;
+  };
+}
+
 export const isSupabaseTestMode = testMode;
