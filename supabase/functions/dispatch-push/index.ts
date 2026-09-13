@@ -17,11 +17,11 @@ async function config() {
   }
   return row;
 }
-async function send(device:any, cfg:any, id:string) {
+async function send(device:any, cfg:any, id:string, title:string, body:string) {
   if(!allowedEndpoint(device.endpoint)) throw {statusCode:410};
   const valid=await checked(db.rpc('dispatch_push_session_valid',{p_user:device.user_id,p_session:device.session_id}));
   if(!valid) throw {statusCode:410};
-  await webpush.sendNotification(device.subscription,JSON.stringify({id}),{TTL:300,timeout:10000,vapidDetails:{subject:Deno.env.get('SUPABASE_URL')!,publicKey:cfg.public_key,privateKey:cfg.private_key}});
+  await webpush.sendNotification(device.subscription,JSON.stringify({id,title,body}),{TTL:300,timeout:10000,vapidDetails:{subject:Deno.env.get('SUPABASE_URL')!,publicKey:cfg.public_key,privateKey:cfg.private_key}});
 }
 Deno.serve(async req=>{
   if(req.method==='OPTIONS') return new Response('ok',{headers});
@@ -38,10 +38,10 @@ Deno.serve(async req=>{
         let status=201;
         const device=await checked(db.from('dispatch_push_devices').select('*').eq('endpoint',delivery.endpoint).maybeSingle());
         if(!device) return;
-        const notice=await checked(db.from('dispatch_push_notices').select('user_id,created_at').eq('id',delivery.notice_id).single());
+        const notice=await checked(db.from('dispatch_push_notices').select('user_id,created_at,title,body').eq('id',delivery.notice_id).single());
         try {
           if(notice.user_id!==device.user_id || Date.now()-Date.parse(notice.created_at)>86400000) throw {statusCode:410};
-          await send(device,cfg,delivery.notice_id);
+          await send(device,cfg,delivery.notice_id,notice.title,notice.body);
         } catch(error) { status=Number(error.statusCode)||503; }
         if(status===404 || status===410) await checked(db.from('dispatch_push_devices').delete().eq('endpoint',delivery.endpoint));
         else await checked(db.from('dispatch_push_deliveries').update({last_status:status,...(status===201?{sent_at:new Date().toISOString()}:{})}).eq('id',delivery.id));
@@ -79,7 +79,7 @@ Deno.serve(async req=>{
       const minute=Math.floor(Date.now()/60000);
       const {data:notice,error:insertError}=await db.from('dispatch_push_notices').insert({user_id:user.id,event_key:`test:${minute}`,title:'테스트 알림',body:'이 기기의 푸시 알림 수신을 확인해 주세요.'}).select('id').single();
       if(insertError) return reply({error:'테스트는 1분에 한 번 가능합니다.'},429);
-      await send(device,cfg,notice.id);
+      await send(device,cfg,notice.id,'테스트 알림','거래처 · 품목 · 물량이 이 위치에 표시됩니다.');
       return reply({ok:true});
     }
     return reply({error:'Unknown action'},400);

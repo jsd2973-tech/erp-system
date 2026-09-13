@@ -6,6 +6,6 @@ Additive infrastructure for new orders, quantity changes and cancellations. No e
 
 Delivery runs each minute, claims up to 30 jobs, retries up to five times with a five-minute lease, expires messages after a day and removes 404/410 endpoints. A crash after sending but before recording success can retry; the notification tag reduces visible duplicates. Delivery acceptance is not proof that the user read a notification.
 
-Notifications contain a generic lock-screen message; details are read after ERP login through existing RLS. Clicking focuses an existing ERP window without navigating or refreshing it. Logout unsubscribes the browser, and the worker rejects removed/expired sessions. Network/device/OS settings can delay or suppress delivery.
+Notifications display the event title, customer, item and quantity in the OS notification, as requested. Opening further ERP details still requires login and existing RLS. Clicking focuses an existing ERP window without navigating or refreshing it. Logout unsubscribes the browser, and the worker rejects removed/expired sessions. Network/device/OS settings can delay or suppress delivery.
 
 Validation: `npm run build`, `node --test tests/transport-results.test.mjs`, and transactional `tests/dispatch-push.sql`. Physical push receipt still requires a signed-in phone with notification permission. Use More > notification settings > enable > test on my device. Preview domains have separate subscriptions; moving to a different domain requires registration again.
