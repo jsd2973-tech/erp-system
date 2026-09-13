@@ -1,3 +1,4 @@
+import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
@@ -4832,6 +4833,7 @@ export default function App() {
     setAuthPrefs(nextPrefs);
     writeAuthPrefs(nextPrefs);
 
+    try { await disableDevicePush(); } catch { /* Keep existing logout available. */ }
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error(error);
@@ -5555,6 +5557,7 @@ export default function App() {
   return (
     <div>
       <style>{css}</style>
+      <PushSettings key={session.user.id} />
       {toast && (
         <div key={toast.id} className={`app-toast ${toast.tone}`} role="status" aria-live="polite">
           <div className="app-toast-icon"><CheckCircle2 size={21} /></div>
@@ -5759,7 +5762,7 @@ export default function App() {
           {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => { setMenuTab("activity_logs"); setOpenMenuGroup(null); }}><ClipboardList size={17} /> 작업로그</button>}
           {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => { setMenuTab("trash_bin"); setOpenMenuGroup(null); }}><Trash2 size={17} /> 휴지통</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => { setMenuTab("backup_permissions"); setOpenMenuGroup(null); }}><ShieldCheck size={17} /> 백업/권한관리</button>}
-          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button onClick={logout}>로그아웃</button></div>
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
@@ -8262,7 +8265,7 @@ export default function App() {
                 </div></details>}
               </>)}
             </div>
-            {mobileSheet === "more" && <div className="mobile-menu-footer"><button className="role-mobile-logout" onClick={logout}>로그아웃</button></div>}
+            {mobileSheet === "more" && <div className="mobile-menu-footer"><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button className="role-mobile-logout" onClick={logout}>로그아웃</button></div>}
           </div>
         </div>
 

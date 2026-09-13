@@ -1,0 +1,9 @@
+.erp-push-dialog{width:min(480px,calc(100vw - 24px));max-height:80dvh;box-sizing:border-box;border:1px solid #dce3ed;border-radius:18px;padding:20px;color:#1e293b;overflow:auto}
+.erp-push-dialog::backdrop{background:#0f172a66}
+.erp-push-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.erp-push-dialog button{min-height:44px;border:1px solid #dce3ed;border-radius:10px;padding:8px 12px;background:#f5f8fc;color:#1e40af;font:inherit;cursor:pointer}
+.erp-push-dialog button:disabled{opacity:.5;cursor:wait}
+.erp-push-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.erp-push-dialog p{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.erp-push-dialog article{border-top:1px solid #e2e8f0;padding:12px 0}
+.erp-push-dialog time{font-size:12px;color:#64748b}

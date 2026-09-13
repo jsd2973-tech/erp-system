@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "*": false,
-      "main": true
+      "main": true,
+      "design/dispatch-pc-refinement-20260911": true
     }
   }
 }
