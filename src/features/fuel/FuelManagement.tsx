@@ -26,7 +26,7 @@ type FuelRecord = {
 
 type ParsedFuelRow = Omit<FuelRecord, "id" | "created_at">;
 type SummaryRow = { name: string; count: number; quantity: number; total: number };
-type ViewMode = "records" | "vehicle" | "site";
+type ViewMode = "records" | "vehicle" | "site" | "station";
 
 type Props = {
   supabase: SupabaseClient;
@@ -237,7 +237,7 @@ export default function FuelManagement({ supabase }: Props) {
   const [product, setProduct] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [view, setView] = useState<ViewMode>("records");
-  const [detailTarget, setDetailTarget] = useState<{ type: "vehicle" | "site"; name: string } | null>(null);
+  const [detailTarget, setDetailTarget] = useState<{ type: "vehicle" | "site" | "station"; name: string } | null>(null);
   const [preview, setPreview] = useState<ParsedFuelRow[]>([]);
   const [previewFile, setPreviewFile] = useState("");
   const [importing, setImporting] = useState(false);
@@ -309,7 +309,7 @@ export default function FuelManagement({ supabase }: Props) {
     total: filtered.reduce((sum, record) => sum + record.total_amount, 0),
   }), [filtered]);
 
-  const summarize = (key: "vehicle_number" | "site_name") => {
+  const summarize = (key: "vehicle_number" | "site_name" | "station_name") => {
     const map = new Map<string, SummaryRow>();
     filtered.forEach((record) => {
       const name = record[key] || "미지정";
@@ -323,9 +323,10 @@ export default function FuelManagement({ supabase }: Props) {
   };
   const vehicleSummary = useMemo(() => summarize("vehicle_number"), [filtered]);
   const siteSummary = useMemo(() => summarize("site_name"), [filtered]);
+  const stationSummary = useMemo(() => summarize("station_name"), [filtered]);
   const detailRows = useMemo(() => {
     if (!detailTarget) return [];
-    return filtered.filter((record) => detailTarget.type === "vehicle" ? record.vehicle_number === detailTarget.name : record.site_name === detailTarget.name)
+    return filtered.filter((record) => detailTarget.type === "vehicle" ? record.vehicle_number === detailTarget.name : detailTarget.type === "site" ? record.site_name === detailTarget.name : record.station_name === detailTarget.name)
       .sort((a, b) => b.fuel_date.localeCompare(a.fuel_date) || natural(a.vehicle_number, b.vehicle_number) || a.product_name.localeCompare(b.product_name, "ko-KR"));
   }, [detailTarget, filtered]);
   const detailTotals = useMemo(() => ({
@@ -345,6 +346,7 @@ export default function FuelManagement({ supabase }: Props) {
   const vehicleOptions = useMemo(() => vehicleProfiles.map(([vehicle]) => vehicle), [vehicleProfiles]);
   const allSites = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.site_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
   const allProducts = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.product_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
+  const allStations = useMemo(() => [...new Set(["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record) => String(record.station_name || "")).filter(Boolean)])].sort(natural), [referenceRecords]);
 
   const applyVehicleProfile = (vehicle: string) => {
     const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
@@ -360,13 +362,23 @@ export default function FuelManagement({ supabase }: Props) {
 
   const exportStatementExcel = () => {
     if (!filtered.length) return setError("다운로드할 유류내역이 없습니다.");
-    const ordered=[...filtered].sort((a,b)=>natural(a.site_name,b.site_name)||natural(a.product_name,b.product_name)||natural(a.vehicle_number,b.vehicle_number)||a.fuel_date.localeCompare(b.fuel_date));
-    const header=["현장명","제품명/규격","차량번호","일자","횟수","수량","단가(원/대)","단가(원/단위)","공급가액","부가세","합계금액"];
-    const body=ordered.map((record)=>[record.site_name,record.product_name,record.vehicle_number,record.fuel_date,record.usage_count,record.quantity,record.line_amount,record.unit_price,record.supply_amount,record.vat_amount,record.total_amount]);
-    const sums=ordered.reduce((acc,record)=>({count:acc.count+record.usage_count,qty:acc.qty+record.quantity,supply:acc.supply+record.supply_amount,vat:acc.vat+record.vat_amount,total:acc.total+record.total_amount}),{count:0,qty:0,supply:0,vat:0,total:0});
-    const aoa=[[`${month.replace("-","년 ")}월 유류 거래명세서`],["주유처",ordered[0]?.station_name||""],["조회기간",`${month}-01 ~ ${monthBounds(month).to}`],[],header,...body,["합계","","","",sums.count,sums.qty,"","",sums.supply,sums.vat,sums.total]];
-    const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}}]; ws["!cols"]=[16,16,18,13,9,11,14,15,14,12,14].map((wch)=>({wch}));
-    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"거래명세서"); XLSX.writeFile(wb,`유류거래명세서_${month}.xlsx`);
+    const wb = XLSX.utils.book_new();
+    const stationGroups = new Map<string, FuelRecord[]>();
+    filtered.forEach((record) => {
+      const station = record.station_name || "미지정 주유소";
+      stationGroups.set(station, [...(stationGroups.get(station) || []), record]);
+    });
+    [...stationGroups.entries()].sort(([a], [b]) => natural(a, b)).forEach(([station, rows], index) => {
+      const ordered=[...rows].sort((a,b)=>natural(a.site_name,b.site_name)||natural(a.product_name,b.product_name)||natural(a.vehicle_number,b.vehicle_number)||a.fuel_date.localeCompare(b.fuel_date));
+      const header=["현장명","제품명/규격","차량번호","일자","횟수","수량","단가(원/대)","단가(원/단위)","공급가액","부가세","합계금액"];
+      const body=ordered.map((record)=>[record.site_name,record.product_name,record.vehicle_number,record.fuel_date,record.usage_count,record.quantity,record.line_amount,record.unit_price,record.supply_amount,record.vat_amount,record.total_amount]);
+      const sums=ordered.reduce((acc,record)=>({count:acc.count+record.usage_count,qty:acc.qty+record.quantity,supply:acc.supply+record.supply_amount,vat:acc.vat+record.vat_amount,total:acc.total+record.total_amount}),{count:0,qty:0,supply:0,vat:0,total:0});
+      const aoa=[[`${month.replace("-","년 ")}월 유류 거래명세서`],["주유처",station],["조회기간",`${month}-01 ~ ${monthBounds(month).to}`],[],header,...body,["합계","","","",sums.count,sums.qty,"","",sums.supply,sums.vat,sums.total]];
+      const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}}]; ws["!cols"]=[16,16,18,13,9,11,14,15,14,12,14].map((wch)=>({wch}));
+      const safeName=(station.replace(/[\/?*\[\]:]/g," ").trim() || `주유소${index+1}`).slice(0,31);
+      XLSX.utils.book_append_sheet(wb,ws,safeName);
+    });
+    XLSX.writeFile(wb,`유류거래명세서_주유소별_${month}.xlsx`);
   };
 
   const onFile = async (file?: File) => {
@@ -483,7 +495,7 @@ export default function FuelManagement({ supabase }: Props) {
         <label className="fuel-vehicle-entry"><span>차량/장비번호 *</span><input list="fuel-vehicle-options" value={manual.vehicle_number} onChange={(event) => { const value=event.target.value; setManual({ ...manual, vehicle_number:value }); if (vehicleOptions.includes(value)) applyVehicleProfile(value); }} onBlur={() => { if (vehicleOptions.includes(manual.vehicle_number)) applyVehicleProfile(manual.vehicle_number); }} placeholder="번호 입력 또는 선택" /><datalist id="fuel-vehicle-options">{vehicleOptions.map((name) => <option key={name} value={name} />)}</datalist></label>
         <label><span>수량(L) *</span><input inputMode="decimal" value={manual.quantity} onChange={(event) => setManual({ ...manual, quantity: event.target.value })} placeholder="270" /></label>
         <label><span>단가(원/L) *</span><input inputMode="decimal" value={manual.unit_price} onChange={(event) => setManual({ ...manual, unit_price: event.target.value })} placeholder="1820" /></label>
-        <label><span>주유처</span><input value={manual.station_name} onChange={(event) => setManual({ ...manual, station_name: event.target.value })} /></label>
+        <label><span>주유처</span><input list="fuel-station-options" value={manual.station_name} onChange={(event) => setManual({ ...manual, station_name: event.target.value })} /><datalist id="fuel-station-options">{allStations.map((name) => <option key={name} value={name} />)}</datalist></label>
         <label><span>메모</span><input value={manual.memo} onChange={(event) => setManual({ ...manual, memo: event.target.value })} placeholder="필요 시 입력" /></label>
       </div>
       {vehicleOptions.length > 0 && <div className="fuel-quick-vehicles"><span>차량·장비 빠른 선택</span><div>{vehicleOptions.filter((name) => !manual.vehicle_number.trim() || name.toLowerCase().includes(manual.vehicle_number.trim().toLowerCase())).slice(0,18).map((name)=><button type="button" key={name} onClick={() => applyVehicleProfile(name)}>{name}</button>)}</div><small>기존 명세서 기준으로 번호를 누르면 최근 현장·유종·단가·주유처를 자동 입력합니다.</small></div>}
@@ -510,6 +522,7 @@ export default function FuelManagement({ supabase }: Props) {
       <button type="button" aria-pressed={view === "records"} onClick={() => { setView("records"); setDetailTarget(null); }}>주유내역</button>
       <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
       <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
+      <button type="button" aria-pressed={view === "station"} onClick={() => { setView("station"); setDetailTarget(null); }}>주유소별</button>
     </nav>
 
     {loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <>
@@ -527,12 +540,12 @@ export default function FuelManagement({ supabase }: Props) {
       </article>)}</div>
     </> : <>
       <div className="fuel-summary-list">
-        {(view === "vehicle" ? vehicleSummary : siteSummary).length ? (view === "vehicle" ? vehicleSummary : siteSummary).map((row, index) => <article key={row.name} className="fuel-summary-clickable" role="button" tabIndex={0} onClick={() => setDetailTarget({ type: view === "vehicle" ? "vehicle" : "site", name: row.name })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDetailTarget({ type: view === "vehicle" ? "vehicle" : "site", name: row.name }); }}>
+        {(view === "vehicle" ? vehicleSummary : view === "site" ? siteSummary : stationSummary).length ? (view === "vehicle" ? vehicleSummary : view === "site" ? siteSummary : stationSummary).map((row, index) => <article key={row.name} className="fuel-summary-clickable" role="button" tabIndex={0} onClick={() => setDetailTarget({ type: view === "vehicle" ? "vehicle" : view === "site" ? "site" : "station", name: row.name })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDetailTarget({ type: view === "vehicle" ? "vehicle" : view === "site" ? "site" : "station", name: row.name }); }}>
           <span className="fuel-rank">{index + 1}</span><div><strong>{row.name}</strong><small>{number(row.quantity)} L · {row.count}회</small></div><b>{money(row.total)}원</b>
         </article>) : <div className="fuel-empty">집계할 내역이 없습니다.</div>}
       </div>
       {detailTarget && <section className="fuel-drilldown">
-        <header><div><span>{detailTarget.type === "vehicle" ? "차량·장비 상세" : "현장 상세"}</span><h3>{detailTarget.name}</h3></div><button type="button" onClick={() => setDetailTarget(null)}>닫기</button></header>
+        <header><div><span>{detailTarget.type === "vehicle" ? "차량·장비 상세" : detailTarget.type === "site" ? "현장 상세" : "주유소 상세"}</span><h3>{detailTarget.name}</h3></div><button type="button" onClick={() => setDetailTarget(null)}>닫기</button></header>
         <div className="fuel-drilldown-kpis"><span>주유 <b>{detailTotals.count}회</b></span><span>수량 <b>{number(detailTotals.quantity)} L</b></span><span>합계 <b>{money(detailTotals.total)}원</b></span></div>
         <div className="fuel-table-wrap"><table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>합계금액</th><th>주유처</th></tr></thead><tbody>{detailRows.map((record) => <tr key={record.id}><td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td></tr>)}</tbody></table></div>
         <div className="fuel-mobile-list">{detailRows.map((record) => <article key={record.id}><header><div><strong>{record.vehicle_number}</strong><span>{record.site_name} · {record.product_name}</span></div><b>{record.fuel_date}</b></header><div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div><footer><span>{record.station_name}</span></footer></article>)}</div>
