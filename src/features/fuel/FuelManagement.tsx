@@ -394,6 +394,7 @@ export default function FuelManagement({ supabase }: Props) {
     if(ws["A1"]) ws["A1"].s={font:{name:"맑은 고딕",sz:18,bold:true,color:{rgb:"FFFFFF"}},fill:{patternType:"solid",fgColor:{rgb:"12324A"}},alignment:{horizontal:"left",vertical:"center"}};
     ["A2","A3","D3","G3"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"52677A"}},alignment:{vertical:"center"}}; });
     ["B2","B3","E3","H3"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"12324A"}},alignment:{vertical:"center"}}; });
+    ["B3","E3","H3"].forEach((ref)=>{ if(ws[ref]) ws[ref].z="#,##0"; });
     const lastRow=aoa.length-1; applyModernSheetStyle(ws,4,lastRow,11,lastRow); for(let r=5;r<=lastRow;r+=1){ [5,6,7,8,9].forEach((c)=>{ const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell) cell.z="#,##0"; }); } (ws["!rows"] ||= [])[0]={hpt:32};
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"유류내역"); XLSX.writeFile(wb,`유류내역_${month}.xlsx`);
   };
@@ -410,6 +411,7 @@ export default function FuelManagement({ supabase }: Props) {
       const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}}]; ws["!cols"]=[16,17,18,13,9,11,14,15,14,12,15].map((wch)=>({wch}));
       if(ws["A1"]) ws["A1"].s={font:{name:"맑은 고딕",sz:18,bold:true,color:{rgb:"FFFFFF"}},fill:{patternType:"solid",fgColor:{rgb:"12324A"}},alignment:{horizontal:"left",vertical:"center"}};
       ["A2","A3","A4","D4","G4"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"52677A"}},alignment:{vertical:"center"}}; }); ["B2","B3","B4","E4","H4"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"12324A"}},alignment:{vertical:"center"}}; });
+      ["B4","E4","H4"].forEach((ref)=>{ if(ws[ref]) ws[ref].z="#,##0"; });
       const lastRow=aoa.length-1; applyModernSheetStyle(ws,5,lastRow,10,lastRow); for(let r=6;r<=lastRow;r+=1){ [4,5,6,7,8,9,10].forEach((c)=>{ const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell) cell.z="#,##0"; }); } (ws["!rows"] ||= [])[0]={hpt:32};
       const safeName=(station.replace(/[\\/?*\\[\\]:]/g," ").trim() || `주유소${index+1}`).slice(0,31); XLSX.utils.book_append_sheet(wb,ws,safeName);
     }); XLSX.writeFile(wb,`유류거래명세서_주유소별_${month}.xlsx`);
