@@ -15,6 +15,7 @@ export default function VehicleManagement({ vehicles, saving, onSave }: VehicleM
   const [form, setForm] = useState<DispatchVehicle>(emptyVehicle);
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const sortedVehicles = [...vehicles].sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, "ko-KR", { numeric: true, sensitivity: "base" }));
 
   const submit = async () => {
     const vehicleNumber = normalizeVehicleNumber(form.vehicle_number);
@@ -53,7 +54,7 @@ export default function VehicleManagement({ vehicles, saving, onSave }: VehicleM
         <table className="dispatch-record-table dispatch-table">
           <thead><tr><th>차량번호</th><th>차종</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
           <tbody>
-            {!vehicles.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 차량이 없습니다.</td></tr> : vehicles.map((vehicle) => (
+            {!vehicles.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 차량이 없습니다.</td></tr> : sortedVehicles.map((vehicle) => (
               <tr key={vehicle.id}>
                 <td data-label="차량번호" className="dispatch-strong">{vehicle.vehicle_number}</td><td data-label="차종">25.5톤 덤프</td>
                 <td data-label="상태"><span className={`dispatch-active-pill ${vehicle.active ? "on" : "off"}`}>{vehicle.active ? "사용" : "미사용"}</span></td>

@@ -29,9 +29,13 @@ export default function DispatchBasics({ customers, locations, items, saving, on
   const [itemSearch, setItemSearch] = useState("");
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const sortedCustomers = useMemo(() => [...customers].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" })), [customers]);
+  const sortedLocations = useMemo(() => [...locations].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" })), [locations]);
   const filteredItems = useMemo(() => {
     const keyword = normalizeSearch(itemSearch);
-    return items.filter((item) => !keyword || normalizeSearch(`${item.name} ${item.memo}`).includes(keyword));
+    return items
+      .filter((item) => !keyword || normalizeSearch(`${item.name} ${item.memo}`).includes(keyword))
+      .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" }));
   }, [items, itemSearch]);
 
   const submitCustomer = async () => {
@@ -82,7 +86,7 @@ export default function DispatchBasics({ customers, locations, items, saving, on
           <div className="dispatch-actions">{customerForm.id && <button type="button" onClick={() => setCustomerForm(emptyCustomer())}>수정 취소</button>}<button type="button" className="dispatch-primary" disabled={saving} onClick={submitCustomer}>{saving ? "저장 중..." : customerForm.id ? "수정 저장" : "거래처 등록"}</button></div>
           </MobileEditor>
           <div className="dispatch-table-wrap"><table className="dispatch-record-table dispatch-table"><thead><tr><th>거래처명</th><th>상태</th><th>메모</th><th>관리</th></tr></thead><tbody>
-            {!customers.length ? <tr><td colSpan={4} className="dispatch-empty">등록된 배차 거래처가 없습니다.</td></tr> : customers.map((customer) => <tr key={customer.id}><td data-label="거래처명" className="dispatch-strong">{customer.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${customer.active ? "on" : "off"}`}>{customer.active ? "사용" : "미사용"}</span></td><td data-label="메모">{customer.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setCustomerForm({ ...customer }); setError(""); }}>수정</button></td></tr>)}
+            {!customers.length ? <tr><td colSpan={4} className="dispatch-empty">등록된 배차 거래처가 없습니다.</td></tr> : sortedCustomers.map((customer) => <tr key={customer.id}><td data-label="거래처명" className="dispatch-strong">{customer.name}</td><td data-label="상태"><span className={`dispatch-active-pill ${customer.active ? "on" : "off"}`}>{customer.active ? "사용" : "미사용"}</span></td><td data-label="메모">{customer.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setCustomerForm({ ...customer }); setError(""); }}>수정</button></td></tr>)}
           </tbody></table></div>
         </>
       )}
@@ -100,7 +104,7 @@ export default function DispatchBasics({ customers, locations, items, saving, on
           <div className="dispatch-actions">{locationForm.id && <button type="button" onClick={() => setLocationForm(emptyLocation())}>수정 취소</button>}<button type="button" className="dispatch-primary" disabled={saving} onClick={submitLocation}>{saving ? "저장 중..." : locationForm.id ? "수정 저장" : "장소 등록"}</button></div>
           </MobileEditor>
           <div className="dispatch-table-wrap"><table className="dispatch-record-table dispatch-table"><thead><tr><th>장소명</th><th>구분</th><th>상태</th><th>메모</th><th>관리</th></tr></thead><tbody>
-            {!locations.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 배차 장소가 없습니다.</td></tr> : locations.map((location) => <tr key={location.id}><td data-label="장소명" className="dispatch-strong">{location.name}</td><td data-label="구분">{location.location_type}</td><td data-label="상태"><span className={`dispatch-active-pill ${location.active ? "on" : "off"}`}>{location.active ? "사용" : "미사용"}</span></td><td data-label="메모">{location.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setLocationForm({ ...location }); setError(""); }}>수정</button></td></tr>)}
+            {!locations.length ? <tr><td colSpan={5} className="dispatch-empty">등록된 배차 장소가 없습니다.</td></tr> : sortedLocations.map((location) => <tr key={location.id}><td data-label="장소명" className="dispatch-strong">{location.name}</td><td data-label="구분">{location.location_type}</td><td data-label="상태"><span className={`dispatch-active-pill ${location.active ? "on" : "off"}`}>{location.active ? "사용" : "미사용"}</span></td><td data-label="메모">{location.memo || "-"}</td><td data-label="관리"><button type="button" onClick={() => { setEditorOpen(true); setLocationForm({ ...location }); setError(""); }}>수정</button></td></tr>)}
           </tbody></table></div>
         </>
       )}

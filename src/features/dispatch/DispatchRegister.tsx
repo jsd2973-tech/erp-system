@@ -21,7 +21,9 @@ export default function DispatchRegister({ customers, locations, items, vehicles
   const [form, setForm] = useState<DispatchOrderForm>(emptyDispatchOrderForm);
   const [error, setError] = useState("");
   const estimatedTrips = calculateEstimatedTrips(form.total_volume, form.volume_per_trip);
-  const selectableVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.active || form.vehicle_ids.includes(vehicle.id)), [vehicles, form.vehicle_ids]);
+  const selectableVehicles = useMemo(() => vehicles
+    .filter((vehicle) => vehicle.active || form.vehicle_ids.includes(vehicle.id))
+    .sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, "ko-KR", { numeric: true, sensitivity: "base" })), [vehicles, form.vehicle_ids]);
   const customerOptions = useMemo(() => customers.filter((customer) => customer.active || customer.id === form.vendor_id).map((customer) => ({ id: customer.id, name: customer.name, detail: customer.memo })), [customers, form.vendor_id]);
   const loadingOptions = useMemo(() => locations.filter((location) => location.active && (location.location_type === "상차지" || location.location_type === "공용")).map((location) => ({ id: location.id, name: location.name, detail: location.location_type })), [locations]);
   const unloadingOptions = useMemo(() => locations.filter((location) => location.active && (location.location_type === "하차지" || location.location_type === "공용")).map((location) => ({ id: location.id, name: location.name, detail: location.location_type })), [locations]);

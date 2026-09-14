@@ -46,9 +46,9 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
     && (!filters.vendor || order.vendor_name.includes(filters.vendor.trim()))
     && (!filters.item || order.item_name.includes(filters.item.trim()))
     && (!filters.status || order.status === filters.status)
-  ).slice(0, compact ? 8 : undefined), [orders, filters, compact]);
+  ).sort((a, b) => b.dispatch_date.localeCompare(a.dispatch_date)).slice(0, compact ? 8 : undefined), [orders, filters, compact]);
 
-  const selectedOrder = orders.find((order) => order.id === selectedId) || (!compact ? filtered[0] : undefined);
+  const selectedOrder = filtered.find((order) => order.id === selectedId) || (!compact ? filtered[0] : undefined);
   const selectedTrips = selectedOrder ? trips.filter((trip) => trip.dispatch_order_id === selectedOrder.id) : [];
 
   const requestDelete = async (order: DispatchOrderWithVehicles) => {
