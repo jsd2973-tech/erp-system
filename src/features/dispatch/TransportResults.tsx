@@ -2,10 +2,29 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DispatchVehicle } from './dispatchTypes';
 import { dispatchToday } from './dispatchUtils';
-import { groupResults, periodBounds, sumVolume, summarizeResults, vehicleCount, type ResultOrder, type ResultTrip } from './transportResults';
+import { groupResults, koreaDay, periodBounds, sumVolume, summarizeResults, vehicleCount, type ResultOrder, type ResultRow, type ResultTrip } from './transportResults';
 import './transportResults.css';
 const number = (value: number) => value.toLocaleString('ko-KR', { maximumFractionDigits: 6 });
 const time = (stamp: string | null) => stamp ? new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(stamp)) : '-';
+const tripTimestamp = (row: ResultRow) => row.trip.unloading_completed_at ? Date.parse(row.trip.unloading_completed_at) : Number.MAX_SAFE_INTEGER;
+const sortTripRows = (rows: ResultRow[]) => [...rows].sort((a, b) => {
+  const dayA = a.trip.unloading_completed_at ? koreaDay(a.trip.unloading_completed_at) : '';
+  const dayB = b.trip.unloading_completed_at ? koreaDay(b.trip.unloading_completed_at) : '';
+  return dayA.localeCompare(dayB)
+    || Number(a.trip.trip_no || 0) - Number(b.trip.trip_no || 0)
+    || tripTimestamp(a) - tripTimestamp(b)
+    || a.trip.id.localeCompare(b.trip.id);
+});
+const groupTripRowsByDay = (rows: ResultRow[]) => {
+  const groups = new Map<string, ResultRow[]>();
+  sortTripRows(rows).forEach(row => {
+    const day = row.trip.unloading_completed_at ? koreaDay(row.trip.unloading_completed_at) : '날짜 확인 필요';
+    const list = groups.get(day) || [];
+    list.push(row);
+    groups.set(day, list);
+  });
+  return [...groups.entries()].map(([day, dayRows]) => ({ day, rows: dayRows }));
+};
 export default function TransportResults({ supabase, vehicles }: { supabase: SupabaseClient; vehicles: DispatchVehicle[] }) {
   const [from, setFrom] = useState(dispatchToday), [to, setTo] = useState(dispatchToday);
   const [period, setPeriod] = useState(() => ({ from: dispatchToday(), to: dispatchToday(), refresh: 0 }));
@@ -67,7 +86,7 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
         <div className="transport-columns"><span>{by === 'item' ? '품목' : '거래처'}</span><span>투입 차량</span><span>운행 횟수</span><span>운송량</span></div>
         {groups.map(group => <details key={`${by}:${group.key}`} className="transport-group"><summary><strong>{group.name}</strong><span><em>차량</em>{vehicleCount(group.rows)}대</span><span><em>운행</em>{group.rows.length}회</span><b><em>운송량</em>{number(sumVolume(group.rows))} 루베</b></summary>
           <div className="transport-breakdown"><h3>{by === 'vendor' ? '품목별 상세' : '거래처별 상세'}</h3>{groupResults(group.rows, by === 'vendor' ? 'item' : 'vendor').map(sub => <div key={sub.key}><strong>{sub.name}</strong><span>{sub.rows.length}회 · {number(sumVolume(sub.rows))} 루베</span></div>)}
-          <h3>차량별 운행기록</h3>{[...new Set(group.rows.map(row => row.trip.vehicle_id))].map(id => { const rows = group.rows.filter(row => row.trip.vehicle_id === id); return <details key={id}><summary>{vehicleNames.get(id) || '차량 확인 필요'} · {rows.length}회 · {number(sumVolume(rows))} 루베</summary><ul>{rows.map(row => <li key={row.trip.id}><span>{time(row.trip.unloading_completed_at)} · {row.trip.trip_no}회차<br />{row.vendor} · {row.item}</span><b>{number(row.volume)} 루베</b></li>)}</ul></details>; })}</div>
+          <h3>차량별 운행기록</h3>{[...new Set(group.rows.map(row => row.trip.vehicle_id))].map(id => { const rows = group.rows.filter(row => row.trip.vehicle_id === id); const days = groupTripRowsByDay(rows); return <details key={id}><summary>{vehicleNames.get(id) || '차량 확인 필요'} · {rows.length}회 · {number(sumVolume(rows))} 루베</summary>{days.map(day => <section key={day.day} className="transport-trip-day"><h4>{day.day}</h4><ul>{day.rows.map(row => <li key={row.trip.id}><span>{time(row.trip.unloading_completed_at)} · {row.trip.trip_no}회차<br />{row.vendor} · {row.item}</span><b>{number(row.volume)} 루베</b></li>)}</ul></section>)}</details>; })}</div>
         </details>)}
       </div>}
     </>}
