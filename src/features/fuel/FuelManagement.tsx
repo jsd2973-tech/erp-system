@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx-js-style";
-import { Download, FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Fuel, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
 import "./fuelManagement.css";
 
 type FuelRecord = {
@@ -127,7 +127,7 @@ async function readFuelGrid(file: File) {
     const tables = Array.from(doc.querySelectorAll("table"));
     const table = tables.find((candidate) => {
       const candidateText = candidate.textContent || "";
-      return candidateText.includes("차량번호") && candidateText.includes("합계금액") && candidateText.includes("현장명");
+      return candidateText.includes("차량번호") && candidateText.includes("합계금액") && (candidateText.includes("현장명") || candidateText.includes("제품명"));
     });
     if (!table) throw new Error("거래내역 표를 찾지 못했습니다.");
     return { rows: htmlTableToGrid(table as HTMLTableElement), sourceText: doc.body.textContent || "" };
@@ -143,9 +143,9 @@ async function parseFuelFile(file: File, fallbackMonth: string): Promise<ParsedF
   const { rows, sourceText } = await readFuelGrid(file);
   const headerIndex = rows.findIndex((row) => {
     const normalized = row.map(normalizeHeader);
-    return normalized.includes("현장명") && normalized.includes("차량번호") && normalized.includes("일자");
+    return normalized.includes("차량번호") && normalized.includes("일자") && normalized.some((header) => header.includes("제품명"));
   });
-  if (headerIndex < 0) throw new Error("현장명·차량번호·일자 헤더를 찾지 못했습니다.");
+  if (headerIndex < 0) throw new Error("제품명·차량번호·일자 헤더를 찾지 못했습니다.");
 
   const headers = rows[headerIndex].map(normalizeHeader);
   const findColumn = (...needles: string[]) => headers.findIndex((header) => needles.some((needle) => header.includes(needle)));
@@ -162,7 +162,7 @@ async function parseFuelFile(file: File, fallbackMonth: string): Promise<ParsedF
     vat: findColumn("부가세"),
     total: findColumn("합계금액"),
   };
-  if ([columns.site, columns.product, columns.vehicle, columns.date, columns.quantity, columns.total].some((value) => value < 0)) {
+  if ([columns.product, columns.vehicle, columns.date, columns.quantity, columns.total].some((value) => value < 0)) {
     throw new Error("필수 열을 모두 찾지 못했습니다.");
   }
 
@@ -175,7 +175,8 @@ async function parseFuelFile(file: File, fallbackMonth: string): Promise<ParsedF
     ? "남세종농협주유소"
     : text(file.name.replace(/_?20\d{2}년.*$/i, "").replace(/\.[^.]+$/, "")) || "주유소";
 
-  let lastSite = "";
+  const hasSiteColumn = columns.site >= 0;
+  let lastSite = hasSiteColumn ? "" : "미지정";
   let lastProduct = "";
   let lastVehicle = "";
   const parsed: ParsedFuelRow[] = [];
@@ -217,7 +218,7 @@ async function parseFuelFile(file: File, fallbackMonth: string): Promise<ParsedF
       station_name: stationName,
       source_file: file.name,
       source_fingerprint: fingerprint(rawFingerprint),
-      memo: "",
+      memo: hasSiteColumn ? "" : "원본 명세서에 현장명 없음",
     });
   });
 
@@ -252,6 +253,8 @@ export default function FuelManagement({ supabase }: Props) {
   const [quickVehicle, setQuickVehicle] = useState("");
   const [quickVehicleBackup, setQuickVehicleBackup] = useState<Pick<ReturnType<typeof emptyManual>, "vehicle_number" | "site_name" | "product_name" | "unit_price" | "station_name"> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<FuelRecord | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -547,6 +550,26 @@ export default function FuelManagement({ supabase }: Props) {
     else await load();
   };
 
+  const saveEditedRecord = async () => {
+    if (!editingRecord) return;
+    if (!editingRecord.fuel_date || !editingRecord.vehicle_number.trim()) { setError("일자와 차량/장비번호를 확인해주세요."); return; }
+    setEditSaving(true); setError("");
+    const payload = {
+      fuel_date: editingRecord.fuel_date,
+      site_name: editingRecord.site_name.trim() || "미지정",
+      product_name: editingRecord.product_name.trim() || "경유",
+      vehicle_number: editingRecord.vehicle_number.trim(),
+      station_name: editingRecord.station_name.trim() || "미지정 주유소",
+      memo: String(editingRecord.memo || "").trim(),
+      updated_at: new Date().toISOString(),
+    };
+    const { error: updateError } = await supabase.from("fuel_records").update(payload).eq("id", editingRecord.id);
+    setEditSaving(false);
+    if (updateError) { setError(`유류내역을 수정하지 못했습니다. (${updateError.message})`); return; }
+    setEditingRecord(null);
+    await load();
+  };
+
   const removeRecord = async (record: FuelRecord) => {
     if (!window.confirm(`${record.fuel_date} / ${record.vehicle_number} / ${record.product_name} ${number(record.quantity)}L 내역을 삭제할까요?`)) return;
     const { error: deleteError } = await supabase.from("fuel_records").delete().eq("id", record.id);
@@ -599,6 +622,19 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-form-actions"><button type="button" onClick={() => { setManual(emptyManual()); setQuickVehicle(""); setQuickVehicleBackup(null); setManualOpen(false); }}>입력 닫기</button><button type="button" className="fuel-primary" disabled={saving} onClick={() => void saveManual()}>{saving ? "저장 중..." : "저장"}</button></div>
     </section>}
 
+    {editingRecord && <section className="fuel-edit-panel">
+      <div className="fuel-section-title"><div><h3>주유내역 수정</h3><p>현장·유종·차량/장비번호·주유처를 수정할 수 있습니다.</p></div></div>
+      <div className="fuel-manual-grid">
+        <label><span>일자 *</span><input type="date" value={editingRecord.fuel_date} onChange={(event)=>setEditingRecord({ ...editingRecord, fuel_date:event.target.value })}/></label>
+        <label><span>현장</span><input list="fuel-edit-site-options" value={editingRecord.site_name} onChange={(event)=>setEditingRecord({ ...editingRecord, site_name:event.target.value })}/><datalist id="fuel-edit-site-options">{allSites.map((name)=><option key={name} value={name}/>)}</datalist></label>
+        <label><span>유종</span><input list="fuel-edit-product-options" value={editingRecord.product_name} onChange={(event)=>setEditingRecord({ ...editingRecord, product_name:event.target.value })}/><datalist id="fuel-edit-product-options">{allProducts.map((name)=><option key={name} value={name}/>)}</datalist></label>
+        <label><span>차량/장비번호 *</span><input list="fuel-edit-vehicle-options" value={editingRecord.vehicle_number} onChange={(event)=>setEditingRecord({ ...editingRecord, vehicle_number:event.target.value })}/><datalist id="fuel-edit-vehicle-options">{vehicleOptions.map((name)=><option key={name} value={name}/>)}</datalist></label>
+        <label><span>주유처</span><input list="fuel-edit-station-options" value={editingRecord.station_name} onChange={(event)=>setEditingRecord({ ...editingRecord, station_name:event.target.value })}/><datalist id="fuel-edit-station-options">{allStations.map((name)=><option key={name} value={name}/>)}</datalist></label>
+        <label><span>메모</span><input value={editingRecord.memo || ""} onChange={(event)=>setEditingRecord({ ...editingRecord, memo:event.target.value })}/></label>
+      </div>
+      <div className="fuel-form-actions"><button type="button" onClick={()=>setEditingRecord(null)}>취소</button><button type="button" className="fuel-primary" disabled={editSaving} onClick={()=>void saveEditedRecord()}>{editSaving ? "저장 중..." : "수정 저장"}</button></div>
+    </section>}
+
     {view !== "basics" && <>
       <div className="fuel-toolbar">
         <label><span>조회월</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
@@ -633,14 +669,14 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-table-wrap">
         <table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계금액</th><th>주유처</th><th></th></tr></thead><tbody>
           {!filtered.length ? <tr><td colSpan={12} className="fuel-empty-cell">조건에 맞는 유류내역이 없습니다.</td></tr> : filtered.map((record) => <tr key={record.id}>
-            <td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number">{money(record.supply_amount)}</td><td className="fuel-number">{money(record.vat_amount)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td><td><button className="fuel-icon-button" type="button" title="삭제" onClick={() => void removeRecord(record)}><Trash2 size={15} /></button></td>
+            <td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number">{money(record.supply_amount)}</td><td className="fuel-number">{money(record.vat_amount)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td><td><div className="fuel-row-actions"><button className="fuel-icon-button" type="button" title="수정" onClick={() => setEditingRecord({ ...record })}><Pencil size={15} /></button><button className="fuel-icon-button" type="button" title="삭제" onClick={() => void removeRecord(record)}><Trash2 size={15} /></button></div></td>
           </tr>)}
         </tbody></table>
       </div>
       <div className="fuel-mobile-list">{!filtered.length ? <div className="fuel-empty">조건에 맞는 유류내역이 없습니다.</div> : filtered.map((record) => <article key={record.id}>
         <header><div><strong>{record.vehicle_number}</strong><span>{record.site_name} · {record.product_name}</span></div><b>{record.fuel_date}</b></header>
         <div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div>
-        <footer><span>{record.station_name}</span><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></footer>
+        <footer><span>{record.station_name}</span><div className="fuel-mobile-actions"><button type="button" onClick={() => setEditingRecord({ ...record })}><Pencil size={14} /> 수정</button><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></div></footer>
       </article>)}</div>
     </> : <>
       <div className="fuel-summary-list">
