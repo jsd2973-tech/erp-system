@@ -1,0 +1,43 @@
+name: Integrate auth permissions safely
+
+on:
+  push:
+    branches:
+      - integrate/auth-permissions-20260914
+    paths:
+      - .github/workflows/integrate-auth-permissions.yml
+
+permissions:
+  contents: write
+
+jobs:
+  merge-feature:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: integrate/auth-permissions-20260914
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch feature branch
+        run: git fetch origin fix/priority5-auth-bid-date
+
+      - name: Merge feature while preserving current main on conflicting hunks
+        run: |
+          git merge --no-ff -X ours origin/fix/priority5-auth-bid-date -m "merge: integrate auth permissions onto current main [auth-integration]"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Push integration branch
+        run: git push origin HEAD:integrate/auth-permissions-20260914
