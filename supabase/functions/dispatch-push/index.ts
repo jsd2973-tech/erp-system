@@ -67,9 +67,7 @@ Deno.serve(async req=>{
     const token=(req.headers.get('authorization')||'').replace(/^Bearer /,'');
     const {data:{user},error}=await db.auth.getUser(token);
     if(error || !user) return reply({error:'Unauthorized'},401);
-    const admin=await checked(db.from('dispatch_admin_users').select('user_id').eq('user_id',user.id).maybeSingle());
-    const drivers=await checked(db.from('dispatch_drivers').select('id').eq('auth_user_id',user.id).eq('active',true).limit(1));
-    if(!admin && !drivers.length) return reply({error:'운행관리 담당 계정만 알림을 받을 수 있습니다.'},403);
+    // Any authenticated ERP account may configure and register its own push notifications.
     if(body.action==='preferences') return reply({preferences:await preferences(user.id)});
     if(body.action==='save_preferences') {
       const p=body.preferences;
