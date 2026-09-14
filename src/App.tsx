@@ -1,9 +1,10 @@
 import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
+import FuelManagement from "./features/fuel/FuelManagement";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
@@ -733,6 +734,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
   { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
   { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
+  { key: "fuel_management", label: "유류관리" },
   { key: "activity_logs", label: "작업로그" },
   { key: "trash_bin", label: "휴지통" },
   { key: "layout", label: "생산라인" },
@@ -5716,6 +5718,7 @@ export default function App() {
               </div>
             </div>
           )}
+          {canAccessTab("fuel_management") && <button className={menuTab === "fuel_management" ? "active" : ""} onClick={() => { setMenuTab("fuel_management"); setOpenMenuGroup(null); }}><Fuel size={17} /> 유류관리</button>}
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
@@ -7195,6 +7198,8 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
+        {menuTab === "fuel_management" && canAccessTab("fuel_management") && <FuelManagement supabase={supabase} />}
+
         {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (
           <DispatchPage
             view={menuTab as DispatchView}
@@ -8259,6 +8264,7 @@ export default function App() {
         {canAccessTab("dispatch_drivers") && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
         {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
       </div></details>}
+                {canAccessTab("fuel_management") && <details className="mobile-menu-group" open><summary><Fuel size={16} aria-hidden="true" />장비·유류</summary><div className="mobile-menu-items"><button aria-current={menuTab === "fuel_management" ? "page" : undefined} onClick={() => { setMenuTab("fuel_management"); setMobileSheet(""); }}>유류관리</button></div></details>}
                 {(canAccessTab("layout") || canAccessTab("vendors") || canAccessTab("warehouse_groups") || canAccessTab("items")) && <details className="mobile-menu-group"><summary><Database size={16} aria-hidden="true" />기초등록</summary><div className="mobile-menu-items">
                   {canAccessTab("layout") && <button aria-current={menuTab === "layout" ? "page" : undefined} onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
                   {canAccessTab("vendors") && <button aria-current={menuTab === "vendors" ? "page" : undefined} onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
@@ -8284,7 +8290,7 @@ export default function App() {
               {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
               {canAccessTab("maintenance_photos") && <button className={menuTab === "maintenance_photos" ? "active" : ""} onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진</button>}
               {canAccessTab("maintenance_schedules") && <button className={["maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => { setMenuTab("maintenance_schedules"); setMobileSheet(""); }}>일정</button>}
-              <button className={mobileSheet === "more" || ["site_notices", "bid_notices"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices", "bid_notices", "fuel_management"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           ) : (
             <>
@@ -8292,7 +8298,7 @@ export default function App() {
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
               <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
-              <button className={mobileSheet === "more" || ["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
+              <button className={mobileSheet === "more" || ["site_notices","bid_notices","fuel_management","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
         </div>
@@ -10653,6 +10659,7 @@ function BackupPermissionPage({
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
     { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
     { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
+    { label: "장비·유류", keys: ["fuel_management"] },
     { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },
   ].map((group) => ({
     ...group,
