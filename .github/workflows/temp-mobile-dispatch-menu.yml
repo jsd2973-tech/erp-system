@@ -1,0 +1,51 @@
+name: Temporary mobile dispatch menu fix
+on:
+  push:
+    branches:
+      - fix/mobile-dispatch-results-order-20260914
+permissions:
+  contents: write
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/mobile-dispatch-results-order-20260914
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Fix mobile dispatch menu permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          app = Path('src/App.tsx')
+          text = app.read_text()
+          pattern = re.compile(r'\{\(isAdmin \|\| isAdmin \|\| isAdmin\) && <details className="mobile-menu-group" open><summary><ClipboardList size=\{16\} aria-hidden="true" />운행관리</summary><div className="mobile-menu-items">.*?</div></details>\}', re.S)
+          replacement = '''{canShowAny(DISPATCH_VIEWS) && <details className="mobile-menu-group" open><summary><ClipboardList size={16} aria-hidden="true" />운행관리</summary><div className="mobile-menu-items">
+                  {canAccessTab("dispatch_register") && <button aria-current={menuTab === "dispatch_register" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+                  {canAccessTab("dispatch_list") && <button aria-current={menuTab === "dispatch_list" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+                  {canAccessTab("dispatch_status") && <button aria-current={menuTab === "dispatch_status" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
+                  {canAccessTab("dispatch_results") && <button aria-current={menuTab === "dispatch_results" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>}
+                  {canAccessTab("dispatch_vehicles") && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+                  {canAccessTab("dispatch_drivers") && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+                  {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
+                </div></details>}'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'mobile dispatch menu block not found or ambiguous: {count}')
+          app.write_text(text)
+          PY
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx
+          git commit -m "fix: respect dispatch permissions in mobile menu"
+          git push origin HEAD:fix/mobile-dispatch-results-order-20260914
