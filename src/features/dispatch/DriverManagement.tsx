@@ -18,6 +18,8 @@ export default function DriverManagement({ drivers, vehicles, saving, canManageA
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const sortedVehicles = [...vehicles].sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, "ko-KR", { numeric: true, sensitivity: "base" }));
+  const sortedDrivers = [...drivers].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" }));
   const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : "";
 
   const editDriver = (driver: DispatchDriver) => {
@@ -51,7 +53,7 @@ export default function DriverManagement({ drivers, vehicles, saving, canManageA
       <div className="dispatch-form-grid driver-form-grid">
         <label><span>기사명 *</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="기사 이름" /></label>
         <label><span>연락처</span><input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="010-0000-0000" /></label>
-        <label><span>담당 차량</span><select value={form.assigned_vehicle_id || ""} onChange={(event) => setForm({ ...form, assigned_vehicle_id: event.target.value || null })}><option value="">미지정</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number}{vehicle.active ? "" : " (미사용)"}</option>)}</select></label>
+        <label><span>담당 차량</span><select value={form.assigned_vehicle_id || ""} onChange={(event) => setForm({ ...form, assigned_vehicle_id: event.target.value || null })}><option value="">미지정</option>{sortedVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_number}{vehicle.active ? "" : " (미사용)"}</option>)}</select></label>
         <label><span>Supabase 내부 로그인 계정</span><input value={internalLoginEmail} readOnly placeholder="기사명을 입력하면 자동 생성" /></label>
         {canManageAuthUserId ? (
           <label><span>기사 로그인 User UUID</span><input value={form.auth_user_id || ""} onChange={(event) => setForm({ ...form, auth_user_id: event.target.value.trim() || null })} placeholder="Supabase Auth 사용자 UUID" /></label>
@@ -73,7 +75,7 @@ export default function DriverManagement({ drivers, vehicles, saving, canManageA
         <table className="dispatch-table">
           <thead><tr><th>기사명</th><th>연락처</th><th>담당 차량</th><th>로그인 연결</th><th>상태</th><th>메모</th><th>관리</th></tr></thead>
           <tbody>
-            {!drivers.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 기사가 없습니다.</td></tr> : drivers.map((driver) => (
+            {!drivers.length ? <tr><td colSpan={7} className="dispatch-empty">등록된 기사가 없습니다.</td></tr> : sortedDrivers.map((driver) => (
               <tr key={driver.id}>
                 <td className="dispatch-strong">{driver.name}</td><td>{driver.phone || "-"}</td><td>{driver.assigned_vehicle_id ? vehicleById.get(driver.assigned_vehicle_id)?.vehicle_number || "연결 차량 확인 필요" : "미지정"}</td>
                 <td>{driver.auth_user_id ? <span className="dispatch-active-pill on">연결됨</span> : <span className="dispatch-active-pill off">미연결</span>}</td>
@@ -86,7 +88,7 @@ export default function DriverManagement({ drivers, vehicles, saving, canManageA
       </div>
 
       <div className="dispatch-management-mobile-list">
-        {!drivers.length ? <div className="dispatch-mobile-empty">등록된 기사가 없습니다.</div> : drivers.map((driver) => (
+        {!drivers.length ? <div className="dispatch-mobile-empty">등록된 기사가 없습니다.</div> : sortedDrivers.map((driver) => (
           <article className="dispatch-management-mobile-card" key={driver.id}>
             <div className="dispatch-management-mobile-card-head">
               <div><strong>{driver.name}</strong><span>{driver.assigned_vehicle_id ? vehicleById.get(driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요" : "차량 미지정"}</span></div>

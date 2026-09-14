@@ -24,7 +24,9 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
   const [historyOpen, setHistoryOpen] = useState(false);
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
-  const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no || a.created_at.localeCompare(b.created_at));
+  const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no
+    || (vehicleById.get(a.vehicle_id)?.vehicle_number || "").localeCompare(vehicleById.get(b.vehicle_id)?.vehicle_number || "", "ko-KR", { numeric: true, sensitivity: "base" })
+    || a.created_at.localeCompare(b.created_at));
 
   return (
     <section className="dispatch-trip-history">
@@ -64,6 +66,7 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
 
 export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit, showTrips = true }: DispatchDetailProps) {
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const assignedVehicleIds = [...order.vehicle_ids].sort((a, b) => (vehicleById.get(a)?.vehicle_number || "").localeCompare(vehicleById.get(b)?.vehicle_number || "", "ko-KR", { numeric: true, sensitivity: "base" }));
   const completedTrips = trips.filter((trip) => trip.status === "완료");
   const activeTrips = trips.filter((trip) => trip.status === "상차대기" || trip.status === "진행중");
   const actualVolume = completedTrips.reduce((sum, trip) => sum + trip.actual_volume, 0);
@@ -99,7 +102,7 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
 
       <div className="dispatch-assigned-list">
         <span>배정 차량</span>
-        <div>{order.vehicle_ids.length ? order.vehicle_ids.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
+        <div>{order.vehicle_ids.length ? assignedVehicleIds.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
       </div>
 
       <div className="dispatch-detail-note"><span>메모</span><p>{order.memo || "-"}</p></div>
