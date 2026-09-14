@@ -1,0 +1,54 @@
+name: Temporary office dispatch results update
+on:
+  push:
+    branches:
+      - feat/office-dispatch-results-20260914
+permissions:
+  contents: write
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/office-dispatch-results-20260914
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Update permission UI and dispatch loaders
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/App.tsx')
+          text = app.read_text()
+          old = '  { key: "dispatch_status", label: "운행관리 · 운행현황" },\n  { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },'
+          new = '  { key: "dispatch_status", label: "운행관리 · 운행현황" },\n  { key: "dispatch_results", label: "운행관리 · 운송실적" },\n  { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },'
+          if old not in text:
+              raise SystemExit('App permission module anchor not found')
+          app.write_text(text.replace(old, new, 1))
+
+          page = Path('src/features/dispatch/DispatchPage.tsx')
+          text = page.read_text()
+          replacements = {
+              '["dispatch_register", "dispatch_list", "dispatch_status"].includes(view)': '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results"].includes(view)',
+              '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_vehicles", "dispatch_drivers"].includes(view)': '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results", "dispatch_vehicles", "dispatch_drivers"].includes(view)',
+              '["dispatch_list", "dispatch_status"].includes(view)': '["dispatch_list", "dispatch_status", "dispatch_results"].includes(view)',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'DispatchPage anchor not found: {old}')
+              text = text.replace(old, new, 1)
+          page.write_text(text)
+          PY
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx src/features/dispatch/DispatchPage.tsx
+          git commit -m "feat: grant office staff transport results permission"
+          git push origin HEAD:feat/office-dispatch-results-20260914
