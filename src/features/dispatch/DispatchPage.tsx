@@ -50,9 +50,9 @@ export default function DispatchPage({ view, supabase, isAdmin, allowedViews, on
   const [error, setError] = useState("");
   const hasLoadedRef = useRef(false);
 
-  const canReadOrders = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status"].includes(item));
+  const canReadOrders = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results"].includes(item));
   const canReadTrips = canReadOrders;
-  const canReadVehicles = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_vehicles", "dispatch_drivers"].includes(item));
+  const canReadVehicles = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results", "dispatch_vehicles", "dispatch_drivers"].includes(item));
   const canReadDrivers = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_drivers"].includes(item));
   const canReadMasters = isAdmin || allowedViews.some((item) => ["dispatch_register", "dispatch_basics"].includes(item));
 
