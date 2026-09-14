@@ -4,7 +4,7 @@ import * as XLSX from "xlsx-js-style";
 import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
-import { supabase } from "./supabaseClient";
+import { isSupabaseTestMode, supabase } from "./supabaseClient";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -726,6 +726,12 @@ const ERP_PERMISSION_MODULES = [
   { key: "home", label: "홈" },
   { key: "site_notices", label: "공지" },
   { key: "bid_notices", label: "입찰공고" },
+  { key: "dispatch_register", label: "운행관리 · 배차등록" },
+  { key: "dispatch_list", label: "운행관리 · 배차목록" },
+  { key: "dispatch_status", label: "운행관리 · 운행현황" },
+  { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
+  { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
+  { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
   { key: "activity_logs", label: "작업로그" },
   { key: "trash_bin", label: "휴지통" },
   { key: "layout", label: "생산라인" },
@@ -1289,9 +1295,10 @@ export default function App() {
   const [authPrefs, setAuthPrefs] = useState(() => readAuthPrefs());
   const [loginForm, setLoginForm] = useState(() => ({ email: readAuthPrefs().email || "", password: "" }));
   const [loginError, setLoginError] = useState("");
-  const adminEmails = ["jsd2973@gmail.com"];
+  const testAdminEmail = isSupabaseTestMode ? String(import.meta.env.VITE_TEST_ADMIN_EMAIL || "").trim().toLowerCase() : "";
+  const adminEmails = ["jsd2973@gmail.com", ...(testAdminEmail ? [testAdminEmail] : [])];
   const userEmail = session?.user?.email || "";
-  const isAdmin = adminEmails.includes(userEmail);
+  const isAdmin = adminEmails.includes(userEmail.toLowerCase());
 
   const [menuTab, setMenuTab] = useState(() => {
     const tab = new URLSearchParams(window.location.search).get("tab");
@@ -1339,9 +1346,10 @@ export default function App() {
     if (tab === "site_notices") return true;
     if (tab === "activity_logs") return isAdmin;
     if (tab === "trash_bin") return isAdmin;
+    const permissions = currentUserPermission?.permissions || {};
+    if (DISPATCH_VIEWS.includes(tab as DispatchView)) return isAdmin || !!permissions[tab];
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
-    const permissions = currentUserPermission?.permissions || {};
     return !!permissions[tab];
   };
 
@@ -1349,7 +1357,7 @@ export default function App() {
     if (isAdmin || currentRole === "office") return "home";
     return "home";
   };
-  const canShowAny = (tabs: string[]) => tabs.some((tab) => canAccessTab(tab));
+  const canShowAny = (tabs: readonly string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
     canAccessTab(tab) ? <button className={menuTab === tab ? "active" : ""} onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
 
@@ -5312,7 +5320,7 @@ export default function App() {
       id: target.id || uid(),
       email,
       role: target.role || "field",
-      permissions: target.role === "field" ? (target.permissions || {}) : {},
+      permissions: target.permissions || {},
       updated_at: new Date().toISOString(),
     };
 
@@ -5693,7 +5701,7 @@ export default function App() {
           {canAccessTab("layout") && <button className={menuTab === "layout" ? "active" : ""} onClick={() => { setMenuTab("layout"); setOpenMenuGroup(null); }}><Factory size={17} /> 생산라인</button>}
           {canAccessTab("bid_notices") && <button className={menuTab === "bid_notices" ? "active" : ""} onClick={() => { setMenuTab("bid_notices"); setOpenMenuGroup(null); }}><FileCheck2 size={17} /> 입찰공고</button>}
 
-          {isAdmin && (
+          {canShowAny(DISPATCH_VIEWS) && (
             <div className={`menu-group ${openMenuGroup === "dispatch" ? "expanded" : ""}`}>
               <button type="button" aria-expanded={openMenuGroup === "dispatch"} onClick={() => setOpenMenuGroup((current) => current === "dispatch" ? null : "dispatch")}><Truck size={17} /> 운행관리</button>
               <div className="sub">
@@ -7186,11 +7194,12 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
-        {isAdmin && DISPATCH_VIEWS.includes(menuTab as DispatchView) && (
+        {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (
           <DispatchPage
             view={menuTab as DispatchView}
             supabase={supabase}
             isAdmin={isAdmin}
+            allowedViews={DISPATCH_VIEWS.filter((dispatchView) => canAccessTab(dispatchView))}
             onNavigate={(view) => setMenuTab(view)}
             onNotify={showToast}
           />
@@ -9619,18 +9628,24 @@ const BID_REGION_KEYWORDS: Record<Exclude<BidRegionFilter, "local" | "all">, str
   ],
 };
 
+const BID_FOLLOW_TODAY_KEY = "erp_bid_follow_today_v1";
+
 const toBidDateInput = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
 const getBidQuickRange = (days: number) => {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - Math.max(0, days - 1));
-  return { from: toBidDateInput(from), to: toBidDateInput(to) };
+  const toKey = toBidDateInput(new Date());
+  const to = new Date(`${toKey}T00:00:00+09:00`);
+  const from = new Date(to.getTime() - Math.max(0, days - 1) * 86400000);
+  return { from: toBidDateInput(from), to: toKey };
 };
 
 function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
@@ -9646,6 +9661,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [bidLoading, setBidLoading] = useState(false);
   const [bidError, setBidError] = useState("");
   const [bidFetchedAt, setBidFetchedAt] = useState("");
+  const [bidFollowToday, setBidFollowToday] = useState(() => window.localStorage.getItem(BID_FOLLOW_TODAY_KEY) !== "0");
   const [bidFilters, setBidFilters] = useState<{ region: BidRegionFilter; from: string; to: string }>(() => {
     const defaults = { region: "local" as BidRegionFilter, ...getBidQuickRange(30) };
     try {
@@ -9767,8 +9783,43 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     window.localStorage.setItem("erp_bid_filter_settings_v1", JSON.stringify(bidFilters));
   }, [bidFilters]);
 
+  useEffect(() => {
+    if (!bidFollowToday) return;
+
+    const syncBidRangeToKoreaToday = () => {
+      const today = toBidDateInput(new Date());
+      setBidFilters((current) => {
+        if (current.to === today) return current;
+        const fromTime = new Date(`${current.from}T00:00:00+09:00`).getTime();
+        const toTime = new Date(`${current.to}T00:00:00+09:00`).getTime();
+        const rangeDays = Number.isFinite(fromTime) && Number.isFinite(toTime)
+          ? Math.min(90, Math.max(1, Math.round((toTime - fromTime) / 86400000) + 1))
+          : 30;
+        return { ...current, ...getBidQuickRange(rangeDays) };
+      });
+    };
+
+    syncBidRangeToKoreaToday();
+    const timer = window.setInterval(syncBidRangeToKoreaToday, 10000);
+    window.addEventListener("focus", syncBidRangeToKoreaToday);
+    document.addEventListener("visibilitychange", syncBidRangeToKoreaToday);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", syncBidRangeToKoreaToday);
+      document.removeEventListener("visibilitychange", syncBidRangeToKoreaToday);
+    };
+  }, [bidFollowToday]);
+
   const setQuickRange = (days: number) => {
+    setBidFollowToday(true);
+    window.localStorage.setItem(BID_FOLLOW_TODAY_KEY, "1");
     setBidFilters((current) => ({ ...current, ...getBidQuickRange(days) }));
+  };
+
+  const setBidDateManually = (key: "from" | "to", value: string) => {
+    setBidFollowToday(false);
+    window.localStorage.setItem(BID_FOLLOW_TODAY_KEY, "0");
+    setBidFilters((current) => ({ ...current, [key]: value }));
   };
 
   const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
@@ -9863,9 +9914,9 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
             {[7, 30, 90].map((days) => <button type="button" key={days} onClick={() => setQuickRange(days)}>최근 {days}일</button>)}
           </div>
           <div className="bid-date-inputs">
-            <input type="date" value={bidFilters.from} max={bidFilters.to} onChange={(event) => setBidFilters((current) => ({ ...current, from: event.target.value }))} aria-label="입찰공고 조회 시작일" />
+            <input type="date" value={bidFilters.from} max={bidFilters.to} onChange={(event) => setBidDateManually("from", event.target.value)} aria-label="입찰공고 조회 시작일" />
             <span>~</span>
-            <input type="date" value={bidFilters.to} min={bidFilters.from} max={toBidDateInput(new Date())} onChange={(event) => setBidFilters((current) => ({ ...current, to: event.target.value }))} aria-label="입찰공고 조회 종료일" />
+            <input type="date" value={bidFilters.to} min={bidFilters.from} max={toBidDateInput(new Date())} onChange={(event) => setBidDateManually("to", event.target.value)} aria-label="입찰공고 조회 종료일" />
           </div>
           <small>최대 90일까지 선택할 수 있으며 공고 새로고침을 누르면 적용됩니다.</small>
         </div>
@@ -10597,15 +10648,18 @@ function BackupPermissionPage({
     });
   };
 
+  const dispatchPermissionKeys = [...DISPATCH_VIEWS];
   const fieldPermissionGroups = [
+    { label: "운행관리", keys: dispatchPermissionKeys },
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
     { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
     { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
     { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },
   ].map((group) => ({
     ...group,
-    items: ERP_PERMISSION_MODULES.filter((module) => group.keys.includes(module.key)),
+    items: ERP_PERMISSION_MODULES.filter((module) => group.keys.includes(module.key as DispatchView)),
   }));
+  const officeDispatchPermissionItems = ERP_PERMISSION_MODULES.filter((module) => dispatchPermissionKeys.includes(module.key as DispatchView));
 
   return (
     <section className="backup-permission-page">
@@ -10721,7 +10775,7 @@ function BackupPermissionPage({
         <div className="permission-head">
           <div>
             <h3>직원 권한관리</h3>
-            <p>직원 아이디와 역할을 등록하고, 현장직원에게 필요한 메뉴만 선택해 허용합니다.</p>
+            <p>직원 아이디와 역할을 등록하고, 운행관리는 직원별로 허용할 메뉴를 직접 선택합니다.</p>
           </div>
           <b className="permission-user-count">등록 직원 {userPermissions.length}명</b>
         </div>
@@ -10766,6 +10820,23 @@ function BackupPermissionPage({
           </div>
         )}
 
+        {permissionForm.role === "office" && (
+          <div className="permission-checks">
+            <div className="permission-default-access"><b>사무실 기본 권한</b><span>기존 사무실 메뉴는 유지하고, 운행관리만 아래에서 별도 선택합니다.</span></div>
+            <div className="permission-check-group">
+              <strong>운행관리</strong>
+              <div>
+                {officeDispatchPermissionItems.map((m) => (
+                  <label key={m.key}>
+                    <input type="checkbox" checked={!!permissionForm.permissions?.[m.key]} onChange={() => togglePermission(m.key)} />
+                    <span>{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="permission-list">
           {userPermissions.length ? userPermissions.map((item: UserPermission) => (
             <div className="permission-row" key={item.email}>
@@ -10773,7 +10844,7 @@ function BackupPermissionPage({
                 <b>{toLoginId(item.email)}</b>
                 <span>{item.role === "office" ? "사무실직원" : item.role === "field" ? "현장직원" : "관리자"}</span>
               </div>
-              <em className="permission-row-status">{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : "수정·삭제 제외 가능"}</em>
+              <em className="permission-row-status">{item.role === "field" ? `${Object.values(item.permissions || {}).filter(Boolean).length}개 메뉴 허용` : `운행관리 ${DISPATCH_VIEWS.filter((key) => item.permissions?.[key]).length}개 허용 · 기본 사무실 권한`}</em>
               <div className="permission-row-actions">
                 <button onClick={() => editPermission(item)}>수정</button>
                 <button className="danger" onClick={() => deleteUserPermission(item.email)}>삭제</button>
