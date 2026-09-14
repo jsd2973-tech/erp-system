@@ -1,0 +1,68 @@
+name: Temporary fuel management integration
+on:
+  push:
+    branches:
+      - feat/fuel-management-20260914
+permissions:
+  contents: write
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/fuel-management-20260914
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Integrate fuel management into App
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          def rep(old, new, label, count=1):
+              global s
+              if old not in s:
+                  raise SystemExit(f'{label} anchor not found')
+              s = s.replace(old, new, count)
+
+          rep('import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck } from "lucide-react";',
+              'import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";',
+              'lucide fuel icon')
+          rep('import DispatchPage from "./features/dispatch/DispatchPage";\nimport { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";',
+              'import DispatchPage from "./features/dispatch/DispatchPage";\nimport { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";\nimport FuelManagement from "./features/fuel/FuelManagement";',
+              'fuel component import')
+          rep('  { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },\n  { key: "activity_logs", label: "작업로그" },',
+              '  { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },\n  { key: "fuel_management", label: "유류관리" },\n  { key: "activity_logs", label: "작업로그" },',
+              'permission module')
+
+          dispatch_group = '''              <div className="sub">\n                {menuButton("dispatch_register", "배차등록")}\n                {menuButton("dispatch_list", "배차목록")}\n                {menuButton("dispatch_status", "운행현황")}\n                {menuButton("dispatch_results", "운송실적")}\n                {menuButton("dispatch_vehicles", "차량관리")}\n                {menuButton("dispatch_drivers", "기사관리")}\n                {menuButton("dispatch_basics", "배차 기초관리")}\n              </div>\n            </div>\n          )}'''
+          rep(dispatch_group, dispatch_group + '''\n          {canAccessTab("fuel_management") && <button className={menuTab === "fuel_management" ? "active" : ""} onClick={() => { setMenuTab("fuel_management"); setOpenMenuGroup(null); }}><Fuel size={17} /> 유류관리</button>}''', 'desktop fuel nav')
+
+          rep('        {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}\n\n        {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (',
+              '        {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}\n\n        {menuTab === "fuel_management" && canAccessTab("fuel_management") && <FuelManagement supabase={supabase} />}\n\n        {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (',
+              'fuel page render')
+
+          mobile_dispatch_end = '''        {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}\n      </div></details>}\n                {(canAccessTab("layout") || canAccessTab("vendors") || canAccessTab("warehouse_groups") || canAccessTab("items")) && <details className="mobile-menu-group"><summary><Database size={16} aria-hidden="true" />기초등록</summary><div className="mobile-menu-items">'''
+          mobile_fuel = '''        {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}\n      </div></details>}\n                {canAccessTab("fuel_management") && <details className="mobile-menu-group" open><summary><Fuel size={16} aria-hidden="true" />장비·유류</summary><div className="mobile-menu-items"><button aria-current={menuTab === "fuel_management" ? "page" : undefined} onClick={() => { setMenuTab("fuel_management"); setMobileSheet(""); }}>유류관리</button></div></details>}\n                {(canAccessTab("layout") || canAccessTab("vendors") || canAccessTab("warehouse_groups") || canAccessTab("items")) && <details className="mobile-menu-group"><summary><Database size={16} aria-hidden="true" />기초등록</summary><div className="mobile-menu-items">'''
+          rep(mobile_dispatch_end, mobile_fuel, 'mobile fuel nav')
+
+          rep('["site_notices", "bid_notices"].includes(menuTab)', '["site_notices", "bid_notices", "fuel_management"].includes(menuTab)', 'field mobile more active')
+          rep('["site_notices","bid_notices","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab)', '["site_notices","bid_notices","fuel_management","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab)', 'office mobile more active')
+          rep('    { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },\n    { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },',
+              '    { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },\n    { label: "장비·유류", keys: ["fuel_management"] },\n    { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },',
+              'field permission group')
+          p.write_text(s)
+          PY
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx
+          git commit -m "feat: integrate fuel management navigation"
+          git push origin HEAD:feat/fuel-management-20260914
