@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx-js-style";
-import { FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Trash2, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Trash2, Upload } from "lucide-react";
 import "./fuelManagement.css";
 
 type FuelRecord = {
@@ -230,6 +230,7 @@ const emptyManual = () => ({
 export default function FuelManagement({ supabase }: Props) {
   const [month, setMonth] = useState(currentMonth);
   const [records, setRecords] = useState<FuelRecord[]>([]);
+  const [referenceRecords, setReferenceRecords] = useState<FuelRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [site, setSite] = useState("");
@@ -280,6 +281,16 @@ export default function FuelManagement({ supabase }: Props) {
   };
 
   useEffect(() => { void load(); }, [month]);
+  useEffect(() => {
+    const loadReferences = async () => {
+      const { data } = await supabase.from("fuel_records")
+        .select("fuel_date,site_name,product_name,vehicle_number,unit_price,station_name,quantity,total_amount,usage_count,line_amount,supply_amount,vat_amount,id")
+        .order("fuel_date", { ascending: false })
+        .limit(2000);
+      if (data) setReferenceRecords(data as FuelRecord[]);
+    };
+    void loadReferences();
+  }, [supabase]);
 
   const sites = useMemo(() => [...new Set(records.map((record) => record.site_name).filter(Boolean))].sort(natural), [records]);
   const products = useMemo(() => [...new Set(records.map((record) => record.product_name).filter(Boolean))].sort(natural), [records]);
@@ -311,6 +322,41 @@ export default function FuelManagement({ supabase }: Props) {
   };
   const vehicleSummary = useMemo(() => summarize("vehicle_number"), [filtered]);
   const siteSummary = useMemo(() => summarize("site_name"), [filtered]);
+
+  const vehicleProfiles = useMemo(() => {
+    const map = new Map<string, FuelRecord>();
+    referenceRecords.forEach((record) => {
+      const key = String(record.vehicle_number || "").trim();
+      if (key && !map.has(key)) map.set(key, record);
+    });
+    return [...map.entries()].sort((a, b) => natural(a[0], b[0]));
+  }, [referenceRecords]);
+  const vehicleOptions = useMemo(() => vehicleProfiles.map(([vehicle]) => vehicle), [vehicleProfiles]);
+  const allSites = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.site_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
+  const allProducts = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.product_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
+
+  const applyVehicleProfile = (vehicle: string) => {
+    const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
+    setManual((current) => ({ ...current, vehicle_number: vehicle, site_name: profile?.site_name || current.site_name, product_name: profile?.product_name || current.product_name, unit_price: profile?.unit_price ? String(profile.unit_price) : current.unit_price, station_name: profile?.station_name || current.station_name }));
+  };
+
+  const exportGeneralExcel = () => {
+    if (!filtered.length) return setError("다운로드할 유류내역이 없습니다.");
+    const rows = filtered.map((record) => ({ 일자: record.fuel_date, 현장: record.site_name, 유종: record.product_name, "차량/장비번호": record.vehicle_number, 횟수: record.usage_count, "수량(L)": record.quantity, "단가(원/L)": record.unit_price, 공급가액: record.supply_amount, 부가세: record.vat_amount, 합계금액: record.total_amount, 주유처: record.station_name, 메모: record.memo || "" }));
+    const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"]=[12,14,12,18,8,11,13,14,12,14,20,20].map((wch)=>({wch}));
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"유류내역"); XLSX.writeFile(wb,`유류내역_${month}.xlsx`);
+  };
+
+  const exportStatementExcel = () => {
+    if (!filtered.length) return setError("다운로드할 유류내역이 없습니다.");
+    const ordered=[...filtered].sort((a,b)=>natural(a.site_name,b.site_name)||natural(a.product_name,b.product_name)||natural(a.vehicle_number,b.vehicle_number)||a.fuel_date.localeCompare(b.fuel_date));
+    const header=["현장명","제품명/규격","차량번호","일자","횟수","수량","단가(원/대)","단가(원/단위)","공급가액","부가세","합계금액"];
+    const body=ordered.map((record)=>[record.site_name,record.product_name,record.vehicle_number,record.fuel_date,record.usage_count,record.quantity,record.line_amount,record.unit_price,record.supply_amount,record.vat_amount,record.total_amount]);
+    const sums=ordered.reduce((acc,record)=>({count:acc.count+record.usage_count,qty:acc.qty+record.quantity,supply:acc.supply+record.supply_amount,vat:acc.vat+record.vat_amount,total:acc.total+record.total_amount}),{count:0,qty:0,supply:0,vat:0,total:0});
+    const aoa=[[`${month.replace("-","년 ")}월 유류 거래명세서`],["주유처",ordered[0]?.station_name||""],["조회기간",`${month}-01 ~ ${monthBounds(month).to}`],[],header,...body,["합계","","","",sums.count,sums.qty,"","",sums.supply,sums.vat,sums.total]];
+    const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}}]; ws["!cols"]=[16,16,18,13,9,11,14,15,14,12,14].map((wch)=>({wch}));
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"거래명세서"); XLSX.writeFile(wb,`유류거래명세서_${month}.xlsx`);
+  };
 
   const onFile = async (file?: File) => {
     if (!file) return;
@@ -400,6 +446,8 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-head-actions">
         <input ref={fileInput} type="file" accept=".xls,.xlsx,.csv,.html" hidden onChange={(event) => void onFile(event.target.files?.[0])} />
         <button type="button" onClick={() => fileInput.current?.click()}><Upload size={16} /> 명세서 가져오기</button>
+        <button type="button" onClick={exportStatementExcel}><Download size={16} /> 명세서 엑셀</button>
+        <button type="button" onClick={exportGeneralExcel}><Download size={16} /> 목록 엑셀</button>
         <button type="button" onClick={() => setManualOpen((value) => !value)}><Plus size={16} /> 직접 입력</button>
         <button type="button" onClick={() => void load()} disabled={loading}><RefreshCcw size={16} /> 새로고침</button>
       </div>
@@ -419,14 +467,15 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-section-title"><div><h3>유류 직접 입력</h3><p>수량 × 단가로 공급가액·부가세·합계금액을 자동 계산합니다.</p></div></div>
       <div className="fuel-manual-grid">
         <label><span>일자 *</span><input type="date" value={manual.fuel_date} onChange={(event) => setManual({ ...manual, fuel_date: event.target.value })} /></label>
-        <label><span>현장</span><input value={manual.site_name} onChange={(event) => setManual({ ...manual, site_name: event.target.value })} placeholder="공장" /></label>
-        <label><span>유종</span><input value={manual.product_name} onChange={(event) => setManual({ ...manual, product_name: event.target.value })} placeholder="경유" /></label>
-        <label><span>차량/장비번호 *</span><input value={manual.vehicle_number} onChange={(event) => setManual({ ...manual, vehicle_number: event.target.value })} placeholder="세종03가1166" /></label>
+        <label><span>현장</span><input list="fuel-site-options" value={manual.site_name} onChange={(event) => setManual({ ...manual, site_name: event.target.value })} placeholder="공장" /><datalist id="fuel-site-options">{allSites.map((name) => <option key={name} value={name} />)}</datalist></label>
+        <label><span>유종</span><input list="fuel-product-options" value={manual.product_name} onChange={(event) => setManual({ ...manual, product_name: event.target.value })} placeholder="경유" /><datalist id="fuel-product-options">{allProducts.map((name) => <option key={name} value={name} />)}</datalist></label>
+        <label className="fuel-vehicle-entry"><span>차량/장비번호 *</span><input list="fuel-vehicle-options" value={manual.vehicle_number} onChange={(event) => { const value=event.target.value; setManual({ ...manual, vehicle_number:value }); if (vehicleOptions.includes(value)) applyVehicleProfile(value); }} onBlur={() => { if (vehicleOptions.includes(manual.vehicle_number)) applyVehicleProfile(manual.vehicle_number); }} placeholder="번호 입력 또는 선택" /><datalist id="fuel-vehicle-options">{vehicleOptions.map((name) => <option key={name} value={name} />)}</datalist></label>
         <label><span>수량(L) *</span><input inputMode="decimal" value={manual.quantity} onChange={(event) => setManual({ ...manual, quantity: event.target.value })} placeholder="270" /></label>
         <label><span>단가(원/L) *</span><input inputMode="decimal" value={manual.unit_price} onChange={(event) => setManual({ ...manual, unit_price: event.target.value })} placeholder="1820" /></label>
         <label><span>주유처</span><input value={manual.station_name} onChange={(event) => setManual({ ...manual, station_name: event.target.value })} /></label>
         <label><span>메모</span><input value={manual.memo} onChange={(event) => setManual({ ...manual, memo: event.target.value })} placeholder="필요 시 입력" /></label>
       </div>
+      {vehicleOptions.length > 0 && <div className="fuel-quick-vehicles"><span>차량·장비 빠른 선택</span><div>{vehicleOptions.filter((name) => !manual.vehicle_number.trim() || name.toLowerCase().includes(manual.vehicle_number.trim().toLowerCase())).slice(0,18).map((name)=><button type="button" key={name} onClick={() => applyVehicleProfile(name)}>{name}</button>)}</div><small>기존 명세서 기준으로 번호를 누르면 최근 현장·유종·단가·주유처를 자동 입력합니다.</small></div>}
       <div className="fuel-manual-total"><span>예상 합계</span><strong>{manual.quantity && manual.unit_price ? `${money(Math.round(asNumber(manual.quantity) * asNumber(manual.unit_price) * 1.1))}원` : "-"}</strong></div>
       <div className="fuel-form-actions"><button type="button" onClick={() => { setManual(emptyManual()); setManualOpen(false); }}>취소</button><button type="button" className="fuel-primary" disabled={saving} onClick={() => void saveManual()}>{saving ? "저장 중..." : "저장"}</button></div>
     </section>}
