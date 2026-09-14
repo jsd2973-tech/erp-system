@@ -8250,12 +8250,15 @@ export default function App() {
                   {canAccessTab("site_notices") && <button aria-current={menuTab === "site_notices" ? "page" : undefined} onClick={() => { setMenuTab("site_notices"); setMobileSheet(""); }}>공지사항</button>}
                   {canAccessTab("bid_notices") && <button aria-current={menuTab === "bid_notices" ? "page" : undefined} onClick={() => { setMenuTab("bid_notices"); setMobileSheet(""); }}>입찰공고</button>}
                 </div></details>}
-                {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><ClipboardList size={16} aria-hidden="true" />운행관리</summary><div className="mobile-menu-items">
-                  {isAdmin && <button aria-current={menuTab === "dispatch_register" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
-                  {isAdmin && <button aria-current={menuTab === "dispatch_list" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
-                  {isAdmin && <button aria-current={menuTab === "dispatch_status" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
-                  {isAdmin && <button aria-current={menuTab === "dispatch_results" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>}
-                </div></details>}
+                {canShowAny(DISPATCH_VIEWS) && <details className="mobile-menu-group" open><summary><ClipboardList size={16} aria-hidden="true" />운행관리</summary><div className="mobile-menu-items">
+        {canAccessTab("dispatch_register") && <button aria-current={menuTab === "dispatch_register" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>}
+        {canAccessTab("dispatch_list") && <button aria-current={menuTab === "dispatch_list" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>}
+        {canAccessTab("dispatch_status") && <button aria-current={menuTab === "dispatch_status" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>}
+        {canAccessTab("dispatch_results") && <button aria-current={menuTab === "dispatch_results" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>}
+        {canAccessTab("dispatch_vehicles") && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
+        {canAccessTab("dispatch_drivers") && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
+        {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
+      </div></details>}
                 {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><Truck size={16} aria-hidden="true" />차량·기사</summary><div className="mobile-menu-items">
                   {isAdmin && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
                   {isAdmin && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
