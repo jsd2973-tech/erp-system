@@ -237,6 +237,7 @@ export default function FuelManagement({ supabase }: Props) {
   const [product, setProduct] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [view, setView] = useState<ViewMode>("records");
+  const [detailTarget, setDetailTarget] = useState<{ type: "vehicle" | "site"; name: string } | null>(null);
   const [preview, setPreview] = useState<ParsedFuelRow[]>([]);
   const [previewFile, setPreviewFile] = useState("");
   const [importing, setImporting] = useState(false);
@@ -322,6 +323,16 @@ export default function FuelManagement({ supabase }: Props) {
   };
   const vehicleSummary = useMemo(() => summarize("vehicle_number"), [filtered]);
   const siteSummary = useMemo(() => summarize("site_name"), [filtered]);
+  const detailRows = useMemo(() => {
+    if (!detailTarget) return [];
+    return filtered.filter((record) => detailTarget.type === "vehicle" ? record.vehicle_number === detailTarget.name : record.site_name === detailTarget.name)
+      .sort((a, b) => b.fuel_date.localeCompare(a.fuel_date) || natural(a.vehicle_number, b.vehicle_number) || a.product_name.localeCompare(b.product_name, "ko-KR"));
+  }, [detailTarget, filtered]);
+  const detailTotals = useMemo(() => ({
+    count: detailRows.reduce((sum, row) => sum + Math.max(row.usage_count || 1, 1), 0),
+    quantity: detailRows.reduce((sum, row) => sum + row.quantity, 0),
+    total: detailRows.reduce((sum, row) => sum + row.total_amount, 0),
+  }), [detailRows]);
 
   const vehicleProfiles = useMemo(() => {
     const map = new Map<string, FuelRecord>();
@@ -496,9 +507,9 @@ export default function FuelManagement({ supabase }: Props) {
     </div>
 
     <nav className="fuel-tabs" aria-label="유류관리 보기">
-      <button type="button" aria-pressed={view === "records"} onClick={() => setView("records")}>주유내역</button>
-      <button type="button" aria-pressed={view === "vehicle"} onClick={() => setView("vehicle")}>차량·장비별</button>
-      <button type="button" aria-pressed={view === "site"} onClick={() => setView("site")}>현장별</button>
+      <button type="button" aria-pressed={view === "records"} onClick={() => { setView("records"); setDetailTarget(null); }}>주유내역</button>
+      <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
+      <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
     </nav>
 
     {loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <>
@@ -514,10 +525,18 @@ export default function FuelManagement({ supabase }: Props) {
         <div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div>
         <footer><span>{record.station_name}</span><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></footer>
       </article>)}</div>
-    </> : <div className="fuel-summary-list">
-      {(view === "vehicle" ? vehicleSummary : siteSummary).length ? (view === "vehicle" ? vehicleSummary : siteSummary).map((row, index) => <article key={row.name}>
-        <span className="fuel-rank">{index + 1}</span><div><strong>{row.name}</strong><small>{number(row.quantity)} L · {row.count}회</small></div><b>{money(row.total)}원</b>
-      </article>) : <div className="fuel-empty">집계할 내역이 없습니다.</div>}
-    </div>}
+    </> : <>
+      <div className="fuel-summary-list">
+        {(view === "vehicle" ? vehicleSummary : siteSummary).length ? (view === "vehicle" ? vehicleSummary : siteSummary).map((row, index) => <article key={row.name} className="fuel-summary-clickable" role="button" tabIndex={0} onClick={() => setDetailTarget({ type: view === "vehicle" ? "vehicle" : "site", name: row.name })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDetailTarget({ type: view === "vehicle" ? "vehicle" : "site", name: row.name }); }}>
+          <span className="fuel-rank">{index + 1}</span><div><strong>{row.name}</strong><small>{number(row.quantity)} L · {row.count}회</small></div><b>{money(row.total)}원</b>
+        </article>) : <div className="fuel-empty">집계할 내역이 없습니다.</div>}
+      </div>
+      {detailTarget && <section className="fuel-drilldown">
+        <header><div><span>{detailTarget.type === "vehicle" ? "차량·장비 상세" : "현장 상세"}</span><h3>{detailTarget.name}</h3></div><button type="button" onClick={() => setDetailTarget(null)}>닫기</button></header>
+        <div className="fuel-drilldown-kpis"><span>주유 <b>{detailTotals.count}회</b></span><span>수량 <b>{number(detailTotals.quantity)} L</b></span><span>합계 <b>{money(detailTotals.total)}원</b></span></div>
+        <div className="fuel-table-wrap"><table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>합계금액</th><th>주유처</th></tr></thead><tbody>{detailRows.map((record) => <tr key={record.id}><td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td></tr>)}</tbody></table></div>
+        <div className="fuel-mobile-list">{detailRows.map((record) => <article key={record.id}><header><div><strong>{record.vehicle_number}</strong><span>{record.site_name} · {record.product_name}</span></div><b>{record.fuel_date}</b></header><div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div><footer><span>{record.station_name}</span></footer></article>)}</div>
+      </section>}
+    </>}
   </section>;
 }
