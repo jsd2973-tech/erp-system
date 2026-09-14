@@ -33,9 +33,8 @@ jobs:
           page = Path('src/features/dispatch/DispatchPage.tsx')
           text = page.read_text()
           replacements = {
-              '["dispatch_register", "dispatch_list", "dispatch_status"].includes(view)': '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results"].includes(view)',
-              '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_vehicles", "dispatch_drivers"].includes(view)': '["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results", "dispatch_vehicles", "dispatch_drivers"].includes(view)',
-              '["dispatch_list", "dispatch_status"].includes(view)': '["dispatch_list", "dispatch_status", "dispatch_results"].includes(view)',
+              'allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status"].includes(item))': 'allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results"].includes(item))',
+              'allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_vehicles", "dispatch_drivers"].includes(item))': 'allowedViews.some((item) => ["dispatch_register", "dispatch_list", "dispatch_status", "dispatch_results", "dispatch_vehicles", "dispatch_drivers"].includes(item))',
           }
           for old, new in replacements.items():
               if old not in text:
