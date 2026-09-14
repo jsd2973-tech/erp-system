@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "python3 scripts/fix_fuel_import_without_site.py",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
