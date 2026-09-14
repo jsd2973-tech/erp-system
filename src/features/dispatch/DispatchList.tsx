@@ -143,17 +143,17 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
 
   const mobileDetail = <dialog ref={detailDialog} className="dispatch-mobile-detail-dialog" aria-label="배차 상세정보" onClose={() => setMobileDetailOpen(false)}>
     <header className="dispatch-mobile-detail-header"><button type="button" autoFocus onClick={closeDetail}>← 목록으로</button><strong>배차 상세</strong></header>
-    {mobileDetailOpen && selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={(order) => { closeDetail(); onEdit(order); }} />}
+    {mobileDetailOpen && selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? ((order) => { closeDetail(); onEdit(order); }) : undefined} />}
   </dialog>;
 
-  if (compact) return <div className="dispatch-compact-list">{listPanel}{mobileDetail}<div className="dispatch-desktop-detail">{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} />}</div></div>;
+  if (compact) return <div className="dispatch-compact-list">{listPanel}{mobileDetail}<div className="dispatch-desktop-detail">{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} />}</div></div>;
 
   return (
     <div className="dispatch-list-workspace dispatch-list-workspace-stacked">
       {showTrash ? trashPanel : listPanel}
       {mobileDetail}
       <div className="dispatch-desktop-detail">
-      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={onEdit} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
+      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
       {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
       </div>
     </div>
