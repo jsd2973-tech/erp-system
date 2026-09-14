@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../supabaseClient";
+import PushSettings from "../push/PushSettings";
 import DriverMobileApp from "./DriverMobileApp";
 import type { DispatchDriver } from "./dispatchTypes";
 
@@ -98,6 +99,18 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
   }, [resolveSession]);
 
   if (checking) return <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#f2f5f9", color: "#526174", fontWeight: 800 }}>로그인 권한 확인 중...</div>;
-  if (driver) return <DriverMobileApp supabase={supabase} driver={driver} onLogout={() => { void supabase.auth.signOut(); }} />;
+  if (driver) return <>
+    <PushSettings key={resolvedUserIdRef.current || driver.id} />
+    <DriverMobileApp supabase={supabase} driver={driver} onLogout={() => { void supabase.auth.signOut(); }} />
+    <button
+      type="button"
+      className="driver-push-settings-fab"
+      onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}
+      aria-label="운행관리 알림 설정 열기"
+    >
+      🔔 알림 설정
+    </button>
+    <style>{`.driver-push-settings-fab{position:fixed;z-index:45;right:14px;bottom:calc(82px + env(safe-area-inset-bottom));min-height:44px;border:1px solid #bfd5ea;border-radius:999px;padding:0 14px;background:#fff;color:#155faa;font:800 13px/1 inherit;box-shadow:0 8px 24px rgba(18,71,123,.18);cursor:pointer}.driver-push-settings-fab:focus-visible{outline:3px solid #2468b4;outline-offset:3px}@media(min-width:761px){.driver-push-settings-fab{right:calc((100vw - 620px)/2 + 14px)}}`}</style>
+  </>;
   return children;
 }
