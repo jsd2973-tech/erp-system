@@ -8259,11 +8259,6 @@ export default function App() {
         {canAccessTab("dispatch_drivers") && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
         {canAccessTab("dispatch_basics") && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
       </div></details>}
-                {(isAdmin || isAdmin || isAdmin) && <details className="mobile-menu-group" open><summary><Truck size={16} aria-hidden="true" />차량·기사</summary><div className="mobile-menu-items">
-                  {isAdmin && <button aria-current={menuTab === "dispatch_vehicles" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>}
-                  {isAdmin && <button aria-current={menuTab === "dispatch_drivers" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>}
-                  {isAdmin && <button aria-current={menuTab === "dispatch_basics" ? "page" : undefined} onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>}
-                </div></details>}
                 {(canAccessTab("layout") || canAccessTab("vendors") || canAccessTab("warehouse_groups") || canAccessTab("items")) && <details className="mobile-menu-group"><summary><Database size={16} aria-hidden="true" />기초등록</summary><div className="mobile-menu-items">
                   {canAccessTab("layout") && <button aria-current={menuTab === "layout" ? "page" : undefined} onClick={() => { setMenuTab("layout"); setMobileSheet(""); }}>생산라인</button>}
                   {canAccessTab("vendors") && <button aria-current={menuTab === "vendors" ? "page" : undefined} onClick={() => { setMenuTab("vendors"); setMobileSheet(""); }}>거래처등록</button>}
