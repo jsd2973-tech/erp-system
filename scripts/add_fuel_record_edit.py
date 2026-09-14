@@ -1,0 +1,29 @@
+from pathlib import Path
+p=Path('src/features/fuel/FuelManagement.tsx')
+s=p.read_text()
+s=s.replace('import { Download, FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";','import { Download, FileSpreadsheet, Fuel, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";',1)
+anchor='  const [saving, setSaving] = useState(false);\n  const fileInput = useRef<HTMLInputElement>(null);'
+insert='  const [saving, setSaving] = useState(false);\n  const [editingRecord, setEditingRecord] = useState<FuelRecord | null>(null);\n  const [editSaving, setEditSaving] = useState(false);\n  const fileInput = useRef<HTMLInputElement>(null);'
+if anchor not in s: raise SystemExit('state anchor missing')
+s=s.replace(anchor,insert,1)
+anchor='  const removeRecord = async (record: FuelRecord) => {'
+edit='''  const saveEditedRecord = async () => {\n    if (!editingRecord) return;\n    if (!editingRecord.fuel_date || !editingRecord.vehicle_number.trim()) { setError("일자와 차량/장비번호를 확인해주세요."); return; }\n    setEditSaving(true); setError("");\n    const payload = {\n      fuel_date: editingRecord.fuel_date,\n      site_name: editingRecord.site_name.trim() || "미지정",\n      product_name: editingRecord.product_name.trim() || "경유",\n      vehicle_number: editingRecord.vehicle_number.trim(),\n      station_name: editingRecord.station_name.trim() || "미지정 주유소",\n      memo: String(editingRecord.memo || "").trim(),\n      updated_at: new Date().toISOString(),\n    };\n    const { error: updateError } = await supabase.from("fuel_records").update(payload).eq("id", editingRecord.id);\n    setEditSaving(false);\n    if (updateError) { setError(`유류내역을 수정하지 못했습니다. (${updateError.message})`); return; }\n    setEditingRecord(null);\n    await load();\n  };\n\n  const removeRecord = async (record: FuelRecord) => {'''
+if anchor not in s: raise SystemExit('remove anchor missing')
+s=s.replace(anchor,edit,1)
+anchor='    {view !== "basics" && <>'
+panel='''    {editingRecord && <section className="fuel-edit-panel">\n      <div className="fuel-section-title"><div><h3>주유내역 수정</h3><p>현장·유종·차량/장비번호·주유처를 수정할 수 있습니다.</p></div></div>\n      <div className="fuel-manual-grid">\n        <label><span>일자 *</span><input type="date" value={editingRecord.fuel_date} onChange={(event)=>setEditingRecord({ ...editingRecord, fuel_date:event.target.value })}/></label>\n        <label><span>현장</span><input list="fuel-edit-site-options" value={editingRecord.site_name} onChange={(event)=>setEditingRecord({ ...editingRecord, site_name:event.target.value })}/><datalist id="fuel-edit-site-options">{allSites.map((name)=><option key={name} value={name}/>)}</datalist></label>\n        <label><span>유종</span><input list="fuel-edit-product-options" value={editingRecord.product_name} onChange={(event)=>setEditingRecord({ ...editingRecord, product_name:event.target.value })}/><datalist id="fuel-edit-product-options">{allProducts.map((name)=><option key={name} value={name}/>)}</datalist></label>\n        <label><span>차량/장비번호 *</span><input list="fuel-edit-vehicle-options" value={editingRecord.vehicle_number} onChange={(event)=>setEditingRecord({ ...editingRecord, vehicle_number:event.target.value })}/><datalist id="fuel-edit-vehicle-options">{vehicleOptions.map((name)=><option key={name} value={name}/>)}</datalist></label>\n        <label><span>주유처</span><input list="fuel-edit-station-options" value={editingRecord.station_name} onChange={(event)=>setEditingRecord({ ...editingRecord, station_name:event.target.value })}/><datalist id="fuel-edit-station-options">{allStations.map((name)=><option key={name} value={name}/>)}</datalist></label>\n        <label><span>메모</span><input value={editingRecord.memo || ""} onChange={(event)=>setEditingRecord({ ...editingRecord, memo:event.target.value })}/></label>\n      </div>\n      <div className="fuel-form-actions"><button type="button" onClick={()=>setEditingRecord(null)}>취소</button><button type="button" className="fuel-primary" disabled={editSaving} onClick={()=>void saveEditedRecord()}>{editSaving ? "저장 중..." : "수정 저장"}</button></div>\n    </section>}\n\n    {view !== "basics" && <>'''
+if anchor not in s: raise SystemExit('panel anchor missing')
+s=s.replace(anchor,panel,1)
+old='<td>{record.station_name}</td><td><button className="fuel-icon-button" type="button" title="삭제" onClick={() => void removeRecord(record)}><Trash2 size={15} /></button></td>'
+new='<td>{record.station_name}</td><td><div className="fuel-row-actions"><button className="fuel-icon-button" type="button" title="수정" onClick={() => setEditingRecord({ ...record })}><Pencil size={15} /></button><button className="fuel-icon-button" type="button" title="삭제" onClick={() => void removeRecord(record)}><Trash2 size={15} /></button></div></td>'
+if old not in s: raise SystemExit('desktop row anchor missing')
+s=s.replace(old,new,1)
+old='<footer><span>{record.station_name}</span><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></footer>'
+new='<footer><span>{record.station_name}</span><div className="fuel-mobile-actions"><button type="button" onClick={() => setEditingRecord({ ...record })}><Pencil size={14} /> 수정</button><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></div></footer>'
+if old not in s: raise SystemExit('mobile row anchor missing')
+s=s.replace(old,new,1)
+p.write_text(s)
+css=Path('src/features/fuel/fuelManagement.css')
+cs=css.read_text()
+cs+='''\n.fuel-edit-panel{background:#fff;border:1px solid #cdddeb;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 8px 24px rgba(15,23,42,.06)}.fuel-row-actions,.fuel-mobile-actions{display:flex;align-items:center;gap:6px}.fuel-mobile-actions button{display:inline-flex;align-items:center;gap:4px}@media(max-width:760px){.fuel-edit-panel{padding:13px}.fuel-mobile-actions{gap:5px}}\n'''
+css.write_text(cs)
