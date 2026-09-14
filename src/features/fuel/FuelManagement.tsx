@@ -26,7 +26,9 @@ type FuelRecord = {
 
 type ParsedFuelRow = Omit<FuelRecord, "id" | "created_at">;
 type SummaryRow = { name: string; count: number; quantity: number; total: number };
-type ViewMode = "records" | "vehicle" | "site" | "station";
+type FuelMasterCategory = "vehicle" | "station" | "product" | "site";
+type FuelMasterOption = { id: string; category: FuelMasterCategory; name: string; is_active: boolean; updated_at?: string };
+type ViewMode = "records" | "vehicle" | "site" | "station" | "basics";
 
 type Props = {
   supabase: SupabaseClient;
@@ -231,6 +233,10 @@ export default function FuelManagement({ supabase }: Props) {
   const [month, setMonth] = useState(currentMonth);
   const [records, setRecords] = useState<FuelRecord[]>([]);
   const [referenceRecords, setReferenceRecords] = useState<FuelRecord[]>([]);
+  const [masterOptions, setMasterOptions] = useState<FuelMasterOption[]>([]);
+  const [masterInputs, setMasterInputs] = useState<Record<FuelMasterCategory, string>>({ vehicle: "", station: "", product: "", site: "" });
+  const [masterDrafts, setMasterDrafts] = useState<Record<string, string>>({});
+  const [masterSaving, setMasterSaving] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [site, setSite] = useState("");
@@ -284,6 +290,17 @@ export default function FuelManagement({ supabase }: Props) {
   };
 
   useEffect(() => { void load(); }, [month]);
+  const loadMasters = async () => {
+    const { data, error: masterError } = await supabase.from("fuel_master_options").select("id,category,name,is_active,updated_at").order("category").order("name");
+    if (masterError) {
+      setError(`유류 기초등록을 불러오지 못했습니다. (${masterError.message})`);
+      return;
+    }
+    const rows=(data || []).map((row)=>({ id:String(row.id), category:String(row.category) as FuelMasterCategory, name:String(row.name || ""), is_active:Boolean(row.is_active), updated_at:row.updated_at ? String(row.updated_at) : undefined }));
+    setMasterOptions(rows);
+    setMasterDrafts(Object.fromEntries(rows.map((row)=>[row.id,row.name])));
+  };
+  useEffect(() => { void loadMasters(); }, []);
   useEffect(() => {
     const loadReferences = async () => {
       const { data } = await supabase.from("fuel_records")
@@ -345,10 +362,15 @@ export default function FuelManagement({ supabase }: Props) {
     });
     return [...map.entries()].sort((a, b) => natural(a[0], b[0]));
   }, [referenceRecords]);
-  const vehicleOptions = useMemo(() => vehicleProfiles.map(([vehicle]) => vehicle), [vehicleProfiles]);
-  const allSites = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.site_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
-  const allProducts = useMemo(() => [...new Set(referenceRecords.map((record) => String(record.product_name || "")).filter(Boolean))].sort(natural), [referenceRecords]);
-  const allStations = useMemo(() => [...new Set(["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record) => String(record.station_name || "")).filter(Boolean)])].sort(natural), [referenceRecords]);
+  const managedOptions = (category: FuelMasterCategory, fallback: string[]) => {
+    const rows=masterOptions.filter((row)=>row.category===category);
+    const inactive=new Set(rows.filter((row)=>!row.is_active).map((row)=>row.name));
+    return [...new Set([...rows.filter((row)=>row.is_active).map((row)=>row.name), ...fallback.filter((name)=>!inactive.has(name))])].filter(Boolean).sort(natural);
+  };
+  const vehicleOptions = useMemo(() => managedOptions("vehicle", vehicleProfiles.map(([vehicle])=>vehicle)), [masterOptions, vehicleProfiles]);
+  const allSites = useMemo(() => managedOptions("site", referenceRecords.map((record)=>String(record.site_name || ""))), [masterOptions, referenceRecords]);
+  const allProducts = useMemo(() => managedOptions("product", referenceRecords.map((record)=>String(record.product_name || ""))), [masterOptions, referenceRecords]);
+  const allStations = useMemo(() => managedOptions("station", ["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record)=>String(record.station_name || ""))]), [masterOptions, referenceRecords]);
 
   const applyVehicleProfile = (vehicle: string) => {
     const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
@@ -367,6 +389,39 @@ export default function FuelManagement({ supabase }: Props) {
     setQuickVehicle("");
     setQuickVehicleBackup(null);
   };
+
+  const addMasterOption = async (category: FuelMasterCategory) => {
+    const name=masterInputs[category].trim();
+    if (!name) return;
+    setMasterSaving(`add-${category}`); setError("");
+    const { error: addError }=await supabase.from("fuel_master_options").insert({ category, name, is_active:true });
+    setMasterSaving("");
+    if (addError) { setError(addError.code === "23505" ? "이미 등록된 항목입니다." : `기초항목을 추가하지 못했습니다. (${addError.message})`); return; }
+    setMasterInputs((current)=>({ ...current, [category]:"" }));
+    await loadMasters();
+  };
+  const saveMasterOption = async (row: FuelMasterOption) => {
+    const name=(masterDrafts[row.id] ?? row.name).trim();
+    if (!name) return;
+    setMasterSaving(row.id); setError("");
+    const { error: saveError }=await supabase.from("fuel_master_options").update({ name, updated_at:new Date().toISOString() }).eq("id",row.id);
+    setMasterSaving("");
+    if (saveError) { setError(saveError.code === "23505" ? "같은 분류에 이미 등록된 이름입니다." : `기초항목을 수정하지 못했습니다. (${saveError.message})`); return; }
+    await loadMasters();
+  };
+  const toggleMasterOption = async (row: FuelMasterOption) => {
+    setMasterSaving(row.id); setError("");
+    const { error: toggleError }=await supabase.from("fuel_master_options").update({ is_active:!row.is_active, updated_at:new Date().toISOString() }).eq("id",row.id);
+    setMasterSaving("");
+    if (toggleError) { setError(`사용 상태를 바꾸지 못했습니다. (${toggleError.message})`); return; }
+    await loadMasters();
+  };
+  const masterGroups: Array<{ category:FuelMasterCategory; title:string; placeholder:string }> = [
+    { category:"vehicle", title:"차량·장비번호", placeholder:"예: 세종03가1166 / WA500-8" },
+    { category:"station", title:"주유처", placeholder:"예: 믿음주유소" },
+    { category:"product", title:"유종", placeholder:"예: 경유 / 요소수" },
+    { category:"site", title:"현장", placeholder:"예: 공장 / 국회" },
+  ];
 
   const applyModernSheetStyle = (ws: XLSX.WorkSheet, headerRow: number, lastRow: number, lastCol: number, totalRow?: number) => {
     const thin = { style: "thin", color: { rgb: "D7E0EA" } } as const;
@@ -562,9 +617,16 @@ export default function FuelManagement({ supabase }: Props) {
       <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
       <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
       <button type="button" aria-pressed={view === "station"} onClick={() => { setView("station"); setDetailTarget(null); }}>주유소별</button>
+      <button type="button" aria-pressed={view === "basics"} onClick={() => { setView("basics"); setDetailTarget(null); }}>기초등록</button>
     </nav>
 
-    {loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <>
+    {view === "basics" ? <section className="fuel-master-grid">
+      {masterGroups.map((group)=><article className="fuel-master-card" key={group.category}>
+        <header><div><h3>{group.title}</h3><span>{masterOptions.filter((row)=>row.category===group.category && row.is_active).length}개 사용중</span></div></header>
+        <div className="fuel-master-add"><input value={masterInputs[group.category]} onChange={(event)=>setMasterInputs((current)=>({ ...current, [group.category]:event.target.value }))} onKeyDown={(event)=>{ if(event.key==="Enter") void addMasterOption(group.category); }} placeholder={group.placeholder}/><button type="button" disabled={masterSaving===`add-${group.category}`} onClick={()=>void addMasterOption(group.category)}>추가</button></div>
+        <div className="fuel-master-list">{masterOptions.filter((row)=>row.category===group.category).sort((a,b)=>Number(b.is_active)-Number(a.is_active)||natural(a.name,b.name)).map((row)=><div className={row.is_active ? "" : "is-inactive"} key={row.id}><input value={masterDrafts[row.id] ?? row.name} onChange={(event)=>setMasterDrafts((current)=>({ ...current, [row.id]:event.target.value }))}/><button type="button" disabled={masterSaving===row.id || (masterDrafts[row.id] ?? row.name).trim()===row.name} onClick={()=>void saveMasterOption(row)}>저장</button><button type="button" className="fuel-master-toggle" disabled={masterSaving===row.id} onClick={()=>void toggleMasterOption(row)}>{row.is_active ? "미사용" : "사용"}</button></div>)}</div>
+      </article>)}
+    </section> : loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <>
       <div className="fuel-table-wrap">
         <table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계금액</th><th>주유처</th><th></th></tr></thead><tbody>
           {!filtered.length ? <tr><td colSpan={12} className="fuel-empty-cell">조건에 맞는 유류내역이 없습니다.</td></tr> : filtered.map((record) => <tr key={record.id}>
