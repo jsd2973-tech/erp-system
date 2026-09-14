@@ -11,6 +11,7 @@ type DispatchListProps = {
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
+  canEdit?: boolean;
   onDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
   onRestore?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
   onPermanentDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
@@ -20,7 +21,7 @@ type DispatchListProps = {
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, canEdit = true, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);

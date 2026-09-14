@@ -6,7 +6,7 @@ import { toLoginEmail } from "./authLogin";
 const AUTH_NAME_KEY = "erp_login_name_v2";
 const AUTH_REMEMBER_KEY = "erp_login_remember_v1";
 const AUTH_AUTO_KEY = "erp_login_auto_v1";
-const AUTH_AUTO_PASSWORD_KEY = "erp_login_auto_password_v1";
+const LEGACY_AUTH_AUTO_PASSWORD_KEY = "erp_login_auto_password_v1";
 
 export default function AuthEntry({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -17,22 +17,18 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
     const shouldLoad = localStorage.getItem(AUTH_REMEMBER_KEY) === "1" || localStorage.getItem(AUTH_AUTO_KEY) === "1";
     return shouldLoad ? (localStorage.getItem(AUTH_NAME_KEY) || "") : "";
   });
-  const [password, setPassword] = useState(() => {
-    return localStorage.getItem(AUTH_AUTO_KEY) === "1"
-      ? (localStorage.getItem(AUTH_AUTO_PASSWORD_KEY) || "")
-      : "";
-  });
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const signIn = async (nameValue: string, passwordValue: string, options?: { automatic?: boolean }) => {
+  const signIn = async (nameValue: string, passwordValue: string) => {
     const name = nameValue.trim();
     if (!name) {
-      if (!options?.automatic) setError("아이디를 입력하세요.");
+      setError("아이디를 입력하세요.");
       return false;
     }
     if (!passwordValue) {
-      if (!options?.automatic) setError("비밀번호를 입력하세요.");
+      setError("비밀번호를 입력하세요.");
       return false;
     }
 
@@ -45,15 +41,7 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
     setSubmitting(false);
 
     if (loginError) {
-      if (options?.automatic) {
-        localStorage.removeItem(AUTH_AUTO_PASSWORD_KEY);
-        localStorage.setItem(AUTH_AUTO_KEY, "0");
-        setAutoLogin(false);
-        setPassword("");
-        setError("자동로그인에 실패했습니다. 비밀번호를 다시 입력해 주세요.");
-      } else {
-        setError("로그인 실패: 아이디 또는 비밀번호를 확인하세요.");
-      }
+      setError("로그인 실패: 아이디 또는 비밀번호를 확인하세요.");
       return false;
     }
 
@@ -64,30 +52,33 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(AUTH_REMEMBER_KEY, rememberId || autoLogin ? "1" : "0");
     localStorage.setItem(AUTH_AUTO_KEY, autoLogin ? "1" : "0");
-    if (autoLogin) localStorage.setItem(AUTH_AUTO_PASSWORD_KEY, passwordValue);
-    else localStorage.removeItem(AUTH_AUTO_PASSWORD_KEY);
-
-    setPassword(autoLogin ? passwordValue : "");
+    localStorage.removeItem(LEGACY_AUTH_AUTO_PASSWORD_KEY);
+    setPassword("");
     return true;
   };
 
   useEffect(() => {
     let mounted = true;
+    localStorage.removeItem(LEGACY_AUTH_AUTO_PASSWORD_KEY);
+
     void supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
-      if (data.session) {
+
+      const shouldRestoreSession = localStorage.getItem(AUTH_AUTO_KEY) === "1";
+      if (data.session && shouldRestoreSession) {
         setSession(data.session);
         setChecking(false);
         return;
       }
 
-      const shouldAutoLogin = localStorage.getItem(AUTH_AUTO_KEY) === "1";
-      const savedName = localStorage.getItem(AUTH_NAME_KEY) || "";
-      const savedPassword = localStorage.getItem(AUTH_AUTO_PASSWORD_KEY) || "";
-      if (shouldAutoLogin && savedName && savedPassword) {
-        await signIn(savedName, savedPassword, { automatic: true });
+      if (data.session && !shouldRestoreSession) {
+        await supabase.auth.signOut();
       }
-      if (mounted) setChecking(false);
+
+      if (mounted) {
+        setSession(null);
+        setChecking(false);
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -100,8 +91,6 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
       mounted = false;
       listener.subscription.unsubscribe();
     };
-    // Initial authentication check only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async () => {
@@ -114,7 +103,6 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
     if (!checked && autoLogin) {
       setAutoLogin(false);
       localStorage.setItem(AUTH_AUTO_KEY, "0");
-      localStorage.removeItem(AUTH_AUTO_PASSWORD_KEY);
     }
     if (!checked && !autoLogin) localStorage.removeItem(AUTH_NAME_KEY);
   };
@@ -122,12 +110,11 @@ export default function AuthEntry({ children }: { children: ReactNode }) {
   const toggleAutoLogin = (checked: boolean) => {
     setAutoLogin(checked);
     localStorage.setItem(AUTH_AUTO_KEY, checked ? "1" : "0");
+    localStorage.removeItem(LEGACY_AUTH_AUTO_PASSWORD_KEY);
     if (checked) {
       setRememberId(true);
       localStorage.setItem(AUTH_REMEMBER_KEY, "1");
       if (loginName.trim()) localStorage.setItem(AUTH_NAME_KEY, loginName.trim());
-    } else {
-      localStorage.removeItem(AUTH_AUTO_PASSWORD_KEY);
     }
   };
 
