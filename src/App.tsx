@@ -729,6 +729,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "dispatch_register", label: "운행관리 · 배차등록" },
   { key: "dispatch_list", label: "운행관리 · 배차목록" },
   { key: "dispatch_status", label: "운행관리 · 운행현황" },
+  { key: "dispatch_results", label: "운행관리 · 운송실적" },
   { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
   { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
   { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
