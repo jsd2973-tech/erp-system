@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx-js-style";
-import { Download, FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Trash2, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Fuel, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
 import "./fuelManagement.css";
 
 type FuelRecord = {
@@ -562,9 +562,11 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-head-actions">
         <input ref={fileInput} type="file" accept=".xls,.xlsx,.csv,.html" hidden onChange={(event) => void onFile(event.target.files?.[0])} />
         <button type="button" onClick={() => fileInput.current?.click()}><Upload size={16} /> 명세서 가져오기</button>
+        <button type="button" onClick={() => setManualOpen((value) => !value)}><Plus size={16} /> 직접 입력</button>
+        <button type="button" className={view === "basics" ? "fuel-basics-action is-active" : "fuel-basics-action"} onClick={() => { setView((current) => current === "basics" ? "records" : "basics"); setDetailTarget(null); }}><Settings2 size={16} /> {view === "basics" ? "주유내역 보기" : "기초등록"}</button>
+        <span className="fuel-action-divider" aria-hidden="true" />
         <button type="button" onClick={exportStatementExcel}><Download size={16} /> 명세서 엑셀</button>
         <button type="button" onClick={exportGeneralExcel}><Download size={16} /> 목록 엑셀</button>
-        <button type="button" onClick={() => setManualOpen((value) => !value)}><Plus size={16} /> 직접 입력</button>
         <button type="button" onClick={() => void load()} disabled={loading}><RefreshCcw size={16} /> 새로고침</button>
       </div>
     </header>
@@ -597,28 +599,29 @@ export default function FuelManagement({ supabase }: Props) {
       <div className="fuel-form-actions"><button type="button" onClick={() => { setManual(emptyManual()); setQuickVehicle(""); setQuickVehicleBackup(null); setManualOpen(false); }}>입력 닫기</button><button type="button" className="fuel-primary" disabled={saving} onClick={() => void saveManual()}>{saving ? "저장 중..." : "저장"}</button></div>
     </section>}
 
-    <div className="fuel-toolbar">
-      <label><span>조회월</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
-      <label><span>현장</span><select value={site} onChange={(event) => setSite(event.target.value)}><option value="">전체 현장</option>{sites.map((name) => <option key={name}>{name}</option>)}</select></label>
-      <label><span>유종</span><select value={product} onChange={(event) => setProduct(event.target.value)}><option value="">전체 유종</option>{products.map((name) => <option key={name}>{name}</option>)}</select></label>
-      <label className="fuel-search"><span>차량/장비</span><div><Search size={15} /><input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} placeholder="차량번호 검색" /></div></label>
-    </div>
+    {view !== "basics" && <>
+      <div className="fuel-toolbar">
+        <label><span>조회월</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
+        <label><span>현장</span><select value={site} onChange={(event) => setSite(event.target.value)}><option value="">전체 현장</option>{sites.map((name) => <option key={name}>{name}</option>)}</select></label>
+        <label><span>유종</span><select value={product} onChange={(event) => setProduct(event.target.value)}><option value="">전체 유종</option>{products.map((name) => <option key={name}>{name}</option>)}</select></label>
+        <label className="fuel-search"><span>차량/장비</span><div><Search size={15} /><input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} placeholder="차량번호 검색" /></div></label>
+      </div>
 
-    <div className="fuel-kpis">
-      <article><span>총 유류비</span><strong>{money(totals.total)}<small>원</small></strong></article>
-      <article><span>전체 수량</span><strong>{number(totals.quantity)}<small>L</small></strong></article>
-      <article><span>경유</span><strong>{number(totals.diesel)}<small>L</small></strong></article>
-      <article><span>요소수</span><strong>{number(totals.urea)}<small>L</small></strong></article>
-      <article><span>주유 횟수</span><strong>{number(totals.count)}<small>회</small></strong></article>
-    </div>
+      <div className="fuel-kpis">
+        <article><span>총 유류비</span><strong>{money(totals.total)}<small>원</small></strong></article>
+        <article><span>전체 수량</span><strong>{number(totals.quantity)}<small>L</small></strong></article>
+        <article><span>경유</span><strong>{number(totals.diesel)}<small>L</small></strong></article>
+        <article><span>요소수</span><strong>{number(totals.urea)}<small>L</small></strong></article>
+        <article><span>주유 횟수</span><strong>{number(totals.count)}<small>회</small></strong></article>
+      </div>
 
-    <nav className="fuel-tabs" aria-label="유류관리 보기">
-      <button type="button" aria-pressed={view === "records"} onClick={() => { setView("records"); setDetailTarget(null); }}>주유내역</button>
-      <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
-      <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
-      <button type="button" aria-pressed={view === "station"} onClick={() => { setView("station"); setDetailTarget(null); }}>주유소별</button>
-      <button type="button" aria-pressed={view === "basics"} onClick={() => { setView("basics"); setDetailTarget(null); }}>기초등록</button>
-    </nav>
+      <nav className="fuel-tabs" aria-label="유류관리 보기">
+        <button type="button" aria-pressed={view === "records"} onClick={() => { setView("records"); setDetailTarget(null); }}>주유내역</button>
+        <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
+        <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
+        <button type="button" aria-pressed={view === "station"} onClick={() => { setView("station"); setDetailTarget(null); }}>주유소별</button>
+      </nav>
+    </>}
 
     {view === "basics" ? <section className="fuel-master-grid">
       {masterGroups.map((group)=><article className="fuel-master-card" key={group.category}>
