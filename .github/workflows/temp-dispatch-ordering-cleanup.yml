@@ -1,0 +1,87 @@
+name: Temporary dispatch ordering cleanup
+on:
+  push:
+    branches:
+      - chore/dispatch-ordering-cleanup-20260914
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/dispatch-ordering-cleanup-20260914
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply dispatch ordering cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'{label} anchor not found')
+              p.write_text(text.replace(old, new, 1))
+
+          replace('src/features/dispatch/DispatchList.tsx',
+          '''  const filtered = useMemo(() => orders.filter((order) =>\n    (!filters.from || order.dispatch_date >= filters.from)\n    && (!filters.to || order.dispatch_date <= filters.to)\n    && (!filters.vendor || order.vendor_name.includes(filters.vendor.trim()))\n    && (!filters.item || order.item_name.includes(filters.item.trim()))\n    && (!filters.status || order.status === filters.status)\n  ).slice(0, compact ? 8 : undefined), [orders, filters, compact]);\n\n  const selectedOrder = orders.find((order) => order.id === selectedId) || (!compact ? filtered[0] : undefined);''',
+          '''  const filtered = useMemo(() => orders.filter((order) =>\n    (!filters.from || order.dispatch_date >= filters.from)\n    && (!filters.to || order.dispatch_date <= filters.to)\n    && (!filters.vendor || order.vendor_name.includes(filters.vendor.trim()))\n    && (!filters.item || order.item_name.includes(filters.item.trim()))\n    && (!filters.status || order.status === filters.status)\n  ).sort((a, b) => b.dispatch_date.localeCompare(a.dispatch_date)).slice(0, compact ? 8 : undefined), [orders, filters, compact]);\n\n  const selectedOrder = filtered.find((order) => order.id === selectedId) || (!compact ? filtered[0] : undefined);''',
+          'dispatch list ordering')
+
+          replace('src/features/dispatch/VehicleManagement.tsx',
+          '''  const [form, setForm] = useState<DispatchVehicle>(emptyVehicle);\n  const [error, setError] = useState(\"\");\n  const [editorOpen, setEditorOpen] = useState(false);''',
+          '''  const [form, setForm] = useState<DispatchVehicle>(emptyVehicle);\n  const [error, setError] = useState(\"\");\n  const [editorOpen, setEditorOpen] = useState(false);\n  const sortedVehicles = [...vehicles].sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, \"ko-KR\", { numeric: true, sensitivity: \"base\" }));''',
+          'vehicle sorted declaration')
+          replace('src/features/dispatch/VehicleManagement.tsx', 'vehicles.map((vehicle) => (', 'sortedVehicles.map((vehicle) => (', 'vehicle map')
+
+          replace('src/features/dispatch/DriverManagement.tsx',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : \"\";''',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const sortedVehicles = [...vehicles].sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, \"ko-KR\", { numeric: true, sensitivity: \"base\" }));\n  const sortedDrivers = [...drivers].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, \"ko-KR\", { numeric: true, sensitivity: \"base\" }));\n  const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : \"\";''',
+          'driver sorted declarations')
+          replace('src/features/dispatch/DriverManagement.tsx', '>{vehicles.map((vehicle) => <option', '>{sortedVehicles.map((vehicle) => <option', 'driver vehicle select')
+          text = Path('src/features/dispatch/DriverManagement.tsx').read_text()
+          text = text.replace('drivers.map((driver) => (', 'sortedDrivers.map((driver) => (')
+          Path('src/features/dispatch/DriverManagement.tsx').write_text(text)
+
+          replace('src/features/dispatch/DispatchBasics.tsx',
+          '''  const filteredItems = useMemo(() => {\n    const keyword = normalizeSearch(itemSearch);\n    return items.filter((item) => !keyword || normalizeSearch(`${item.name} ${item.memo}`).includes(keyword));\n  }, [items, itemSearch]);''',
+          '''  const sortedCustomers = useMemo(() => [...customers].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, \"ko-KR\", { numeric: true, sensitivity: \"base\" })), [customers]);\n  const sortedLocations = useMemo(() => [...locations].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, \"ko-KR\", { numeric: true, sensitivity: \"base\" })), [locations]);\n  const filteredItems = useMemo(() => {\n    const keyword = normalizeSearch(itemSearch);\n    return items\n      .filter((item) => !keyword || normalizeSearch(`${item.name} ${item.memo}`).includes(keyword))\n      .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, \"ko-KR\", { numeric: true, sensitivity: \"base\" }));\n  }, [items, itemSearch]);''',
+          'basics sorted declarations')
+          replace('src/features/dispatch/DispatchBasics.tsx', 'customers.map((customer) => <tr', 'sortedCustomers.map((customer) => <tr', 'customer map')
+          replace('src/features/dispatch/DispatchBasics.tsx', 'locations.map((location) => <tr', 'sortedLocations.map((location) => <tr', 'location map')
+
+          replace('src/features/dispatch/DispatchRegister.tsx',
+          '''  const selectableVehicles = useMemo(() => vehicles.filter((vehicle) => vehicle.active || form.vehicle_ids.includes(vehicle.id)), [vehicles, form.vehicle_ids]);''',
+          '''  const selectableVehicles = useMemo(() => vehicles\n    .filter((vehicle) => vehicle.active || form.vehicle_ids.includes(vehicle.id))\n    .sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, \"ko-KR\", { numeric: true, sensitivity: \"base\" })), [vehicles, form.vehicle_ids]);''',
+          'register vehicle ordering')
+
+          replace('src/features/dispatch/DispatchDetail.tsx',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const driverById = new Map(drivers.map((driver) => [driver.id, driver]));\n  const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no || a.created_at.localeCompare(b.created_at));''',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const driverById = new Map(drivers.map((driver) => [driver.id, driver]));\n  const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no\n    || (vehicleById.get(a.vehicle_id)?.vehicle_number || \"\").localeCompare(vehicleById.get(b.vehicle_id)?.vehicle_number || \"\", \"ko-KR\", { numeric: true, sensitivity: \"base\" })\n    || a.created_at.localeCompare(b.created_at));''',
+          'trip history ordering')
+          replace('src/features/dispatch/DispatchDetail.tsx',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const completedTrips = trips.filter((trip) => trip.status === \"완료\");''',
+          '''  const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));\n  const assignedVehicleIds = [...order.vehicle_ids].sort((a, b) => (vehicleById.get(a)?.vehicle_number || \"\").localeCompare(vehicleById.get(b)?.vehicle_number || \"\", \"ko-KR\", { numeric: true, sensitivity: \"base\" }));\n  const completedTrips = trips.filter((trip) => trip.status === \"완료\");''',
+          'assigned vehicles ordering declaration')
+          replace('src/features/dispatch/DispatchDetail.tsx', 'order.vehicle_ids.map((id) => <strong', 'assignedVehicleIds.map((id) => <strong', 'assigned vehicle map')
+
+          replace('src/features/dispatch/TransportResults.tsx',
+          '''          <h3>차량별 운행기록</h3>{[...new Set(group.rows.map(row => row.trip.vehicle_id))].map(id => { const rows = group.rows.filter(row => row.trip.vehicle_id === id); const days = groupTripRowsByDay(rows); return <details key={id}>''',
+          '''          <h3>차량별 운행기록</h3>{[...new Set(group.rows.map(row => row.trip.vehicle_id))].sort((a, b) => (vehicleNames.get(a) || '').localeCompare(vehicleNames.get(b) || '', 'ko-KR', { numeric: true, sensitivity: 'base' })).map(id => { const rows = group.rows.filter(row => row.trip.vehicle_id === id); const days = groupTripRowsByDay(rows); return <details key={id}>''',
+          'transport vehicle ordering')
+          PY
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/dispatch/DispatchList.tsx src/features/dispatch/VehicleManagement.tsx src/features/dispatch/DriverManagement.tsx src/features/dispatch/DispatchBasics.tsx src/features/dispatch/DispatchRegister.tsx src/features/dispatch/DispatchDetail.tsx src/features/dispatch/TransportResults.tsx
+          git commit -m "chore: normalize dispatch list ordering"
+          git push origin HEAD:chore/dispatch-ordering-cleanup-20260914
