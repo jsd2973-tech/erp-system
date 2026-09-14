@@ -1,0 +1,106 @@
+name: Temporary push settings all users
+on:
+  push:
+    branches:
+      - fix/push-settings-all-users-20260914
+permissions:
+  contents: write
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/push-settings-all-users-20260914
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Allow all authenticated users to configure and receive push
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          edge = Path('supabase/functions/dispatch-push/index.ts')
+          text = edge.read_text()
+          old = """    const admin=await checked(db.from('dispatch_admin_users').select('user_id').eq('user_id',user.id).maybeSingle());\n    const drivers=await checked(db.from('dispatch_drivers').select('id').eq('auth_user_id',user.id).eq('active',true).limit(1));\n    if(!admin && !drivers.length) return reply({error:'운행관리 담당 계정만 알림을 받을 수 있습니다.'},403);\n"""
+          if old not in text:
+              raise SystemExit('push authorization anchor not found')
+          text = text.replace(old, "    // Any authenticated ERP account may configure and register its own push notifications.\n", 1)
+          edge.write_text(text)
+
+          migration = Path('supabase/migrations/20260914014500_dispatch_push_all_authenticated_users.sql')
+          migration.write_text(r'''-- Allow every authenticated ERP account with a registered device to receive the push types it selected.
+-- Existing per-account preferences remain authoritative in the worker.
+
+create or replace function dispatch_push_private.capture_order() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare kind text; message text; notice uuid; recipient uuid;
+begin
+ if tg_op='INSERT' then kind:='새 배차';
+ elsif new.status='취소' and old.status is distinct from new.status then kind:='배차 취소';
+ elsif new.deleted_at is not null and old.deleted_at is null then kind:='배차 취소';
+ elsif new.total_volume is distinct from old.total_volume then kind:='물량 변경';
+ else return null;
+ end if;
+ message:=new.vendor_name||' · '||new.item_name||' · '||new.total_volume::text||'루베';
+ if kind='물량 변경' then message:=new.vendor_name||' · '||new.item_name||' '||old.total_volume::text||' → '||new.total_volume::text||'루베'; end if;
+ for recipient in
+  select distinct d.user_id
+  from public.dispatch_push_devices d
+ loop
+  insert into public.dispatch_push_notices(user_id,order_id,event_key,title,body)
+   values(recipient,new.id,txid_current()::text||':'||new.id||':'||kind,kind,message)
+   on conflict(user_id,event_key) do nothing returning id into notice;
+  if notice is not null then
+   insert into public.dispatch_push_deliveries(notice_id,endpoint)
+    select notice,endpoint from public.dispatch_push_devices where user_id=recipient;
+  end if;
+ end loop;
+ return null;
+exception when others then
+ raise warning 'dispatch push capture failed: %',sqlstate;
+ return null;
+end;
+$$;
+revoke all on function dispatch_push_private.capture_order() from public,anon,authenticated;
+
+create or replace function dispatch_push_private.capture_trip() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare recipient uuid; notice uuid;
+begin
+ if new.status <> '완료' or new.unloading_completed_at is null then return null; end if;
+ if tg_op='UPDATE' and old.status='완료' then return null; end if;
+ for recipient in
+  select distinct device.user_id
+  from public.dispatch_push_devices device
+  join public.dispatch_push_preferences prefs
+    on prefs.user_id=device.user_id and prefs.trip_progress
+ loop
+  insert into public.dispatch_push_notices(user_id,order_id,event_key,title,body)
+   values(recipient,new.dispatch_order_id,'trip-complete:'||new.id::text,'운송 잔여 물량','하차 완료 · 전송 시점의 누적·잔여 물량을 확인합니다.')
+   on conflict(user_id,event_key) do nothing returning id into notice;
+  if notice is not null then
+   insert into public.dispatch_push_deliveries(notice_id,endpoint)
+    select notice,endpoint from public.dispatch_push_devices where user_id=recipient;
+  end if;
+ end loop;
+ return null;
+exception when others then
+ raise warning 'dispatch push trip capture failed: %',sqlstate;
+ return null;
+end;
+$$;
+revoke all on function dispatch_push_private.capture_trip() from public,anon,authenticated;
+''')
+          PY
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/dispatch-push/index.ts supabase/migrations/20260914014500_dispatch_push_all_authenticated_users.sql
+          git commit -m "fix: allow push settings for all authenticated users"
+          git push origin HEAD:fix/push-settings-all-users-20260914
