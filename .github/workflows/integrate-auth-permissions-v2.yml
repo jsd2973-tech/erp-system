@@ -1,0 +1,63 @@
+name: Integrate auth permissions safely v2
+
+on:
+  push:
+    branches:
+      - integrate/auth-permissions-20260914
+    paths:
+      - .github/workflows/integrate-auth-permissions-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  merge-feature:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: integrate/auth-permissions-20260914
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch feature branch
+        run: git fetch origin fix/priority5-auth-bid-date
+
+      - name: Merge feature while preserving current main on conflicting hunks
+        run: |
+          git merge --no-ff -X ours origin/fix/priority5-auth-bid-date -m "merge: integrate auth permissions onto current main [auth-integration]"
+
+      - name: Preserve list edit permission in current mobile UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/features/dispatch/DispatchList.tsx')
+          s = p.read_text()
+          s = s.replace(
+              'onEdit={(order) => { closeDetail(); onEdit(order); }}',
+              'onEdit={canEdit ? ((order) => { closeDetail(); onEdit(order); }) : undefined}'
+          )
+          s = s.replace('onEdit={onEdit} />}</div></div>;', 'onEdit={canEdit ? onEdit : undefined} />}</div></div>;')
+          s = s.replace('onEdit={onEdit} showTrips={false}', 'onEdit={canEdit ? onEdit : undefined} showTrips={false}')
+          p.write_text(s)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit integration fixups
+        run: |
+          git add src/features/dispatch/DispatchList.tsx
+          git diff --cached --quiet || git commit -m "fix: preserve dispatch edit permission in merged mobile UI"
+
+      - name: Push integration branch
+        run: git push origin HEAD:integrate/auth-permissions-20260914
