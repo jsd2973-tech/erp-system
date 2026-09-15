@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "python3 scripts/fix_fuel_import_without_site.py",
+    "prebuild": "python3 scripts/fix_fuel_import_without_site.py && python3 scripts/fix_fuel_receipt_inline_preview.py",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -15,7 +15,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^1.9.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react-dom": "^19.2.3",
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5",
     "xlsx-js-style": "^1.2.0"
@@ -27,7 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
