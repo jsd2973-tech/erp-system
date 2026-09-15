@@ -22,9 +22,15 @@ receipt_button_old = '<button className={`fuel-receipt-state ${record.receipt_pa
 receipt_button_new = '<button className={`fuel-receipt-state ${record.receipt_path ? "is-attached" : ""}`} type="button" disabled={receiptBusy} onClick={() => void toggleMobileReceipt(record)}><Paperclip size={13} /> {record.receipt_path ? (mobileReceiptPreview?.id === record.id ? "영수증 닫기" : "첨부됨") : "미첨부"}</button>'
 if receipt_button_new not in s:
     count = s.count(receipt_button_old)
-    if count < 2:
-        raise SystemExit(f'desktop receipt buttons not found: {count}')
-    s = s.replace(receipt_button_old, receipt_button_new, 2)
+    if count < 1:
+        raise SystemExit('desktop receipt status button not found')
+    s = s.replace(receipt_button_old, receipt_button_new)
+
+# Older/detail markup can still be an icon-only button depending on the source shape.
+detail_icon_old = '<button className="fuel-icon-button" type="button" title={record.receipt_path ? "영수증 보기/교체" : "영수증 첨부"} onClick={() => setReceiptTarget({ ...record })}><Paperclip size={15} /></button>'
+detail_icon_new = '<button className={`fuel-receipt-state ${record.receipt_path ? "is-attached" : ""}`} type="button" disabled={receiptBusy} onClick={() => void toggleMobileReceipt(record)}><Paperclip size={13} /> {record.receipt_path ? (mobileReceiptPreview?.id === record.id ? "영수증 닫기" : "첨부됨") : "미첨부"}</button>'
+if detail_icon_old in s:
+    s = s.replace(detail_icon_old, detail_icon_new, 1)
 
 replace_once(
     'filtered.map((record) => <tr key={record.id}>',
