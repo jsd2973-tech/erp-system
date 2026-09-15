@@ -36,16 +36,16 @@ if 'const replaceReceiptForRecord = (record: FuelRecord)' not in s:
 actions = '''<div className="fuel-inline-receipt-actions"><button type="button" disabled={receiptBusy} onClick={() => replaceReceiptForRecord(record)}><Upload size={14} /> 영수증 교체</button><button type="button" className="is-danger" disabled={receiptBusy} onClick={() => void deleteReceiptForRecord(record)}><Trash2 size={14} /> 영수증 삭제</button></div>'''
 
 mobile_old = '''<div className="fuel-mobile-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div>'''
-mobile_new = mobile_old + actions
-if actions not in s:
+mobile_new = '''<div className="fuel-inline-receipt-shell">''' + mobile_old + actions + '''</div>'''
+if 'fuel-inline-receipt-shell' not in s:
     count = s.count(mobile_old)
     if count < 2:
         raise SystemExit(f'mobile inline receipt anchors not found: {count}')
     s = s.replace(mobile_old, mobile_new, 2)
 
 pc_old = '''<div className="fuel-desktop-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div>'''
-pc_new = pc_old + actions
-if s.count(actions) < 4:
+pc_new = '''<div className="fuel-inline-receipt-shell">''' + pc_old + actions + '''</div>'''
+if s.count('fuel-inline-receipt-shell') < 4:
     count = s.count(pc_old)
     if count < 2:
         raise SystemExit(f'PC inline receipt anchors not found: {count}')
@@ -56,8 +56,8 @@ source.write_text(s)
 css_path = Path('src/features/fuel/fuelManagement.css')
 css = css_path.read_text()
 css_add = '''
-.fuel-inline-receipt-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 14px 14px}.fuel-inline-receipt-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:9px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer}.fuel-inline-receipt-actions button:hover{background:#f8fafc}.fuel-inline-receipt-actions button.is-danger{border-color:#fecaca;color:#b91c1c;background:#fff7f7}.fuel-inline-receipt-actions button.is-danger:hover{background:#fef2f2}.fuel-inline-receipt-actions button:disabled{opacity:.55;cursor:not-allowed}@media(max-width:760px){.fuel-inline-receipt-actions{padding:8px 0 2px;display:grid;grid-template-columns:1fr 1fr}.fuel-inline-receipt-actions button{width:100%;padding:10px 8px}}
+.fuel-inline-receipt-shell{width:100%}.fuel-inline-receipt-actions{display:flex;justify-content:flex-end;gap:8px;padding:0 14px 14px}.fuel-inline-receipt-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:9px;padding:8px 11px;font-size:12px;font-weight:800;cursor:pointer}.fuel-inline-receipt-actions button:hover{background:#f8fafc}.fuel-inline-receipt-actions button.is-danger{border-color:#fecaca;color:#b91c1c;background:#fff7f7}.fuel-inline-receipt-actions button.is-danger:hover{background:#fef2f2}.fuel-inline-receipt-actions button:disabled{opacity:.55;cursor:not-allowed}@media(max-width:760px){.fuel-inline-receipt-actions{padding:8px 0 2px;display:grid;grid-template-columns:1fr 1fr}.fuel-inline-receipt-actions button{width:100%;padding:10px 8px}}
 '''
-if '.fuel-inline-receipt-actions{' not in css:
+if '.fuel-inline-receipt-shell{' not in css:
     css += css_add
     css_path.write_text(css)
