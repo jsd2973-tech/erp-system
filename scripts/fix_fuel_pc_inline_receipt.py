@@ -26,7 +26,6 @@ if receipt_button_new not in s:
         raise SystemExit('desktop receipt status button not found')
     s = s.replace(receipt_button_old, receipt_button_new)
 
-# Older/detail markup can still be an icon-only button depending on the source shape.
 detail_icon_old = '<button className="fuel-icon-button" type="button" title={record.receipt_path ? "영수증 보기/교체" : "영수증 첨부"} onClick={() => setReceiptTarget({ ...record })}><Paperclip size={15} /></button>'
 detail_icon_new = '<button className={`fuel-receipt-state ${record.receipt_path ? "is-attached" : ""}`} type="button" disabled={receiptBusy} onClick={() => void toggleMobileReceipt(record)}><Paperclip size={13} /> {record.receipt_path ? (mobileReceiptPreview?.id === record.id ? "영수증 닫기" : "첨부됨") : "미첨부"}</button>'
 if detail_icon_old in s:
@@ -38,8 +37,10 @@ replace_once(
     'main desktop row fragment start',
 )
 
-main_row_end = '''</div></td>\n          </tr>)}</tbody>'''
-main_preview = '''</div></td>\n          </tr>{mobileReceiptPreview?.id === record.id && <tr className="fuel-desktop-receipt-row"><td colSpan={13}><div className="fuel-desktop-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div></td></tr>}</Fragment>)}</tbody>'''
+main_row_end = '''          </tr>)}
+        </tbody>'''
+main_preview = '''          </tr>{mobileReceiptPreview?.id === record.id && <tr className="fuel-desktop-receipt-row"><td colSpan={13}><div className="fuel-desktop-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div></td></tr>}</Fragment>)}
+        </tbody>'''
 replace_once(main_row_end, main_preview, 'main desktop inline receipt')
 
 replace_once(
