@@ -2,25 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx-js-style";
 import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
+import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";
 import "./fuelManagement.css";
 
-type FuelRecord = {
-  id: string;
-  fuel_date: string;
-  site_name: string;
-  product_name: string;
-  vehicle_number: string;
-  usage_count: number;
-  quantity: number;
-  line_amount: number;
-  unit_price: number;
-  supply_amount: number;
-  vat_amount: number;
-  total_amount: number;
-  station_name: string;
+type FuelRecord = FuelStatementRecord & {
   source_file?: string | null;
   source_fingerprint?: string | null;
-  memo?: string | null;
   receipt_path?: string | null;
   receipt_name?: string | null;
   receipt_mime_type?: string | null;
@@ -36,7 +23,10 @@ type ViewMode = "records" | "vehicle" | "site" | "station" | "basics";
 
 type Props = {
   supabase: SupabaseClient;
+  vendors?: FuelStatementParty[];
 };
+
+const EMPTY_STATEMENT_PARTIES: FuelStatementParty[] = [];
 
 const todayKey = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const currentMonth = () => todayKey().slice(0, 7);
@@ -234,7 +224,7 @@ const emptyManual = () => ({
   fuel_date: todayKey(), site_name: "공장", product_name: "경유", vehicle_number: "", quantity: "", unit_price: "", station_name: "남세종농협주유소", memo: "",
 });
 
-export default function FuelManagement({ supabase }: Props) {
+export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PARTIES }: Props) {
   const [month, setMonth] = useState(currentMonth);
   const [records, setRecords] = useState<FuelRecord[]>([]);
   const [referenceRecords, setReferenceRecords] = useState<FuelRecord[]>([]);
@@ -465,21 +455,18 @@ export default function FuelManagement({ supabase }: Props) {
   };
   const exportStatementExcel = () => {
     if (!filtered.length) return setError("다운로드할 유류내역이 없습니다.");
-    const wb = XLSX.utils.book_new(); const stationGroups = new Map<string, FuelRecord[]>();
-    filtered.forEach((record) => { const station = record.station_name || "미지정 주유소"; stationGroups.set(station, [...(stationGroups.get(station) || []), record]); });
-    [...stationGroups.entries()].sort(([a], [b]) => natural(a, b)).forEach(([station, rows], index) => {
-      const ordered=[...rows].sort((a,b)=>natural(a.site_name,b.site_name)||natural(a.product_name,b.product_name)||natural(a.vehicle_number,b.vehicle_number)||a.fuel_date.localeCompare(b.fuel_date));
-      const header=["현장명","제품명/규격","차량번호","일자","횟수","수량","단가(원/대)","단가(원/단위)","공급가액","부가세","합계금액"];
-      const body=ordered.map((record)=>[record.site_name,record.product_name,record.vehicle_number,record.fuel_date,record.usage_count,record.quantity,record.line_amount,record.unit_price,record.supply_amount,record.vat_amount,record.total_amount]);
-      const sums=ordered.reduce((acc,record)=>({count:acc.count+record.usage_count,qty:acc.qty+record.quantity,supply:acc.supply+record.supply_amount,vat:acc.vat+record.vat_amount,total:acc.total+record.total_amount}),{count:0,qty:0,supply:0,vat:0,total:0});
-      const aoa=[[`${month.replace("-","년 ")}월 유류 거래명세서`],["주유처",station],["조회기간",`${month}-01 ~ ${monthBounds(month).to}`],["총 합계",sums.total,"원","총 수량",sums.qty,"L","주유횟수",sums.count,"회"],[],header,...body,["합계","","","",sums.count,sums.qty,"","",sums.supply,sums.vat,sums.total]];
-      const ws=XLSX.utils.aoa_to_sheet(aoa); ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:10}}]; ws["!cols"]=[16,17,18,13,9,11,14,15,14,12,15].map((wch)=>({wch}));
-      if(ws["A1"]) ws["A1"].s={font:{name:"맑은 고딕",sz:18,bold:true,color:{rgb:"FFFFFF"}},fill:{patternType:"solid",fgColor:{rgb:"12324A"}},alignment:{horizontal:"left",vertical:"center"}};
-      ["A2","A3","A4","D4","G4"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"52677A"}},alignment:{vertical:"center"}}; }); ["B2","B3","B4","E4","H4"].forEach((ref)=>{ if(ws[ref]) ws[ref].s={font:{name:"맑은 고딕",sz:10,bold:true,color:{rgb:"12324A"}},alignment:{vertical:"center"}}; });
-      ["B4","E4","H4"].forEach((ref)=>{ if(ws[ref]) ws[ref].z="#,##0"; });
-      const lastRow=aoa.length-1; applyModernSheetStyle(ws,5,lastRow,10,lastRow); for(let r=6;r<=lastRow;r+=1){ [4,5,6,7,8,9,10].forEach((c)=>{ const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell) cell.z="#,##0"; }); } (ws["!rows"] ||= [])[0]={hpt:32};
-      const safeName=(station.replace(/[\\/?*\\[\\]:]/g," ").trim() || `주유소${index+1}`).slice(0,31); XLSX.utils.book_append_sheet(wb,ws,safeName);
-    }); XLSX.writeFile(wb,`유류거래명세서_주유소별_${month}.xlsx`);
+    const filterSummary = [
+      site ? `현장: ${site}` : "전체 현장",
+      product ? `유종: ${product}` : "전체 유종",
+      vehicleSearch.trim() ? `차량/장비: ${vehicleSearch.trim()}` : "전체 차량/장비",
+    ].join(" · ");
+    const workbook = buildFuelStatementWorkbook(filtered, {
+      month,
+      issueDate: todayKey(),
+      filterSummary,
+      parties: vendors,
+    });
+    XLSX.writeFile(workbook, `유류거래명세서_${month}.xlsx`);
   };
 
   const onFile = async (file?: File) => {

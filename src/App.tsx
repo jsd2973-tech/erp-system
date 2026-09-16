@@ -7198,7 +7198,7 @@ export default function App() {
 
         {menuTab === "bid_notices" && <BidNoticePage currentRole={currentRole} />}
 
-        {menuTab === "fuel_management" && canAccessTab("fuel_management") && <FuelManagement supabase={supabase} />}
+        {menuTab === "fuel_management" && canAccessTab("fuel_management") && <FuelManagement supabase={supabase} vendors={vendors} />}
 
         {DISPATCH_VIEWS.includes(menuTab as DispatchView) && canAccessTab(menuTab) && (
           <DispatchPage
