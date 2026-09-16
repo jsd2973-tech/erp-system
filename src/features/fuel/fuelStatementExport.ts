@@ -260,7 +260,7 @@ const detailDataRow = (record: FuelStatementRecord, showGroup: boolean) => {
     supply,
     finite(record.vat_amount),
     finite(record.total_amount),
-    text(record.memo),
+    "",
   ];
 };
 
