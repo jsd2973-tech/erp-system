@@ -1,0 +1,104 @@
+/* Alignment-only refinements for the dispatch workspace.
+   Keep labels, free-text inputs, and long activity records readable on the left. */
+
+/* Navigation and action labels should not inherit an inconsistent browser default. */
+.dispatch-page .dispatch-tabs button,
+.dispatch-page .dispatch-basic-tabs button,
+.dispatch-page .dispatch-hero button,
+.dispatch-page .dispatch-filter-reset,
+.dispatch-page .dispatch-table button,
+.dispatch-page .dispatch-detail-actions button,
+.dispatch-page .dispatch-management-actions button,
+.dispatch-page .dispatch-mobile-detail-header button,
+.dispatch-page .dispatch-mobile-edit-button {
+  text-align: center;
+}
+
+/* The desktop navigation is a centered group across the full content width. */
+@media (min-width: 761px) {
+  .dispatch-page > .dispatch-tabs {
+    justify-content: center;
+  }
+
+  .dispatch-page .dispatch-table th,
+  .dispatch-page .dispatch-table td {
+    text-align: center;
+  }
+
+  /* Long descriptive columns stay left-aligned for faster reading. */
+  .dispatch-page .dispatch-order-table th:nth-child(4),
+  .dispatch-page .dispatch-order-table th:nth-child(5),
+  .dispatch-page .dispatch-order-table th:nth-child(10),
+  .dispatch-page .dispatch-order-table td:nth-child(4),
+  .dispatch-page .dispatch-order-table td:nth-child(5),
+  .dispatch-page .dispatch-order-table td:nth-child(10),
+  .dispatch-page .dispatch-trip-history .dispatch-table th:nth-child(2),
+  .dispatch-page .dispatch-trip-history .dispatch-table th:nth-child(3),
+  .dispatch-page .dispatch-trip-history .dispatch-table td:nth-child(2),
+  .dispatch-page .dispatch-trip-history .dispatch-table td:nth-child(3),
+  .dispatch-page .dispatch-trash-table th:nth-child(3),
+  .dispatch-page .dispatch-trash-table th:nth-child(4),
+  .dispatch-page .dispatch-trash-table td:nth-child(3),
+  .dispatch-page .dispatch-trash-table td:nth-child(4) {
+    text-align: left;
+  }
+}
+
+/* Basic-data tabs remain compact, but sit in the visual center of their panel. */
+.dispatch-page .dispatch-basic-tabs {
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Transport report: period controls, KPI values, headings, and summary metrics share
+   one centered axis on PC and phone. Split label/value rows below remain intentional. */
+.dispatch-page .transport-results .transport-quick-filters button,
+.dispatch-page .transport-results .transport-date-filters button,
+.dispatch-page .transport-results .transport-tabs button,
+.dispatch-page .transport-results .transport-date-filters label,
+.dispatch-page .transport-results .transport-date-filters input,
+.dispatch-page .transport-results .transport-period,
+.dispatch-page .transport-results .transport-kpis article,
+.dispatch-page .transport-results .transport-kpis strong,
+.dispatch-page .transport-results .transport-columns,
+.dispatch-page .transport-results .transport-group > summary,
+.dispatch-page .transport-results .transport-group-main,
+.dispatch-page .transport-results .transport-group-stats,
+.dispatch-page .transport-results .transport-breakdown h3,
+.dispatch-page .transport-results .transport-vehicle-detail > summary,
+.dispatch-page .transport-results .transport-trip-day h4 {
+  text-align: center;
+}
+
+.dispatch-page .transport-results .transport-tabs,
+.dispatch-page .transport-results .transport-detail-kpis {
+  justify-content: center;
+}
+
+/* Driver status: KPI/detail values are scan points; the master list and trip rows
+   retain their left/right layout for names, times, and descriptions. */
+.dispatch-page .driver-status-dashboard .driver-status-kpis > div,
+.dispatch-page .driver-status-dashboard .driver-detail-current,
+.dispatch-page .driver-status-dashboard .driver-detail-stats > div {
+  text-align: center;
+}
+
+/* On phones, center the management card's state and primary edit control without
+   changing the two-column label/value layout. */
+@media (max-width: 760px) {
+  .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="상태"] {
+    text-align: center !important;
+  }
+
+  .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="상태"] .dispatch-active-pill,
+  .dispatch-page .dispatch-record-table:not(.dispatch-order-table) td[data-label="관리"] button,
+  .dispatch-page .dispatch-management-mobile-card .dispatch-mobile-edit-button {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .dispatch-page .transport-results .transport-tabs {
+    width: 100%;
+  }
+}
