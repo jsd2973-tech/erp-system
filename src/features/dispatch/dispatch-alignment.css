@@ -278,3 +278,40 @@
     text-align: center;
   }
 
+  .dispatch-page .transport-results .transport-trip-day li > b {
+    justify-items: center;
+  }
+
+  .dispatch-page .transport-results .transport-drilldown-header {
+    position: relative;
+    display: block;
+    padding: 16px 52px 12px;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-drilldown-header > div {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-drilldown-close {
+    position: absolute;
+    top: 16px;
+    right: 14px;
+  }
+
+  .dispatch-page .transport-results .transport-drilldown-kpis {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-drilldown-kpis > span,
+  .dispatch-page .transport-results .transport-drilldown-row > span,
+  .dispatch-page .transport-results .transport-drilldown-row strong,
+  .dispatch-page .transport-results .transport-drilldown-row small,
+  .dispatch-page .transport-results .transport-drilldown-row > span:nth-child(5) strong,
+  .dispatch-page .transport-results .transport-drilldown-row > span:nth-child(5) small,
+  .dispatch-page .transport-results .transport-drilldown-row > span:nth-child(6) strong,
+  .dispatch-page .transport-results .transport-drilldown-row > span:nth-child(6) small {
+    text-align: center;
+  }
+}
