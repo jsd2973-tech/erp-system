@@ -453,18 +453,22 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     const lastRow=aoa.length-1; applyModernSheetStyle(ws,4,lastRow,11,lastRow); for(let r=5;r<=lastRow;r+=1){ [5,6,7,8,9].forEach((c)=>{ const cell=ws[XLSX.utils.encode_cell({r,c})]; if(cell) cell.z="#,##0"; }); } (ws["!rows"] ||= [])[0]={hpt:32};
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"유류내역"); XLSX.writeFile(wb,`유류내역_${month}.xlsx`);
   };
-  const exportStatementExcel = () => {
+  const exportStatementExcel = async () => {
     if (!filtered.length) return setError("다운로드할 유류내역이 없습니다.");
     const filterSummary = [
       site ? `현장: ${site}` : "전체 현장",
       product ? `유종: ${product}` : "전체 유종",
       vehicleSearch.trim() ? `차량/장비: ${vehicleSearch.trim()}` : "전체 차량/장비",
     ].join(" · ");
+    const { data: freshVendors } = await supabase
+      .from("vendors")
+      .select("code,name,owner,phone,mobile,address,address_detail")
+      .order("code");
     const workbook = buildFuelStatementWorkbook(filtered, {
       month,
       issueDate: todayKey(),
       filterSummary,
-      parties: vendors,
+      parties: (freshVendors?.length ? freshVendors : vendors) as FuelStatementParty[],
     });
     XLSX.writeFile(workbook, `유류거래명세서_${month}.xlsx`);
   };
