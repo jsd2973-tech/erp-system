@@ -108,13 +108,20 @@ const averageUnitPrice = (totals: StatementTotals) => totals.quantity ? totals.s
 const partyAddress = (party: FuelStatementParty) => [party.address, party.address_detail].map(text).filter(Boolean).join(" ") || "-";
 const partyPhone = (party: FuelStatementParty) => [text(party.phone), text(party.mobile)].filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join(" · ") || "-";
 const partyField = (value: unknown) => text(value) || "-";
+const partyCompleteness = (party: FuelStatementParty) => [party.code, party.owner, party.phone, party.mobile, party.address, party.address_detail].filter((value) => Boolean(text(value))).length;
 
 const resolveParty = (name: string, parties: FuelStatementParty[], displayName: string): FuelStatementParty => {
   const target = compact(name);
-  const match = parties.find((party) => {
-    const candidate = compact(party.name);
-    return Boolean(candidate) && (candidate === target || candidate.includes(target) || target.includes(candidate));
-  });
+  const match = parties
+    .map((party) => ({ party, candidate: compact(party.name) }))
+    .filter(({ candidate }) => Boolean(candidate) && (candidate === target || candidate.includes(target) || target.includes(candidate)))
+    .sort((left, right) => {
+      const exactMatch = Number(right.candidate === target) - Number(left.candidate === target);
+      if (exactMatch !== 0) return exactMatch;
+      const nameLength = right.candidate.length - left.candidate.length;
+      if (nameLength !== 0) return nameLength;
+      return partyCompleteness(right.party) - partyCompleteness(left.party);
+    })[0]?.party;
   return {
     ...(match || {}),
     name: displayName,
