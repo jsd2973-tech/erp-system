@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "python3 scripts/fix_fuel_import_without_site.py && python3 scripts/fix_fuel_receipt_inline_preview.py && python3 scripts/fix_fuel_pc_inline_receipt.py && python3 scripts/fix_fuel_receipt_inline_actions.py && python3 scripts/apply_dispatch_trip_location_ui.py && python3 scripts/refine_dispatch_location_ui.py && python3 scripts/apply_driver_location_permission_prompt.py && python3 scripts/apply_dispatch_manager_role.py && python3 scripts/apply_dispatch_manager_dashboard.py && python3 scripts/apply_dispatch_status_trip_locations.py && python3 scripts/apply_dispatch_status_driver_progress.py && python3 scripts/apply_ecount_vendor_import.py && python3 scripts/apply_basic_master_data_ui.py",
+    "prebuild": "python3 scripts/fix_fuel_import_without_site.py && python3 scripts/fix_fuel_receipt_inline_preview.py && python3 scripts/fix_fuel_pc_inline_receipt.py && python3 scripts/fix_fuel_receipt_inline_actions.py && python3 scripts/apply_dispatch_trip_location_ui.py && python3 scripts/refine_dispatch_location_ui.py && python3 scripts/apply_driver_location_permission_prompt.py && python3 scripts/apply_dispatch_manager_role.py && python3 scripts/apply_dispatch_manager_dashboard.py && python3 scripts/apply_dispatch_status_trip_locations.py && python3 scripts/apply_dispatch_status_driver_progress.py && python3 scripts/apply_ecount_vendor_import.py && python3 scripts/apply_basic_master_data_ui.py && python3 scripts/apply_vendor_list_excel_export.py",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
