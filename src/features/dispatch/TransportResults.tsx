@@ -291,7 +291,6 @@ export default function TransportResults({ supabase, vehicles, drivers }: {
           ["투입 차량", result.rows.length ? countText(result.vehicles) : "—", "대", "secondary"],
         ].map(([label, value, unit, tone]) => <article key={label} className={tone}><span>{label}</span><strong>{value}<small>{value === "—" ? "" : unit}</small></strong></article>)}
       </div>
-      <p className="transport-help">완료된 trip의 실제 <code>actual_volume</code> 합계입니다. 같은 차량의 여러 회차는 완료 운행으로 각각 계산합니다.</p>
       {result.fallback > 0 && <p className="transport-info">하차완료 시각이 없는 {countText(result.fallback)}건은 배차일을 기준으로 보완했습니다.</p>}
       {(result.invalid > 0 || result.unlinked > 0) && <p className="transport-warning">{result.invalid > 0 && "날짜 또는 물량 확인이 필요한 " + countText(result.invalid) + "건은 집계에서 제외했습니다. "}{result.unlinked > 0 && "배차 연결을 확인할 " + countText(result.unlinked) + "건은 ‘확인 필요’로 표시합니다."}</p>}
 
