@@ -10,7 +10,8 @@ export type ResultOrder = Pick<
 
 export type ResultTrip = Pick<
   DispatchTrip,
-  "id" | "dispatch_order_id" | "vehicle_id" | "trip_no" | "status" | "actual_volume" | "unloading_completed_at"
+  "id" | "dispatch_order_id" | "vehicle_id" | "driver_id" | "trip_no" | "status" | "actual_volume"
+  | "created_at" | "loading_completed_at" | "unloading_completed_at"
 >;
 
 export type ResultRow = {
@@ -39,6 +40,18 @@ export type ResultDayGroup = {
   rows: ResultRow[];
   tripCount: number;
   volume: number;
+};
+
+export type TransportResultSummary = {
+  rows: ResultRow[];
+  invalid: number;
+  unlinked: number;
+  fallback: number;
+  volume: number;
+  averageVolume: number;
+  vehicles: number;
+  vendors: number;
+  items: number;
 };
 
 const dateOnly = (value: string) => {
@@ -88,7 +101,7 @@ export const sumVolume = (rows: ResultRow[]) => Math.round(rows.reduce((sum, row
 
 export const vehicleCount = (rows: ResultRow[]) => new Set(rows.map(row => row.trip.vehicle_id).filter(Boolean)).size;
 
-export function summarizeResults(trips: ResultTrip[], orders: ResultOrder[], from: string, to: string) {
+export function summarizeResults(trips: ResultTrip[], orders: ResultOrder[], from: string, to: string): TransportResultSummary {
   periodBounds(from, to);
   const lookup = new Map(orders.map(order => [order.id, order]));
   const seen = new Set<string>();
