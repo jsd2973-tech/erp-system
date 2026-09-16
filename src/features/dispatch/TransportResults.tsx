@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DispatchVehicle } from "./dispatchTypes";
+import { Download, X } from "lucide-react";
+import type { DispatchDriver, DispatchVehicle } from "./dispatchTypes";
 import { formatVolume } from "./dispatchUtils";
 import {
   groupResults,
@@ -15,6 +16,7 @@ import {
   type ResultRow,
   type ResultTrip,
 } from "./transportResults";
+import { downloadTransportResultsWorkbook } from "./transportResultsExport";
 import "./transportResults.css";
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
@@ -30,6 +32,11 @@ const timeFormatter = new Intl.DateTimeFormat("ko-KR", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const clockFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 const countText = (value: number) => value.toLocaleString("ko-KR");
 const volumeValue = (value: number) => formatVolume(value).replace(/루베$/, "");
@@ -42,6 +49,11 @@ const timeText = (stamp: string | null) => {
   if (!stamp) return "-";
   const date = new Date(stamp);
   return Number.isFinite(date.getTime()) ? timeFormatter.format(date) : "-";
+};
+const clockText = (stamp: string | null) => {
+  if (!stamp) return "-";
+  const date = new Date(stamp);
+  return Number.isFinite(date.getTime()) ? clockFormatter.format(date) : "-";
 };
 
 const sortTripRows = (rows: ResultRow[]) => [...rows].sort((a, b) =>
@@ -66,7 +78,17 @@ const presetLabels: Array<{ key: Exclude<ResultPeriodPreset, "custom">; label: s
   { key: "month", label: "이번달" },
 ];
 
-export default function TransportResults({ supabase, vehicles }: { supabase: SupabaseClient; vehicles: DispatchVehicle[] }) {
+type DrilldownDetail = {
+  title: string;
+  rows: ResultRow[];
+  scope: string;
+};
+
+export default function TransportResults({ supabase, vehicles, drivers }: {
+  supabase: SupabaseClient;
+  vehicles: DispatchVehicle[];
+  drivers: DispatchDriver[];
+}) {
   const initialRange = periodForPreset("today");
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
@@ -91,7 +113,7 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
           while (true) {
             let query = supabase
               .from("dispatch_trips")
-              .select("id,dispatch_order_id,vehicle_id,trip_no,status,actual_volume,unloading_completed_at")
+              .select("id,dispatch_order_id,vehicle_id,driver_id,trip_no,status,actual_volume,created_at,loading_completed_at,unloading_completed_at")
               .eq("status", "완료")
               .gte("unloading_completed_at", bounds.start)
               .lt("unloading_completed_at", bounds.end)
@@ -137,7 +159,7 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
             while (true) {
               let query = supabase
                 .from("dispatch_trips")
-                .select("id,dispatch_order_id,vehicle_id,trip_no,status,actual_volume,unloading_completed_at")
+                .select("id,dispatch_order_id,vehicle_id,driver_id,trip_no,status,actual_volume,created_at,loading_completed_at,unloading_completed_at")
                 .eq("status", "완료")
                 .is("unloading_completed_at", null)
                 .in("dispatch_order_id", orderIds.slice(i, i + 100))
@@ -197,6 +219,10 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
   );
   const groups = useMemo(() => result ? groupResults(result.rows, by, result.volume) : [], [result, by]);
   const vehicleNames = useMemo(() => new Map(vehicles.map(vehicle => [vehicle.id, vehicle.vehicle_number])), [vehicles]);
+  const driverNames = useMemo(() => new Map(drivers.map(driver => [driver.id, driver.name])), [drivers]);
+  const [drilldown, setDrilldown] = useState<DrilldownDetail | null>(null);
+  const drilldownScope = `${period.from}:${period.to}:${by}`;
+  const openDrilldown = (detail: Omit<DrilldownDetail, "scope">) => setDrilldown({ ...detail, scope: drilldownScope });
 
   const setRange = (nextFrom: string, nextTo: string, nextPreset: ResultPeriodPreset) => {
     try {
@@ -245,7 +271,10 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
       <div className="transport-date-filters">
         <label>시작일<input type="date" value={from} onChange={event => updateDate("from", event.target.value)} /></label>
         <label>종료일<input type="date" value={to} onChange={event => updateDate("to", event.target.value)} /></label>
-        <button type="button" onClick={() => setPeriod(current => ({ ...current, refresh: current.refresh + 1 }))}>{loading ? "조회 중…" : "새로고침"}</button>
+        <div className="transport-date-actions">
+          <button type="button" onClick={() => setPeriod(current => ({ ...current, refresh: current.refresh + 1 }))}>{loading ? "조회 중…" : "새로고침"}</button>
+          <button type="button" className="transport-export-button" disabled={loading || !result?.rows.length} onClick={() => result && downloadTransportResultsWorkbook(result, { from: period.from, to: period.to, preset: period.preset, activeBy: by, vehicleNames, driverNames })}><Download size={15} aria-hidden="true" />엑셀</button>
+        </div>
       </div>
     </div>
 
@@ -273,13 +302,20 @@ export default function TransportResults({ supabase, vehicles }: { supabase: Sup
 
       {!groups.length ? <div className="transport-empty"><strong>선택한 기간의 완료 운송실적이 없습니다.</strong><span>완료된 trip이 있는 기간을 선택하면 거래처·품목별 실적이 표시됩니다.</span></div> : <div className="transport-groups">
         <div className="transport-columns"><span>{by === "item" ? "품목" : "거래처"}</span><span>완료 운행</span><span>운송량</span><span>비중</span></div>
-        {groups.map(group => <ResultGroupDetails key={by + ":" + group.key} group={group} by={by} vehicleNames={vehicleNames} />)}
+        {groups.map(group => <ResultGroupDetails key={by + ":" + group.key} group={group} by={by} vehicleNames={vehicleNames} driverNames={driverNames} onOpenDetail={openDrilldown} />)}
       </div>}
     </>}
+    {drilldown && drilldown.scope === drilldownScope && result && <TransportDrilldownModal detail={drilldown} period={{ from: period.from, to: period.to }} vehicleNames={vehicleNames} driverNames={driverNames} onClose={() => setDrilldown(null)} />}
   </section>;
 }
 
-function ResultGroupDetails({ group, by, vehicleNames }: { group: ResultGroup; by: "item" | "vendor"; vehicleNames: Map<string, string> }) {
+function ResultGroupDetails({ group, by, vehicleNames, driverNames, onOpenDetail }: {
+  group: ResultGroup;
+  by: "item" | "vendor";
+  vehicleNames: Map<string, string>;
+  driverNames: Map<string, string>;
+  onOpenDetail: (detail: Omit<DrilldownDetail, "scope">) => void;
+}) {
   const subGroups = groupResults(group.rows, by === "vendor" ? "item" : "vendor", group.volume);
   const dayGroups = groupResultsByDay(group.rows);
   const vehicleIds = [...new Set(group.rows.map(row => row.trip.vehicle_id).filter(Boolean))]
@@ -287,21 +323,53 @@ function ResultGroupDetails({ group, by, vehicleNames }: { group: ResultGroup; b
 
   return <details className="transport-group">
     <summary>
-      <span className="transport-group-main"><strong>{group.name}</strong><small>전체의 {percentText(group.percentage)}</small><i aria-hidden="true"><b style={{ width: String(Math.min(100, Math.max(0, group.percentage))) + "%" }} /></i></span>
+      <span className="transport-group-main"><strong>{group.name}</strong><small>전체의 {percentText(group.percentage)} · 클릭하여 상세보기</small><i aria-hidden="true"><b style={{ width: String(Math.min(100, Math.max(0, group.percentage))) + "%" }} /></i></span>
       <span className="transport-group-stats"><span><em>완료</em>{countText(group.tripCount)}회</span><b><em>운송량</em>{volumeValue(group.volume)}루베</b><span><em>차량</em>{countText(group.vehicles)}대</span></span>
     </summary>
     <div className="transport-breakdown">
       <div className="transport-detail-kpis"><span>완료 운행 <b>{countText(group.tripCount)}회</b></span><span>총 운송량 <b>{volumeValue(group.volume)}루베</b></span><span>전체 비중 <b>{percentText(group.percentage)}</b></span></div>
       <h3>날짜별 실적</h3>
-      <div className="transport-breakdown-list transport-day-list">{dayGroups.map(day => <div key={day.day}><strong>{dayText(day.day)}</strong><span>{countText(day.tripCount)}회 · {volumeValue(day.volume)}루베</span></div>)}</div>
+      <div className="transport-breakdown-list transport-day-list">{dayGroups.map(day => <button key={day.day} type="button" className="transport-day-drilldown" onClick={() => onOpenDetail({ title: `${group.name} · ${dayText(day.day)}`, rows: day.rows })}><strong>{dayText(day.day)}</strong><span>{countText(day.tripCount)}회 · {volumeValue(day.volume)}루베 <small>상세보기 ›</small></span></button>)}</div>
       <h3>{by === "vendor" ? "품목별 상세" : "거래처별 상세"}</h3>
       <div className="transport-breakdown-list">{subGroups.map(sub => <div key={sub.key}><strong>{sub.name}</strong><span>{countText(sub.tripCount)}회 · {volumeValue(sub.volume)}루베</span></div>)}</div>
       <h3>차량별 운행기록</h3>
       {vehicleIds.map(id => {
         const rows = group.rows.filter(row => row.trip.vehicle_id === id);
         const days = groupTripRowsByDay(rows);
-        return <details key={id} className="transport-vehicle-detail"><summary>{vehicleNames.get(id) || "차량 확인 필요"} · {countText(rows.length)}회 · {volumeValue(sumVolume(rows))}루베</summary>{days.map(day => <section key={day.day} className="transport-trip-day"><h4>{dayText(day.day)}</h4><ul>{day.rows.map(row => <li key={row.trip.id}><span>{displayTripTime(row)}<br />{row.vendor} · {row.item}{row.dateBasis === "dispatch" && <small> · 배차일 보완</small>}</span><b>{volumeValue(row.volume)}루베</b></li>)}</ul></section>)}</details>;
+        return <details key={id} className="transport-vehicle-detail"><summary>{vehicleNames.get(id) || "차량 확인 필요"} · {countText(rows.length)}회 · {volumeValue(sumVolume(rows))}루베</summary>{days.map(day => <section key={day.day} className="transport-trip-day"><h4>{dayText(day.day)}</h4><ul>{day.rows.map(row => <li key={row.trip.id}><span><strong>{vehicleNames.get(row.trip.vehicle_id) || "차량 확인 필요"} · {driverNames.get(row.trip.driver_id) || "기사 확인 필요"}</strong><br />{displayTripTime(row)}<br />{row.vendor} · {row.item}<small> · 운행 {clockText(row.trip.created_at)} · 상차 {clockText(row.trip.loading_completed_at)}{row.dateBasis === "dispatch" ? " · 배차일 보완" : ""}</small></span><b>{volumeValue(row.volume)}루베<small>하차 {clockText(row.trip.unloading_completed_at)}</small></b></li>)}</ul></section>)}</details>;
       })}
     </div>
   </details>;
+}
+
+function TransportDrilldownModal({ detail, period, vehicleNames, driverNames, onClose }: {
+  detail: DrilldownDetail;
+  period: { from: string; to: string };
+  vehicleNames: Map<string, string>;
+  driverNames: Map<string, string>;
+  onClose: () => void;
+}) {
+  const rows = sortTripRows(detail.rows);
+  const volume = sumVolume(rows);
+
+  return <div className="transport-drilldown-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="transport-drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="transport-drilldown-title" onMouseDown={event => event.stopPropagation()}>
+      <header className="transport-drilldown-header">
+        <div><span className="transport-eyebrow">TRANSPORT DETAIL</span><h3 id="transport-drilldown-title">{detail.title}</h3><p>{period.from} ~ {period.to} · 완료 운행 상세</p></div>
+        <button type="button" className="transport-drilldown-close" aria-label="상세 닫기" onClick={onClose}><X size={18} aria-hidden="true" /></button>
+      </header>
+      <div className="transport-drilldown-kpis"><span>완료 회차 <b>{countText(rows.length)}회</b></span><span>총 운송량 <b>{volumeValue(volume)}루베</b></span></div>
+      {!rows.length ? <div className="transport-empty"><strong>상세 운행내역이 없습니다.</strong></div> : <div className="transport-drilldown-table">
+        <div className="transport-drilldown-table-head"><span>날짜</span><span>거래처·품목</span><span>차량·기사</span><span>회차</span><span>실제 운송량</span><span>하차완료</span></div>
+        <div className="transport-drilldown-table-body">{rows.map(row => <div key={row.trip.id} className="transport-drilldown-row">
+          <span><strong>{row.reportDay.replace(/-/g, ".")}</strong>{row.dateBasis === "dispatch" && <small>배차일 보완</small>}</span>
+          <span><strong>{row.vendor}</strong><small>{row.item}</small></span>
+          <span><strong>{vehicleNames.get(row.trip.vehicle_id) || "차량 확인 필요"}</strong><small>{driverNames.get(row.trip.driver_id) || "기사 확인 필요"}</small></span>
+          <span><strong>{row.trip.trip_no}회차</strong><small>운행 {clockText(row.trip.created_at)}</small></span>
+          <span><strong>{volumeValue(row.volume)}루베</strong><small>상차 {clockText(row.trip.loading_completed_at)}</small></span>
+          <span><strong>{clockText(row.trip.unloading_completed_at)}</strong><small>{row.trip.unloading_completed_at ? "완료" : "하차완료 시간 없음"}</small></span>
+        </div>)}</div>
+      </div>}
+    </section>
+  </div>;
 }
