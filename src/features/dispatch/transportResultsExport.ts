@@ -128,7 +128,7 @@ const styleTable = (ws: StyledWorksheet, headerRow: number, lastRow: number, las
 const applyTitleAndInfo = (ws: StyledWorksheet, lastCol: number) => {
   for (let col = 0; col <= lastCol; col += 1) ensureCell(ws, 0, col).s = titleStyle;
   mergeCells(ws, 0, 0, 0, lastCol);
-  for (const row of [1, 2]) {
+  for (const row of [1]) {
     ensureCell(ws, row, 0).s = infoLabelStyle;
     for (let col = 1; col <= lastCol; col += 1) ensureCell(ws, row, col).s = infoValueStyle;
     mergeCells(ws, row, 1, row, lastCol);
@@ -136,10 +136,8 @@ const applyTitleAndInfo = (ws: StyledWorksheet, lastCol: number) => {
   (ws["!rows"] ||= [])[0] = { hpt: 32 };
 };
 
-const reportCriteria = "완료 상태 trip · actual_volume · 하차완료 시각 기준(없으면 배차일 보완)";
 const infoRows = (from: string, to: string, lastCol: number) => [
   ["조회 기간", `${from} ~ ${to}`, ...Array(lastCol - 1).fill("")],
-  ["집계 기준", reportCriteria, ...Array(lastCol - 1).fill("")],
 ];
 
 const tableSheet = (title: string, from: string, to: string, headers: string[], body: unknown[][], widths: number[], numericColumns: Set<number>, percentColumns = new Set<number>(), totalRow?: number) => {
@@ -154,7 +152,7 @@ const tableSheet = (title: string, from: string, to: string, headers: string[], 
   const ws = XLSX.utils.aoa_to_sheet(rows) as StyledWorksheet;
   ws["!cols"] = widths.map((wch) => ({ wch }));
   applyTitleAndInfo(ws, lastCol);
-  const headerRow = 4;
+  const headerRow = 3;
   const bodyLastRow = rows.length - 1;
   const translatedTotalRow = totalRow == null ? undefined : headerRow + 1 + totalRow;
   styleTable(ws, headerRow, bodyLastRow, lastCol, numericColumns, percentColumns, translatedTotalRow);
@@ -171,7 +169,6 @@ const summarySheet = (report: TransportResultSummary, options: TransportResultsE
   const rows: unknown[][] = [
     ["운송실적 요약", "", "", "", ""],
     ["조회 기간", `${options.from} ~ ${options.to}`, "", "", ""],
-    ["집계 기준", reportCriteria, "", "", ""],
     ["총 운송량", report.volume, "루베", "", ""],
     ["완료 운행", report.rows.length, "회", "", ""],
     ["거래처 수", report.vendors, "곳", "", ""],
@@ -186,12 +183,12 @@ const summarySheet = (report: TransportResultSummary, options: TransportResultsE
   ws["!cols"] = [28, 14, 19, 19, 18].map((wch) => ({ wch }));
   for (let col = 0; col <= 4; col += 1) ensureCell(ws, 0, col).s = titleStyle;
   mergeCells(ws, 0, 0, 0, 4);
-  for (const row of [1, 2]) {
+  for (const row of [1]) {
     ensureCell(ws, row, 0).s = infoLabelStyle;
     for (let col = 1; col <= 4; col += 1) ensureCell(ws, row, col).s = infoValueStyle;
     mergeCells(ws, row, 1, row, 4);
   }
-  for (let row = 3; row <= 7; row += 1) {
+  for (let row = 2; row <= 6; row += 1) {
     ensureCell(ws, row, 0).s = infoLabelStyle;
     ensureCell(ws, row, 1).s = totalStyle(true);
     ensureCell(ws, row, 2).s = infoValueStyle;
@@ -202,7 +199,7 @@ const summarySheet = (report: TransportResultSummary, options: TransportResultsE
       valueCell.z = "#,##0.###";
     }
   }
-  const headerRow = 9;
+  const headerRow = 8;
   const lastRow = rows.length - 1;
   styleTable(ws, headerRow, lastRow, 4, new Set([1, 2, 3, 4]), new Set([4]), totalRowIndex == null ? undefined : headerRow + 1 + totalRowIndex);
   (ws["!rows"] ||= [])[0] = { hpt: 32 };
