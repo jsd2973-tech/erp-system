@@ -37,7 +37,7 @@ replacement = '''const formatReverseAddress = (data: Record<string, unknown>) =>
 };'''
 if not pattern.search(s):
     raise SystemExit('reverse address formatter not found')
-s = pattern.sub(replacement, s, count=1)
+s = pattern.sub(lambda _match: replacement, s, count=1)
 path.write_text(s)
 
 # Add a dedicated location-view permission to the existing administrator permission screen.
