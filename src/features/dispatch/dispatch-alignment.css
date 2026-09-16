@@ -102,3 +102,179 @@
     width: 100%;
   }
 }
+
+/* Mobile detail pass: keep the compact cards on one visual center line. */
+@media (max-width: 760px) {
+  .dispatch-page .driver-status-dashboard .driver-status-head {
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-status-head > div {
+    flex: 1 1 100%;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-status-head p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-status-head button {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-status-live {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-master-content {
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-master-name-line {
+    justify-content: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-master-vehicle,
+  .dispatch-page .driver-status-dashboard .driver-master-dispatch,
+  .dispatch-page .driver-status-dashboard .driver-master-activity {
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-master-progress {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-detail-hero {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-detail-person {
+    justify-content: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-detail-person > div,
+  .dispatch-page .driver-status-dashboard .driver-detail-name-line {
+    text-align: center;
+    justify-content: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-detail-last {
+    width: 100%;
+    justify-items: center;
+    padding-left: 0;
+    margin-top: 0;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-detail-current-meta {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-history-head {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-history-head > div,
+  .dispatch-page .driver-status-dashboard .driver-trip-history-head > span {
+    width: 100%;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-group-head,
+  .dispatch-page .driver-status-dashboard .driver-trip-group-head > div,
+  .dispatch-page .driver-status-dashboard .driver-trip-group-head p {
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-group-head > div {
+    justify-items: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-no,
+  .dispatch-page .driver-status-dashboard .driver-trip-info {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-info span {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .dispatch-page .driver-status-dashboard .driver-trip-volume {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-results-header {
+    flex-wrap: wrap;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-results-header > div {
+    flex: 1 1 100%;
+  }
+
+  .dispatch-page .transport-results .transport-results-note {
+    width: 100%;
+    padding-top: 0;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-info,
+  .dispatch-page .transport-results .transport-warning {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-detail-kpis {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-detail-kpis > span {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-day-drilldown {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    justify-content: stretch;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-day-drilldown > strong,
+  .dispatch-page .transport-results .transport-day-drilldown > span {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-breakdown-list > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-breakdown-list > div > strong,
+  .dispatch-page .transport-results .transport-breakdown-list > div > span {
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-trip-day li {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: center;
+    text-align: center;
+  }
+
+  .dispatch-page .transport-results .transport-trip-day li > span,
+  .dispatch-page .transport-results .transport-trip-day li > span strong,
+  .dispatch-page .transport-results .transport-trip-day li > b,
+  .dispatch-page .transport-results .transport-trip-day li > b small {
+    text-align: center;
+  }
+
