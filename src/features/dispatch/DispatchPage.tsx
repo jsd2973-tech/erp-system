@@ -443,7 +443,7 @@ export default function DispatchPage({ view, supabase, isAdmin, allowedViews, on
       {initialLoading ? <div className="dispatch-loading">배차관리 자료를 불러오는 중...</div> : <>
         {view === "dispatch_register" && <><DispatchRegister customers={customers} locations={locations} items={items} vehicles={vehicles} editingOrder={editingOrder} saving={saving} onSave={saveOrder} onCancelEdit={() => setEditingOrder(null)} /><DispatchList orders={orders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} compact /></>}
         {view === "dispatch_list" && <DispatchList orders={orders} deletedOrders={deletedOrders} vehicles={vehicles} drivers={drivers} trips={trips} onEdit={editOrder} onDelete={deleteOrder} onRestore={restoreOrder} onPermanentDelete={permanentlyDeleteOrder} deletingOrderId={deletingOrderId} />}
-        {view === "dispatch_results" && <TransportResults supabase={supabase} vehicles={vehicles} />}
+        {view === "dispatch_results" && <TransportResults supabase={supabase} vehicles={vehicles} drivers={drivers} />}
         {view === "dispatch_status" && <DriverStatusDashboard drivers={drivers} vehicles={vehicles} />}
         {view === "dispatch_vehicles" && <VehicleManagement vehicles={vehicles} saving={saving} onSave={saveVehicle} />}
         {view === "dispatch_drivers" && <DriverManagement drivers={drivers} vehicles={vehicles} saving={saving} canManageAuthUserId={isAdmin} onSave={saveDriver} />}
