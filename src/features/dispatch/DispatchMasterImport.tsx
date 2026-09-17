@@ -44,10 +44,25 @@ const phoneValue = (value: unknown) => textValue(value).replace(/[^0-9+]/g, "");
 const phoneKey = (value: string) => value.replace(/[^0-9]/g, "");
 const normalizedName = (value: string) => textValue(value).toLocaleLowerCase("ko-KR");
 
+const VEHICLE_HEADER_NAMES = ["차량번호", "차량 번호", "차번호", "차량"];
+const DRIVER_HEADER_NAMES = ["기사명", "기사 명", "기사", "성명", "이름"];
+const COMPANY_HEADER_NAMES = ["소속", "소속업체", "소속/업체", "업체", "업체명", "회사", "회사명"];
+const PHONE_HEADER_NAMES = ["연락처", "전화번호", "전화 번호", "휴대폰", "휴대전화", "휴대 전화"];
+
+type SheetRow = {
+  row: Record<string, unknown>;
+  rowNo: number;
+};
+
+const normalizeHeader = (value: unknown) => String(value ?? "")
+  .normalize("NFKC")
+  .replace(/[^\p{L}\p{N}]/gu, "")
+  .toLocaleLowerCase("ko-KR");
+
 const findHeader = (headers: string[], names: string[]) => {
-  const normalizedHeaders = headers.map((header) => normalizedName(header).replace(/\s/g, ""));
-  const target = names.map((name) => normalizedName(name).replace(/\s/g, ""));
-  const index = normalizedHeaders.findIndex((header) => target.includes(header));
+  const normalizedHeaders = headers.map(normalizeHeader);
+  const target = names.map(normalizeHeader).filter(Boolean);
+  const index = normalizedHeaders.findIndex((header) => target.some((name) => header === name || (name.length >= 2 && header.includes(name))));
   return index >= 0 ? headers[index] : "";
 };
 
@@ -60,13 +75,55 @@ const normalizeVehicleCompany = (value: string) => {
   return company.replace(/\s+[^\s()]+(?=\(개인\)$)/, "");
 };
 
-const readSheetRows = async (file: File) => {
+const readSheetRows = async (file: File, kind: "vehicle" | "driver"): Promise<SheetRow[]> => {
   const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+  let sawCompanyHeader = false;
+  let sawPrimaryHeader = false;
+
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "", raw: false });
+    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+      blankrows: true,
+    });
+    const headerIndex = matrix.findIndex((candidate) => {
+      const headers = Array.isArray(candidate) ? candidate.map(textValue) : [];
+      const companyHeader = findHeader(headers, COMPANY_HEADER_NAMES);
+      const primaryHeader = findHeader(headers, kind === "vehicle" ? VEHICLE_HEADER_NAMES : DRIVER_HEADER_NAMES);
+      if (companyHeader) sawCompanyHeader = true;
+      if (primaryHeader) sawPrimaryHeader = true;
+      return Boolean(companyHeader && primaryHeader);
+    });
+
+    if (headerIndex < 0) continue;
+
+    const rawHeaders = Array.isArray(matrix[headerIndex]) ? matrix[headerIndex] : [];
+    const usedHeaders = new Map<string, number>();
+    const headers = rawHeaders.map((value, index) => {
+      const base = textValue(value) || `__empty_${index}`;
+      const count = usedHeaders.get(base) || 0;
+      usedHeaders.set(base, count + 1);
+      return count ? `${base}_${count + 1}` : base;
+    });
+    const headerRowNo = range.s.r + headerIndex + 1;
+    const rows = matrix.slice(headerIndex + 1)
+      .map((values, offset) => {
+        const cells = Array.isArray(values) ? values : [];
+        const row: Record<string, unknown> = {};
+        headers.forEach((header, index) => { row[header] = cells[index] ?? ""; });
+        const hasValue = cells.some((value) => textValue(value) !== "");
+        return hasValue ? { row, rowNo: headerRowNo + offset + 1 } : null;
+      })
+      .filter((value): value is SheetRow => value !== null);
+
     if (rows.length) return rows;
   }
+
+  if (!sawCompanyHeader) throw new Error("소속/업체 열을 찾지 못했습니다. 표의 제목이 아니라 실제 열 제목에 소속 또는 업체를 넣어 주세요.");
+  if (!sawPrimaryHeader) throw new Error(kind === "vehicle" ? "차량번호 열을 찾지 못했습니다." : "기사명/성명 열을 찾지 못했습니다.");
   return [];
 };
 
@@ -82,60 +139,63 @@ export default function DispatchMasterImport({ kind, vehicles = [], drivers = []
     setError("");
     setMessage("");
     try {
-      const rows = await readSheetRows(file);
+      const sourceRows = await readSheetRows(file, kind);
+      const rows = sourceRows.map((source) => source.row);
       if (!rows.length) throw new Error("엑셀에서 읽을 수 있는 행이 없습니다.");
       const headers = Object.keys(rows[0]);
       const companyHeader = findHeader(headers, ["소속", "업체", "회사", "회사명"]);
       if (!companyHeader) throw new Error("소속/업체 열을 찾지 못했습니다.");
 
       if (kind === "vehicle") {
-        const vehicleHeader = findHeader(headers, ["차량번호", "차량 번호", "차번호"]);
+        const vehicleHeader = findHeader(headers, VEHICLE_HEADER_NAMES);
         if (!vehicleHeader) throw new Error("차량번호 열을 찾지 못했습니다.");
-        const deduped = new Map<string, VehicleImportRow>();
-        rows.forEach((row) => {
+        const deduped = new Map<string, { row: VehicleImportRow; rowNo: number }>();
+        sourceRows.forEach(({ row, rowNo }) => {
           const vehicleNumber = normalizeVehicleNumber(textValue(cell(row, vehicleHeader)));
           if (!vehicleNumber) return;
           const companyName = normalizeVehicleCompany(textValue(cell(row, companyHeader)));
-          deduped.set(vehicleNumber.toLocaleLowerCase("ko-KR"), { company_name: companyName, vehicle_number: vehicleNumber });
+          deduped.set(vehicleNumber.toLocaleLowerCase("ko-KR"), { row: { company_name: companyName, vehicle_number: vehicleNumber }, rowNo });
         });
-        const parsed = [...deduped.values()];
+        const entries = [...deduped.values()];
+        const parsed = entries.map((entry) => entry.row);
         setParsedRows(parsed);
         setPreview(parsed.map((row, index) => {
           const existing = vehicles.find((vehicle) => normalizeVehicleNumber(vehicle.vehicle_number).toLocaleLowerCase("ko-KR") === row.vehicle_number.toLocaleLowerCase("ko-KR"));
-          if (!existing) return { rowNo: index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "신규", message: "새 차량으로 등록", canImport: true };
+          if (!existing) return { rowNo: entries[index]?.rowNo || index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "신규", message: "새 차량으로 등록", canImport: true };
           const existingCompany = normalizeCompanyName(existing.company_name);
           const incomingCompany = normalizeCompanyName(row.company_name);
-          if (existingCompany && incomingCompany && existingCompany !== incomingCompany) return { rowNo: index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "확인 필요", message: `기존 업체: ${existingCompany}`, canImport: false };
-          if (!existingCompany && incomingCompany) return { rowNo: index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "기존 보완", message: "기존 차량의 빈 업체만 입력", canImport: true };
-          return { rowNo: index + 2, company_name: existingCompany || row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "기존 유지", message: "ERP 기존 정보 우선", canImport: true };
+          if (existingCompany && incomingCompany && existingCompany !== incomingCompany) return { rowNo: entries[index]?.rowNo || index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "확인 필요", message: `기존 업체: ${existingCompany}`, canImport: false };
+          if (!existingCompany && incomingCompany) return { rowNo: entries[index]?.rowNo || index + 2, company_name: row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "기존 보완", message: "기존 차량의 빈 업체만 입력", canImport: true };
+          return { rowNo: entries[index]?.rowNo || index + 2, company_name: existingCompany || row.company_name || "-", primary: row.vehicle_number, secondary: "차량", status: "기존 유지", message: "ERP 기존 정보 우선", canImport: true };
         }));
       } else {
-        const nameHeader = findHeader(headers, ["기사명", "기사", "성명", "이름"]);
-        const phoneHeader = findHeader(headers, ["연락처", "전화번호", "휴대폰", "휴대전화"]);
+        const nameHeader = findHeader(headers, DRIVER_HEADER_NAMES);
+        const phoneHeader = findHeader(headers, PHONE_HEADER_NAMES);
         if (!nameHeader) throw new Error("기사명/성명 열을 찾지 못했습니다.");
-        const deduped = new Map<string, DriverImportRow>();
-        rows.forEach((row) => {
+        const deduped = new Map<string, { row: DriverImportRow; rowNo: number }>();
+        sourceRows.forEach(({ row, rowNo }) => {
           const name = textValue(cell(row, nameHeader));
           if (!name) return;
           const phone = phoneValue(cell(row, phoneHeader));
           const companyName = normalizeCompanyName(textValue(cell(row, companyHeader)));
           const key = phoneKey(phone) || `${normalizedName(companyName)}|${normalizedName(name)}`;
-          deduped.set(key, { company_name: companyName, name, phone });
+          deduped.set(key, { row: { company_name: companyName, name, phone }, rowNo });
         });
-        const parsed = [...deduped.values()];
+        const entries = [...deduped.values()];
+        const parsed = entries.map((entry) => entry.row);
         setParsedRows(parsed);
         setPreview(parsed.map((row, index) => {
           const incomingPhone = phoneKey(row.phone);
           const incomingCompany = normalizeCompanyName(row.company_name);
           const existing = drivers.find((driver) => (incomingPhone && phoneKey(driver.phone) === incomingPhone)
             || (normalizedName(driver.name) === normalizedName(row.name) && (!incomingCompany || !driver.company_name || normalizeCompanyName(driver.company_name) === incomingCompany)));
-          if (!existing) return { rowNo: index + 2, company_name: row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: "신규", message: "새 기사로 등록", canImport: true };
+          if (!existing) return { rowNo: entries[index]?.rowNo || index + 2, company_name: row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: "신규", message: "새 기사로 등록", canImport: true };
           const existingCompany = normalizeCompanyName(existing.company_name);
           const existingPhone = phoneKey(existing.phone);
-          if (existingCompany && incomingCompany && existingCompany !== incomingCompany) return { rowNo: index + 2, company_name: row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: "확인 필요", message: `기존 업체: ${existingCompany}`, canImport: false };
-          if (existingPhone && incomingPhone && existingPhone !== incomingPhone && normalizedName(existing.name) === normalizedName(row.name)) return { rowNo: index + 2, company_name: existingCompany || row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 확인", status: "확인 필요", message: "같은 이름의 연락처가 다름", canImport: false };
+          if (existingCompany && incomingCompany && existingCompany !== incomingCompany) return { rowNo: entries[index]?.rowNo || index + 2, company_name: row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: "확인 필요", message: `기존 업체: ${existingCompany}`, canImport: false };
+          if (existingPhone && incomingPhone && existingPhone !== incomingPhone && normalizedName(existing.name) === normalizedName(row.name)) return { rowNo: entries[index]?.rowNo || index + 2, company_name: existingCompany || row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 확인", status: "확인 필요", message: "같은 이름의 연락처가 다름", canImport: false };
           const supplements = [!existingCompany && incomingCompany ? "업체" : "", !existingPhone && incomingPhone ? "연락처" : ""].filter(Boolean);
-          return { rowNo: index + 2, company_name: existingCompany || row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: supplements.length ? "기존 보완" : "기존 유지", message: supplements.length ? `${supplements.join("·")} 빈 값만 입력` : "ERP 기존 정보 우선", canImport: true };
+          return { rowNo: entries[index]?.rowNo || index + 2, company_name: existingCompany || row.company_name || "-", primary: row.name, secondary: row.phone || "연락처 없음", status: supplements.length ? "기존 보완" : "기존 유지", message: supplements.length ? `${supplements.join("·")} 빈 값만 입력` : "ERP 기존 정보 우선", canImport: true };
         }));
       }
       setFileName(file.name);
