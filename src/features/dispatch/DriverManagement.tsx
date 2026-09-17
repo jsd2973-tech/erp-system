@@ -19,7 +19,23 @@ export default function DriverManagement({ drivers, saving, canManageAuthUserId,
   const [form, setForm] = useState<DispatchDriver>(emptyDriver);
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
-  const sortedDrivers = [...drivers].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" }));
+  const companySortKey = (value: string) => normalizeCompanyName(value)
+    .replace(/\\(주\\)|㈜/g, "")
+    .replace(/[()]/g, "")
+    .toLocaleLowerCase("ko-KR");
+  const compareCompanyName = (left: string, right: string) => {
+    const leftName = normalizeCompanyName(left);
+    const rightName = normalizeCompanyName(right);
+    if (!leftName && rightName) return 1;
+    if (leftName && !rightName) return -1;
+    return companySortKey(left).localeCompare(companySortKey(right), "ko-KR", { numeric: true, sensitivity: "base" })
+      || leftName.localeCompare(rightName, "ko-KR", { numeric: true, sensitivity: "base" });
+  };
+  const sortedDrivers = [...drivers].sort((a, b) =>
+    compareCompanyName(a.company_name, b.company_name)
+    || Number(b.active) - Number(a.active)
+    || a.name.localeCompare(b.name, "ko-KR", { numeric: true, sensitivity: "base" }),
+  );
   const internalLoginEmail = form.name.trim() ? toLoginEmail(form.name) : "";
 
   const editDriver = (driver: DispatchDriver) => {
