@@ -17,7 +17,23 @@ export default function VehicleManagement({ vehicles, saving, onSave, onImport }
   const [form, setForm] = useState<DispatchVehicle>(emptyVehicle);
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
-  const sortedVehicles = [...vehicles].sort((a, b) => Number(b.active) - Number(a.active) || a.vehicle_number.localeCompare(b.vehicle_number, "ko-KR", { numeric: true, sensitivity: "base" }));
+  const companySortKey = (value: string) => normalizeCompanyName(value)
+    .replace(/\(주\)|㈜/g, "")
+    .replace(/[()]/g, "")
+    .toLocaleLowerCase("ko-KR");
+  const compareCompanyName = (left: string, right: string) => {
+    const leftName = normalizeCompanyName(left);
+    const rightName = normalizeCompanyName(right);
+    if (!leftName && rightName) return 1;
+    if (leftName && !rightName) return -1;
+    return companySortKey(left).localeCompare(companySortKey(right), "ko-KR", { numeric: true, sensitivity: "base" })
+      || leftName.localeCompare(rightName, "ko-KR", { numeric: true, sensitivity: "base" });
+  };
+  const sortedVehicles = [...vehicles].sort((a, b) =>
+    compareCompanyName(a.company_name, b.company_name)
+    || Number(b.active) - Number(a.active)
+    || normalizeVehicleNumber(a.vehicle_number).localeCompare(normalizeVehicleNumber(b.vehicle_number), "ko-KR", { numeric: true, sensitivity: "base" }),
+  );
 
   const submit = async () => {
     const vehicleNumber = normalizeVehicleNumber(form.vehicle_number);
