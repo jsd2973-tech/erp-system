@@ -91,8 +91,15 @@ const decodeImage = (body: OcrRequestBody) => {
   return { mimeType, base64 };
 };
 
-const visionErrorMessage = (body: any) => {
-  const message = String(body?.responses?.[0]?.error?.message || "");
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" ? value as Record<string, unknown> : null;
+
+const visionErrorMessage = (body: unknown) => {
+  const root = asRecord(body);
+  const responses = Array.isArray(root?.responses) ? root.responses : [];
+  const firstResponse = asRecord(responses[0]);
+  const error = asRecord(firstResponse?.error);
+  const message = typeof error?.message === "string" ? error.message : "";
   if (/quota|rate|limit/i.test(message)) return "OCR 사용량 제한에 도달했습니다. 잠시 후 다시 시도해 주세요.";
   if (/invalid|key|credential|permission|unauth/i.test(message)) return "OCR 서비스 인증 설정을 확인해 주세요.";
   return "영수증 OCR 서비스에서 응답하지 않았습니다.";
