@@ -9,6 +9,7 @@ import './features/dispatch/dispatch-premium.css'
 import './features/dispatch/dispatch-responsive.css'
 import './features/dispatch/dispatch-mobile-fixes.css'
 import './features/dispatch/dispatch-alignment.css'
+import './features/card/cardReceiptOcr.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

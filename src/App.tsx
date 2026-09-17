@@ -1,10 +1,11 @@
 import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, Camera, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
+import type { ReceiptOcrResult } from "./features/card/receiptOcr";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
@@ -20,6 +21,7 @@ type Maint = { id: string; date: string; warehouse: string; manager: string; tit
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string;
   image_urls?: string[]; created_at?: string };
+type CardOcrState = "idle" | "analyzing" | "success" | "error";
 type PermitRenewal = {
   id: string;
   company: string;
@@ -1487,7 +1489,12 @@ export default function App() {
   const [cardSaving, setCardSaving] = useState(false);
   const [cardUploading, setCardUploading] = useState(false);
   const [cardDraftReady, setCardDraftReady] = useState(false);
+  const [cardOcrState, setCardOcrState] = useState<CardOcrState>("idle");
+  const [cardOcrMessage, setCardOcrMessage] = useState("");
   const cardSavingRef = useRef(false);
+  const cardInputTouchedRef = useRef({ date: false, place: false, amount: false });
+  const cardFormRef = useRef(cardForm);
+  cardFormRef.current = cardForm;
   const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
   const auxiliarySavingRef = useRef<Set<string>>(new Set());
   const [auxiliarySaving, setAuxiliarySaving] = useState<Record<string, boolean>>({});
@@ -2950,8 +2957,9 @@ export default function App() {
 
   const uploadCardReceipts = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
+    let ocrFile: File | null = null;
     const validFiles = validateAttachmentFiles(files);
-    if (!validFiles) return uploadedUrls;
+    if (!validFiles) return { uploadedUrls, ocrFile };
 
     for (const file of validFiles) {
       const isImage =
@@ -2982,9 +2990,112 @@ export default function App() {
       const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
       const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
       uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
+      if (isImage && !ocrFile) ocrFile = uploadFile;
     }
 
-    return uploadedUrls;
+    return { uploadedUrls, ocrFile };
+  };
+
+  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("이미지를 읽지 못했습니다."));
+    };
+    reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
+    reader.readAsDataURL(file);
+  });
+
+  const cardOcrFieldLabels = (result: ReceiptOcrResult) => [
+    result.date ? "날짜" : "",
+    result.merchant ? "상호명" : "",
+    result.totalAmount != null ? "총합계" : "",
+  ].filter(Boolean);
+
+  const applyCardOcrResult = (result: ReceiptOcrResult) => {
+    const current = cardFormRef.current;
+    const touched = cardInputTouchedRef.current;
+    const appliedLabels = [
+      result.date && !touched.date && (!current.date || current.date === getTodayKey()) ? "날짜" : "",
+      result.merchant && !touched.place && !String(current.place || "").trim() ? "상호명" : "",
+      result.totalAmount != null && !touched.amount && !String(current.amount || "").trim() ? "총합계" : "",
+    ].filter(Boolean);
+    const detectedLabels = cardOcrFieldLabels(result);
+
+    setCardForm((prev) => ({
+      ...prev,
+      ...(result.date && !cardInputTouchedRef.current.date && (!prev.date || prev.date === getTodayKey()) ? { date: result.date } : {}),
+      ...(result.merchant && !cardInputTouchedRef.current.place && !String(prev.place || "").trim() ? { place: result.merchant } : {}),
+      ...(result.totalAmount != null && !cardInputTouchedRef.current.amount && !String(prev.amount || "").trim() ? { amount: String(result.totalAmount) } : {}),
+    }));
+
+    if (!detectedLabels.length) {
+      setCardOcrState("error");
+      setCardOcrMessage("영수증에서 날짜·상호명·총합계를 확인하지 못했습니다. 직접 입력해 주세요.");
+      return;
+    }
+
+    setCardOcrState("success");
+    if (!appliedLabels.length) {
+      setCardOcrMessage("영수증 분석 완료. 기존에 입력한 날짜·상호명·금액은 유지했습니다. 확인 후 저장해 주세요.");
+      return;
+    }
+
+    const missingLabels = detectedLabels.filter((label) => !appliedLabels.includes(label));
+    setCardOcrMessage(
+      missingLabels.length
+        ? `영수증에서 ${appliedLabels.join("·")}을(를) 자동 입력했습니다. ${missingLabels.join("·")}은(는) 기존 입력값을 유지했습니다.`
+        : "영수증에서 날짜·상호명·총합계를 자동 입력했습니다. 확인 후 저장해 주세요.",
+    );
+  };
+
+  const analyzeCardReceipt = async (file: File) => {
+    setCardOcrState("analyzing");
+    setCardOcrMessage("영수증 분석 중...");
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const response = await fetch("/api/receipt-ocr", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session?.access_token ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ dataUrl }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(String(body?.error || "영수증 OCR 분석에 실패했습니다."));
+      applyCardOcrResult(body as ReceiptOcrResult);
+    } catch (error: any) {
+      setCardOcrState("error");
+      const message = String(error?.message || "OCR 분석에 실패했습니다.");
+      setCardOcrMessage(message.includes("직접 입력") ? message : `${message} 직접 입력해 주세요.`);
+    }
+  };
+
+  const handleCardAttachmentChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    const files = input.files;
+    if (!files?.length) return;
+
+    setCardOcrState("idle");
+    setCardOcrMessage("");
+    setCardUploading(true);
+    try {
+      const { uploadedUrls, ocrFile } = await uploadCardReceipts(files);
+      setCardForm((prev) => {
+        const nextUrls = [...(prev.image_urls || []), ...uploadedUrls];
+        return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
+      });
+      if (ocrFile) await analyzeCardReceipt(ocrFile);
+    } catch (error: any) {
+      const message = String(error?.message || "영수증 첨부에 실패했습니다.");
+      setCardOcrState("error");
+      setCardOcrMessage(message.includes("직접 입력") ? message : `${message} 직접 입력해 주세요.`);
+    } finally {
+      input.value = "";
+      setCardUploading(false);
+    }
   };
 
 
@@ -3666,6 +3777,9 @@ export default function App() {
   const clearCardForm = () => {
     setCardForm({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
     setEditingCardUseId("");
+    cardInputTouchedRef.current = { date: false, place: false, amount: false };
+    setCardOcrState("idle");
+    setCardOcrMessage("");
     clearCardDraft();
   };
 
@@ -3679,7 +3793,14 @@ export default function App() {
       const saved = localStorage.getItem(CARD_DRAFT_KEY);
       if (saved) {
         const draft = JSON.parse(saved);
-        if (draft?.cardForm) setCardForm(draft.cardForm);
+        if (draft?.cardForm) {
+          setCardForm(draft.cardForm);
+          cardInputTouchedRef.current = {
+            date: Boolean(draft.editingCardUseId || draft.cardForm.place || draft.cardForm.amount || (draft.cardForm.date && draft.cardForm.date !== getTodayKey())),
+            place: Boolean(draft.editingCardUseId || draft.cardForm.place),
+            amount: Boolean(draft.editingCardUseId || draft.cardForm.amount),
+          };
+        }
         if (draft?.editingCardUseId) setEditingCardUseId(draft.editingCardUseId);
       }
     } catch {
@@ -3765,6 +3886,13 @@ export default function App() {
 
   const editCardUse = (c: CardUse) => {
     setEditingCardUseId(c.id);
+    cardInputTouchedRef.current = {
+      date: Boolean(c.date),
+      place: Boolean(c.place),
+      amount: Boolean(c.amount),
+    };
+    setCardOcrState("idle");
+    setCardOcrMessage("");
     setCardForm({
       date: c.date || "",
       user_name: c.user_name || "",
@@ -7392,7 +7520,10 @@ export default function App() {
               <Field label="사용일자" required>
                 <DateInput
                   value={cardForm.date || getTodayKey()}
-                  onChange={(value) => setCardForm({ ...cardForm, date: value })}
+                  onChange={(value) => {
+                    cardInputTouchedRef.current.date = true;
+                    setCardForm((prev) => ({ ...prev, date: value }));
+                  }}
                   placeholder="20260519 또는 260519"
                   ariaLabel="사용일자 선택"
                 />
@@ -7401,42 +7532,49 @@ export default function App() {
                 <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/작업자" />
               </Field>
               <Field label="사용처" required>
-                <input value={cardForm.place} onChange={(e) => setCardForm({ ...cardForm, place: e.target.value })} placeholder="상호/구매처" />
+                <input value={cardForm.place} onChange={(e) => {
+                  cardInputTouchedRef.current.place = true;
+                  setCardForm((prev) => ({ ...prev, place: e.target.value }));
+                }} placeholder="상호/구매처" />
               </Field>
               <Field label="금액" required>
-                <input className="right" inputMode="decimal" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="0" />
+                <input className="right" inputMode="decimal" value={cardForm.amount} onChange={(e) => {
+                  cardInputTouchedRef.current.amount = true;
+                  setCardForm((prev) => ({ ...prev, amount: e.target.value }));
+                }} placeholder="0" />
               </Field>
               <Field label="메모">
                 <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="구매내용 메모" />
               </Field>
             </div>
 
-            <div className="between">
-              <label className={`upload${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
-                <Upload size={16} /> {cardUploading ? "영수증 업로드 중..." : "영수증 사진/파일 선택"}
-                <input
-                  type="file"
-                  accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
-                  multiple
-                  disabled={cardUploading}
-                  onChange={async (e) => {
-                    const input = e.currentTarget;
-                    const files = e.target.files;
-                    if (!files?.length) return;
-                    setCardUploading(true);
-                    try {
-                      const urls = await uploadCardReceipts(files);
-                      setCardForm((prev) => {
-                        const nextUrls = [...(prev.image_urls || []), ...urls];
-                        return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
-                      });
-                    } finally {
-                      input.value = "";
-                      setCardUploading(false);
-                    }
-                  }}
-                />
-              </label>
+            <div className="between card-receipt-upload-area">
+              <div className="card-receipt-upload-actions">
+                <label className={`upload card-receipt-capture${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
+                  <Camera size={16} /> 영수증 촬영
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={cardUploading}
+                    onChange={handleCardAttachmentChange}
+                  />
+                </label>
+                <label className={`upload${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
+                  <Upload size={16} /> 사진/파일 선택
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
+                    multiple
+                    disabled={cardUploading}
+                    onChange={handleCardAttachmentChange}
+                  />
+                </label>
+              </div>
+              <div className={`card-ocr-status card-ocr-status-${cardOcrState}`} aria-live="polite">
+                <strong>{cardOcrState === "analyzing" ? "영수증 분석 중..." : "영수증 OCR"}</strong>
+                <span>{cardOcrMessage || "이미지 첨부 시 날짜·상호명·총합계를 자동 입력합니다."}</span>
+              </div>
               <div className="receipt-preview">
                 {(cardForm.image_urls || []).length ? (
                   <AttachmentGroup
@@ -7453,7 +7591,7 @@ export default function App() {
             </div>
 
             <div className="actions right-actions entry-actions">
-              <button className="primary" disabled={cardSaving || cardUploading} onClick={saveCardUse}><Save size={16} /> {cardUploading ? "업로드 중..." : cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
+              <button className="primary" disabled={cardSaving || cardUploading} onClick={saveCardUse}><Save size={16} /> {cardOcrState === "analyzing" ? "영수증 분석 중..." : cardUploading ? "업로드 중..." : cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
               <button disabled={cardSaving || cardUploading} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
             </div>
             <p className="draft-help-text">작성 중인 카드사용 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 카드사용에 들어오면 복원됩니다.</p>
