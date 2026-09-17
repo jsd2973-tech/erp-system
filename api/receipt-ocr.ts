@@ -106,7 +106,13 @@ const visionErrorDetails = (body: unknown) => {
   };
 };
 
-const visionErrorMessage = (body: unknown) => {
+const visionErrorMessage = (body: unknown, httpStatus?: number) => {
+  if (httpStatus === 403) {
+    return "Google Vision API 요청이 거부되었습니다. API 키 문자열, Cloud Vision API 제한, 결제/프로젝트 설정을 확인해 주세요.";
+  }
+  if (httpStatus === 401) {
+    return "Google Vision API 인증에 실패했습니다. Vercel Production 환경변수의 API 키를 확인해 주세요.";
+  }
   const details = visionErrorDetails(body);
   const message = `${details.status} ${details.message}`;
   if (/quota|rate|limit/i.test(message)) return "OCR 사용량 제한에 도달했습니다. 잠시 후 다시 시도해 주세요.";
@@ -183,7 +189,7 @@ export default {
           errorStatus: visionError.status,
           errorMessage: visionError.message.slice(0, 240),
         });
-        return json({ error: visionErrorMessage(visionBody) }, 502, request);
+        return json({ error: visionErrorMessage(visionBody, visionResponse.status) }, 502, request);
       }
 
       const result = parseReceiptOcr(visionBody);
