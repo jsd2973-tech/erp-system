@@ -1,0 +1,121 @@
+.app.app-tab-card_use>.card>.card-receipt-upload-area{
+  display:grid !important;
+  grid-template-columns:minmax(250px,auto) minmax(260px,1fr) minmax(150px,auto) !important;
+  align-items:center !important;
+  gap:14px !important;
+}
+
+.card-receipt-upload-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  min-width:0;
+}
+
+.card-receipt-upload-actions .upload{
+  min-height:44px;
+  margin:0;
+  justify-content:center;
+  white-space:nowrap;
+}
+
+.card-receipt-upload-actions .card-receipt-capture{
+  border-color:#bfdbfe;
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+
+.card-receipt-upload-actions .upload input{display:none}
+
+.card-ocr-status{
+  display:grid;
+  gap:3px;
+  min-width:0;
+  padding:10px 12px;
+  border:1px solid #dbe7f2;
+  border-radius:12px;
+  background:#f8fbff;
+  color:#64748b;
+  line-height:1.4;
+}
+
+.card-ocr-status strong{
+  color:#315d82;
+  font-size:11px;
+  font-weight:950;
+}
+
+.card-ocr-status span{
+  overflow:hidden;
+  font-size:11px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.card-ocr-status-analyzing{
+  border-color:#bfdbfe;
+  background:#eff6ff;
+}
+
+.card-ocr-status-analyzing strong{color:#1d4ed8}
+
+.card-ocr-status-success{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+}
+
+.card-ocr-status-success strong{color:#15803d}
+
+.card-ocr-status-error{
+  border-color:#fed7aa;
+  background:#fff7ed;
+}
+
+.card-ocr-status-error strong{color:#c2410c}
+
+.card-receipt-upload-area>.receipt-preview{
+  min-width:0;
+  margin:0;
+  overflow:auto;
+  text-align:left;
+}
+
+@media(max-width:900px){
+  .app.app-tab-card_use>.card>.card-receipt-upload-area{
+    grid-template-columns:1fr !important;
+    gap:10px !important;
+    padding:14px !important;
+  }
+
+  .card-receipt-upload-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+
+  .card-receipt-upload-actions .upload{
+    width:100%;
+    min-width:0;
+    padding:9px 6px;
+    font-size:12px;
+  }
+
+  .card-ocr-status{
+    padding:9px 11px;
+  }
+
+  .card-ocr-status span{
+    white-space:normal;
+  }
+
+  .card-receipt-upload-area>.receipt-preview{
+    min-height:26px;
+  }
+}
+
+@media(max-width:390px){
+  .card-receipt-upload-actions .upload{
+    gap:4px;
+    font-size:11px;
+  }
+}
