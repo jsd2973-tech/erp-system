@@ -60,14 +60,16 @@ const normalizeVehicleCompany = (value: string) => {
   return company.replace(/\s+[^\s()]+(?=\(개인\)$)/, "");
 };
 
-const readSheetRows = async (file: File) => {
+const readSheetRows = async (file: File, kind: "vehicle" | "driver") => {
   const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+  const candidates: Array<{ rows: Record<string, unknown>[]; headers: string[] }> = [];
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "", raw: false });
-    if (rows.length) return rows;
+    if (rows.length) candidates.push({ rows, headers: Object.keys(rows[0]) });
   }
-  return [];
+  const matching = candidates.find(({ headers }) => Boolean(findHeader(headers, kind === "vehicle" ? ["차량번호", "차량 번호", "차번호"] : ["기사명", "기사", "성명", "이름"])));
+  return matching?.rows || candidates[0]?.rows || [];
 };
 
 export default function DispatchMasterImport({ kind, vehicles = [], drivers = [], saving = false, onImport }: DispatchMasterImportProps) {
@@ -82,7 +84,7 @@ export default function DispatchMasterImport({ kind, vehicles = [], drivers = []
     setError("");
     setMessage("");
     try {
-      const rows = await readSheetRows(file);
+      const rows = await readSheetRows(file, kind);
       if (!rows.length) throw new Error("엑셀에서 읽을 수 있는 행이 없습니다.");
       const headers = Object.keys(rows[0]);
       const companyHeader = findHeader(headers, ["소속", "업체", "회사", "회사명"]);
