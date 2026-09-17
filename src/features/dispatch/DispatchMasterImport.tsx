@@ -65,8 +65,14 @@ const readSheetRows = async (file: File, kind: "vehicle" | "driver") => {
   const candidates: Array<{ rows: Record<string, unknown>[]; headers: string[] }> = [];
   for (const sheetName of workbook.SheetNames) {
     const worksheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "", raw: false });
-    if (rows.length) candidates.push({ rows, headers: Object.keys(rows[0]) });
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: "", raw: false });
+    const headerIndex = matrix.findIndex((row) => Boolean(findHeader(row.map(textValue), ["소속", "업체", "회사", "회사명"])));
+    if (headerIndex < 0) continue;
+    const headers = matrix[headerIndex].map((value, index) => textValue(value) || `__EMPTY_${index}`);
+    const rows = matrix.slice(headerIndex + 1)
+      .map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])))
+      .filter((row) => Object.values(row).some((value) => textValue(value)));
+    if (rows.length) candidates.push({ rows, headers });
   }
   const matching = candidates.find(({ headers }) => Boolean(findHeader(headers, kind === "vehicle" ? ["차량번호", "차량 번호", "차번호"] : ["기사명", "기사", "성명", "이름"])));
   return matching?.rows || candidates[0]?.rows || [];
