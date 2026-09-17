@@ -39,7 +39,7 @@ const AMOUNT_KEYWORDS = [
 
 const EXCLUDED_AMOUNT_CONTEXT = /공급\s*가액|공급액|과세\s*금액|부가세|vat|할인|거스름돈|카드\s*잔액|잔액|적립|포인트|승인\s*번호|사업자\s*등록\s*번호|카드\s*번호/i;
 const MERCHANT_LABEL = /(?:상호명?|가맹점명|판매자명|상점명)\s*[:：]?\s*(.+)$/i;
-const MERCHANT_EXCLUDED = /사업자|등록\s*번호|대표자?|주소|도로명|지번|전화|tel|fax|카드|승인|할부|포인트|적립|영수증|거래명세서|신용|체크|pos|van|고객|번호|일시|일자|합계|금액|부가세|공급가액/i;
+const MERCHANT_EXCLUDED = /사업자|등록\s*번호|대표자?|주소|도로명|지번|전화|tel|fax|카드|승인|할부|포인트|적립|영수증|거래명세서|신용|체크|pos|van|고객|번호|일시|일자|합계|금액|부가세|공급가액|(?:^|\s)(?:업태|종목|업종)\s*[:：]?|(?:^|\s)도\s*[,·ㆍ.]?\s*소매|(?:^|\s)(?:도매|소매)업/i;
 
 const cleanText = (value: unknown) => String(value ?? "")
   .replace(/[\u200b\u00a0]/g, " ")
