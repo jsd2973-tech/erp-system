@@ -18,7 +18,7 @@ export default function VehicleManagement({ vehicles, saving, onSave, onImport }
   const [error, setError] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
   const companySortKey = (value: string) => normalizeCompanyName(value)
-    .replace(/\\(주\\)|㈜/g, "")
+    .replace(/\(주\)|㈜/g, "")
     .replace(/[()]/g, "")
     .toLocaleLowerCase("ko-KR");
   const compareCompanyName = (left: string, right: string) => {
