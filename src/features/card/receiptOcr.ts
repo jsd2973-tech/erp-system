@@ -31,6 +31,7 @@ const AMOUNT_KEYWORDS = [
   { pattern: /결제\s*금액/, score: 105 },
   { pattern: /결제\s*합계/, score: 102 },
   { pattern: /합계\s*금액/, score: 100 },
+  { pattern: /승인\s*금액/, score: 108 },
   { pattern: /총\s*액/, score: 95 },
   { pattern: /합계/, score: 90 },
   { pattern: /받은\s*금액/, score: 82 },
@@ -184,23 +185,29 @@ const extractAmountTokens = (value: string) => {
   return result;
 };
 
+// 영수증 OCR은 `합 계`, `승인 금액`처럼 한글 라벨 안에도 공백을 넣을 수 있다.
+// 숫자 사이 공백은 금액 토큰에서 유효하므로 한글 문자 사이 공백만 정규화한다.
+const normalizeAmountLabelText = (value: string) =>
+  value.replace(/(?<=[가-힣])\s+(?=[가-힣])/g, "");
+
 const parseAmount = (lines: TextLine[]) => {
   const candidates: AmountCandidate[] = [];
   lines.forEach((line, lineIndex) => {
+    const searchableText = normalizeAmountLabelText(line.text);
     AMOUNT_KEYWORDS.forEach(({ pattern, score: keywordScore }) => {
-      const match = line.text.match(pattern);
+      const match = searchableText.match(pattern);
       if (!match || match.index == null) return;
 
-      const after = line.text.slice(match.index + match[0].length);
-      const before = line.text.slice(0, match.index);
+      const after = searchableText.slice(match.index + match[0].length);
+      const before = searchableText.slice(0, match.index);
       const afterAmounts = extractAmountTokens(after);
       const beforeAmounts = extractAmountTokens(before);
-      const nextAmounts = extractAmountTokens(lines[lineIndex + 1]?.text || "");
+      const nextAmounts = extractAmountTokens(normalizeAmountLabelText(lines[lineIndex + 1]?.text || ""));
       const selected = afterAmounts[0] || beforeAmounts[beforeAmounts.length - 1] || nextAmounts[0];
       if (!selected) return;
 
-      const context = line.text;
-      const excludedOnly = EXCLUDED_AMOUNT_CONTEXT.test(context) && !/최종\s*결제|총\s*결제|카드\s*결제|결제\s*합계|합계\s*금액|총\s*액|합계/.test(context);
+      const context = `${line.text} ${searchableText}`;
+      const excludedOnly = EXCLUDED_AMOUNT_CONTEXT.test(context) && !/최종\s*결제|총\s*결제|카드\s*결제|결제\s*합계|합계\s*금액|총\s*액|합계|승인\s*금액/.test(searchableText);
       if (excludedOnly) return;
       candidates.push({
         value: selected.value,
