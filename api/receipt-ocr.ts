@@ -94,14 +94,28 @@ const decodeImage = (body: OcrRequestBody) => {
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" ? value as Record<string, unknown> : null;
 
-const visionErrorMessage = (body: unknown) => {
+const visionErrorDetails = (body: unknown) => {
   const root = asRecord(body);
   const responses = Array.isArray(root?.responses) ? root.responses : [];
   const firstResponse = asRecord(responses[0]);
   const error = asRecord(firstResponse?.error);
-  const message = typeof error?.message === "string" ? error.message : "";
+  return {
+    code: typeof error?.code === "number" ? error.code : undefined,
+    status: typeof error?.status === "string" ? error.status : "",
+    message: typeof error?.message === "string" ? error.message : "",
+  };
+};
+
+const visionErrorMessage = (body: unknown) => {
+  const details = visionErrorDetails(body);
+  const message = `${details.status} ${details.message}`;
   if (/quota|rate|limit/i.test(message)) return "OCR 사용량 제한에 도달했습니다. 잠시 후 다시 시도해 주세요.";
-  if (/invalid|key|credential|permission|unauth/i.test(message)) return "OCR 서비스 인증 설정을 확인해 주세요.";
+  if (/billing|billing account|billable|service_disabled|has not been used|enable.*api/i.test(message)) {
+    return "Google Cloud 결제 설정 또는 Vision API 사용 설정을 확인해 주세요.";
+  }
+  if (/invalid|api[_ ]?key|credential|permission|unauth|forbidden|not authorized|blocked/i.test(message)) {
+    return "Google Vision API 키 또는 API 제한 설정을 확인해 주세요.";
+  }
   return "영수증 OCR 서비스에서 응답하지 않았습니다.";
 };
 
@@ -161,7 +175,14 @@ export default {
         }),
       });
       const visionBody = await visionResponse.json().catch(() => null);
+      const visionError = visionErrorDetails(visionBody);
       if (!visionResponse.ok || visionBody?.responses?.[0]?.error) {
+        console.error("[receipt-ocr] Vision request failed", {
+          httpStatus: visionResponse.status,
+          errorCode: visionError.code,
+          errorStatus: visionError.status,
+          errorMessage: visionError.message.slice(0, 240),
+        });
         return json({ error: visionErrorMessage(visionBody) }, 502, request);
       }
 
@@ -173,7 +194,11 @@ export default {
         confidence: result.confidence,
         fields: fieldsFromResult(result),
       }, 200, request);
-    } catch {
+    } catch (error) {
+      console.error("[receipt-ocr] Vision request exception", {
+        name: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message.slice(0, 240) : String(error).slice(0, 240),
+      });
       return json({ error: "영수증 OCR 분석에 실패했습니다." }, 502, request);
     }
   },
