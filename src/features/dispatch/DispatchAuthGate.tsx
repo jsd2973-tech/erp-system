@@ -9,6 +9,7 @@ const toDriver = (row: Record<string, unknown>): DispatchDriver => ({
   id: String(row.id),
   name: String(row.name || ""),
   phone: String(row.phone || ""),
+  company_name: String(row.company_name || ""),
   assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null,
   auth_user_id: row.auth_user_id ? String(row.auth_user_id) : null,
   active: row.active !== false,

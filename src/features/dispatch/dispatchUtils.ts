@@ -18,6 +18,8 @@ export const createDispatchId = () => {
 
 export const normalizeVehicleNumber = (value: string) => String(value || "").replace(/\s+/g, "").trim();
 
+export const normalizeCompanyName = (value: string) => String(value || "").trim().replace(/\s+/g, " ");
+
 export const toPositiveNumber = (value: string | number) => {
   const number = Number(String(value ?? "").replace(/,/g, ""));
   return Number.isFinite(number) && number > 0 ? number : 0;
@@ -47,6 +49,7 @@ export const emptyDispatchOrderForm = (): DispatchOrderForm => ({
   status: "대기",
   memo: "",
   vehicle_ids: [],
+  assignments: [],
 });
 
 export const dispatchStatusClass = (status: DispatchStatus) => {
