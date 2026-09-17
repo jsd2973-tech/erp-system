@@ -1,4 +1,4 @@
-import { parseReceiptOcr, type ReceiptOcrResult } from "../src/features/card/receiptOcr";
+import { parseReceiptOcr, type ReceiptOcrResult } from "../src/features/card/receiptOcr.js";
 
 declare const process: { env: Record<string, string | undefined> };
 
