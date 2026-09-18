@@ -1,0 +1,8 @@
+.fuel-table th,
+.fuel-table td {
+  text-align: center;
+}
+
+.fuel-table .fuel-row-actions {
+  justify-content: center;
+}
