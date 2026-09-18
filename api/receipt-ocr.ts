@@ -1,4 +1,5 @@
 import { parseReceiptOcr, type ReceiptOcrResult } from "../src/features/card/receiptOcr.js";
+import { parseFuelReceiptOcr, type FuelReceiptOcrResult } from "../src/features/fuel/fuelReceiptOcr.js";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -9,7 +10,7 @@ const ADMIN_EMAILS = new Set(["jsd2973@gmail.com"]);
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp"]);
 
 type AuthenticatedUser = { id?: string; email?: string };
-type OcrRequestBody = { image?: unknown; dataUrl?: unknown };
+type OcrRequestBody = { image?: unknown; dataUrl?: unknown; mode?: unknown };
 
 const json = (data: unknown, status = 200, request?: Request) => {
   const origin = request?.headers.get("origin") || "";
@@ -58,7 +59,7 @@ const getAuthenticatedUser = async (request: Request): Promise<AuthenticatedUser
   return user?.id && user.email ? user : null;
 };
 
-const hasCardUseAccess = async (user: AuthenticatedUser, request: Request) => {
+const hasReceiptOcrAccess = async (user: AuthenticatedUser, request: Request, mode: "card" | "fuel") => {
   const email = String(user.email || "").trim().toLowerCase();
   if (!email) return false;
   if (ADMIN_EMAILS.has(email)) return true;
@@ -77,7 +78,10 @@ const hasCardUseAccess = async (user: AuthenticatedUser, request: Request) => {
   if (!response.ok) return false;
   const rows = await response.json().catch(() => []) as Array<{ role?: string; permissions?: Record<string, unknown> }>;
   const permission = rows[0];
-  return permission?.role === "office" || permission?.role === "admin";
+  const fuelPermission = permission?.permissions?.fuel_management;
+  return permission?.role === "office"
+    || permission?.role === "admin"
+    || (mode === "fuel" && (fuelPermission === true || fuelPermission === "true"));
 };
 
 const decodeImage = (body: OcrRequestBody) => {
@@ -131,6 +135,17 @@ const fieldsFromResult = (result: ReceiptOcrResult) => ({
   totalAmount: result.totalAmount != null,
 });
 
+const fieldsFromFuelResult = (result: FuelReceiptOcrResult) => ({
+  fuelDate: Boolean(result.fuelDate),
+  stationName: Boolean(result.stationName),
+  productName: Boolean(result.productName),
+  quantity: result.quantity != null,
+  unitPrice: result.unitPrice != null,
+  supplyAmount: result.supplyAmount != null,
+  vatAmount: result.vatAmount != null,
+  totalAmount: result.totalAmount != null,
+});
+
 export default {
   async fetch(request: Request) {
     if (request.method === "OPTIONS") {
@@ -141,8 +156,19 @@ export default {
       return json({ error: "허용되지 않은 요청입니다." }, 403, request);
     }
 
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > 8_000_000) return json({ error: "영수증 이미지가 너무 큽니다." }, 413, request);
+
+    let body: OcrRequestBody;
+    try {
+      body = await request.json() as OcrRequestBody;
+    } catch {
+      return json({ error: "영수증 이미지 요청을 읽지 못했습니다." }, 400, request);
+    }
+
+    const mode: "card" | "fuel" = body.mode === "fuel" ? "fuel" : "card";
     const user = await getAuthenticatedUser(request).catch(() => null);
-    if (!user || !(await hasCardUseAccess(user, request).catch(() => false))) {
+    if (!user || !(await hasReceiptOcrAccess(user, request, mode).catch(() => false))) {
       return json({ error: "OCR 사용 권한이 없습니다." }, 403, request);
     }
 
@@ -153,16 +179,6 @@ export default {
     ).trim();
     if (!apiKey) {
       return json({ error: "OCR 서비스가 아직 설정되지 않았습니다." }, 503, request);
-    }
-
-    const contentLength = Number(request.headers.get("content-length") || 0);
-    if (contentLength > 8_000_000) return json({ error: "영수증 이미지가 너무 큽니다." }, 413, request);
-
-    let body: OcrRequestBody;
-    try {
-      body = await request.json() as OcrRequestBody;
-    } catch {
-      return json({ error: "영수증 이미지 요청을 읽지 못했습니다." }, 400, request);
     }
 
     const image = decodeImage(body);
@@ -190,6 +206,22 @@ export default {
           errorMessage: visionError.message.slice(0, 240),
         });
         return json({ error: visionErrorMessage(visionBody, visionResponse.status) }, 502, request);
+      }
+
+      if (mode === "fuel") {
+        const result = parseFuelReceiptOcr(visionBody);
+        return json({
+          fuelDate: result.fuelDate,
+          stationName: result.stationName,
+          productName: result.productName,
+          quantity: result.quantity,
+          unitPrice: result.unitPrice,
+          supplyAmount: result.supplyAmount,
+          vatAmount: result.vatAmount,
+          totalAmount: result.totalAmount,
+          confidence: result.confidence,
+          fields: fieldsFromFuelResult(result),
+        }, 200, request);
       }
 
       const result = parseReceiptOcr(visionBody);
