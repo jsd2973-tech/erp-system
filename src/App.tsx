@@ -8611,6 +8611,9 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
+const signedMoney = (value: number) => `${value > 0 ? "+" : ""}${money(value)}원`;
+const signedPercent = (value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+
 function PurchasePriceHistorySummary({
   history,
   currentPrice,
