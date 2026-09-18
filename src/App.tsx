@@ -7,6 +7,15 @@ import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchT
 import FuelManagement from "./features/fuel/FuelManagement";
 import type { ReceiptOcrResult } from "./features/card/receiptOcr";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
+import {
+  buildPurchasePriceHistory,
+  comparePurchaseUnitPrice,
+  getPurchasePriceHistoryKey,
+  getPurchaseEffectiveUnitPrice,
+  getPurchaseVendorPriceStat,
+  normalizePurchasePriceText,
+  type PurchasePriceHistory,
+} from "./purchasePriceHistory";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -1399,6 +1408,7 @@ export default function App() {
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState<{ from: string; to: string; vendor: string; warehouse: string; item: string; taxInvoice: string; paymentStatus?: string }>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
+  const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
   const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
@@ -4579,7 +4589,20 @@ export default function App() {
     return candidates[0] || null;
   };
 
-  const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
+const purchasePriceHistoryMap = useMemo(
+    () => buildPurchasePriceHistory(
+      purchases,
+      editingPurchaseId ? { excludePurchaseIds: [editingPurchaseId] } : undefined,
+    ),
+    [purchases, editingPurchaseId]
+  );
+
+  const getPurchasePriceHistoryForRow = (row: PurchaseRow) => {
+    if (!String(row.item || "").trim()) return undefined;
+    return purchasePriceHistoryMap.get(getPurchasePriceHistoryKey(row.item, row.spec));
+  };
+
+    const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
   const maintSuggestedItems = useMemo(() => {
     if (!maintWarehouseKey) return [];
 
@@ -7488,7 +7511,9 @@ export default function App() {
                   <col style={{ width: "7%" }} />
                 </colgroup>
                 <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
-                <tbody>{rows.map((r, i) => <tr key={r.id}><td>
+                <tbody>{rows.map((r, i) => {
+                  const priceHistory = getPurchasePriceHistoryForRow(r);
+                  return <tr key={r.id}><td>
   <div className="purchase-item-editor">
     <SearchSelect
       value={r.item}
@@ -7511,11 +7536,20 @@ export default function App() {
       + 신규
     </button>
   </div>
-</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>)}</tbody>
+  <PurchasePriceHistorySummary
+    history={priceHistory}
+    currentPrice={Number(r.price || 0)}
+    selectedVendor={purchaseHeader.vendor}
+    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
+  />
+</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>;
+                })}</tbody>
               </table>
             </div>
             <div className="mobile-entry-item-list" aria-label="구매 품목 입력">
-              {rows.map((r, i) => (
+              {rows.map((r, i) => {
+                const priceHistory = getPurchasePriceHistoryForRow(r);
+                return (
                 <div className="mobile-entry-item-card" key={`mobile-purchase-${r.id}`}>
                   <div className="mobile-entry-item-head">
                     <div><span>구매 품목</span><b>{i + 1}</b></div>
@@ -7540,6 +7574,13 @@ export default function App() {
                     </div>
                   </Field>
 
+                  <PurchasePriceHistorySummary
+                    history={priceHistory}
+                    currentPrice={Number(r.price || 0)}
+                    selectedVendor={purchaseHeader.vendor}
+                    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
+                  />
+
                   <Field label="규격">
                     <input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
                   </Field>
@@ -7561,7 +7602,8 @@ export default function App() {
 
                   <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="purchase-entry-footer">
               <div className="purchase-entry-support">
@@ -7624,6 +7666,8 @@ export default function App() {
         {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
+
+        {purchasePriceHistoryModal && <PurchasePriceHistoryModal history={purchasePriceHistoryModal} onClose={() => setPurchasePriceHistoryModal(null)} />}
 
 
         {menuTab === "card_use" && (
@@ -8567,6 +8611,136 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
+const signedMoney = (value: number) => `${value > 0 ? "+" : ""}${money(value)}원`;
+const signedPercent = (value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+
+function PurchasePriceHistorySummary({
+  history,
+  currentPrice,
+  selectedVendor,
+  onOpen,
+}: {
+  history?: PurchasePriceHistory;
+  currentPrice: number;
+  selectedVendor: string;
+  onOpen: () => void;
+}) {
+  if (!history?.latest) return null;
+
+  const latest = history.latest;
+  const previous = history.previous;
+  const currentComparison = comparePurchaseUnitPrice(currentPrice, latest.price);
+  const vendorStat = getPurchaseVendorPriceStat(history, selectedVendor);
+  const historyDeltaTone = history.deltaAmount === null || history.deltaAmount === 0
+    ? "neutral"
+    : history.deltaAmount > 0 ? "up" : "down";
+  const currentDeltaTone = !currentComparison || currentComparison.deltaAmount === 0
+    ? "neutral"
+    : currentComparison.deltaAmount > 0 ? "up" : "down";
+
+  return (
+    <div className="purchase-price-history-summary">
+      <div className="purchase-price-history-head">
+        <strong>최근 구매정보</strong>
+        <button type="button" onClick={onOpen}>최근 이력 {history.entries.length}건</button>
+      </div>
+      <div className="purchase-price-history-grid">
+        <div><span>최근단가</span><b>{money(latest.price)}원</b><small>{latest.date || "일자 미입력"} · {latest.vendor || "거래처 미입력"}</small></div>
+        <div><span>직전단가</span><b>{previous ? `${money(previous.price)}원` : "-"}</b><small>{previous ? `${previous.date || "일자 미입력"} · ${previous.vendor || "거래처 미입력"}` : "이전 구매 없음"}</small></div>
+        <div className={`purchase-price-change ${historyDeltaTone}`}>
+          <span>전회 대비</span>
+          <b>{history.deltaAmount === null ? "-" : signedMoney(history.deltaAmount)}</b>
+          <small>{history.deltaPercent === null ? "비교할 이전 단가 없음" : signedPercent(history.deltaPercent)}</small>
+        </div>
+      </div>
+      {vendorStat && normalizePurchasePriceText(vendorStat.vendor) !== normalizePurchasePriceText(latest.vendor) && (
+        <div className="purchase-price-vendor-hint">
+          현재 거래처 최근단가 <b>{money(vendorStat.latest.price)}원</b>
+          <span>{vendorStat.latest.date || "일자 미입력"} · {vendorStat.vendor}</span>
+        </div>
+      )}
+      {currentComparison && (
+        <div className={`purchase-price-current-comparison ${currentDeltaTone}${Math.abs(currentComparison.deltaPercent) >= 10 ? " strong" : ""}`}>
+          현재 입력단가 {money(currentComparison.current)}원
+          <b>{currentComparison.deltaAmount === 0 ? "최근단가와 동일" : `${signedMoney(currentComparison.deltaAmount)} (${signedPercent(currentComparison.deltaPercent)})`}</b>
+          {Math.abs(currentComparison.deltaPercent) >= 10 && <small>최근 구매가 대비 10% 이상 차이</small>}
+        </div>
+      )}
+      {latest.priceDerivedFromSupply && <small className="purchase-price-derived-note">단가가 없는 과거 행은 공급가액 ÷ 수량으로 계산했습니다.</small>}
+    </div>
+  );
+}
+
+function PurchasePriceHistoryModal({ history, onClose }: { history: PurchasePriceHistory; onClose: () => void }) {
+  const recentRows = history.entries.slice(0, 10);
+
+  return (
+    <div className="purchase-price-history-modal-backdrop" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <div className="purchase-price-history-modal" role="dialog" aria-modal="true" aria-label="품목 단가이력">
+        <div className="purchase-price-history-modal-head">
+          <div>
+            <span>구매 단가이력</span>
+            <h2>{history.item || "품목"}</h2>
+            {history.spec && <p>규격: {history.spec}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="단가이력 닫기"><X size={18} /> 닫기</button>
+        </div>
+
+        <div className="purchase-price-history-kpis">
+          <div><span>최근단가</span><b>{history.latest ? `${money(history.latest.price)}원` : "-"}</b></div>
+          <div><span>직전단가</span><b>{history.previous ? `${money(history.previous.price)}원` : "-"}</b></div>
+          <div><span>수량 가중평균</span><b>{history.weightedAvgPrice === null ? "-" : `${money(history.weightedAvgPrice)}원`}</b></div>
+          <div><span>최저 · 최고</span><b>{money(history.minPrice)}원 · {money(history.maxPrice)}원</b></div>
+        </div>
+
+        <section className="purchase-price-history-modal-section">
+          <div className="purchase-price-history-section-head">
+            <div><h3>최근 구매이력</h3><small>최신순 최대 10건</small></div>
+          </div>
+          <ScrollTable>
+            <table>
+              <thead><tr><th>구매일</th><th>거래처</th><th>수량</th><th>단가</th><th>공급가액</th><th>합계</th></tr></thead>
+              <tbody>{recentRows.map((entry) => (
+                <tr key={`${entry.purchaseId}-${entry.id}`}>
+                  <td>{entry.date || "-"}</td>
+                  <td>{entry.vendor || "거래처 미입력"}</td>
+                  <td className="right">{money(entry.qty)}</td>
+                  <td className="right">{money(entry.price)}원{entry.priceDerivedFromSupply && <small className="purchase-price-derived-mark">*</small>}</td>
+                  <td className="right">{money(entry.supply)}원</td>
+                  <td className="right bold">{money(entry.total)}원</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </ScrollTable>
+        </section>
+
+        <section className="purchase-price-history-modal-section">
+          <div className="purchase-price-history-section-head">
+            <div><h3>거래처별 최근단가</h3><small>최근단가가 낮은 거래처부터 표시</small></div>
+          </div>
+          <ScrollTable>
+            <table>
+              <thead><tr><th>거래처</th><th>최근구매일</th><th>최근단가</th><th>최근  평균단가</th><th>구매횟수</th></tr></thead>
+              <tbody>{history.vendorStats.map((stat) => (
+                <tr key={stat.vendorKey}>
+                  <td>{stat.vendor}</td>
+                  <td>{stat.latest.date || "-"}</td>
+                  <td className="right bold">{money(stat.latest.price)}원</td>
+                  <td className="right">{money(stat.weightedAvgPrice)}원</td>
+                  <td className="right">{money(stat.count)}회</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </ScrollTable>
+        </section>
+        <p className="purchase-price-history-note">* 단가가 없는 과거 구매행은 공급가액 ÷ 수량으로 보완 계산했습니다.</p>
+      </div>
+    </div>
+  );
+}
+
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
   const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
@@ -8771,6 +8945,9 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   const [to, setTo] = useState("");
   const [vendor, setVendor] = useState("");
   const [item, setItem] = useState("");
+  const [priceHistoryModal, setPriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
+
+  const allPriceHistoryMap = useMemo(() => buildPurchasePriceHistory(purchases), [purchases]);
 
   const filtered = useMemo(() => {
     return purchases.filter((p) => {
@@ -8865,6 +9042,105 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
+  const itemAnalysis = useMemo(() => {
+    type ItemAnalysisBucket = {
+      key: string;
+      item: string;
+      spec: string;
+      count: number;
+      quantity: number;
+      supply: number;
+      total: number;
+      priceValues: number[];
+      weightedPriceTotal: number;
+      weightedQuantity: number;
+      latestInPeriod: { date: string; vendor: string; sortKey: string } | null;
+      vendorTotals: Map<string, { vendor: string; total: number }>;
+    };
+
+    const map = new Map<string, ItemAnalysisBucket>();
+    const itemKeyword = item.trim();
+
+    filtered.forEach((purchase) => {
+      (purchase.rows || []).forEach((row) => {
+        const rowItem = String(row.item || "").trim();
+        const rowSpec = String(row.spec || "").trim();
+        if (!rowItem || (itemKeyword && !rowItem.includes(itemKeyword))) return;
+
+        const key = getPurchasePriceHistoryKey(rowItem, rowSpec);
+        const qty = Number(row.qty || 0);
+        const supply = Number(row.supply || 0);
+        const total = Number(row.total || 0);
+        const effectivePrice = getPurchaseEffectiveUnitPrice(row);
+        const bucket = map.get(key) || {
+          key,
+          item: rowItem,
+          spec: rowSpec,
+          count: 0,
+          quantity: 0,
+          supply: 0,
+          total: 0,
+          priceValues: [],
+          weightedPriceTotal: 0,
+          weightedQuantity: 0,
+          latestInPeriod: null,
+          vendorTotals: new Map<string, { vendor: string; total: number }>(),
+        };
+
+        bucket.count += 1;
+        bucket.quantity += Number.isFinite(qty) ? qty : 0;
+        bucket.supply += Number.isFinite(supply) ? supply : 0;
+        bucket.total += Number.isFinite(total) ? total : 0;
+        if (effectivePrice.price > 0) {
+          bucket.priceValues.push(effectivePrice.price);
+          if (qty > 0) {
+            bucket.weightedPriceTotal += effectivePrice.price * qty;
+            bucket.weightedQuantity += qty;
+          }
+        }
+
+        const candidateSortKey = `${purchase.date || ""}|${purchase.id || ""}`;
+        if (!bucket.latestInPeriod || candidateSortKey > bucket.latestInPeriod.sortKey) {
+          bucket.latestInPeriod = { date: purchase.date || "", vendor: purchase.vendor || "", sortKey: candidateSortKey };
+        }
+
+        const vendorKey = String(purchase.vendor || "거래처 미입력").trim() || "거래처 미입력";
+        const vendorValue = (Number.isFinite(supply) && supply > 0)
+          ? supply
+          : Math.max(0, effectivePrice.price * Math.max(0, qty));
+        const currentVendor = bucket.vendorTotals.get(vendorKey) || { vendor: vendorKey, total: 0 };
+        currentVendor.total += vendorValue;
+        bucket.vendorTotals.set(vendorKey, currentVendor);
+        map.set(key, bucket);
+      });
+    });
+
+    return Array.from(map.values())
+      .map((bucket) => {
+        const history = allPriceHistoryMap.get(bucket.key);
+        const majorVendor = Array.from(bucket.vendorTotals.values()).sort((a, b) => b.total - a.total)[0];
+        return {
+          ...bucket,
+          history,
+          weightedAvgPrice: bucket.weightedQuantity > 0 ? bucket.weightedPriceTotal / bucket.weightedQuantity : null,
+          minPrice: bucket.priceValues.length ? Math.min(...bucket.priceValues) : null,
+          maxPrice: bucket.priceValues.length ? Math.max(...bucket.priceValues) : null,
+          recentPrice: history?.latest?.price ?? null,
+          previousPrice: history?.previous?.price ?? null,
+          historyDeltaAmount: history?.deltaAmount ?? null,
+          historyDeltaPercent: history?.deltaPercent ?? null,
+          recentDate: history?.latest?.date || bucket.latestInPeriod?.date || "",
+          recentVendor: history?.latest?.vendor || bucket.latestInPeriod?.vendor || "거래처 미입력",
+          majorVendor: majorVendor?.vendor || "거래처 미입력",
+        };
+      })
+      .sort((a, b) => {
+        const dateCompare = String(b.recentDate || "").localeCompare(String(a.recentDate || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return b.supply - a.supply;
+      });
+  }, [filtered, allPriceHistoryMap, item]);
+
   return (
     <section className="card">
       <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, withTotalRow(
@@ -8935,6 +9211,76 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
         </table>
       </ScrollTable>
 
+      <div className="between purchase-status-section-head purchase-price-analysis-head">
+        <div>
+          <h3>품목별 단가분석</h3>
+          <p className="muted">구매횟수·수량·최저/최고/가중평균은 선택기간 기준, 최근·직전단가는 전체 구매이력 기준입니다.</p>
+        </div>
+        <button onClick={() => downloadExcel(`품목별단가분석_${todayText()}`, withTotalRow(
+          itemAnalysis.map((analysis) => ({
+            품목: analysis.item,
+            규격: analysis.spec,
+            구매횟수: analysis.count,
+            총수량: analysis.quantity,
+            최근단가: analysis.recentPrice ?? "",
+            직전단가: analysis.previousPrice ?? "",
+            전회대비: analysis.historyDeltaAmount ?? "",
+            최저단가: analysis.minPrice ?? "",
+            최고단가: analysis.maxPrice ?? "",
+            가중평균단가: analysis.weightedAvgPrice ?? "",
+            최근구매일: analysis.recentDate,
+            주요거래처: analysis.majorVendor,
+          })),
+          { 품목: "총합계", 구매횟수: itemAnalysis.reduce((sum, analysis) => sum + analysis.count, 0), 총수량: itemAnalysis.reduce((sum, analysis) => sum + analysis.quantity, 0) }
+        ))}>품목별 엑셀</button>
+      </div>
+      <div className="purchase-price-analysis-desktop">
+        <ScrollTable>
+          <table>
+            <thead><tr><th>품목</th><th>규격</th><th>구매횟수</th><th>총수량</th><th>최근단가</th><th>직전단가</th><th>전회대비</th><th>최저단가</th><th>최고단가</th><th>가중평균</th><th>최근구매일</th><th>주요거래처</th></tr></thead>
+            <tbody>{!itemAnalysis.length ? <tr><td colSpan={12} className="empty">조회된 품목 단가이력 없음</td></tr> : itemAnalysis.map((analysis) => (
+              <tr key={analysis.key}>
+                <td><button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>{analysis.item}</button></td>
+                <td>{analysis.spec || "-"}</td>
+                <td className="right">{money(analysis.count)}</td>
+                <td className="right">{money(analysis.quantity)}</td>
+                <td className="right bold">{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</td>
+                <td className="right">{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</td>
+                <td className={`right purchase-price-analysis-delta${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
+                  {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
+                </td>
+                <td className="right">{analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`}</td>
+                <td className="right">{analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</td>
+                <td className="right">{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</td>
+                <td>{analysis.recentDate || "-"}</td>
+                <td>{analysis.majorVendor}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </ScrollTable>
+      </div>
+      <div className="purchase-price-analysis-mobile">
+        {!itemAnalysis.length ? <div className="empty">조회된 품목 단가이력 없음</div> : itemAnalysis.map((analysis) => (
+          <article className="purchase-price-analysis-card" key={`mobile-${analysis.key}`}>
+            <div className="purchase-price-analysis-card-head">
+              <div><strong>{analysis.item}</strong>{analysis.spec && <span>{analysis.spec}</span>}</div>
+              <small>{analysis.count}회 구매</small>
+            </div>
+            <div className="purchase-price-analysis-card-grid">
+              <div><span>최근단가</span><b>{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</b></div>
+              <div><span>직전단가</span><b>{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</b></div>
+              <div><span>가중평균</span><b>{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</b></div>
+              <div><span>최근구매</span><b>{analysis.recentDate || "-"}</b></div>
+            </div>
+            <div className={`purchase-price-analysis-card-change${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
+              전회 대비 {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
+            </div>
+            <div className="purchase-price-analysis-card-meta">주요거래처 {analysis.majorVendor} · 최저 {analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`} · 최고 {analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</div>
+            <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>최근 구매이력·거래처 비교</button>
+          </article>
+        ))}
+      </div>
+
       <h3>상세 구매내역</h3>
       <ScrollTable>
         <table>
@@ -8942,6 +9288,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
           <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
+      {priceHistoryModal && <PurchasePriceHistoryModal history={priceHistoryModal} onClose={() => setPriceHistoryModal(null)} />}
     </section>
   );
 }
@@ -24396,5 +24743,12 @@ html,body,#root{
   .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-group:first-child,.bid-range-group:first-child{padding-right:0;padding-bottom:12px;border-right:0;border-bottom:1px solid #e7edf4}.bid-keyword-group:nth-child(2),.bid-range-group:nth-child(2){padding-top:12px;padding-left:0}.bid-keyword-chips{flex-wrap:wrap !important}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
   .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-notice-list{grid-template-columns:1fr}.bid-notice-row{grid-template-columns:1fr;min-height:0;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a{-webkit-line-clamp:unset}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
 }
+
+/* ===== Purchase price history ===== */
+.purchase-price-history-summary{display:grid;gap:7px;margin-top:8px;padding:9px 10px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;text-align:left}
+.purchase-price-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.purchase-price-history-head strong{color:#1e3a8a;font-size:11px;font-weight:950}.purchase-price-history-head button,.purchase-price-history-link{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-history-head button:hover,.purchase-price-history-link:hover{background:#dbeafe}
+.purchase-price-history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.purchase-price-history-grid>div{display:grid;gap:2px;min-width:0;padding:6px 7px;border-radius:9px;background:#fff;border:1px solid #e6edf7}.purchase-price-history-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-history-grid b{color:#172033;font-size:12px;font-weight:1000;white-space:nowrap}.purchase-price-history-grid small{overflow:hidden;color:#8090a5;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.purchase-price-change.up b,.purchase-price-current-comparison.up b,.purchase-price-analysis-delta.up,.purchase-price-analysis-card-change.up{color:#dc2626}.purchase-price-change.down b,.purchase-price-current-comparison.down b,.purchase-price-analysis-delta.down,.purchase-price-analysis-card-change.down{color:#059669}.purchase-price-vendor-hint{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#64748b;font-size:10px;font-weight:800}.purchase-price-vendor-hint b{color:#1d4ed8;font-size:11px}.purchase-price-vendor-hint span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.purchase-price-current-comparison{display:flex;align-items:center;gap:5px;flex-wrap:wrap;color:#475569;font-size:10px;font-weight:800}.purchase-price-current-comparison b{font-size:11px}.purchase-price-current-comparison.strong{padding:5px 7px;border-radius:8px;background:#fff7ed;color:#9a3412}.purchase-price-current-comparison.strong.down{background:#ecfdf5;color:#047857}.purchase-price-current-comparison small{width:100%;font-size:10px;font-weight:900}.purchase-price-derived-note{color:#94a3b8;font-size:9px;font-weight:700}.purchase-price-derived-mark{margin-left:2px;color:#94a3b8;font-size:9px}
+.purchase-price-history-modal-backdrop{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:22px;background:rgba(15,23,42,.5)}.purchase-price-history-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid #dbe4ef;border-radius:20px;background:#f8fafc;box-shadow:0 30px 90px rgba(15,23,42,.3);text-align:left}.purchase-price-history-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:15px}.purchase-price-history-modal-head span{color:#2563eb;font-size:11px;font-weight:950;letter-spacing:.08em}.purchase-price-history-modal-head h2{margin:4px 0 0;color:#172033;font-size:23px;font-weight:1000}.purchase-price-history-modal-head p{margin:3px 0 0;color:#64748b;font-size:13px;font-weight:800}.purchase-price-history-modal-head>button{background:#e2e8f0;color:#334155;font-weight:900}.purchase-price-history-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.purchase-price-history-kpis>div{display:grid;gap:5px;padding:12px;border:1px solid #dbe4ef;border-radius:13px;background:#fff}.purchase-price-history-kpis span{color:#64748b;font-size:11px;font-weight:850}.purchase-price-history-kpis b{color:#172033;font-size:15px;font-weight:1000}.purchase-price-history-modal-section{margin-top:14px;padding:14px;border:1px solid #e1e8f0;border-radius:15px;background:#fff}.purchase-price-history-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.purchase-price-history-section-head h3{margin:0;color:#172033;font-size:15px}.purchase-price-history-section-head small{color:#94a3b8;font-size:11px;font-weight:800}.purchase-price-history-modal .scroll-table{overflow-x:auto}.purchase-price-history-modal table{min-width:690px}.purchase-price-history-modal th{background:#edf3f9;color:#334155;font-size:11px;white-space:nowrap}.purchase-price-history-modal td{font-size:12px;white-space:nowrap}.purchase-price-history-note{margin:10px 2px 0;color:#94a3b8;font-size:11px;font-weight:700}.purchase-price-analysis-mobile{display:none}.purchase-price-analysis-desktop{display:block}.purchase-price-analysis-head{margin-top:20px}.purchase-price-analysis-delta{font-weight:900;white-space:nowrap}.purchase-price-analysis-card{display:grid;gap:10px;padding:15px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 7px 18px rgba(15,23,42,.05);text-align:left}.purchase-price-analysis-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.purchase-price-analysis-card-head>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-card-head strong{overflow:hidden;color:#172033;font-size:16px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head span{overflow:hidden;color:#64748b;font-size:12px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head small{color:#64748b;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.purchase-price-analysis-card-grid>div{display:grid;gap:2px;padding:8px;border-radius:10px;background:#f8fafc}.purchase-price-analysis-card-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-analysis-card-grid b{overflow:hidden;color:#172033;font-size:12px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-change{padding:8px 10px;border-radius:9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:950}.purchase-price-analysis-card-meta{overflow:hidden;color:#64748b;font-size:11px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card .purchase-price-history-link{justify-content:center;width:100%;min-height:38px}
+@media(max-width:900px){.purchase-price-history-summary{margin-top:0;padding:11px}.purchase-price-history-grid{grid-template-columns:1fr}.purchase-price-history-grid>div{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}.purchase-price-history-grid small{text-align:right}.purchase-price-history-head button{min-height:34px}.purchase-price-history-modal-backdrop{align-items:end;padding:0}.purchase-price-history-modal{width:100%;max-height:92vh;padding:16px;border-radius:20px 20px 0 0}.purchase-price-history-modal-head h2{font-size:20px}.purchase-price-history-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.purchase-price-history-kpis b{font-size:13px}.purchase-price-analysis-desktop{display:none}.purchase-price-analysis-mobile{display:grid;gap:10px;margin:10px 0 18px}.purchase-price-analysis-head{align-items:flex-start;gap:10px}.purchase-price-analysis-head>button{width:auto;white-space:nowrap}.purchase-price-analysis-head .muted{font-size:11px;line-height:1.4}}
 
 `;
