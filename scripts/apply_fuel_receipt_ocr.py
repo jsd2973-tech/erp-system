@@ -21,10 +21,15 @@ if 'import { Camera } from "lucide-react";' not in s:
     s = s.replace(lucide_import, lucide_import + 'import { Camera } from "lucide-react";\n', 1)
 
 statement_import = 'import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";\n'
-if 'from "./fuelReceiptOcr"' not in s:
-    if statement_import not in s:
-        raise SystemExit("fuel OCR type import anchor not found")
-    s = s.replace(statement_import, statement_import + 'import type { FuelReceiptOcrResult } from "./fuelReceiptOcr";\n', 1)
+fuel_ocr_type_import = 'import type { FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
+fuel_ocr_named_import = 'import { reconcileFuelReceiptOcr, type FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
+if fuel_ocr_named_import not in s:
+    if fuel_ocr_type_import in s:
+        s = s.replace(fuel_ocr_type_import, fuel_ocr_named_import, 1)
+    else:
+        if statement_import not in s:
+            raise SystemExit("fuel OCR type import anchor not found")
+        s = s.replace(statement_import, statement_import + fuel_ocr_named_import, 1)
 
 helper_anchor = 'const text = (value: unknown)'
 helper_block = r'''const isFuelReceiptImage = (file: File) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || "");
@@ -143,7 +148,20 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
   ].filter(Boolean);
 
   const applyFuelOcrResult = (result: FuelReceiptOcrResult) => {
-    const detectedLabels = fuelOcrFieldLabels(result);
+    const resultProduct = String(result.productName || manual.product_name || "").trim();
+    const contextUnitPrices = [
+      Number(manual.unit_price || 0),
+      ...referenceRecords
+        .filter((record) => !resultProduct || !record.product_name || record.product_name === resultProduct)
+        .map((record) => Number(record.unit_price || 0)),
+    ];
+    const normalizedResult = reconcileFuelReceiptOcr(result, contextUnitPrices);
+    const detectedLabels = fuelOcrFieldLabels(normalizedResult);
+    const hasAmountContext = result.totalAmount != null || result.supplyAmount != null;
+    const rejectedLabels = [
+      (result.quantity != null || hasAmountContext) && normalizedResult.quantity == null ? "주유량" : "",
+      (result.unitPrice != null || hasAmountContext) && normalizedResult.unitPrice == null ? "단가" : "",
+    ].filter(Boolean);
     const manualOcrFieldByLabel: Record<string, ManualOcrField> = {
       주유일자: "fuel_date",
       주유처: "station_name",
@@ -160,11 +178,11 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
       ...(result.fuelDate && !manualOcrTouched.current.fuel_date ? { fuel_date: result.fuelDate } : {}),
       ...(result.stationName && !manualOcrTouched.current.station_name ? { station_name: result.stationName } : {}),
       ...(result.productName && !manualOcrTouched.current.product_name ? { product_name: result.productName } : {}),
-      ...(result.quantity != null && !manualOcrTouched.current.quantity ? { quantity: String(result.quantity) } : {}),
-      ...(result.unitPrice != null && !manualOcrTouched.current.unit_price ? { unit_price: String(result.unitPrice) } : {}),
-      ...(result.supplyAmount != null && !manualOcrTouched.current.supply_amount ? { supply_amount: String(result.supplyAmount) } : {}),
-      ...(result.vatAmount != null && !manualOcrTouched.current.vat_amount ? { vat_amount: String(result.vatAmount) } : {}),
-      ...(result.totalAmount != null && !manualOcrTouched.current.total_amount ? { total_amount: String(result.totalAmount) } : {}),
+      ...(normalizedResult.quantity != null && !manualOcrTouched.current.quantity ? { quantity: String(normalizedResult.quantity) } : {}),
+      ...(normalizedResult.unitPrice != null && !manualOcrTouched.current.unit_price ? { unit_price: String(normalizedResult.unitPrice) } : {}),
+      ...(normalizedResult.supplyAmount != null && !manualOcrTouched.current.supply_amount ? { supply_amount: String(normalizedResult.supplyAmount) } : {}),
+      ...(normalizedResult.vatAmount != null && !manualOcrTouched.current.vat_amount ? { vat_amount: String(normalizedResult.vatAmount) } : {}),
+      ...(normalizedResult.totalAmount != null && !manualOcrTouched.current.total_amount ? { total_amount: String(normalizedResult.totalAmount) } : {}),
     }));
 
     if (!detectedLabels.length) {
@@ -173,6 +191,10 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
       return;
     }
     setManualOcrState("success");
+    if (rejectedLabels.length) {
+      setManualOcrMessage("영수증에서 " + detectedLabels.join("·") + "을(를) 자동 입력했습니다. " + rejectedLabels.join("·") + "은(는) 인쇄값과 금액 관계가 맞지 않아 자동 입력하지 않았습니다. 직접 확인 후 저장해 주세요.");
+      return;
+    }
     if (!appliedLabels.length) {
       setManualOcrMessage("영수증 분석 완료. 기존에 직접 입력한 값은 유지했습니다. 차량·현장 선택값도 유지했습니다. 확인 후 저장해 주세요.");
       return;
