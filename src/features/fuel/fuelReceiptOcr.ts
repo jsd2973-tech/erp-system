@@ -428,3 +428,70 @@ const deriveQuantity = (
 
   const candidates = [
     ...(totalAmount ? [{ amount: totalAmount.value, confidence: 0.66 }] : []),
+    ...(supplyAmount ? [{ amount: supplyAmount.value, confidence: 0.58 }] : []),
+  ];
+  for (const candidate of candidates) {
+    if (candidate.amount <= 0) continue;
+    const value = candidate.amount / unitPrice.value;
+    const roundedValue = Math.round(value * 1000) / 1000;
+    if (!Number.isFinite(roundedValue) || roundedValue <= 0 || roundedValue > 100_000) continue;
+    if (approximatelyEqual(roundedValue * unitPrice.value, candidate.amount)) {
+      return { value: roundedValue, confidence: candidate.confidence };
+    }
+  }
+  return undefined;
+};
+
+const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
+  findLabeledAmount(lines, labels, 1_000_000_000);
+
+export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
+  const text = extractOcrText(input);
+  if (!text) return {};
+
+  const lines = toLines(text);
+  const base = parseReceiptOcr(input);
+  const station = parseStation(lines, base.merchant);
+  const product = parseProduct(lines);
+  const unitPrice = parseUnitPrice(lines);
+  const parsedSupplyAmount = parseAmount(lines, SUPPLY_LABELS);
+  const parsedVatAmount = parseAmount(lines, VAT_LABELS);
+  const parsedTotalAmount = parseAmount(lines, TOTAL_LABELS);
+  const { supplyAmount, vatAmount, totalAmount } = reconcileReceiptAmounts(
+    lines,
+    parsedSupplyAmount,
+    parsedVatAmount,
+    parsedTotalAmount,
+  );
+  const parsedQuantity = parseQuantity(lines);
+  const quantityMatchesAmount = parsedQuantity && unitPrice
+    ? [supplyAmount, totalAmount].filter(Boolean).some((amount) => approximatelyEqual(parsedQuantity.value * unitPrice.value, amount!.value))
+    : true;
+  const quantity = (parsedQuantity && quantityMatchesAmount)
+    ? parsedQuantity
+    : deriveQuantity(supplyAmount, totalAmount, unitPrice) || parsedQuantity;
+  const calculatedTotal = totalAmount || (supplyAmount && vatAmount
+    ? { value: Math.round(supplyAmount.value + vatAmount.value), confidence: 0.7 }
+    : undefined);
+
+  return {
+    ...(base.date ? { fuelDate: base.date } : {}),
+    ...(station ? { stationName: station.value } : {}),
+    ...(product ? { productName: product.value } : {}),
+    ...(quantity ? { quantity: quantity.value } : {}),
+    ...(unitPrice ? { unitPrice: Math.round(unitPrice.value * 1000) / 1000 } : {}),
+    ...(supplyAmount ? { supplyAmount: Math.round(supplyAmount.value) } : {}),
+    ...(vatAmount ? { vatAmount: Math.round(vatAmount.value) } : {}),
+    ...(calculatedTotal ? { totalAmount: Math.round(calculatedTotal.value) } : {}),
+    confidence: {
+      ...(base.date ? { fuelDate: base.confidence?.date } : {}),
+      ...(station ? { stationName: station.confidence } : {}),
+      ...(product ? { productName: product.confidence } : {}),
+      ...(quantity ? { quantity: quantity.confidence } : {}),
+      ...(unitPrice ? { unitPrice: unitPrice.confidence } : {}),
+      ...(supplyAmount ? { supplyAmount: supplyAmount.confidence } : {}),
+      ...(vatAmount ? { vatAmount: vatAmount.confidence } : {}),
+      ...(calculatedTotal ? { totalAmount: calculatedTotal.confidence } : {}),
+    },
+  };
+};
