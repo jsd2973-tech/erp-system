@@ -10230,9 +10230,11 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
 
   const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
     if (bidFilters.region === "all") return true;
-    // 기관명에 지역명이 포함되어 있다는 이유만으로 지역 공고로 분류하지 않습니다.
-    // API가 제공하는 참가제한·납품·구역 관련 필드만 지역 판정에 사용합니다.
-    const text = String(notice.regionText || "").toLowerCase();
+    // 실제 참가제한·납품·구역 관련 필드를 우선 사용합니다.
+    // 해당 필드를 내려주지 않는 공고는 발주기관명으로 지역을 보완해
+    // 지역 공고가 화면에서 전부 사라지지 않도록 합니다.
+    const regionText = String(notice.regionText || "").trim().toLowerCase();
+    const text = regionText || String(notice.agency || "").trim().toLowerCase();
     const matches = (region: "daejeon" | "sejong" | "chungnam") =>
       BID_REGION_KEYWORDS[region].some((keyword) => text.includes(keyword.toLowerCase()));
     return bidFilters.region === "local"
