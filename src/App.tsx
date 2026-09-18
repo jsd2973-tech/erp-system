@@ -8648,6 +8648,21 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
     );
   };
 
+  const renderPaymentStatusCheck = (purchase: Purchase) => {
+    const paid = isPurchasePaid(purchase);
+    return (
+      <label className={`payment-status-check${paid ? " checked" : ""}`}>
+        <input
+          type="checkbox"
+          checked={paid}
+          disabled={!isAdmin || Boolean(paymentSavingId)}
+          onChange={(event) => onUpdatePayment(purchase, event.target.checked ? "paid" : "unpaid")}
+        />
+        <em>{paymentSavingId === purchase.id ? "저장 중" : paid ? "지급완료" : "미지급"}</em>
+      </label>
+    );
+  };
+
   return <>
     <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
@@ -8672,7 +8687,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
-        <div className="mobile-purchase-card-row"><span>지급상태</span><b><span className={`purchase-payment-badge ${isPurchasePaid(p) ? "paid" : "unpaid"}`}>{isPurchasePaid(p) ? "지급완료" : "미지급"}</span>{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</b></div>
+        <div className="mobile-purchase-card-row"><span>지급상태</span><b>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</b></div>
         <div className="mobile-purchase-card-row"><span>세금계산서</span><b><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></b></div>
         <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
         {isAdmin && (
@@ -8689,7 +8704,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><span className={`purchase-payment-badge ${isPurchasePaid(p) ? "paid" : "unpaid"}`}>{isPurchasePaid(p) ? "지급완료" : "미지급"}</span>{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
     {liveDetailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -14979,18 +14994,22 @@ td .icon{
 }
 
 .bulk-summary{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
+  grid-column:1 / -1;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
 }
 
 .bulk-summary span{
-  min-height:40px;
-  display:inline-flex;
+  min-width:0;
+  min-height:48px;
+  box-sizing:border-box;
+  display:flex;
   align-items:center;
-  gap:6px;
-  padding:8px 12px;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 13px;
   border-radius:12px;
   background:#f8fafc;
   border:1px solid #e5e7eb;
@@ -15115,11 +15134,28 @@ td .icon{
   }
 
   .bulk-summary{
-    justify-content:flex-start;
+    grid-template-columns:repeat(4,minmax(0,1fr));
   }
 
   .bulk-transfer-list{
     grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:600px){
+  .bulk-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+
+  .bulk-summary span{
+    min-height:44px;
+    padding:8px 10px;
+    font-size:12px;
+  }
+
+  .bulk-summary b{
+    font-size:15px;
   }
 }
 
@@ -21468,6 +21504,35 @@ button:disabled{
   opacity:.6;
 }
 .purchase-lookup-page .tax-invoice-check em{
+  font-style:normal;
+  white-space:nowrap;
+}
+.purchase-lookup-page .payment-status-check{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-width:78px;
+  color:#c2410c;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+}
+.purchase-lookup-page .payment-status-check.checked{
+  color:#15803d;
+}
+.purchase-lookup-page .payment-status-check input{
+  width:18px;
+  height:18px;
+  margin:0;
+  accent-color:#16a34a;
+  cursor:pointer;
+}
+.purchase-lookup-page .payment-status-check input:disabled{
+  cursor:not-allowed;
+  opacity:.6;
+}
+.purchase-lookup-page .payment-status-check em{
   font-style:normal;
   white-space:nowrap;
 }
