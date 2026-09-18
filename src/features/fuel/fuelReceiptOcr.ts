@@ -181,16 +181,19 @@ const UNIT_PRICE_LABELS = [
 ];
 const SUPPLY_LABELS = [
   { pattern: /공급\s*가액|공급액/, score: 130 },
+  { pattern: /거래\s*금액/, score: 126 },
   { pattern: /과세\s*표준|과세\s*금액/, score: 112 },
 ];
 const VAT_LABELS = [
   { pattern: /부가\s*세|vat/i, score: 130 },
+  { pattern: /세금/, score: 124 },
   { pattern: /세액/, score: 112 },
 ];
 const TOTAL_LABELS = [
   { pattern: /최종\s*결제\s*금액/, score: 155 },
   { pattern: /총\s*결제\s*금액|카드\s*결제\s*금액/, score: 148 },
   { pattern: /결제\s*금액/, score: 140 },
+  { pattern: /총\s*금액/, score: 146 },
   { pattern: /총\s*합계|합계\s*금액/, score: 132 },
   { pattern: /합계/, score: 120 },
   { pattern: /총\s*액/, score: 112 },
@@ -226,6 +229,18 @@ const parseUnitPrice = (lines: TextLine[]) => {
   return fallback[0] ? { value: fallback[0].value, confidence: 0.68 } : undefined;
 };
 
+// 카드승인형 주유영수증은 주유량을 별도 표기하지 않고 거래금액과 단가만 표시하는 경우가 있다.
+// 이때만 공급가액(거래금액) ÷ 단가로 보조 계산하고, 사용자가 입력칸에서 확인·수정할 수 있게 한다.
+const deriveQuantity = (
+  supplyAmount: { value: number } | undefined,
+  unitPrice: { value: number } | undefined,
+) => {
+  if (!supplyAmount || !unitPrice || supplyAmount.value <= 0 || unitPrice.value <= 0) return undefined;
+  const value = supplyAmount.value / unitPrice.value;
+  if (!Number.isFinite(value) || value <= 0 || value > 100_000) return undefined;
+  return { value, confidence: 0.58 };
+};
+
 const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
   findLabeledNumber(lines, labels, 1_000_000_000);
 
@@ -237,11 +252,11 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
   const base = parseReceiptOcr(input);
   const station = parseStation(lines, base.merchant);
   const product = parseProduct(lines);
-  const quantity = parseQuantity(lines);
   const unitPrice = parseUnitPrice(lines);
   const supplyAmount = parseAmount(lines, SUPPLY_LABELS);
   const vatAmount = parseAmount(lines, VAT_LABELS);
   const totalAmount = parseAmount(lines, TOTAL_LABELS);
+  const quantity = parseQuantity(lines) || deriveQuantity(supplyAmount, unitPrice);
   const calculatedTotal = totalAmount || (supplyAmount && vatAmount
     ? { value: Math.round(supplyAmount.value + vatAmount.value), confidence: 0.7 }
     : undefined);
