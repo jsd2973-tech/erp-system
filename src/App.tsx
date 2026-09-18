@@ -9296,9 +9296,6 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
             <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>최근 구매이력·거래처 비교</button>
           </article>
         ))}
-      </div>
-
-
           </div>
         )}
       </div>
