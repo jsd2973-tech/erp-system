@@ -7,6 +7,15 @@ import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchT
 import FuelManagement from "./features/fuel/FuelManagement";
 import type { ReceiptOcrResult } from "./features/card/receiptOcr";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
+import {
+  buildPurchasePriceHistory,
+  comparePurchaseUnitPrice,
+  getPurchasePriceHistoryKey,
+  getPurchaseEffectiveUnitPrice,
+  getPurchaseVendorPriceStat,
+  normalizePurchasePriceText,
+  type PurchasePriceHistory,
+} from "./purchasePriceHistory";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -1399,6 +1408,7 @@ export default function App() {
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
   const [purchaseSearch, setPurchaseSearch] = useState<{ from: string; to: string; vendor: string; warehouse: string; item: string; taxInvoice: string; paymentStatus?: string }>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
+  const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
   const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
@@ -4579,7 +4589,20 @@ export default function App() {
     return candidates[0] || null;
   };
 
-  const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
+const purchasePriceHistoryMap = useMemo(
+    () => buildPurchasePriceHistory(
+      purchases,
+      editingPurchaseId ? { excludePurchaseIds: [editingPurchaseId] } : undefined,
+    ),
+    [purchases, editingPurchaseId]
+  );
+
+  const getPurchasePriceHistoryForRow = (row: PurchaseRow) => {
+    if (!String(row.item || "").trim()) return undefined;
+    return purchasePriceHistoryMap.get(getPurchasePriceHistoryKey(row.item, row.spec));
+  };
+
+    const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
   const maintSuggestedItems = useMemo(() => {
     if (!maintWarehouseKey) return [];
 
@@ -7488,7 +7511,9 @@ export default function App() {
                   <col style={{ width: "7%" }} />
                 </colgroup>
                 <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
-                <tbody>{rows.map((r, i) => <tr key={r.id}><td>
+                <tbody>{rows.map((r, i) => {
+                  const priceHistory = getPurchasePriceHistoryForRow(r);
+                  return <tr key={r.id}><td>
   <div className="purchase-item-editor">
     <SearchSelect
       value={r.item}
@@ -7511,11 +7536,20 @@ export default function App() {
       + 신규
     </button>
   </div>
-</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>)}</tbody>
+  <PurchasePriceHistorySummary
+    history={priceHistory}
+    currentPrice={Number(r.price || 0)}
+    selectedVendor={purchaseHeader.vendor}
+    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
+  />
+</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>;
+                })}</tbody>
               </table>
             </div>
             <div className="mobile-entry-item-list" aria-label="구매 품목 입력">
-              {rows.map((r, i) => (
+              {rows.map((r, i) => {
+                const priceHistory = getPurchasePriceHistoryForRow(r);
+                return (
                 <div className="mobile-entry-item-card" key={`mobile-purchase-${r.id}`}>
                   <div className="mobile-entry-item-head">
                     <div><span>구매 품목</span><b>{i + 1}</b></div>
@@ -7540,6 +7574,13 @@ export default function App() {
                     </div>
                   </Field>
 
+                  <PurchasePriceHistorySummary
+                    history={priceHistory}
+                    currentPrice={Number(r.price || 0)}
+                    selectedVendor={purchaseHeader.vendor}
+                    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
+                  />
+
                   <Field label="규격">
                     <input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
                   </Field>
@@ -7561,7 +7602,8 @@ export default function App() {
 
                   <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="purchase-entry-footer">
               <div className="purchase-entry-support">
@@ -7624,6 +7666,8 @@ export default function App() {
         {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
+
+        {purchasePriceHistoryModal && <PurchasePriceHistoryModal history={purchasePriceHistoryModal} onClose={() => setPurchasePriceHistoryModal(null)} />}
 
 
         {menuTab === "card_use" && (
@@ -8567,6 +8611,133 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
+function PurchasePriceHistorySummary({
+  history,
+  currentPrice,
+  selectedVendor,
+  onOpen,
+}: {
+  history?: PurchasePriceHistory;
+  currentPrice: number;
+  selectedVendor: string;
+  onOpen: () => void;
+}) {
+  if (!history?.latest) return null;
+
+  const latest = history.latest;
+  const previous = history.previous;
+  const currentComparison = comparePurchaseUnitPrice(currentPrice, latest.price);
+  const vendorStat = getPurchaseVendorPriceStat(history, selectedVendor);
+  const historyDeltaTone = history.deltaAmount === null || history.deltaAmount === 0
+    ? "neutral"
+    : history.deltaAmount > 0 ? "up" : "down";
+  const currentDeltaTone = !currentComparison || currentComparison.deltaAmount === 0
+    ? "neutral"
+    : currentComparison.deltaAmount > 0 ? "up" : "down";
+
+  return (
+    <div className="purchase-price-history-summary">
+      <div className="purchase-price-history-head">
+        <strong>최근 구매정보</strong>
+        <button type="button" onClick={onOpen}>최근 이력 {history.entries.length}건</button>
+      </div>
+      <div className="purchase-price-history-grid">
+        <div><span>최근단가</span><b>{money(latest.price)}원</b><small>{latest.date || "일자 미입력"} · {latest.vendor || "거래처 미입력"}</small></div>
+        <div><span>직전단가</span><b>{previous ? `${money(previous.price)}원` : "-"}</b><small>{previous ? `${previous.date || "일자 미입력"} · ${previous.vendor || "거래처 미입력"}` : "이전 구매 없음"}</small></div>
+        <div className={`purchase-price-change ${historyDeltaTone}`}>
+          <span>전회 대비</span>
+          <b>{history.deltaAmount === null ? "-" : signedMoney(history.deltaAmount)}</b>
+          <small>{history.deltaPercent === null ? "비교할 이전 단가 없음" : signedPercent(history.deltaPercent)}</small>
+        </div>
+      </div>
+      {vendorStat && normalizePurchasePriceText(vendorStat.vendor) !== normalizePurchasePriceText(latest.vendor) && (
+        <div className="purchase-price-vendor-hint">
+          현재 거래처 최근단가 <b>{money(vendorStat.latest.price)}원</b>
+          <span>{vendorStat.latest.date || "일자 미입력"} · {vendorStat.vendor}</span>
+        </div>
+      )}
+      {currentComparison && (
+        <div className={`purchase-price-current-comparison ${currentDeltaTone}${Math.abs(currentComparison.deltaPercent) >= 10 ? " strong" : ""}`}>
+          현재 입력단가 {money(currentComparison.current)}원
+          <b>{currentComparison.deltaAmount === 0 ? "최근단가와 동일" : `${signedMoney(currentComparison.deltaAmount)} (${signedPercent(currentComparison.deltaPercent)})`}</b>
+          {Math.abs(currentComparison.deltaPercent) >= 10 && <small>최근 구매가 대비 10% 이상 차이</small>}
+        </div>
+      )}
+      {latest.priceDerivedFromSupply && <small className="purchase-price-derived-note">단가가 없는 과거 행은 공급가액 ÷ 수량으로 계산했습니다.</small>}
+    </div>
+  );
+}
+
+function PurchasePriceHistoryModal({ history, onClose }: { history: PurchasePriceHistory; onClose: () => void }) {
+  const recentRows = history.entries.slice(0, 10);
+
+  return (
+    <div className="purchase-price-history-modal-backdrop" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) onClose();
+    }}>
+      <div className="purchase-price-history-modal" role="dialog" aria-modal="true" aria-label="품목 단가이력">
+        <div className="purchase-price-history-modal-head">
+          <div>
+            <span>구매 단가이력</span>
+            <h2>{history.item || "품목"}</h2>
+            {history.spec && <p>규격: {history.spec}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="단가이력 닫기"><X size={18} /> 닫기</button>
+        </div>
+
+        <div className="purchase-price-history-kpis">
+          <div><span>최근단가</span><b>{history.latest ? `${money(history.latest.price)}원` : "-"}</b></div>
+          <div><span>직전단가</span><b>{history.previous ? `${money(history.previous.price)}원` : "-"}</b></div>
+          <div><span>수량 가중평균</span><b>{history.weightedAvgPrice === null ? "-" : `${money(history.weightedAvgPrice)}원`}</b></div>
+          <div><span>최저 · 최고</span><b>{money(history.minPrice)}원 · {money(history.maxPrice)}원</b></div>
+        </div>
+
+        <section className="purchase-price-history-modal-section">
+          <div className="purchase-price-history-section-head">
+            <div><h3>최근 구매이력</h3><small>최신순 최대 10건</small></div>
+          </div>
+          <ScrollTable>
+            <table>
+              <thead><tr><th>구매일</th><th>거래처</th><th>수량</th><th>단가</th><th>공급가액</th><th>합계</th></tr></thead>
+              <tbody>{recentRows.map((entry) => (
+                <tr key={`${entry.purchaseId}-${entry.id}`}>
+                  <td>{entry.date || "-"}</td>
+                  <td>{entry.vendor || "거래처 미입력"}</td>
+                  <td className="right">{money(entry.qty)}</td>
+                  <td className="right">{money(entry.price)}원{entry.priceDerivedFromSupply && <small className="purchase-price-derived-mark">*</small>}</td>
+                  <td className="right">{money(entry.supply)}원</td>
+                  <td className="right bold">{money(entry.total)}원</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </ScrollTable>
+        </section>
+
+        <section className="purchase-price-history-modal-section">
+          <div className="purchase-price-history-section-head">
+            <div><h3>거래처별 최근단가</h3><small>최근단가가 낮은 거래처부터 표시</small></div>
+          </div>
+          <ScrollTable>
+            <table>
+              <thead><tr><th>거래처</th><th>최근구매일</th><th>최근단가</th><th>최근  평균단가</th><th>구매횟수</th></tr></thead>
+              <tbody>{history.vendorStats.map((stat) => (
+                <tr key={stat.vendorKey}>
+                  <td>{stat.vendor}</td>
+                  <td>{stat.latest.date || "-"}</td>
+                  <td className="right bold">{money(stat.latest.price)}원</td>
+                  <td className="right">{money(stat.weightedAvgPrice)}원</td>
+                  <td className="right">{money(stat.count)}회</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </ScrollTable>
+        </section>
+        <p className="purchase-price-history-note">* 단가가 없는 과거 구매행은 공급가액 ÷ 수량으로 보완 계산했습니다.</p>
+      </div>
+    </div>
+  );
+}
+
 function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
   const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
@@ -8771,6 +8942,9 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   const [to, setTo] = useState("");
   const [vendor, setVendor] = useState("");
   const [item, setItem] = useState("");
+  const [priceHistoryModal, setPriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
+
+  const allPriceHistoryMap = useMemo(() => buildPurchasePriceHistory(purchases), [purchases]);
 
   const filtered = useMemo(() => {
     return purchases.filter((p) => {
@@ -8865,6 +9039,105 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
+  const itemAnalysis = useMemo(() => {
+    type ItemAnalysisBucket = {
+      key: string;
+      item: string;
+      spec: string;
+      count: number;
+      quantity: number;
+      supply: number;
+      total: number;
+      priceValues: number[];
+      weightedPriceTotal: number;
+      weightedQuantity: number;
+      latestInPeriod: { date: string; vendor: string; sortKey: string } | null;
+      vendorTotals: Map<string, { vendor: string; total: number }>;
+    };
+
+    const map = new Map<string, ItemAnalysisBucket>();
+    const itemKeyword = item.trim();
+
+    filtered.forEach((purchase) => {
+      (purchase.rows || []).forEach((row) => {
+        const rowItem = String(row.item || "").trim();
+        const rowSpec = String(row.spec || "").trim();
+        if (!rowItem || (itemKeyword && !rowItem.includes(itemKeyword))) return;
+
+        const key = getPurchasePriceHistoryKey(rowItem, rowSpec);
+        const qty = Number(row.qty || 0);
+        const supply = Number(row.supply || 0);
+        const total = Number(row.total || 0);
+        const effectivePrice = getPurchaseEffectiveUnitPrice(row);
+        const bucket = map.get(key) || {
+          key,
+          item: rowItem,
+          spec: rowSpec,
+          count: 0,
+          quantity: 0,
+          supply: 0,
+          total: 0,
+          priceValues: [],
+          weightedPriceTotal: 0,
+          weightedQuantity: 0,
+          latestInPeriod: null,
+          vendorTotals: new Map<string, { vendor: string; total: number }>(),
+        };
+
+        bucket.count += 1;
+        bucket.quantity += Number.isFinite(qty) ? qty : 0;
+        bucket.supply += Number.isFinite(supply) ? supply : 0;
+        bucket.total += Number.isFinite(total) ? total : 0;
+        if (effectivePrice.price > 0) {
+          bucket.priceValues.push(effectivePrice.price);
+          if (qty > 0) {
+            bucket.weightedPriceTotal += effectivePrice.price * qty;
+            bucket.weightedQuantity += qty;
+          }
+        }
+
+        const candidateSortKey = `${purchase.date || ""}|${purchase.id || ""}`;
+        if (!bucket.latestInPeriod || candidateSortKey > bucket.latestInPeriod.sortKey) {
+          bucket.latestInPeriod = { date: purchase.date || "", vendor: purchase.vendor || "", sortKey: candidateSortKey };
+        }
+
+        const vendorKey = String(purchase.vendor || "거래처 미입력").trim() || "거래처 미입력";
+        const vendorValue = (Number.isFinite(supply) && supply > 0)
+          ? supply
+          : Math.max(0, effectivePrice.price * Math.max(0, qty));
+        const currentVendor = bucket.vendorTotals.get(vendorKey) || { vendor: vendorKey, total: 0 };
+        currentVendor.total += vendorValue;
+        bucket.vendorTotals.set(vendorKey, currentVendor);
+        map.set(key, bucket);
+      });
+    });
+
+    return Array.from(map.values())
+      .map((bucket) => {
+        const history = allPriceHistoryMap.get(bucket.key);
+        const majorVendor = Array.from(bucket.vendorTotals.values()).sort((a, b) => b.total - a.total)[0];
+        return {
+          ...bucket,
+          history,
+          weightedAvgPrice: bucket.weightedQuantity > 0 ? bucket.weightedPriceTotal / bucket.weightedQuantity : null,
+          minPrice: bucket.priceValues.length ? Math.min(...bucket.priceValues) : null,
+          maxPrice: bucket.priceValues.length ? Math.max(...bucket.priceValues) : null,
+          recentPrice: history?.latest?.price ?? null,
+          previousPrice: history?.previous?.price ?? null,
+          historyDeltaAmount: history?.deltaAmount ?? null,
+          historyDeltaPercent: history?.deltaPercent ?? null,
+          recentDate: history?.latest?.date || bucket.latestInPeriod?.date || "",
+          recentVendor: history?.latest?.vendor || bucket.latestInPeriod?.vendor || "거래처 미입력",
+          majorVendor: majorVendor?.vendor || "거래처 미입력",
+        };
+      })
+      .sort((a, b) => {
+        const dateCompare = String(b.recentDate || "").localeCompare(String(a.recentDate || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return b.supply - a.supply;
+      });
+  }, [filtered, allPriceHistoryMap, item]);
+
   return (
     <section className="card">
       <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, withTotalRow(
@@ -8935,6 +9208,76 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
         </table>
       </ScrollTable>
 
+      <div className="between purchase-status-section-head purchase-price-analysis-head">
+        <div>
+          <h3>품목별 단가분석</h3>
+          <p className="muted">구매횟수·수량·최저/최고/가중평균은 선택기간 기준, 최근·직전단가는 전체 구매이력 기준입니다.</p>
+        </div>
+        <button onClick={() => downloadExcel(`품목별단가분석_${todayText()}`, withTotalRow(
+          itemAnalysis.map((analysis) => ({
+            품목: analysis.item,
+            규격: analysis.spec,
+            구매횟수: analysis.count,
+            총수량: analysis.quantity,
+            최근단가: analysis.recentPrice ?? "",
+            직전단가: analysis.previousPrice ?? "",
+            전회대비: analysis.historyDeltaAmount ?? "",
+            최저단가: analysis.minPrice ?? "",
+            최고단가: analysis.maxPrice ?? "",
+            가중평균단가: analysis.weightedAvgPrice ?? "",
+            최근구매일: analysis.recentDate,
+            주요거래처: analysis.majorVendor,
+          })),
+          { 품목: "총합계", 구매횟수: itemAnalysis.reduce((sum, analysis) => sum + analysis.count, 0), 총수량: itemAnalysis.reduce((sum, analysis) => sum + analysis.quantity, 0) }
+        ))}>품목별 엑셀</button>
+      </div>
+      <div className="purchase-price-analysis-desktop">
+        <ScrollTable>
+          <table>
+            <thead><tr><th>품목</th><th>규격</th><th>구매횟수</th><th>총수량</th><th>최근단가</th><th>직전단가</th><th>전회대비</th><th>최저단가</th><th>최고단가</th><th>가중평균</th><th>최근구매일</th><th>주요거래처</th></tr></thead>
+            <tbody>{!itemAnalysis.length ? <tr><td colSpan={12} className="empty">조회된 품목 단가이력 없음</td></tr> : itemAnalysis.map((analysis) => (
+              <tr key={analysis.key}>
+                <td><button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>{analysis.item}</button></td>
+                <td>{analysis.spec || "-"}</td>
+                <td className="right">{money(analysis.count)}</td>
+                <td className="right">{money(analysis.quantity)}</td>
+                <td className="right bold">{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</td>
+                <td className="right">{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</td>
+                <td className={`right purchase-price-analysis-delta${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
+                  {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
+                </td>
+                <td className="right">{analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`}</td>
+                <td className="right">{analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</td>
+                <td className="right">{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</td>
+                <td>{analysis.recentDate || "-"}</td>
+                <td>{analysis.majorVendor}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </ScrollTable>
+      </div>
+      <div className="purchase-price-analysis-mobile">
+        {!itemAnalysis.length ? <div className="empty">조회된 품목 단가이력 없음</div> : itemAnalysis.map((analysis) => (
+          <article className="purchase-price-analysis-card" key={`mobile-${analysis.key}`}>
+            <div className="purchase-price-analysis-card-head">
+              <div><strong>{analysis.item}</strong>{analysis.spec && <span>{analysis.spec}</span>}</div>
+              <small>{analysis.count}회 구매</small>
+            </div>
+            <div className="purchase-price-analysis-card-grid">
+              <div><span>최근단가</span><b>{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</b></div>
+              <div><span>직전단가</span><b>{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</b></div>
+              <div><span>가중평균</span><b>{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</b></div>
+              <div><span>최근구매</span><b>{analysis.recentDate || "-"}</b></div>
+            </div>
+            <div className={`purchase-price-analysis-card-change${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
+              전회 대비 {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
+            </div>
+            <div className="purchase-price-analysis-card-meta">주요거래처 {analysis.majorVendor} · 최저 {analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`} · 최고 {analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</div>
+            <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>최근 구매이력·거래처 비교</button>
+          </article>
+        ))}
+      </div>
+
       <h3>상세 구매내역</h3>
       <ScrollTable>
         <table>
@@ -8942,6 +9285,7 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
           <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
         </table>
       </ScrollTable>
+      {priceHistoryModal && <PurchasePriceHistoryModal history={priceHistoryModal} onClose={() => setPriceHistoryModal(null)} />}
     </section>
   );
 }
@@ -24395,6 +24739,1006 @@ html,body,#root{
   .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
   .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-group:first-child,.bid-range-group:first-child{padding-right:0;padding-bottom:12px;border-right:0;border-bottom:1px solid #e7edf4}.bid-keyword-group:nth-child(2),.bid-range-group:nth-child(2){padding-top:12px;padding-left:0}.bid-keyword-chips{flex-wrap:wrap !important}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
   .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-notice-list{grid-template-columns:1fr}.bid-notice-row{grid-template-columns:1fr;min-height:0;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a{-webkit-line-clamp:unset}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
+}
+
+/* ===== Purchase price history ===== */
+.purchase-price-history-summary{display:grid;gap:7px;margin-top:8px;padding:9px 10px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;text-align:left}
+.purchase-price-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.purchase-price-history-head strong{color:#1e3a8a;font-size:11px;font-weight:950}.purchase-price-history-head button,.purchase-price-history-link{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-history-head button:hover,.purchase-price-history-link:hover{background:#dbeafe}
+.purchase-price-history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.purchase-price-history-grid>div{display:grid;gap:2px;min-width:0;padding:6px 7px;border-radius:9px;background:#fff;border:1px solid #e6edf7}.purchase-price-history-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-history-grid b{color:#172033;font-size:12px;font-weight:1000;white-space:nowrap}.purchase-price-history-grid small{overflow:hidden;color:#8090a5;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.purchase-price-change.up b,.purchase-price-current-comparison.up b,.purchase-price-analysis-delta.up,.purchase-price-analysis-card-change.up{color:#dc2626}.purchase-price-change.down b,.purchase-price-current-comparison.down b,.purchase-price-analysis-delta.down,.purchase-price-analysis-card-change.down{color:#059669}.purchase-price-vendor-hint{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#64748b;font-size:10px;font-weight:800}.purchase-price-vendor-hint b{color:#1d4ed8;font-size:11px}.purchase-price-vendor-hint span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.purchase-price-current-comparison{display:flex;align-items:center;gap:5px;flex-wrap:wrap;color:#475569;font-size:10px;font-weight:800}.purchase-price-current-comparison b{font-size:11px}.purchase-price-current-comparison.strong{padding:5px 7px;border-radius:8px;background:#fff7ed;color:#9a3412}.purchase-price-current-comparison.strong.down{background:#ecfdf5;color:#047857}.purchase-price-current-comparison small{width:100%;font-size:10px;font-weight:900}.purchase-price-derived-note{color:#94a3b8;font-size:9px;font-weight:700}.purchase-price-derived-mark{margin-left:2px;color:#94a3b8;font-size:9px}
+.purchase-price-history-modal-backdrop{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:22px;background:rgba(15,23,42,.5)}.purchase-price-history-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid #dbe4ef;border-radius:20px;background:#f8fafc;box-shadow:0 30px 90px rgba(15,23,42,.3);text-align:left}.purchase-price-history-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:15px}.purchase-price-history-modal-head span{color:#2563eb;font-size:11px;font-weight:950;letter-spacing:.08em}.purchase-price-history-modal-head h2{margin:4px 0 0;color:#172033;font-size:23px;font-weight:1000}.purchase-price-history-modal-head p{margin:3px 0 0;color:#64748b;font-size:13px;font-weight:800}.purchase-price-history-modal-head>button{background:#e2e8f0;color:#334155;font-weight:900}.purchase-price-history-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.purchase-price-history-kpis>div{display:grid;gap:5px;padding:12px;border:1px solid #dbe4ef;border-radius:13px;background:#fff}.purchase-price-history-kpis span{color:#64748b;font-size:11px;font-weight:850}.purchase-price-history-kpis b{color:#172033;font-size:15px;font-weight:1000}.purchase-price-history-modal-section{margin-top:14px;padding:14px;border:1px solid #e1e8f0;border-radius:15px;background:#fff}.purchase-price-history-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.purchase-price-history-section-head h3{margin:0;color:#172033;font-size:15px}.purchase-price-history-section-head small{color:#94a3b8;font-size:11px;font-weight:800}.purchase-price-history-modal .scroll-table{overflow-x:auto}.purchase-price-history-modal table{min-width:690px}.purchase-price-history-modal th{background:#edf3f9;color:#334155;font-size:11px;white-space:nowrap}.purchase-price-history-modal td{font-size:12px;white-space:nowrap}.purchase-price-history-note{margin:10px 2px 0;color:#94a3b8;font-size:11px;font-weight:700}.purchase-price-analysis-mobile{display:none}.purchase-price-analysis-desktop{display:block}.purchase-price-analysis-head{margin-top:20px}.purchase-price-analysis-delta{font-weight:900;white-space:nowrap}.purchase-price-analysis-card{display:grid;gap:10px;padding:15px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 7px 18px rgba(15,23,42,.05);text-align:left}.purchase-price-analysis-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.purchase-price-analysis-card-head>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-card-head strong{overflow:hidden;color:#172033;font-size:16px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head span{overflow:hidden;color:#64748b;font-size:12px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head small{color:#64748b;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.purchase-price-analysis-card-grid>div{display:grid;gap:2px;padding:8px;border-radius:10px;background:#f8fafc}.purchase-price-analysis-card-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-analysis-card-grid b{overflow:hidden;color:#172033;font-size:12px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-change{padding:8px 10px;border-radius:9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:950}.purchase-price-analysis-card-meta{overflow:hidden;color:#64748b;font-size:11px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card .purchase-price-history-link{justify-content:center;width:100%;min-height:38px}
+@media(max-width:900px){.purchase-price-history-summary{margin-top:0;padding:11px}.purchase-price-history-grid{grid-template-columns:1fr}.purchase-price-history-grid>div{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}.purchase-price-history-grid small{text-align:right}.purchase-price-history-head button{min-height:34px}.purchase-price-history-modal-backdrop{align-items:end;padding:0}.purchase-price-history-modal{width:100%;max-height:92vh;padding:16px;border-radius:20px 20px 0 0}.purchase-price-history-modal-head h2{font-size:20px}.purchase-price-history-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.purchase-price-history-kpis b{font-size:13px}.purchase-price-analysis-desktop{display:none}.purchase-price-analysis-mobile{display:grid;gap:10px;margin:10px 0 18px}.purchase-price-analysis-head{align-items:flex-start;gap:10px}.purchase-price-analysis-head>button{width:auto;white-space:nowrap}.purchase-price-analysis-head .muted{font-size:11px;line-height:1.4}}
+
+/* ===== Basic Master Data: Clean Layout ===== */
+.app .basic-master-page{
+  display:grid;
+  gap:0;
+  width:min(100%,1600px) !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  padding:28px 30px 32px !important;
+  border:1px solid #dfe7f0;
+  border-radius:20px !important;
+  background:#fff !important;
+  box-shadow:0 10px 32px rgba(15,23,42,.055);
+}
+.app .basic-page-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:20px;
+  min-width:0;
+  padding-bottom:19px;
+  border-bottom:1px solid #e8edf3;
+}
+.app .basic-page-heading{min-width:0}
+.app .basic-eyebrow{
+  display:block;
+  margin-bottom:6px;
+  color:#5e7896;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.13em;
+}
+.app .basic-page-heading h2{
+  margin:0 !important;
+  color:#172b40;
+  font-size:26px !important;
+  line-height:1.2;
+  letter-spacing:-.7px;
+  text-align:left !important;
+}
+.app .basic-page-heading p{
+  margin:6px 0 0;
+  color:#6d7c8d;
+  font-size:13px;
+  line-height:1.45;
+}
+.app .basic-page-header-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:9px;
+  min-width:0;
+}
+.app .basic-count-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:38px;
+  padding:0 12px;
+  border:1px solid #dbe5ef;
+  border-radius:10px;
+  background:#f8fafc;
+  color:#536176;
+  font-size:12px;
+  font-weight:850;
+  white-space:nowrap;
+}
+.app .basic-upload-button{
+  min-height:40px;
+  margin:0;
+  border-color:#cfe0f5;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.app .basic-entry-panel{
+  margin-top:20px;
+  padding:18px 19px 17px;
+  border:1px solid #e1e8f0;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.app .basic-panel-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  min-width:0;
+  margin-bottom:15px;
+}
+.app .basic-panel-heading>div{min-width:0}
+.app .basic-panel-heading h3{
+  margin:0 0 4px !important;
+  color:#20364c;
+  font-size:16px !important;
+  line-height:1.3;
+  font-weight:950 !important;
+}
+.app .basic-panel-heading p{
+  margin:0;
+  color:#7b8897;
+  font-size:12px;
+  line-height:1.45;
+}
+.app .basic-edit-badge{
+  flex:0 0 auto;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#fff7ed;
+  color:#c2410c;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.app .basic-form-grid{
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+}
+.app .basic-form-grid .field{min-width:0;margin-bottom:0}
+.app .basic-form-grid .field>label{margin-bottom:6px;color:#536176;font-size:11px;font-weight:900}
+.app .basic-form-grid input,
+.app .basic-form-grid select{
+  min-height:42px;
+  border-color:#d6e0ea;
+  background:#fff;
+  font-size:13px;
+  font-weight:700;
+}
+.app .basic-form-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-height:42px;
+  margin:17px 0 0 !important;
+  padding:14px 0 0;
+  border-top:1px solid #e1e8f0;
+}
+.app .basic-form-actions:empty{display:none}
+.app .basic-form-actions>button{
+  min-width:110px;
+  min-height:40px;
+  justify-content:center;
+  font-size:12px;
+  font-weight:900;
+}
+.app .basic-list-heading{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  min-width:0;
+  margin:24px 0 10px;
+}
+.app .basic-list-heading>div:first-child{min-width:0}
+.app .basic-list-heading h3,
+.app .basic-list-heading h4{
+  margin:0 0 3px !important;
+  color:#20364c;
+  font-size:16px !important;
+  line-height:1.3;
+  font-weight:950 !important;
+}
+.app .basic-list-heading h4{font-size:14px !important}
+.app .basic-list-heading p{
+  margin:0;
+  color:#8491a1;
+  font-size:11px;
+  line-height:1.4;
+}
+.app .basic-list-heading>strong{
+  flex:0 0 auto;
+  color:#1d4ed8;
+  font-size:13px;
+  font-weight:950;
+  white-space:nowrap;
+}
+.app .basic-list-heading-compact{margin-top:22px}
+.app .basic-list-controls{
+  display:grid;
+  grid-template-columns:minmax(240px,390px) auto;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.app .basic-list-controls>strong{color:#1d4ed8;font-size:12px;font-weight:950;white-space:nowrap}
+.app .basic-search-input{min-width:0}
+.app .basic-search-input input{min-height:38px;font-size:12px}
+.app .basic-table-scroll{
+  width:100%;
+  max-width:100%;
+  margin:0 !important;
+  border:1px solid #dfe7f0;
+  border-radius:14px !important;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(15,23,42,.025);
+}
+.app .basic-table-scroll table{
+  width:100% !important;
+  min-width:0 !important;
+  table-layout:fixed !important;
+}
+.app .basic-table-scroll th{
+  padding:11px 9px !important;
+  border-bottom:1px solid #dfe7f0;
+  background:#edf3f9;
+  color:#536176;
+  font-size:11px;
+  font-weight:950;
+  text-align:center;
+}
+.app .basic-table-scroll td{
+  padding:10px 9px !important;
+  border-top:0;
+  border-bottom:1px solid #edf1f5;
+  color:#334155;
+  font-size:12px;
+  line-height:1.4;
+  text-align:center;
+  white-space:normal !important;
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+.app .basic-table-scroll tbody tr:last-child td{border-bottom:0}
+.app .basic-table-scroll tbody tr:hover{background:#f8fbff}
+.app .basic-vendor-table th:nth-child(1),
+.app .basic-vendor-table td:nth-child(1){width:11%}
+.app .basic-vendor-table th:nth-child(2),
+.app .basic-vendor-table td:nth-child(2){width:17%}
+.app .basic-vendor-table th:nth-child(3),
+.app .basic-vendor-table td:nth-child(3){width:12%}
+.app .basic-vendor-table th:nth-child(4),
+.app .basic-vendor-table td:nth-child(4),
+.app .basic-vendor-table th:nth-child(5),
+.app .basic-vendor-table td:nth-child(5){width:13%}
+.app .basic-vendor-table th:nth-child(6),
+.app .basic-vendor-table td:nth-child(6){width:22%}
+.app .basic-vendor-table th:nth-child(7),
+.app .basic-vendor-table td:nth-child(7){width:12%}
+.app .basic-vendor-table td:nth-child(6){text-align:left}
+.app .basic-vendor-table td:last-child{white-space:nowrap !important}
+.app .basic-vendor-table .icon,
+.app .basic-table-scroll .icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:31px;
+  min-height:31px;
+  margin:0 2px;
+  padding:5px;
+  border:1px solid #dbe4ee;
+  border-radius:8px;
+  background:#f8fafc;
+  color:#64748b;
+}
+.app .basic-vendor-table .icon:hover,
+.app .basic-table-scroll .icon:hover{background:#eef5fc;color:#2563eb}
+.app .basic-split-grid{
+  display:grid;
+  grid-template-columns:minmax(300px,.85fr) minmax(420px,1.15fr);
+  gap:16px;
+  min-width:0;
+  margin-top:20px;
+}
+.app .basic-entry-section{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  padding:18px;
+  border:1px solid #e1e8f0;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.app .basic-entry-section .basic-panel-heading{margin-bottom:14px}
+.app .basic-form-stack{display:grid;gap:10px;min-width:0}
+.app .basic-form-stack .field{margin:0}
+.app .basic-form-stack .field>label{margin-bottom:6px;color:#536176;font-size:11px;font-weight:900}
+.app .basic-form-stack input{min-height:42px;font-size:13px;font-weight:700}
+.app .basic-save-button{width:100%;min-height:40px;justify-content:center;font-size:12px;font-weight:900}
+.app .basic-entry-section .basic-list-heading{margin-top:23px}
+.app .basic-entry-section .basic-table-scroll{flex:1}
+.app .basic-items-list-heading{align-items:end}
+.app .basic-layout-page>.layout-map{margin-top:20px}
+.app .basic-layout-page>.layout-edit-guide{margin-top:16px}
+.app .basic-mobile-list{display:none}
+
+@media (min-width:901px) and (max-width:1200px){
+  .app .basic-master-page{padding-left:22px !important;padding-right:22px !important}
+  .app .basic-vendors-page .basic-form-grid,
+  .app .basic-items-page .basic-form-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .app .basic-vendors-page .vendor-register-grid>.field:nth-child(6),
+  .app .basic-vendors-page .vendor-register-grid>.field:nth-child(7){grid-column:auto}
+  .app .basic-split-grid{grid-template-columns:1fr 1fr}
+}
+
+@media (max-width:900px){
+  .app .basic-master-page{
+    width:100% !important;
+    padding:16px !important;
+    border-radius:22px !important;
+    box-shadow:0 8px 24px rgba(15,23,42,.06);
+  }
+  .app .basic-page-header{
+    display:grid;
+    grid-template-columns:1fr;
+    align-items:stretch;
+    gap:13px;
+    padding-bottom:16px;
+  }
+  .app .basic-page-heading h2{font-size:24px !important}
+  .app .basic-page-heading p{font-size:12px}
+  .app .basic-page-header-actions{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);
+    align-items:stretch;
+    justify-content:stretch;
+  }
+  .app .basic-count-badge{width:100%;min-width:0;min-height:42px;padding:0 7px;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+  .app .basic-upload-button{width:100% !important;min-height:42px;justify-content:center;padding:8px 7px;font-size:12px;overflow:hidden;text-overflow:ellipsis}
+  .app .basic-entry-panel{margin-top:16px;padding:14px;border-radius:16px}
+  .app .basic-panel-heading{margin-bottom:13px}
+  .app .basic-panel-heading h3{font-size:17px !important}
+  .app .basic-panel-heading p{font-size:11px}
+  .app .basic-form-grid{grid-template-columns:1fr !important;gap:10px !important}
+  .app .basic-form-grid .field{margin:0 !important}
+  .app .basic-form-grid input,
+  .app .basic-form-stack input,
+  .app .basic-form-stack .search-select input{min-height:44px;font-size:15px}
+  .app .basic-form-actions{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    margin-top:14px !important;
+    padding-top:12px;
+  }
+  .app .basic-form-actions>button{width:100%;min-width:0;min-height:42px;padding:8px 6px;font-size:12px}
+  .app .basic-list-heading{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:end;
+    gap:8px;
+    margin:20px 0 9px;
+  }
+  .app .basic-list-heading h3{font-size:16px !important}
+  .app .basic-list-heading p{font-size:10px}
+  .app .basic-list-controls{
+    grid-column:1 / -1;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:8px;
+    width:100%;
+  }
+  .app .basic-list-controls input{min-height:42px;font-size:14px}
+  .app .basic-list-controls>strong{font-size:11px}
+  .app .basic-split-grid{grid-template-columns:1fr;gap:12px;margin-top:16px}
+  .app .basic-entry-section{padding:14px;border-radius:16px}
+  .app .basic-entry-section .basic-list-heading{margin-top:20px}
+  .app .basic-save-button{min-height:44px;font-size:13px}
+  .app .basic-table-scroll{display:none !important}
+  .app .basic-mobile-list{display:grid !important;gap:8px;min-width:0}
+  .app .basic-mobile-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    min-width:0;
+    padding:11px 12px;
+    border:1px solid #e1e8f0;
+    border-radius:12px;
+    background:#fff;
+  }
+  .app .basic-mobile-row-copy{
+    display:grid;
+    gap:3px;
+    min-width:0;
+  }
+  .app .basic-mobile-row-copy span,
+  .app .basic-mobile-row-copy small{
+    min-width:0;
+    overflow:hidden;
+    color:#7b8897;
+    font-size:10px;
+    line-height:1.35;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .app .basic-mobile-row-copy strong{
+    min-width:0;
+    overflow:hidden;
+    color:#172033;
+    font-size:15px;
+    line-height:1.3;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .app .basic-mobile-row-copy small{color:#64748b;font-size:10px}
+  .app .basic-mobile-row-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto;margin-left:auto}
+  .app .basic-mobile-row-actions .icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;
+    min-width:36px;
+    min-height:36px;
+    margin:0 !important;
+    padding:7px;
+    border:1px solid #dbe4ee;
+    border-radius:9px;
+    background:#f8fafc;
+    color:#64748b;
+  }
+  .app .basic-item-mobile-row .basic-mobile-row-copy strong{font-size:16px}
+  .app .basic-mobile-empty{
+    padding:24px 12px;
+    border:1px dashed #cbd5e1;
+    border-radius:12px;
+    background:#f8fafc;
+    color:#94a3b8;
+    font-size:12px;
+    font-weight:850;
+    text-align:center;
+  }
+}
+
+
+/* ===== ERP List Pages: Unified Detail Layout ===== */
+/* 목록·세부목록 화면만 대상으로 하는 최종 공통 스타일입니다. 데이터/권한/동작은 변경하지 않습니다. */
+.app.app-tab-list,
+.app.app-tab-status,
+.app.app-tab-card_list,
+.app.app-tab-card_stats,
+.app.app-tab-maint_list,
+.app.app-tab-maint_stats,
+.app.app-tab-maintenance_schedules,
+.app.app-tab-permits,
+.app.app-tab-receipt_photos,
+.app.app-tab-maintenance_photos,
+.app.app-tab-vendor_accounts,
+.app.app-tab-bulk_transfer,
+.app.app-tab-trash_bin,
+.app.app-tab-activity_logs,
+.app.app-tab-vendors,
+.app.app-tab-warehouse_groups,
+.app.app-tab-items,
+.app.app-tab-site_notices,
+.app.app-tab-bid_notices,
+.app.app-tab-update_history,
+.app.app-tab-update_notices,
+.app.app-tab-backup_permissions{
+  --erp-list-line:#e3eaf2;
+  --erp-list-soft:#f7faff;
+  --erp-list-muted:#718096;
+  --erp-list-ink:#172033;
+}
+
+/* PC: 화면마다 같은 폭·외곽선·제목/목록 리듬을 사용합니다. */
+@media (min-width:901px){
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page,
+  .app.app-tab-vendors>.basic-master-page,
+  .app.app-tab-warehouse_groups>.basic-master-page,
+  .app.app-tab-items>.basic-master-page{
+    border-color:var(--erp-list-line);
+    box-shadow:0 10px 30px rgba(15,23,42,.045);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child,
+  .app.app-tab-status>.card>.between:first-child,
+  .app.app-tab-card_list>.lookup-page>.between:first-child,
+  .app.app-tab-card_stats>.card>.between:first-child,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child,
+  .app.app-tab-maint_stats>.card>.between:first-child,
+  .app.app-tab-permits .permit-head,
+  .app.app-tab-vendor_accounts .vendor-account-head,
+  .app.app-tab-bulk_transfer .bulk-transfer-head,
+  .app.app-tab-trash_bin>.trash-page>.between:first-child,
+  .app.app-tab-activity_logs>.activity-log-page>.between:first-child{
+    position:relative;
+    margin-bottom:20px !important;
+    padding-bottom:16px !important;
+    border-bottom:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child h2,
+  .app.app-tab-status>.card>.between:first-child h2,
+  .app.app-tab-card_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-card_stats>.card>.between:first-child h2,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-maint_stats>.card>.between:first-child h2{
+    color:var(--erp-list-ink);
+    font-size:25px;
+    font-weight:950;
+    letter-spacing:-.7px;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5,
+  .app.app-tab-maint_list .maint-filter,
+  .app.app-tab-permits>.permit-page>.grid5,
+  .app.app-tab-permits>.permit-page>.grid3,
+  .app.app-tab-trash_bin>.trash-page>.grid3,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3{
+    margin-bottom:18px;
+    padding:15px 16px;
+    border:1px solid var(--erp-list-line);
+    border-radius:14px;
+    background:var(--erp-list-soft);
+  }
+
+  .app.app-tab-maint_list .maint-filter{
+    grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(190px,1fr) minmax(220px,1.35fr) 120px;
+    gap:12px;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5 .field,
+  .app.app-tab-status>.card>.grid5 .field,
+  .app.app-tab-card_list>.lookup-page>.grid5 .field,
+  .app.app-tab-card_stats>.card>.grid5 .field,
+  .app.app-tab-maint_stats>.card>.grid5 .field,
+  .app.app-tab-maint_list .maint-filter .field,
+  .app.app-tab-permits>.permit-page>.grid5 .field,
+  .app.app-tab-permits>.permit-page>.grid3 .field,
+  .app.app-tab-trash_bin>.trash-page>.grid3 .field,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3 .field{
+    margin:0;
+  }
+
+  .app.app-tab-list .scroll-table,
+  .app.app-tab-status .scroll-table,
+  .app.app-tab-card_list .scroll-table,
+  .app.app-tab-card_stats .scroll-table,
+  .app.app-tab-maint_list .scroll-table,
+  .app.app-tab-maint_stats .scroll-table,
+  .app.app-tab-permits .scroll-table,
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table,
+  .app.app-tab-vendors .basic-table-scroll,
+  .app.app-tab-warehouse_groups .basic-table-scroll,
+  .app.app-tab-items .basic-table-scroll{
+    margin-top:0;
+    overflow:auto;
+    border:1px solid var(--erp-list-line);
+    border-radius:13px;
+    box-shadow:0 4px 14px rgba(15,23,42,.025);
+  }
+
+  .app.app-tab-list .scroll-table th,
+  .app.app-tab-status .scroll-table th,
+  .app.app-tab-card_list .scroll-table th,
+  .app.app-tab-card_stats .scroll-table th,
+  .app.app-tab-maint_list .scroll-table th,
+  .app.app-tab-maint_stats .scroll-table th,
+  .app.app-tab-permits .scroll-table th,
+  .app.app-tab-trash_bin .scroll-table th,
+  .app.app-tab-activity_logs .scroll-table th,
+  .app.app-tab-vendors .basic-table-scroll th,
+  .app.app-tab-warehouse_groups .basic-table-scroll th,
+  .app.app-tab-items .basic-table-scroll th{
+    height:44px;
+    padding:10px 9px;
+    background:#eef4fa;
+    color:#40516a;
+    font-size:12px;
+    font-weight:950;
+    text-align:center;
+    vertical-align:middle;
+  }
+
+  .app.app-tab-list .scroll-table td,
+  .app.app-tab-status .scroll-table td,
+  .app.app-tab-card_list .scroll-table td,
+  .app.app-tab-card_stats .scroll-table td,
+  .app.app-tab-maint_list .scroll-table td,
+  .app.app-tab-maint_stats .scroll-table td,
+  .app.app-tab-permits .scroll-table td,
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td,
+  .app.app-tab-vendors .basic-table-scroll td,
+  .app.app-tab-warehouse_groups .basic-table-scroll td,
+  .app.app-tab-items .basic-table-scroll td{
+    min-height:44px;
+    padding:9px 8px;
+    color:#334155;
+    font-size:13px;
+    text-align:center;
+    vertical-align:middle;
+  }
+
+  .app.app-tab-list .scroll-table tbody tr:hover td,
+  .app.app-tab-status .scroll-table tbody tr:hover td,
+  .app.app-tab-card_list .scroll-table tbody tr:hover td,
+  .app.app-tab-card_stats .scroll-table tbody tr:hover td,
+  .app.app-tab-maint_list .scroll-table tbody tr:hover td,
+  .app.app-tab-maint_stats .scroll-table tbody tr:hover td,
+  .app.app-tab-permits .scroll-table tbody tr:hover td,
+  .app.app-tab-trash_bin .scroll-table tbody tr:hover td,
+  .app.app-tab-activity_logs .scroll-table tbody tr:hover td,
+  .app.app-tab-vendors .basic-table-scroll tbody tr:hover td,
+  .app.app-tab-warehouse_groups .basic-table-scroll tbody tr:hover td,
+  .app.app-tab-items .basic-table-scroll tbody tr:hover td{
+    background:#f8fbff;
+  }
+
+  .app.app-tab-status>.card>h3,
+  .app.app-tab-card_stats>.card>h3,
+  .app.app-tab-maint_stats>.card>h3,
+  .app.app-tab-maint_list .basic-list-heading{
+    margin:22px 0 10px;
+    padding:0 0 10px;
+    border-bottom:1px solid #edf1f5;
+    color:#26364d;
+    font-size:17px;
+    font-weight:950;
+  }
+
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    gap:10px;
+    margin:0 0 20px;
+  }
+
+  .app.app-tab-status>.card>.status-cards>div,
+  .app.app-tab-card_list>.lookup-page>.status-cards>div,
+  .app.app-tab-card_stats>.card>.status-cards>div,
+  .app.app-tab-maint_stats>.card>.status-cards>div{
+    min-height:82px;
+    padding:14px 15px;
+    border-color:var(--erp-list-line);
+    background:linear-gradient(180deg,#fbfdff,#f5f8fc);
+  }
+
+  .app.app-tab-status>.card>.status-cards span,
+  .app.app-tab-card_list>.lookup-page>.status-cards span,
+  .app.app-tab-card_stats>.card>.status-cards span,
+  .app.app-tab-maint_stats>.card>.status-cards span{
+    font-size:11px;
+    font-weight:900;
+  }
+
+  .app.app-tab-status>.card>.status-cards b,
+  .app.app-tab-card_list>.lookup-page>.status-cards b,
+  .app.app-tab-card_stats>.card>.status-cards b,
+  .app.app-tab-maint_stats>.card>.status-cards b{
+    color:#1d4ed8;
+    font-size:20px;
+    line-height:1.25;
+  }
+
+  .app.app-tab-list .purchase-page-summary{
+    margin:0 0 10px;
+    color:#718096;
+    font-size:12px;
+    font-weight:800;
+  }
+
+  .app.app-tab-list .purchase-pagination{
+    margin-top:14px;
+  }
+
+  .app.app-tab-list .purchase-item-detail-button,
+  .app.app-tab-maint_list .link-btn{
+    color:#1d4ed8;
+    font-weight:850;
+  }
+
+  /* 카드형 목록은 외곽선·상태·액션을 같은 리듬으로 맞춥니다. */
+  .app.app-tab-list .mobile-purchase-card,
+  .app.app-tab-card_list .mobile-list-card,
+  .app.app-tab-maint_list .mobile-list-card,
+  .app.app-tab-trash_bin .mobile-list-card,
+  .app.app-tab-activity_logs .mobile-list-card,
+  .app.app-tab-permits .permit-card,
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card,
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    border-color:var(--erp-list-line);
+    border-radius:15px;
+    box-shadow:0 6px 18px rgba(15,23,42,.045);
+  }
+
+  .app.app-tab-list .mobile-purchase-card-head,
+  .app.app-tab-card_list .mobile-list-top,
+  .app.app-tab-maint_list .mobile-list-top,
+  .app.app-tab-trash_bin .mobile-list-top,
+  .app.app-tab-activity_logs .mobile-list-top{
+    padding-bottom:10px;
+    border-bottom:1px solid #edf1f5;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-head strong,
+  .app.app-tab-card_list .mobile-list-top b,
+  .app.app-tab-maint_list .mobile-list-top b,
+  .app.app-tab-trash_bin .mobile-list-top b,
+  .app.app-tab-activity_logs .mobile-list-top b{
+    color:var(--erp-list-ink);
+    font-size:15px;
+    font-weight:950;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-row{
+    padding:8px 0;
+    font-size:12px;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-row b{
+    color:#1d4ed8;
+    font-size:13px;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card{
+    background:#fff;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-title,
+  .app.app-tab-bulk_transfer .bulk-card-main{
+    padding-bottom:11px;
+    border-bottom:1px solid #edf1f5;
+  }
+
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    box-shadow:0 6px 18px rgba(15,23,42,.04);
+  }
+
+  .app.app-tab-receipt_photos .receipt-list-head,
+  .app.app-tab-maintenance_photos .receipt-list-head{
+    margin-top:20px;
+    padding-top:18px;
+    border-top:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table{
+    max-height:calc(100vh - 405px);
+  }
+
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td{
+    font-size:12px;
+  }
+
+  /* 상세 모달의 표도 목록 표와 같은 밀도로 보이게 합니다. */
+  .app .purchase-detail-modal .scroll-table,
+  .app .wide-modal .scroll-table{
+    border-radius:12px;
+    border-color:var(--erp-list-line);
+  }
+  .app .purchase-detail-modal th,
+  .app .wide-modal th{
+    background:#eef4fa;
+    color:#40516a;
+    text-align:center;
+  }
+  .app .purchase-detail-modal td,
+  .app .wide-modal td{
+    text-align:center;
+    vertical-align:middle;
+  }
+}
+
+@media (max-width:900px){
+  /* 모바일은 페이지 여백을 줄이고, 제목→필터→목록 순서를 또렷하게 합니다. */
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page{
+    padding:15px !important;
+    border-color:var(--erp-list-line);
+    border-radius:16px !important;
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child,
+  .app.app-tab-status>.card>.between:first-child,
+  .app.app-tab-card_list>.lookup-page>.between:first-child,
+  .app.app-tab-card_stats>.card>.between:first-child,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child,
+  .app.app-tab-maint_stats>.card>.between:first-child{
+    gap:9px !important;
+    margin-bottom:14px !important;
+    padding-bottom:13px !important;
+    border-bottom:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child h2,
+  .app.app-tab-status>.card>.between:first-child h2,
+  .app.app-tab-card_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-card_stats>.card>.between:first-child h2,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-maint_stats>.card>.between:first-child h2{
+    margin:0 !important;
+    color:var(--erp-list-ink);
+    font-size:22px !important;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5,
+  .app.app-tab-maint_list .maint-filter,
+  .app.app-tab-permits>.permit-page>.grid5,
+  .app.app-tab-permits>.permit-page>.grid3,
+  .app.app-tab-trash_bin>.trash-page>.grid3,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3{
+    gap:9px !important;
+    margin-bottom:13px !important;
+    padding:11px !important;
+    border-color:var(--erp-list-line);
+    border-radius:13px;
+    background:var(--erp-list-soft);
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5 .field,
+  .app.app-tab-status>.card>.grid5 .field,
+  .app.app-tab-card_list>.lookup-page>.grid5 .field,
+  .app.app-tab-card_stats>.card>.grid5 .field,
+  .app.app-tab-maint_stats>.card>.grid5 .field,
+  .app.app-tab-maint_list .maint-filter .field,
+  .app.app-tab-permits>.permit-page>.grid5 .field,
+  .app.app-tab-permits>.permit-page>.grid3 .field,
+  .app.app-tab-trash_bin>.trash-page>.grid3 .field,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3 .field{
+    margin:0 !important;
+  }
+
+  .app.app-tab-status>.card>h3,
+  .app.app-tab-card_stats>.card>h3,
+  .app.app-tab-maint_stats>.card>h3{
+    margin:19px 0 9px !important;
+    padding-bottom:8px;
+    border-bottom:1px solid #edf1f5;
+    font-size:16px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    margin:0 0 16px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards>div,
+  .app.app-tab-card_list>.lookup-page>.status-cards>div,
+  .app.app-tab-card_stats>.card>.status-cards>div,
+  .app.app-tab-maint_stats>.card>.status-cards>div{
+    min-height:76px !important;
+    padding:11px !important;
+    border-radius:13px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards span,
+  .app.app-tab-card_list>.lookup-page>.status-cards span,
+  .app.app-tab-card_stats>.card>.status-cards span,
+  .app.app-tab-maint_stats>.card>.status-cards span{
+    margin-bottom:5px !important;
+    font-size:10px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards b,
+  .app.app-tab-card_list>.lookup-page>.status-cards b,
+  .app.app-tab-card_stats>.card>.status-cards b,
+  .app.app-tab-maint_stats>.card>.status-cards b{
+    color:#1d4ed8 !important;
+    font-size:17px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-cards,
+  .app.app-tab-card_list .mobile-card-list,
+  .app.app-tab-maint_list .mobile-card-list,
+  .app.app-tab-trash_bin .mobile-card-list,
+  .app.app-tab-activity_logs .mobile-card-list{
+    gap:9px !important;
+    margin-top:10px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card,
+  .app.app-tab-card_list .mobile-list-card,
+  .app.app-tab-maint_list .mobile-list-card,
+  .app.app-tab-trash_bin .mobile-list-card,
+  .app.app-tab-activity_logs .mobile-list-card{
+    padding:13px !important;
+    border-radius:14px !important;
+    box-shadow:0 5px 15px rgba(15,23,42,.04) !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-actions,
+  .app.app-tab-card_list .mobile-card-actions,
+  .app.app-tab-maint_list .mobile-card-actions,
+  .app.app-tab-trash_bin .mobile-list-actions{
+    gap:7px !important;
+    margin-top:10px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-actions button,
+  .app.app-tab-card_list .mobile-card-actions button,
+  .app.app-tab-maint_list .mobile-card-actions button,
+  .app.app-tab-trash_bin .mobile-list-actions button{
+    min-height:36px !important;
+    border-radius:10px !important;
+    font-size:12px !important;
+  }
+
+  .app.app-tab-list .purchase-page-summary{
+    margin:0 0 8px;
+    font-size:11px;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card,
+  .app.app-tab-permits .permit-card,
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    border-radius:14px;
+    box-shadow:0 5px 15px rgba(15,23,42,.04);
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-title,
+  .app.app-tab-bulk_transfer .bulk-card-main{
+    padding-bottom:9px;
+  }
+
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table{
+    max-height:none;
+    overflow-x:auto !important;
+  }
+
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td{
+    font-size:11px !important;
+  }
+
+  .app .purchase-detail-modal,
+  .app .wide-modal{
+    width:calc(100vw - 24px);
+    max-width:none;
+    padding:15px;
+    border-radius:17px;
+  }
+
+  .app .purchase-detail-modal .scroll-table,
+  .app .wide-modal .scroll-table{
+    overflow-x:auto !important;
+  }
+
+  .app .purchase-detail-modal table,
+  .app .wide-modal table{
+    min-width:640px;
+  }
+}
+
+@media (max-width:390px){
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    grid-template-columns:1fr !important;
+  }
 }
 
 `;
