@@ -22,7 +22,12 @@ export type FuelReceiptOcrResult = {
 };
 
 type TextLine = { text: string; index: number };
-type NumberCandidate = { value: number; score: number };
+type NumberCandidate = {
+  value: number;
+  score: number;
+  hasDecimal?: boolean;
+  hasVolumeUnit?: boolean;
+};
 type NumberToken = {
   value: number;
   amountValue: number;
@@ -175,6 +180,8 @@ const findLabeledQuantity = (
           + (selected.hasVolumeUnit ? 5 : 0)
           + (selected.hasDecimal ? 3 : 0)
           - line.index * 0.2,
+        hasDecimal: selected.hasDecimal,
+        hasVolumeUnit: selected.hasVolumeUnit,
       });
     });
   });
@@ -182,7 +189,12 @@ const findLabeledQuantity = (
   candidates.sort((a, b) => b.score - a.score);
   const selected = candidates[0];
   return selected
-    ? { value: selected.value, confidence: selected.score >= 100 ? 0.95 : 0.78 }
+    ? {
+      value: selected.value,
+      confidence: selected.hasDecimal || selected.hasVolumeUnit ? 0.95 : 0.78,
+      hasDecimal: selected.hasDecimal,
+      hasVolumeUnit: selected.hasVolumeUnit,
+    }
     : undefined;
 };
 
@@ -330,7 +342,9 @@ const parseQuantity = (lines: TextLine[]) => {
     if (token && token.value <= 100_000) fallback.push({ value: token.value, score: 58 - index * 0.2 });
   });
   fallback.sort((a, b) => b.score - a.score);
-  return fallback[0] ? { value: fallback[0].value, confidence: 0.62 } : undefined;
+  return fallback[0]
+    ? { value: fallback[0].value, confidence: 0.62, hasDecimal: false, hasVolumeUnit: true }
+    : undefined;
 };
 
 const parseUnitPrice = (lines: TextLine[]) => {
@@ -350,6 +364,9 @@ const parseUnitPrice = (lines: TextLine[]) => {
 
 const approximatelyEqual = (left: number, right: number) =>
   Math.abs(left - right) <= Math.max(2, Math.round(Math.max(Math.abs(left), Math.abs(right)) * 0.001));
+
+const isPlausibleFuelUnitPrice = (value: number) => Number.isFinite(value) && value >= 100 && value <= 10_000;
+const fuelLineMatchesReceipt = (left: number, right: number) => Math.abs(left - right) <= 2;
 
 const collectAmountValues = (lines: TextLine[]) => Array.from(new Set(
   lines.flatMap((line) => extractNumberTokens(line.text))
@@ -435,32 +452,8 @@ const deriveQuantity = (
     const value = candidate.amount / unitPrice.value;
     const roundedValue = Math.round(value * 1000) / 1000;
     if (!Number.isFinite(roundedValue) || roundedValue <= 0 || roundedValue > 100_000) continue;
-    if (approximatelyEqual(roundedValue * unitPrice.value, candidate.amount)) {
+    if (fuelLineMatchesReceipt(roundedValue * unitPrice.value, candidate.amount)) {
       return { value: roundedValue, confidence: candidate.confidence };
-    }
-  }
-  return undefined;
-};
-
-// 손글씨가 단가 줄을 덮으면 OCR이 `1,146`을 `1`처럼 잘라 읽을 수 있다.
-// 주유량과 최종 합계가 함께 있으면 영수증의 VAT 포함 단가를 역산해 보정한다.
-const deriveUnitPrice = (
-  quantity: { value: number } | undefined,
-  supplyAmount: { value: number } | undefined,
-  totalAmount: { value: number } | undefined,
-) => {
-  if (!quantity || quantity.value <= 0) return undefined;
-
-  const candidates = [
-    ...(totalAmount ? [{ amount: totalAmount.value, confidence: 0.72 }] : []),
-    ...(supplyAmount ? [{ amount: supplyAmount.value, confidence: 0.64 }] : []),
-  ];
-  for (const candidate of candidates) {
-    if (candidate.amount <= 0) continue;
-    const value = Math.round(candidate.amount / quantity.value);
-    if (!Number.isFinite(value) || value <= 0 || value > 10_000_000) continue;
-    if (approximatelyEqual(value * quantity.value, candidate.amount)) {
-      return { value, confidence: candidate.confidence };
     }
   }
   return undefined;
@@ -475,7 +468,7 @@ const unitPriceMatchesReceipt = (
   if (!unitPrice || !quantity || unitPrice.value <= 0 || quantity.value <= 0) return false;
   return [supplyAmount, totalAmount]
     .filter(Boolean)
-    .some((amount) => approximatelyEqual(unitPrice.value * quantity.value, amount!.value));
+    .some((amount) => fuelLineMatchesReceipt(unitPrice.value * quantity.value, amount!.value));
 };
 
 const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
@@ -506,15 +499,19 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
     supplyAmount,
     totalAmount,
   );
-  const reconciledUnitPrice = parsedUnitPriceMatches
-    ? unitPrice
-    : deriveUnitPrice(parsedQuantity, supplyAmount, totalAmount) || unitPrice;
-  const quantityMatchesAmount = parsedQuantity && reconciledUnitPrice
-    ? unitPriceMatchesReceipt(reconciledUnitPrice, parsedQuantity, supplyAmount, totalAmount)
-    : true;
-  const quantity = (parsedQuantity && quantityMatchesAmount)
+  // 소수점 주유량/부피 단위가 없는 정수 토큰은 손글씨 메모일 가능성이 있어,
+  // 단가와 금액 관계까지 맞을 때만 자동 입력한다.
+  const trustedParsedQuantity = parsedQuantity
+    && parsedUnitPriceMatches
     ? parsedQuantity
-    : deriveQuantity(supplyAmount, totalAmount, reconciledUnitPrice) || parsedQuantity;
+    : undefined;
+  // 영수증에 수량 라벨이 있었는데 단가와 관계가 맞지 않으면, 잘못 읽힌
+  // 수량을 단가로 다시 역산하지 않는다. 라벨 자체를 놓친 경우에만 보조 계산한다.
+  const derivedQuantity = parsedQuantity ? undefined : deriveQuantity(supplyAmount, totalAmount, unitPrice);
+  const quantity = trustedParsedQuantity || derivedQuantity;
+  const outputUnitPrice = trustedParsedQuantity || derivedQuantity
+    ? unitPrice
+    : undefined;
   const calculatedTotal = totalAmount || (supplyAmount && vatAmount
     ? { value: Math.round(supplyAmount.value + vatAmount.value), confidence: 0.7 }
     : undefined);
@@ -524,7 +521,7 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
     ...(station ? { stationName: station.value } : {}),
     ...(product ? { productName: product.value } : {}),
     ...(quantity ? { quantity: quantity.value } : {}),
-    ...(reconciledUnitPrice ? { unitPrice: Math.round(reconciledUnitPrice.value * 1000) / 1000 } : {}),
+    ...(outputUnitPrice ? { unitPrice: Math.round(outputUnitPrice.value * 1000) / 1000 } : {}),
     ...(supplyAmount ? { supplyAmount: Math.round(supplyAmount.value) } : {}),
     ...(vatAmount ? { vatAmount: Math.round(vatAmount.value) } : {}),
     ...(calculatedTotal ? { totalAmount: Math.round(calculatedTotal.value) } : {}),
@@ -533,10 +530,73 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
       ...(station ? { stationName: station.confidence } : {}),
       ...(product ? { productName: product.confidence } : {}),
       ...(quantity ? { quantity: quantity.confidence } : {}),
-      ...(reconciledUnitPrice ? { unitPrice: reconciledUnitPrice.confidence } : {}),
+      ...(outputUnitPrice ? { unitPrice: outputUnitPrice.confidence } : {}),
       ...(supplyAmount ? { supplyAmount: supplyAmount.confidence } : {}),
       ...(vatAmount ? { vatAmount: vatAmount.confidence } : {}),
       ...(calculatedTotal ? { totalAmount: calculatedTotal.confidence } : {}),
+    },
+  };
+};
+
+const contextQuantityForUnitPrice = (
+  amount: number,
+  unitPrice: number,
+) => {
+  if (amount <= 0 || !isPlausibleFuelUnitPrice(unitPrice)) return undefined;
+  const quantity = amount / unitPrice;
+  const roundedQuantity = Math.round(quantity * 1000) / 1000;
+  if (!Number.isFinite(roundedQuantity) || roundedQuantity <= 0 || roundedQuantity > 100_000) return undefined;
+  return Math.abs(quantity - roundedQuantity) <= 0.001 ? roundedQuantity : undefined;
+};
+
+/**
+ * OCR이 주유량 또는 단가의 한 자리를 잘못 읽었을 때, 이미 확인된 단가
+ * (차량의 최근 입력값 등)와 영수증 금액을 함께 검증한다. 검증되지 않은
+ * 주유량을 그대로 반환하지 않아 170L처럼 잘못된 값이 자동 저장되지 않게 한다.
+ */
+export const reconcileFuelReceiptOcr = (
+  result: FuelReceiptOcrResult,
+  contextUnitPrices: number[] = [],
+): FuelReceiptOcrResult => {
+  const amountCandidates = [result.totalAmount, result.supplyAmount]
+    .map((value) => Number(value || 0))
+    .filter((value) => value > 0);
+  const rawQuantity = Number(result.quantity || 0);
+  const rawUnitPrice = Number(result.unitPrice || 0);
+  const rawPairMatches = rawQuantity > 0
+    && isPlausibleFuelUnitPrice(rawUnitPrice)
+    && amountCandidates.some((amount) => fuelLineMatchesReceipt(rawQuantity * rawUnitPrice, amount));
+
+  if (rawPairMatches) return result;
+
+  const uniqueContextPrices = [...new Set(contextUnitPrices
+    .map((value) => Math.round(Number(value || 0)))
+    .filter(isPlausibleFuelUnitPrice))];
+  for (const amount of amountCandidates) {
+    for (const unitPrice of uniqueContextPrices) {
+      const quantity = contextQuantityForUnitPrice(amount, unitPrice);
+      if (quantity == null) continue;
+      return {
+        ...result,
+        quantity,
+        unitPrice,
+        confidence: {
+          ...result.confidence,
+          quantity: 0.91,
+          unitPrice: 0.91,
+        },
+      };
+    }
+  }
+
+  return {
+    ...result,
+    quantity: undefined,
+    unitPrice: isPlausibleFuelUnitPrice(rawUnitPrice) ? rawUnitPrice : undefined,
+    confidence: {
+      ...result.confidence,
+      quantity: undefined,
+      unitPrice: isPlausibleFuelUnitPrice(rawUnitPrice) ? result.confidence?.unitPrice : undefined,
     },
   };
 };
