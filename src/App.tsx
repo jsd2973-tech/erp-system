@@ -9903,6 +9903,39 @@ function Home({
 
 
 type BidRegionFilter = "local" | "all" | "daejeon" | "sejong" | "chungnam";
+type BidLoadState = "idle" | "normal" | "partial" | "failed";
+type BidNotice = {
+  id: string;
+  source: string;
+  businessType: string;
+  bidNo: string;
+  title: string;
+  agency: string;
+  regionText?: string;
+  matchedBy?: string[];
+  noticeDate: string;
+  deadline: string;
+  amount: number;
+  url: string;
+  status?: "진행중" | "마감";
+  isNew?: boolean;
+  deadlineBadge?: string;
+};
+type BidSourceStatus = {
+  status: "normal" | "partial" | "failed";
+  failedCalls?: number;
+  failedPages?: number;
+  truncated?: boolean;
+};
+type BidDiagnostics = {
+  receivedCount: number;
+  matchedCount: number;
+  failedCalls: number;
+  failedPages: number;
+  truncated: boolean;
+  partial: boolean;
+  sourceStatus: Record<string, BidSourceStatus>;
+};
 
 const BID_REGION_LABELS: Record<BidRegionFilter, string> = {
   local: "우리 지역",
@@ -9922,6 +9955,7 @@ const BID_REGION_KEYWORDS: Record<Exclude<BidRegionFilter, "local" | "all">, str
 };
 
 const BID_FOLLOW_TODAY_KEY = "erp_bid_follow_today_v1";
+const BID_SEEN_NOTICE_KEY = "erp_bid_seen_notice_ids_v1";
 
 const toBidDateInput = (date: Date) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -9941,19 +9975,28 @@ const getBidQuickRange = (days: number) => {
   return { from: toBidDateInput(from), to: toKey };
 };
 
+const getBidDeadlineBadge = (deadline: string, status?: string) => {
+  if (status === "마감" || !deadline) return "";
+  const timestamp = new Date(deadline.trim().replace(/\//g, "-").replace(" ", "T")).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  const remainingDays = Math.ceil((timestamp - Date.now()) / 86400000);
+  if (remainingDays <= 0) return "오늘 마감";
+  if (remainingDays <= 2) return `D-${remainingDays}`;
+  return "";
+};
+
 function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const [source, setSource] = useState<"all" | "g2b" | "lh">("all");
   const [search, setSearch] = useState("");
   const [includeInput, setIncludeInput] = useState("");
   const [excludeInput, setExcludeInput] = useState("");
   const [keywordMessage, setKeywordMessage] = useState("");
-  const [bidNotices, setBidNotices] = useState<Array<{
-    id: string; source: string; businessType: string; bidNo: string; title: string;
-    agency: string; noticeDate: string; deadline: string; amount: number; url: string; status?: "진행중" | "마감";
-  }>>([]);
+  const [bidNotices, setBidNotices] = useState<BidNotice[]>([]);
   const [bidLoading, setBidLoading] = useState(false);
   const [bidError, setBidError] = useState("");
   const [bidFetchedAt, setBidFetchedAt] = useState("");
+  const [bidLoadState, setBidLoadState] = useState<BidLoadState>("idle");
+  const [bidDiagnostics, setBidDiagnostics] = useState<BidDiagnostics | null>(null);
   const [bidFollowToday, setBidFollowToday] = useState(() => window.localStorage.getItem(BID_FOLLOW_TODAY_KEY) !== "0");
   const [bidFilters, setBidFilters] = useState<{ region: BidRegionFilter; from: string; to: string }>(() => {
     const defaults = { region: "local" as BidRegionFilter, ...getBidQuickRange(30) };
@@ -10023,6 +10066,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   const loadBidNotices = async () => {
     setBidLoading(true);
     setBidError("");
+    setBidLoadState("idle");
     try {
       const fromDate = new Date(`${bidFilters.from}T00:00:00`);
       const toDate = new Date(`${bidFilters.to}T23:59:59`);
@@ -10041,25 +10085,94 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         const response = await fetch(`/api/${target}?${params.toString()}`);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(`${target === "lh" ? "LH" : "나라장터"}: ${payload?.error || `공고 조회 실패 (${response.status})`}`);
-        return payload;
+        return { target, payload };
       }));
       const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (!successful.length) {
-        const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-        throw failed?.reason || new Error("입찰공고를 불러오지 못했습니다.");
+        const sourceStatus = Object.fromEntries(targets.map((target) => [target, { status: "failed" as const, failedCalls: 1 }]));
+        setBidNotices([]);
+        setBidDiagnostics({
+          receivedCount: 0,
+          matchedCount: 0,
+          failedCalls: results.length,
+          failedPages: 0,
+          truncated: false,
+          partial: true,
+          sourceStatus,
+        });
+        setBidLoadState("failed");
+        setBidError("나라장터와 LH 공고를 불러오지 못했습니다. 잠시 후 다시 새로고침해 주세요.");
+        return;
       }
       const merged = successful
-        .flatMap((payload) => Array.isArray(payload?.notices) ? payload.notices : [])
+        .flatMap(({ payload }) => Array.isArray(payload?.notices) ? payload.notices : [])
         .sort((a, b) => String(b.noticeDate || "").localeCompare(String(a.noticeDate || "")));
-      setBidNotices(merged);
-      setBidFetchedAt(new Date().toISOString());
-      const warnings = results.flatMap((result) => result.status === "rejected" ? [String(result.reason?.message || result.reason)] : []);
-      const partialFailures = successful.reduce((count, payload) => count + Number(payload?.failedCalls || 0), 0);
-      if (warnings.length || partialFailures) {
-        setBidError([...warnings, partialFailures ? `나라장터 일부 조회 ${partialFailures}건 실패` : ""].filter(Boolean).join(" · "));
+      let seenIds: string[] = [];
+      let hasSeenHistory = false;
+      try {
+        const stored = window.localStorage.getItem(BID_SEEN_NOTICE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            seenIds = parsed.map((id) => String(id)).filter(Boolean);
+            hasSeenHistory = true;
+          }
+        }
+      } catch {
+        // 손상된 신규공고 기록은 이번 조회를 막지 않습니다.
       }
+      const seenIdSet = new Set(seenIds);
+      const withBadges: BidNotice[] = merged.map((notice: BidNotice) => ({
+        ...notice,
+        isNew: hasSeenHistory && !seenIdSet.has(notice.id),
+        deadlineBadge: getBidDeadlineBadge(notice.deadline, notice.status),
+      }));
+      try {
+        const currentIds = Array.from(new Set([...seenIds, ...withBadges.map((notice) => notice.id)])).slice(-3000);
+        window.localStorage.setItem(BID_SEEN_NOTICE_KEY, JSON.stringify(currentIds));
+      } catch {
+        // localStorage가 막힌 환경에서도 공고 조회는 계속합니다.
+      }
+      setBidNotices(withBadges);
+      setBidFetchedAt(new Date().toISOString());
+      const sourceStatus = Object.fromEntries(targets.map((target) => {
+        const result = successful.find((item) => item.target === target);
+        if (!result) return [target, { status: "failed" as const, failedCalls: 1 }];
+        const diagnostics = result.payload?.diagnostics || {};
+        const source = result.payload?.sourceStatus?.[target] || {};
+        const sourceState = source.status === "failed"
+          ? "failed" as const
+          : source.status === "partial" || diagnostics.partial || diagnostics.truncated || result.payload?.partial || result.payload?.truncated
+            ? "partial" as const
+            : "normal" as const;
+        return [target, {
+          status: sourceState,
+          failedCalls: Number(source.failedCalls ?? diagnostics.failedCalls ?? result.payload?.failedCalls ?? 0),
+          failedPages: Number(source.failedPages ?? diagnostics.failedPages ?? 0),
+          truncated: Boolean(source.truncated ?? diagnostics.truncated ?? result.payload?.truncated),
+        }];
+      }));
+      const failedCalls = results.filter((result) => result.status === "rejected").length
+        + successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.failedCalls ?? result.payload?.failedCalls ?? 0), 0);
+      const failedPages = successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.failedPages || 0), 0);
+      const truncated = successful.some((result) => Boolean(result.payload?.diagnostics?.truncated ?? result.payload?.truncated));
+      const partial = results.some((result) => result.status === "rejected")
+        || successful.some((result) => Boolean(result.payload?.diagnostics?.partial ?? result.payload?.partial ?? result.payload?.truncated));
+      setBidDiagnostics({
+        receivedCount: successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.receivedCount || 0), 0),
+        matchedCount: withBadges.length,
+        failedCalls,
+        failedPages,
+        truncated,
+        partial,
+        sourceStatus,
+      });
+      setBidLoadState(partial ? "partial" : "normal");
+      if (partial) setBidError("일부 공고 조회가 완료되지 않았습니다. 새로고침 후 다시 확인해 주세요.");
     } catch (error) {
       setBidNotices([]);
+      setBidDiagnostics(null);
+      setBidLoadState("failed");
       setBidError(error instanceof Error ? error.message : "입찰공고를 불러오지 못했습니다.");
     } finally {
       setBidLoading(false);
@@ -10117,7 +10230,9 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
 
   const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
     if (bidFilters.region === "all") return true;
-    const text = `${notice.regionText || ""} ${notice.agency || ""}`.toLowerCase();
+    // 기관명에 지역명이 포함되어 있다는 이유만으로 지역 공고로 분류하지 않습니다.
+    // API가 제공하는 참가제한·납품·구역 관련 필드만 지역 판정에 사용합니다.
+    const text = String(notice.regionText || "").toLowerCase();
     const matches = (region: "daejeon" | "sejong" | "chungnam") =>
       BID_REGION_KEYWORDS[region].some((keyword) => text.includes(keyword.toLowerCase()));
     return bidFilters.region === "local"
@@ -10135,6 +10250,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
   });
   const formatBidAmount = (amount: number) => amount > 0 ? `${amount.toLocaleString("ko-KR")}원` : "금액 미공개";
   const formatBidDate = (value: string) => value ? value.slice(0, 16) : "미정";
+  const bidLoadLabel = bidLoadState === "failed" ? "조회실패" : bidLoadState === "partial" ? "일부조회" : bidLoadState === "normal" ? "연동 정상" : "조회 준비";
+  const bidSourceLabels: Record<string, string> = { g2b: "나라장터", lh: "LH" };
 
   return (
     <section className="bid-notice-page">
@@ -10144,8 +10261,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
           <h2>입찰공고</h2>
           <p>나라장터와 LH의 공개 입찰공고를 한곳에서 확인합니다.</p>
         </div>
-        <div className="bid-notice-stage">
-          <b>연동 완료</b>
+        <div className={`bid-notice-stage ${bidLoadState}`}>
+          <b>{bidLoadLabel}</b>
           <span>나라장터 · LH</span>
         </div>
       </div>
@@ -10229,7 +10346,21 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         <div><strong>{visibleBidNotices.length}</strong><span>표시 공고</span></div>
         <p>{bidFetchedAt ? `${BID_REGION_LABELS[bidFilters.region]} · ${bidFilters.from} ~ ${bidFilters.to} · 마지막 조회 ${new Date(bidFetchedAt).toLocaleString("ko-KR")}` : "입찰공고 연결 대기 중"}</p>
       </div>
-      {bidError && <div className="bid-api-error">{bidError}</div>}
+      {bidError && (
+        <div className={`bid-api-error ${bidLoadState}`}>
+          <strong>{bidLoadState === "failed" ? "조회실패" : "일부조회"}</strong>
+          <span>{bidError}</span>
+          {bidDiagnostics?.sourceStatus && (
+            <div className="bid-source-status-list">
+              {Object.entries(bidDiagnostics.sourceStatus).map(([key, value]) => (
+                <span className={value.status} key={key}>
+                  {bidSourceLabels[key] || key} · {value.status === "normal" ? "정상" : value.status === "failed" ? "실패" : "일부"}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="bid-list-head">
         <span>출처</span>
@@ -10241,7 +10372,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         <div className="bid-notice-list">
           {visibleBidNotices.map((notice) => (
             <article className="bid-notice-row" key={notice.id}>
-              <div className="bid-notice-source"><b>{notice.source}</b><span>{notice.businessType}</span></div>
+              <div className="bid-notice-source"><div><b>{notice.source}</b>{notice.isNew && <em className="bid-new-badge">신규</em>}</div><span>{notice.businessType}</span></div>
               <div className="bid-notice-main">
                 <a href={notice.url} target="_blank" rel="noreferrer">{notice.title}</a>
                 <span>{notice.agency || "기관 미표시"} · {notice.bidNo}</span>
@@ -10250,6 +10381,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
               <div className="bid-notice-deadline">
                 <span>{formatBidDate(notice.deadline)}</span>
                 <i className={notice.status === "마감" ? "closed" : "open"}>{notice.status || "진행중"}</i>
+                {notice.deadlineBadge && <em className="bid-deadline-badge">{notice.deadlineBadge}</em>}
                 <a href={notice.url} target="_blank" rel="noreferrer">원문 보기</a>
               </div>
             </article>
@@ -24219,7 +24351,7 @@ html,body,#root{
 .bid-notice-head>div:first-child>span{display:block;margin-bottom:6px;color:#93c5fd;font-size:12px;font-weight:900;letter-spacing:.12em}
 .bid-notice-head h2{margin:0 0 5px;color:#fff;font-size:25px;text-shadow:0 1px 2px rgba(0,0,0,.18)}
 .bid-notice-head p{margin:0;color:#dbeafe;font-size:14px}
-.bid-notice-stage{display:grid;justify-items:center;gap:3px;min-width:145px;padding:11px 16px;border:1px solid rgba(255,255,255,.24);border-radius:13px;background:rgba(255,255,255,.1)}
+.bid-notice-stage{display:grid;justify-items:center;gap:3px;min-width:145px;padding:11px 16px;border:1px solid rgba(255,255,255,.24);border-radius:13px;background:rgba(255,255,255,.1)}.bid-notice-stage.partial{background:rgba(245,158,11,.22)}.bid-notice-stage.failed{background:rgba(239,68,68,.25)}
 .bid-notice-stage b{font-size:16px}.bid-notice-stage span{color:#dbeafe;font-size:12px}
 .bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:13px 16px 10px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
 .bid-keyword-group{display:grid;grid-template-columns:auto minmax(0,auto) minmax(180px,1fr);align-items:center;gap:9px;min-width:0;text-align:left}.bid-keyword-group:first-child{padding-right:15px;border-right:1px solid #e7edf4}.bid-keyword-group:nth-child(2){padding-left:15px}.bid-keyword-group strong{color:#25364d;font-size:13px;white-space:nowrap}
@@ -24245,13 +24377,13 @@ html,body,#root{
 .bid-filter-bar input{width:100%;min-width:0}
 .bid-result-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;border:1px solid #dce5f0;border-radius:14px;background:#fff}
 .bid-result-summary>div{display:flex;align-items:baseline;gap:7px}.bid-result-summary strong{color:#1d4ed8;font-size:22px}.bid-result-summary span,.bid-result-summary p{margin:0;color:#64748b;font-size:12px;font-weight:700}
-.bid-api-error{padding:12px 15px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b42318;font-size:13px;font-weight:700;line-height:1.5}
+.bid-api-error{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:12px 15px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:700;line-height:1.5}.bid-api-error.failed{border-color:#fecaca;background:#fff1f2;color:#b42318}.bid-api-error>strong{font-size:12px;white-space:nowrap}.bid-api-error>span{flex:1 1 260px}.bid-source-status-list{display:flex;flex-wrap:wrap;gap:5px;width:100%}.bid-source-status-list span{padding:3px 7px;border-radius:999px;background:#fff;border:1px solid #fed7aa;color:#9a3412;font-size:10px;font-weight:900}.bid-source-status-list span.normal{border-color:#bbf7d0;color:#166534}.bid-source-status-list span.failed{border-color:#fecaca;color:#b42318}
 .bid-list-head{display:none}
 .bid-notice-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .bid-notice-row{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(70px,1fr) auto auto;align-items:start;gap:9px;min-width:0;min-height:190px;padding:15px;border:1px solid #dce5f0;border-radius:15px;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.04)}
-.bid-notice-source{display:flex;align-items:center;justify-content:space-between;gap:8px}.bid-notice-source b{padding:5px 8px;border-radius:7px;background:#e8f2ff;color:#1d4ed8;font-size:11px}.bid-notice-source span{color:#64748b;font-size:11px;font-weight:800}
+.bid-notice-source{display:flex;align-items:center;justify-content:space-between;gap:8px}.bid-notice-source>div{display:flex;align-items:center;gap:6px}.bid-notice-source b{padding:5px 8px;border-radius:7px;background:#e8f2ff;color:#1d4ed8;font-size:11px}.bid-notice-source span{color:#64748b;font-size:11px;font-weight:800}.bid-new-badge{padding:3px 6px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:10px;font-style:normal;font-weight:900}
 .bid-notice-main{display:grid;align-content:start;gap:7px;min-width:0}.bid-notice-main a{display:-webkit-box;overflow:hidden;color:#172033;font-size:14px;font-weight:900;line-height:1.45;text-decoration:none;-webkit-box-orient:vertical;-webkit-line-clamp:3;white-space:normal}.bid-notice-main a:hover{color:#1d4ed8;text-decoration:underline}.bid-notice-main span{overflow:hidden;color:#718096;font-size:11px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
-.bid-notice-amount{width:100%;padding-top:9px;border-top:1px solid #edf1f6;color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:100%}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline i{padding:3px 7px;border-radius:999px;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline i.open{background:#dcfce7;color:#15803d}.bid-notice-deadline i.closed{background:#f1f5f9;color:#64748b}.bid-notice-deadline a{margin-left:auto;color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
+.bid-notice-amount{width:100%;padding-top:9px;border-top:1px solid #edf1f6;color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:100%}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline i{padding:3px 7px;border-radius:999px;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline i.open{background:#dcfce7;color:#15803d}.bid-notice-deadline i.closed{background:#f1f5f9;color:#64748b}.bid-deadline-badge{padding:3px 6px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline a{margin-left:auto;color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
 .bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
 .bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
 @media(min-width:2800px){.bid-notice-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
