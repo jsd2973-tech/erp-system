@@ -5,6 +5,7 @@ import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshC
 import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";
 import "./fuelManagement.css";
 import "./fuelTableAlignment.css";
+import "./fuelQuickSelect.css";
 
 type FuelRecord = FuelStatementRecord & {
   source_file?: string | null;
