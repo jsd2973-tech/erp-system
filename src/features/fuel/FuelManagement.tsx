@@ -4,6 +4,7 @@ import * as XLSX from "xlsx-js-style";
 import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
 import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";
 import "./fuelManagement.css";
+import "./fuelTableAlignment.css";
 
 type FuelRecord = FuelStatementRecord & {
   source_file?: string | null;
