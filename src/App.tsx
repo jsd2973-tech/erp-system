@@ -13,7 +13,8 @@ type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
 type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; taxInvoiceReceived?: boolean; image_urls?: string[]; image_url?: string };
+type PurchasePaymentStatus = "unpaid" | "paid";
+type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; taxInvoiceReceived?: boolean; paymentStatus?: PurchasePaymentStatus; paidDate?: string; image_urls?: string[]; image_url?: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
@@ -52,6 +53,7 @@ type BulkTransferRow = {
   id: string;
   vendor: string;
   amount: number;
+  purchaseIds: string[];
   bank_code: string;
   bank_name: string;
   account_name: string;
@@ -110,6 +112,8 @@ const toPurchase = (p: any): Purchase => ({
   total: Number(p.total || 0),
   itemSummary: p.itemsummary ?? p.itemSummary ?? "",
   taxInvoiceReceived: Boolean(p.tax_invoice_received ?? p.taxInvoiceReceived ?? false),
+  paymentStatus: p.payment_status === "paid" || p.paymentStatus === "paid" ? "paid" : "unpaid",
+  paidDate: p.paid_date ?? p.paidDate ?? "",
   image_url: p.image_url || "",
   image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
@@ -125,9 +129,13 @@ const fromPurchase = (p: Purchase) => ({
   total: p.total,
   itemsummary: p.itemSummary,
   tax_invoice_received: Boolean(p.taxInvoiceReceived),
+  payment_status: p.paymentStatus === "paid" ? "paid" : "unpaid",
+  paid_date: p.paymentStatus === "paid" ? p.paidDate || null : null,
   image_url: (p.image_urls || [])[0] || p.image_url || "",
   image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
 });
+
+const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
 
 const KEY = {
   vendors: "erp_vendors_v2",
@@ -1386,10 +1394,11 @@ export default function App() {
   const [purchaseSaving, setPurchaseSaving] = useState(false);
   const [purchaseUploading, setPurchaseUploading] = useState(false);
   const [purchaseTaxInvoiceSavingId, setPurchaseTaxInvoiceSavingId] = useState("");
+  const [purchasePaymentSavingId, setPurchasePaymentSavingId] = useState("");
   const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
-  const [purchaseSearch, setPurchaseSearch] = useState({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "" });
+  const [purchaseSearch, setPurchaseSearch] = useState<{ from: string; to: string; vendor: string; warehouse: string; item: string; taxInvoice: string; paymentStatus?: string }>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
 
   const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
   const [vendorImportMessage, setVendorImportMessage] = useState("");
@@ -1634,6 +1643,7 @@ export default function App() {
   const [transferWarehouseSearch, setTransferWarehouseSearch] = useState("");
   const [transferWarehouseDropdownOpen, setTransferWarehouseDropdownOpen] = useState(false);
   const [selectedTransferWarehouses, setSelectedTransferWarehouses] = useState<string[]>([]);
+  const [bulkPaymentDate, setBulkPaymentDate] = useState(getTodayKey());
   const transferWarehouseInitializedRef = useRef(false);
   const previousTransferWarehouseOptionsRef = useRef<string[]>([]);
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
@@ -1884,11 +1894,12 @@ export default function App() {
     const month = transferMonth;
     const vendorFilter = transferVendorSearch.trim();
 
-    const grouped = new Map<string, { vendor: string; amount: number; memoItems: string[] }>();
+    const grouped = new Map<string, { vendor: string; amount: number; memoItems: string[]; purchaseIds: string[] }>();
 
     purchases
       .filter((p) => !month || String(p.date || "").startsWith(month))
       .filter((p) => !vendorFilter || String(p.vendor || "").includes(vendorFilter))
+      .filter((p) => !isPurchasePaid(p))
       .filter((p) => {
         if (!transferWarehouseOptions.length) return true;
         if (!selectedTransferWarehouses.length) return false;
@@ -1897,9 +1908,10 @@ export default function App() {
       })
       .forEach((p) => {
         const vendor = p.vendor || "거래처 미입력";
-        const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [] };
+        const prev = grouped.get(vendor) || { vendor, amount: 0, memoItems: [], purchaseIds: [] };
         prev.amount += Number(p.total || 0);
         if (p.itemSummary) prev.memoItems.push(p.itemSummary);
+        prev.purchaseIds.push(p.id);
         grouped.set(vendor, prev);
       });
 
@@ -1915,6 +1927,7 @@ export default function App() {
           id: row.vendor,
           vendor: row.vendor,
           amount: row.amount,
+          purchaseIds: row.purchaseIds,
           bank_code: bankCode,
           bank_name: bankName,
           account_name: account?.account_name || "",
@@ -2650,6 +2663,8 @@ export default function App() {
         total: purchaseRow.total,
         itemSummary: getPurchaseItemSummary({ itemSummary: purchaseRow.item, rows: [purchaseRow] }),
         taxInvoiceReceived: Boolean(existingPurchase?.taxInvoiceReceived),
+        paymentStatus: existingPurchase?.paymentStatus || "unpaid",
+        paidDate: existingPurchase?.paidDate || "",
         image_urls: [...(existingPurchase?.image_urls || [])],
         image_url: existingPurchase?.image_url || "",
       });
@@ -2760,6 +2775,9 @@ export default function App() {
     setPurchaseSaving(true);
 
     try {
+      const existingPurchase = editingPurchaseId
+        ? purchases.find((purchase) => purchase.id === editingPurchaseId)
+        : undefined;
       const payload: Purchase = {
         id: editingPurchaseId || uid(),
         ...purchaseHeader,
@@ -2770,8 +2788,10 @@ export default function App() {
         total: purchaseTotal,
         itemSummary: getPurchaseItemSummary({ itemSummary: validRows[0].item, rows: validRows }),
         taxInvoiceReceived: editingPurchaseId
-          ? Boolean(purchases.find((purchase) => purchase.id === editingPurchaseId)?.taxInvoiceReceived)
+          ? Boolean(existingPurchase?.taxInvoiceReceived)
           : false,
+        paymentStatus: existingPurchase?.paymentStatus || "unpaid",
+        paidDate: existingPurchase?.paidDate || "",
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
@@ -3978,6 +3998,48 @@ export default function App() {
     }
   };
 
+  const updatePurchasePaymentStatus = async (purchase: Purchase, nextStatus: PurchasePaymentStatus) => {
+    if (!canEditDeleteRecords) return alert("지급상태 변경은 관리자만 가능합니다.");
+    if (purchasePaymentSavingId) return;
+
+    const isPaid = nextStatus === "paid";
+    const paidDate = isPaid ? getTodayKey() : null;
+    const message = isPaid
+      ? `이 구매건을 지급완료 처리하시겠습니까?\n\n지급일: ${paidDate}`
+      : "지급완료 상태를 취소하고 미지급으로 되돌리시겠습니까?";
+    if (!window.confirm(message)) return;
+
+    setPurchasePaymentSavingId(purchase.id);
+
+    try {
+      const { error } = await supabase
+        .from("purchases")
+        .update({ payment_status: nextStatus, paid_date: paidDate })
+        .eq("id", purchase.id);
+
+      if (error) return alert(`지급상태 저장 실패: ${error.message}`);
+
+      setPurchases((prev) => prev.map((item) => (
+        item.id === purchase.id
+          ? { ...item, paymentStatus: nextStatus, paidDate: paidDate || "" }
+          : item
+      )));
+
+      await addActivityLog({
+        module: "구매",
+        action: isPaid ? "지급완료" : "지급완료 취소",
+        target_id: purchase.id,
+        target_title: purchase.vendor || "",
+        detail: `${purchase.date || "-"} · ${money(purchase.total)}원 · ${isPaid ? `지급일 ${paidDate}` : "미지급으로 복구"}`,
+      });
+      showToast(isPaid ? "지급완료 처리했습니다." : "미지급으로 복구했습니다.");
+    } catch (error: any) {
+      alert(error?.message ? `지급상태 저장 실패: ${error.message}` : "지급상태 저장 중 오류가 발생했습니다.");
+    } finally {
+      setPurchasePaymentSavingId("");
+    }
+  };
+
   const filteredPurchases = purchases
     .filter(
       (p) =>
@@ -3986,7 +4048,8 @@ export default function App() {
         (!purchaseSearch.vendor || p.vendor.includes(purchaseSearch.vendor)) &&
         (!purchaseSearch.warehouse || p.warehouse.includes(purchaseSearch.warehouse)) &&
         (!purchaseSearch.item || p.rows.some((r) => r.item.includes(purchaseSearch.item))) &&
-        (!purchaseSearch.taxInvoice || (purchaseSearch.taxInvoice === "received" ? Boolean(p.taxInvoiceReceived) : !p.taxInvoiceReceived))
+        (!purchaseSearch.taxInvoice || (purchaseSearch.taxInvoice === "received" ? Boolean(p.taxInvoiceReceived) : !p.taxInvoiceReceived)) &&
+        (!purchaseSearch.paymentStatus || (purchaseSearch.paymentStatus === "paid" ? isPurchasePaid(p) : !isPurchasePaid(p)))
     )
     .sort((a, b) => {
       const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
@@ -4412,6 +4475,48 @@ export default function App() {
 
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
+
+  const markSelectedPurchasesPaid = async () => {
+    if (!canEditDeleteRecords) return alert("지급완료 처리는 관리자만 가능합니다.");
+
+    const selectedRows = bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id));
+    const purchaseIds = Array.from(new Set(selectedRows.flatMap((row) => row.purchaseIds)));
+    if (!purchaseIds.length) return alert("지급완료 처리할 구매건을 선택하세요.");
+
+    const paymentDate = /^\d{4}-\d{2}-\d{2}$/.test(bulkPaymentDate) ? bulkPaymentDate : getTodayKey();
+    const selectedPurchases = purchases.filter((purchase) => purchaseIds.includes(purchase.id));
+    const total = selectedPurchases.reduce((sum, purchase) => sum + Number(purchase.total || 0), 0);
+    const vendorNames = Array.from(new Set(selectedRows.map((row) => row.vendor))).join(", ");
+
+    const confirmed = window.confirm(
+      `선택한 거래처의 구매내역을 지급완료 처리하시겠습니까?\n\n거래처 ${selectedRows.length}곳\n구매건 ${purchaseIds.length}건\n총 ${money(total)}원\n지급일 ${paymentDate}`
+    );
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("purchases")
+      .update({ payment_status: "paid", paid_date: paymentDate })
+      .in("id", purchaseIds);
+
+    if (error) return alert(`지급완료 처리 실패: ${error.message}`);
+
+    setPurchases((prev) => prev.map((purchase) => (
+      purchaseIds.includes(purchase.id)
+        ? { ...purchase, paymentStatus: "paid", paidDate: paymentDate }
+        : purchase
+    )));
+
+    await addActivityLog({
+      module: "구매",
+      action: "지급완료",
+      target_id: purchaseIds.join(","),
+      target_title: vendorNames || `${purchaseIds.length}건`,
+      detail: `구매 ${purchaseIds.length}건 · ${money(total)}원 · 지급일 ${paymentDate} · 구매ID ${purchaseIds.join(", ")}`,
+    });
+
+    setSelectedBulkTransferIds([]);
+    showToast(`구매 ${purchaseIds.length}건을 지급완료 처리했습니다.`);
+  };
 
   const filteredPermits = permits
     .filter((permit: PermitRenewal) =>
@@ -6989,6 +7094,7 @@ export default function App() {
                 </label>
                 <button onClick={loadVendorAccounts}>계좌 새로고침</button>
                 <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
+                {canEditDeleteRecords && <button onClick={markSelectedPurchasesPaid} disabled={!selectedBulkTransferIds.length}>선택건 지급완료</button>}
               </div>
             </div>
 
@@ -7049,8 +7155,12 @@ export default function App() {
                   placeholder="거래처명"
                 />
               </Field>
+              <Field label="지급일">
+                <input type="date" value={bulkPaymentDate} onChange={(e) => setBulkPaymentDate(e.target.value)} />
+              </Field>
               <div className="bulk-summary">
                 <span>대상 거래처 <b>{bulkTransferRows.length}</b></span>
+                <span>선택 거래처 <b>{selectedBulkTransferIds.length}</b></span>
                 <span>계좌 미매칭 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
                 <span>합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
               </div>
@@ -7064,6 +7174,10 @@ export default function App() {
                   <div className={row.matched ? "bulk-transfer-card" : "bulk-transfer-card missing"} key={row.id}>
                     <div className="bulk-card-main">
                       <div>
+                        <label className="bulk-card-select">
+                          <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
+                          <span>선택</span>
+                        </label>
                         <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
                         <b>{row.vendor}</b>
                       </div>
@@ -7507,7 +7621,7 @@ export default function App() {
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -8453,7 +8567,7 @@ function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
+function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
   const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
   const [purchasePage, setPurchasePage] = useState(1);
@@ -8464,10 +8578,13 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   const purchaseStartIndex = (purchaseSafePage - 1) * purchasePageSize;
   const pagedPurchases = (purchases || []).slice(purchaseStartIndex, purchaseStartIndex + purchasePageSize);
   const purchaseEndIndex = purchases.length ? Math.min(purchaseStartIndex + pagedPurchases.length, purchases.length) : 0;
+  const liveDetailPurchase = detailPurchase
+    ? (purchases || []).find((purchase: Purchase) => purchase.id === detailPurchase.id) || detailPurchase
+    : null;
 
   useEffect(() => {
     setPurchasePage(1);
-  }, [search.from, search.to, search.vendor, search.warehouse, search.item, search.taxInvoice]);
+  }, [search.from, search.to, search.vendor, search.warehouse, search.item, search.taxInvoice, search.paymentStatus]);
 
   useEffect(() => {
     if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
@@ -8537,6 +8654,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "" })}>전체</button></div><div className="grid5 purchase-filter-grid"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /><select aria-label="세금계산서 수취 여부" value={search.taxInvoice || ""} onChange={(e) => setSearch({ ...search, taxInvoice: e.target.value })}><option value="">세금계산서 전체</option><option value="received">받음</option><option value="unreceived">미수취</option></select></div>
+      <div className="purchase-payment-filter-row"><label>지급상태 <select aria-label="지급상태" value={search.paymentStatus || ""} onChange={(e) => setSearch({ ...search, paymentStatus: e.target.value })}><option value="">전체</option><option value="unpaid">미지급</option><option value="paid">지급완료</option></select></label></div>
       <div className="purchase-page-summary">검색결과 {money(purchases.length)}건 · {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
       <div className="mobile-purchase-cards">
   {!pagedPurchases.length ? (
@@ -8554,6 +8672,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
         <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
+        <div className="mobile-purchase-card-row"><span>지급상태</span><b><span className={`purchase-payment-badge ${isPurchasePaid(p) ? "paid" : "unpaid"}`}>{isPurchasePaid(p) ? "지급완료" : "미지급"}</span>{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</b></div>
         <div className="mobile-purchase-card-row"><span>세금계산서</span><b><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></b></div>
         <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
         {isAdmin && (
@@ -8566,18 +8685,18 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={8} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>지급상태</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={9} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
   const index = purchaseStartIndex + pageIndex;
   const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
   const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
-    {detailPurchase && (
+  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td><span className={`purchase-payment-badge ${isPurchasePaid(p) ? "paid" : "unpaid"}`}>{isPurchasePaid(p) ? "지급완료" : "미지급"}</span>{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
+    {liveDetailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
           <div className="purchase-detail-modal-head">
             <div>
               <h2>상세 품목</h2>
-              <p>{detailPurchase.vendor || "거래처 미입력"} · {detailPurchase.date || "날짜 없음"}</p>
+              <p>{liveDetailPurchase.vendor || "거래처 미입력"} · {liveDetailPurchase.date || "날짜 없음"}</p>
             </div>
             <button onClick={() => setDetailPurchase(null)}>닫기</button>
           </div>
@@ -8587,7 +8706,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
                 <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr>
               </thead>
               <tbody>
-                {(detailPurchase.rows || []).map((row) => (
+                {(liveDetailPurchase.rows || []).map((row: PurchaseRow) => (
                   <tr key={row.id}>
                     <td>{row.item || "-"}</td>
                     <td>{row.spec || "-"}</td>
@@ -8602,13 +8721,29 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
             </table>
           </ScrollTable>
           <div className="purchase-detail-total">
-            <span>공급가액 {money(detailPurchase.supplyTotal)}원</span>
-            <span>부가세 {money(detailPurchase.vatTotal)}원</span>
-            <b>합계 {money(detailPurchase.total)}원</b>
+            <span>공급가액 {money(liveDetailPurchase.supplyTotal)}원</span>
+            <span>부가세 {money(liveDetailPurchase.vatTotal)}원</span>
+            <b>합계 {money(liveDetailPurchase.total)}원</b>
+          </div>
+          <div className="purchase-payment-detail">
+            <div>
+              <span>지급상태</span>
+              <strong className={`purchase-payment-badge ${isPurchasePaid(liveDetailPurchase) ? "paid" : "unpaid"}`}>{isPurchasePaid(liveDetailPurchase) ? "지급완료" : "미지급"}</strong>
+              {isPurchasePaid(liveDetailPurchase) && liveDetailPurchase.paidDate ? <small>{liveDetailPurchase.paidDate}</small> : null}
+            </div>
+            {isAdmin && (
+              <button
+                className={isPurchasePaid(liveDetailPurchase) ? "danger" : "primary"}
+                disabled={paymentSavingId === liveDetailPurchase.id}
+                onClick={() => onUpdatePayment(liveDetailPurchase, isPurchasePaid(liveDetailPurchase) ? "unpaid" : "paid")}
+              >
+                {paymentSavingId === liveDetailPurchase.id ? "저장 중..." : isPurchasePaid(liveDetailPurchase) ? "지급완료 취소" : "지급완료 처리"}
+              </button>
+            )}
           </div>
           <div className="purchase-detail-attachment-box">
             <h3>첨부파일</h3>
-            <AttachmentGroup urls={detailPurchase.image_urls || (detailPurchase.image_url ? [detailPurchase.image_url] : [])} />
+            <AttachmentGroup urls={liveDetailPurchase.image_urls || (liveDetailPurchase.image_url ? [liveDetailPurchase.image_url] : [])} />
           </div>
         </div>
       </div>
@@ -14894,6 +15029,31 @@ td .icon{
   align-items:flex-start;
   gap:14px;
 }
+.bulk-card-main>div:first-child{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.bulk-card-select{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:#475569;
+  font-size:11px;
+  font-weight:900;
+  cursor:pointer;
+}
+.bulk-card-select input{
+  width:17px;
+  height:17px;
+  margin:0;
+  accent-color:#2563eb;
+}
+.bulk-card-main>div:first-child>b{
+  flex-basis:100%;
+  margin-top:0;
+}
 
 .bulk-card-main b{
   display:block;
@@ -21165,6 +21325,91 @@ button:disabled{
 .purchase-lookup-page .purchase-filter-grid{
   grid-template-columns:repeat(6,minmax(0,1fr));
 }
+.purchase-payment-filter-row{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:8px;
+  margin:8px 0 4px;
+}
+.purchase-payment-filter-row label{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:900;
+}
+.purchase-payment-filter-row select{
+  min-width:132px;
+  min-height:34px;
+  padding:5px 9px;
+  border:1px solid #dbe3ec;
+  border-radius:9px;
+  background:#fff;
+  color:#1e293b;
+  font-size:12px;
+  font-weight:800;
+}
+.purchase-payment-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:950;
+  white-space:nowrap;
+}
+.purchase-payment-badge.unpaid{
+  background:#fff7ed;
+  color:#c2410c;
+}
+.purchase-payment-badge.paid{
+  background:#dcfce7;
+  color:#166534;
+}
+.purchase-payment-date{
+  display:block;
+  margin-top:3px;
+  color:#64748b;
+  font-size:10px;
+  font-weight:800;
+}
+.purchase-payment-detail{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-top:14px;
+  padding:14px 16px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  background:#f8fafc;
+}
+.purchase-payment-detail>div{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.purchase-payment-detail>div>span:first-child{
+  color:#475569;
+  font-size:13px;
+  font-weight:900;
+}
+.purchase-payment-detail small{
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.purchase-payment-detail button{
+  min-height:36px;
+  padding:7px 12px;
+  border-radius:10px;
+  font-size:12px;
+}
 .purchase-lookup-page .scroll-table table{
   font-size:13px !important;
   line-height:1.22 !important;
@@ -21241,6 +21486,17 @@ button:disabled{
 }
 
 @media (max-width:900px){
+  .purchase-lookup-page .purchase-payment-filter-row{
+    justify-content:stretch;
+    margin:8px 0 0;
+  }
+  .purchase-lookup-page .purchase-payment-filter-row label,
+  .purchase-lookup-page .purchase-payment-filter-row select{
+    width:100%;
+  }
+  .purchase-lookup-page .purchase-payment-filter-row label{
+    justify-content:space-between;
+  }
   .purchase-lookup-page .mobile-purchase-cards{
     gap:9px !important;
     margin-top:12px !important;
@@ -21277,6 +21533,11 @@ button:disabled{
     min-height:34px !important;
     font-size:13px !important;
     border-radius:10px !important;
+  }
+  .purchase-lookup-page .purchase-payment-badge{
+    min-height:22px;
+    padding:2px 7px;
+    font-size:10px;
   }
 }
 
