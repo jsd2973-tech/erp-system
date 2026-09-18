@@ -10,6 +10,47 @@ declare const process: { env: Record<string, string | undefined> };
 
 type G2bRawItem = Record<string, unknown>;
 type G2bFetchedItem = G2bRawItem & { businessType: string };
+type G2bPage = {
+  items: G2bRawItem[];
+  totalCount: number;
+  rowsPerPage: number;
+};
+type G2bCallDiagnostic = {
+  operation: string;
+  keyword: string;
+  from: string;
+  to: string;
+  totalCount: number;
+  receivedCount: number;
+  pagesFetched: number;
+  requestedPages: number;
+  failedPages: number;
+  truncated: boolean;
+  error?: string;
+};
+type G2bFetchResult = {
+  items: G2bFetchedItem[];
+  diagnostic: G2bCallDiagnostic;
+};
+
+const G2B_MAX_PAGES = 50;
+const G2B_PAGE_BATCH_SIZE = 5;
+const G2B_SEARCH_FIELDS = [
+  { key: "bidNtceNm", label: "title" },
+  { key: "prdctClsfcNoNm", label: "item" },
+  { key: "dtilPrdctClsfcNoNm", label: "detail" },
+  { key: "cnstwkNm", label: "construction" },
+  { key: "servcNm", label: "service" },
+  { key: "dlvrPlce", label: "delivery" },
+] as const;
+const G2B_REGION_FIELDS = [
+  "prtcptLmtRgnNm",
+  "prtcptLmtRgnNm1",
+  "prtcptLmtRgnNm2",
+  "prtcptLmtRgnNm3",
+  "prtcptLmtRgnNm4",
+  "dlvrPlce",
+] as const;
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -54,28 +95,40 @@ const settleInBatches = async <T>(tasks: Array<() => Promise<T>>, batchSize = 20
   return results;
 };
 
-const toItems = (payload: any): G2bRawItem[] => {
+const toPage = (payload: any): G2bPage => {
   const header = payload?.response?.header;
   const code = String(header?.resultCode ?? "00");
   if (code !== "00" && code !== "000") {
     throw new Error(String(header?.resultMsg || `나라장터 오류 (${code})`));
   }
-  const items = payload?.response?.body?.items;
-  if (Array.isArray(items)) return items;
-  if (Array.isArray(items?.item)) return items.item;
-  if (items?.item && typeof items.item === "object") return [items.item];
-  return [];
+  const body = payload?.response?.body;
+  const rawItems = body?.items;
+  const items = Array.isArray(rawItems)
+    ? rawItems
+    : Array.isArray(rawItems?.item)
+      ? rawItems.item
+      : rawItems?.item && typeof rawItems.item === "object"
+        ? [rawItems.item]
+        : [];
+  const totalCount = Number(body?.totalCount);
+  const rowsPerPage = Number(body?.numOfRows);
+  return {
+    items,
+    totalCount: Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : items.length,
+    rowsPerPage: Number.isFinite(rowsPerPage) && rowsPerPage > 0 ? rowsPerPage : 100,
+  };
 };
 
 const textValue = (value: unknown) => String(value ?? "").trim();
 
-const fetchOperation = async (
+const fetchOperationPage = async (
   operation: (typeof G2B_OPERATIONS)[number],
   keyword: string,
   serviceKey: string,
   begin: string,
   end: string,
-): Promise<G2bFetchedItem[]> => {
+  pageNo: number,
+): Promise<G2bPage> => {
   const params = new URLSearchParams({
     ServiceKey: serviceKey,
     type: "json",
@@ -83,14 +136,14 @@ const fetchOperation = async (
     inqryBgnDt: begin,
     inqryEndDt: end,
     numOfRows: "100",
-    pageNo: "1",
+    pageNo: String(pageNo),
   });
   if (keyword) params.set("bidNtceNm", keyword);
   const response = await fetch(`${G2B_BASE_URL}/${operation.path}?${params.toString()}`);
   const body = await response.text();
   if (!response.ok) throw new Error(`나라장터 연결 실패 (${response.status})`);
   try {
-    return toItems(JSON.parse(body)).map((item) => ({ ...item, businessType: operation.name } as G2bFetchedItem));
+    return toPage(JSON.parse(body));
   } catch (error) {
     if (error instanceof SyntaxError) {
       const message = body.match(/<returnAuthMsg>([^<]+)</)?.[1]
@@ -101,6 +154,120 @@ const fetchOperation = async (
     throw error;
   }
 };
+
+export const fetchOperation = async (
+  operation: (typeof G2B_OPERATIONS)[number],
+  keyword: string,
+  serviceKey: string,
+  begin: string,
+  end: string,
+): Promise<G2bFetchResult> => {
+  const firstPage = await fetchOperationPage(operation, keyword, serviceKey, begin, end, 1);
+  const rowsPerPage = Math.max(1, firstPage.rowsPerPage || 100);
+  const pageCount = Math.max(1, Math.ceil(firstPage.totalCount / rowsPerPage));
+  const requestedPages = Math.min(G2B_MAX_PAGES, pageCount);
+  const pages: Array<G2bPage & { pageNo: number }> = [{ ...firstPage, pageNo: 1 }];
+  let failedPages = 0;
+
+  for (let pageNo = 2; pageNo <= requestedPages; pageNo += G2B_PAGE_BATCH_SIZE) {
+    const pageNumbers = Array.from(
+      { length: Math.min(G2B_PAGE_BATCH_SIZE, requestedPages - pageNo + 1) },
+      (_, index) => pageNo + index,
+    );
+    const settled = await Promise.allSettled(
+      pageNumbers.map((currentPage) => fetchOperationPage(operation, keyword, serviceKey, begin, end, currentPage)),
+    );
+    settled.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        pages.push({ ...result.value, pageNo: pageNumbers[index] });
+      } else {
+        failedPages += 1;
+      }
+    });
+  }
+
+  pages.sort((a, b) => a.pageNo - b.pageNo);
+  const truncated = pageCount > G2B_MAX_PAGES || failedPages > 0;
+  return {
+    items: pages.flatMap((page) => page.items.map((item) => ({ ...item, businessType: operation.name } as G2bFetchedItem))),
+    diagnostic: {
+      operation: operation.name,
+      keyword,
+      from: begin,
+      to: end,
+      totalCount: firstPage.totalCount,
+      receivedCount: pages.reduce((sum, page) => sum + page.items.length, 0),
+      pagesFetched: pages.length,
+      requestedPages,
+      failedPages,
+      truncated,
+    },
+  };
+};
+
+type G2bRequest = {
+  operation: (typeof G2B_OPERATIONS)[number];
+  keyword: string;
+  begin: string;
+  end: string;
+};
+
+const failedDiagnostic = (request: G2bRequest): G2bCallDiagnostic => ({
+  operation: request.operation.name,
+  keyword: request.keyword,
+  from: request.begin,
+  to: request.end,
+  totalCount: 0,
+  receivedCount: 0,
+  pagesFetched: 0,
+  requestedPages: 0,
+  failedPages: 0,
+  truncated: false,
+  error: "요청 실패",
+});
+
+const collectDiagnostics = (
+  requests: G2bRequest[],
+  settled: PromiseSettledResult<G2bFetchResult>[],
+) => settled.map((result, index) => result.status === "fulfilled" ? result.value.diagnostic : failedDiagnostic(requests[index]));
+
+const buildOperationStatus = (diagnostics: G2bCallDiagnostic[]) => G2B_OPERATIONS.map((operation) => {
+  const related = diagnostics.filter((diagnostic) => diagnostic.operation === operation.name);
+  const failedCalls = related.filter((diagnostic) => diagnostic.error).length;
+  const failedPages = related.reduce((sum, diagnostic) => sum + diagnostic.failedPages, 0);
+  const truncated = related.some((diagnostic) => diagnostic.truncated);
+  const status = !related.length || failedCalls === related.length
+    ? "failed"
+    : failedCalls || failedPages || truncated
+      ? "partial"
+      : "normal";
+  return { operation: operation.name, status, failedCalls, failedPages, truncated };
+});
+
+const searchFields = (item: G2bRawItem) => G2B_SEARCH_FIELDS
+  .map(({ key, label }) => ({ label, value: textValue(item[key]) }))
+  .filter((field) => field.value);
+
+export const matchesG2bKeywords = (item: G2bRawItem, include: string[], exclude: string[]) => {
+  const searchText = searchFields(item).map((field) => field.value).join(" ").toLowerCase();
+  const includeLower = include.map((keyword) => keyword.toLowerCase());
+  const excludeLower = exclude.map((keyword) => keyword.toLowerCase());
+  return Boolean(searchText)
+    && includeLower.some((keyword) => searchText.includes(keyword))
+    && !excludeLower.some((keyword) => searchText.includes(keyword));
+};
+
+export const matchedG2bFields = (item: G2bRawItem, include: string[]) => {
+  const includeLower = include.map((keyword) => keyword.toLowerCase());
+  return searchFields(item)
+    .filter((field) => includeLower.some((keyword) => field.value.toLowerCase().includes(keyword)))
+    .map((field) => field.label);
+};
+
+const regionText = (item: G2bRawItem) => G2B_REGION_FIELDS
+  .map((field) => textValue(item[field]))
+  .filter(Boolean)
+  .join(" ");
 
 export default {
   async fetch(request: Request) {
@@ -136,56 +303,69 @@ export default {
     const dateRanges = splitDateRanges(beginDate, endDate);
 
     try {
-      const primarySettled: PromiseSettledResult<G2bFetchedItem[]>[] = [];
-      // 최대 90일 선택 시에도 나라장터에는 30일 단위로 순차 요청합니다.
-      for (const range of dateRanges) {
-        primarySettled.push(...await settleInBatches(
-          G2B_OPERATIONS.flatMap((operation) => include.map((keyword) => () =>
-            fetchOperation(operation, keyword, normalizedServiceKey, dateTimeKey(range.from), dateTimeKey(range.to, true))
-          )),
-        ));
-      }
-      let allSettled = [...primarySettled];
+      const primaryRequests: G2bRequest[] = dateRanges.flatMap((range) =>
+        G2B_OPERATIONS.flatMap((operation) => include.map((keyword) => ({
+          operation,
+          keyword,
+          begin: dateTimeKey(range.from),
+          end: dateTimeKey(range.to, true),
+        }))),
+      );
+      // 90일 조회는 30일 단위로 유지하되, 페이지 요청까지 겹치지 않도록 외부 동시성은 4개로 제한합니다.
+      const primarySettled = await settleInBatches(
+        primaryRequests.map((request) => () => fetchOperation(
+          request.operation,
+          request.keyword,
+          normalizedServiceKey,
+          request.begin,
+          request.end,
+        )),
+        4,
+      );
+      const resultGroups: Array<{
+        requests: G2bRequest[];
+        settled: PromiseSettledResult<G2bFetchResult>[];
+      }> = [{ requests: primaryRequests, settled: primarySettled }];
       let successful = primarySettled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      let fetchedItems = successful.flatMap((result) => result.items);
+      // 나라장터의 bidNtceNm 검색은 제목 중심이므로, 제목에 키워드가 없는
+      // 공고의 품목명·세부품명·내역 필드까지 확인하려면 무키워드 조회도
+      // 항상 수행해야 합니다. 두 결과를 합친 뒤 마지막에 ID로 중복 제거합니다.
+      const expandedRequests: G2bRequest[] = dateRanges.flatMap((range) =>
+        G2B_OPERATIONS.map((operation) => ({
+          operation,
+          keyword: "",
+          begin: dateTimeKey(range.from),
+          end: dateTimeKey(range.to, true),
+        })),
+      );
+      const expandedSettled = await settleInBatches(
+        expandedRequests.map((request) => () => fetchOperation(
+          request.operation,
+          request.keyword,
+          normalizedServiceKey,
+          request.begin,
+          request.end,
+        )),
+        4,
+      );
+      resultGroups.push({ requests: expandedRequests, settled: expandedSettled });
+      const expandedSuccessful = expandedSettled.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : []
+      );
+      successful = [...successful, ...expandedSuccessful];
+      fetchedItems = [...fetchedItems, ...expandedSuccessful.flatMap((result) => result.items)];
       if (!successful.length) {
-        const firstError = primarySettled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+        const firstError = [...primarySettled, ...expandedSettled]
+          .find((result): result is PromiseRejectedResult => result.status === "rejected");
         throw firstError?.reason || new Error("나라장터 공고를 불러오지 못했습니다.");
-      }
-
-      let fetchedItems = successful.flat();
-      // 키워드 검색이 빈 배열로 정상 응답하는 경우 최근 7일 전체 공고를
-      // 한 번 더 조회한 뒤 ERP에서 키워드를 직접 적용합니다.
-      if (!fetchedItems.length) {
-        const fallbackSettled: PromiseSettledResult<G2bFetchedItem[]>[] = [];
-        for (const range of dateRanges) {
-          fallbackSettled.push(...await settleInBatches(
-            G2B_OPERATIONS.map((operation) => () => fetchOperation(
-              operation,
-              "",
-              normalizedServiceKey,
-              dateTimeKey(range.from),
-              dateTimeKey(range.to, true),
-            )),
-          ));
-        }
-        allSettled = [...allSettled, ...fallbackSettled];
-        const fallbackSuccessful = fallbackSettled.flatMap((result) =>
-          result.status === "fulfilled" ? [result.value] : []
-        );
-        successful = [...successful, ...fallbackSuccessful];
-        fetchedItems = fallbackSuccessful.flat();
       }
 
       const now = Date.now();
       const seen = new Set<string>();
       const includeLower = include.map((keyword) => keyword.toLowerCase());
       const notices = fetchedItems
-        .filter((item) => {
-          const title = textValue(item.bidNtceNm).toLowerCase();
-          return title
-            && includeLower.some((keyword) => title.includes(keyword))
-            && !exclude.some((keyword) => title.includes(keyword));
-        })
+        .filter((item) => matchesG2bKeywords(item, includeLower, exclude))
         .map((item) => {
           const bidNo = textValue(item.bidNtceNo);
           const bidOrd = textValue(item.bidNtceOrd) || "000";
@@ -199,7 +379,8 @@ export default {
             bidNo,
             title: textValue(item.bidNtceNm),
             agency: textValue(item.dminsttNm) || textValue(item.ntceInsttNm),
-            regionText: [item.dminsttNm, item.ntceInsttNm, item.prtcptLmtRgnNm].map(textValue).filter(Boolean).join(" "),
+            regionText: regionText(item),
+            matchedBy: matchedG2bFields(item, includeLower),
             noticeDate: textValue(item.bidNtceDt),
             deadline: deadlineText,
             status: isClosed ? "마감" : "진행중",
@@ -215,12 +396,38 @@ export default {
         })
         .sort((a, b) => b.noticeDate.localeCompare(a.noticeDate));
 
-      const failedCalls = allSettled.filter((result) => result.status === "rejected").length;
+      const callDiagnostics = resultGroups.flatMap((group) => collectDiagnostics(group.requests, group.settled));
+      const failedCalls = callDiagnostics.filter((diagnostic) => diagnostic.error).length;
+      const failedPages = callDiagnostics.reduce((sum, diagnostic) => sum + diagnostic.failedPages, 0);
+      const truncated = callDiagnostics.some((diagnostic) => diagnostic.truncated);
+      const partial = failedCalls > 0 || failedPages > 0 || truncated;
+      const operationStatus = buildOperationStatus(callDiagnostics);
       return json({
         notices,
         fetchedAt: new Date().toISOString(),
         failedCalls,
-        diagnostics: { receivedCount: fetchedItems.length, matchedCount: notices.length },
+        partial,
+        truncated,
+        diagnostics: {
+          source: "나라장터",
+          receivedCount: fetchedItems.length,
+          matchedCount: notices.length,
+          failedCalls,
+          failedPages,
+          truncated,
+          partial,
+          operations: operationStatus,
+        },
+        sourceStatus: {
+          g2b: {
+            status: !successful.length || operationStatus.every((item) => item.status === "failed")
+              ? "failed"
+              : partial ? "partial" : "normal",
+            failedCalls,
+            failedPages,
+            truncated,
+          },
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "나라장터 공고를 불러오지 못했습니다.";

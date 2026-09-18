@@ -3,6 +3,25 @@ const LH_BASE_URL = "https://apis.data.go.kr/B552555/OpenBidInfoList/getOpenBidI
 declare const process: { env: Record<string, string | undefined> };
 
 type LhRawItem = Record<string, string>;
+type LhPage = {
+  items: LhRawItem[];
+  totalCount: number;
+  rowsPerPage: number;
+};
+
+const LH_MAX_PAGES = 30;
+const LH_PAGE_BATCH_SIZE = 5;
+const LH_SEARCH_FIELDS = [
+  { key: "bidnmKor", label: "title" },
+  { key: "cstrtnJobGbNm", label: "businessType" },
+  { key: "bidKind", label: "bidKind" },
+  { key: "tndrCtrctMedCd", label: "contractMethod" },
+  { key: "zoneHqCd", label: "agencyRegion" },
+  { key: "zoneRstrct1", label: "region" },
+  { key: "zoneRstrct2", label: "region" },
+  { key: "zoneRstrct3", label: "region" },
+  { key: "zoneRstrct4", label: "region" },
+] as const;
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -74,7 +93,7 @@ const responseText = async (response: Response) => {
   }
 };
 
-const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: number) => {
+const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: number): Promise<LhPage> => {
   const params = new URLSearchParams({
     serviceKey,
     pageNo: String(pageNo),
@@ -91,16 +110,26 @@ const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: n
   return { items, totalCount, rowsPerPage };
 };
 
-const fetchRemainingPages = async (serviceKey: string, from: string, to: string, pageCount: number) => {
-  const pages: Awaited<ReturnType<typeof fetchPage>>[] = [];
+export const fetchRemainingPages = async (serviceKey: string, from: string, to: string, pageCount: number) => {
+  const pages: Array<Awaited<ReturnType<typeof fetchPage>> & { pageNo: number }> = [];
+  let failedPages = 0;
   for (let pageNo = 2; pageNo <= pageCount; pageNo += 5) {
-    const batch = Array.from(
-      { length: Math.min(5, pageCount - pageNo + 1) },
-      (_, index) => fetchPage(serviceKey, from, to, pageNo + index),
+    const pageNumbers = Array.from(
+      { length: Math.min(LH_PAGE_BATCH_SIZE, pageCount - pageNo + 1) },
+      (_, index) => pageNo + index,
     );
-    pages.push(...await Promise.all(batch));
+    const settled = await Promise.allSettled(
+      pageNumbers.map((currentPage) => fetchPage(serviceKey, from, to, currentPage)),
+    );
+    settled.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        pages.push({ ...result.value, pageNo: pageNumbers[index] });
+      } else {
+        failedPages += 1;
+      }
+    });
   }
-  return pages;
+  return { pages, failedPages };
 };
 
 const detailUrl = (businessType: string, bidNo: string, bidDegree: string) => {
@@ -122,6 +151,10 @@ const parseDeadline = (value: string) => {
   const timestamp = new Date(normalized).getTime();
   return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
 };
+
+const searchFields = (item: LhRawItem) => LH_SEARCH_FIELDS
+  .map(({ key, label }) => ({ label, value: textValue(item[key]) }))
+  .filter((field) => field.value);
 
 export default {
   async fetch(request: Request) {
@@ -153,20 +186,24 @@ export default {
     try {
       const normalizedKey = normalizeServiceKey(serviceKey);
       const firstPage = await fetchPage(normalizedKey, from, to, 1);
-      const pageCount = Math.min(30, Math.max(1, Math.ceil(firstPage.totalCount / firstPage.rowsPerPage)));
+      const fullPageCount = Math.max(1, Math.ceil(firstPage.totalCount / Math.max(1, firstPage.rowsPerPage)));
+      const pageCount = Math.min(LH_MAX_PAGES, fullPageCount);
       const remaining = pageCount > 1
         ? await fetchRemainingPages(normalizedKey, from, to, pageCount)
-        : [];
-      const fetchedItems = [firstPage, ...remaining].flatMap((page) => page.items);
+        : { pages: [], failedPages: 0 };
+      const fetchedItems = [firstPage, ...remaining.pages].flatMap((page) => page.items);
+      const failedPages = remaining.failedPages;
+      const truncated = fullPageCount > LH_MAX_PAGES || failedPages > 0;
+      const partial = truncated;
       const includeLower = include.map((keyword) => keyword.toLowerCase());
       const seen = new Set<string>();
       const now = Date.now();
       const notices = fetchedItems
         .filter((item) => {
-          const title = textValue(item.bidnmKor).toLowerCase();
-          return title
-            && includeLower.some((keyword) => title.includes(keyword))
-            && !exclude.some((keyword) => title.includes(keyword));
+          const searchText = searchFields(item).map((field) => field.value).join(" ").toLowerCase();
+          return searchText
+            && includeLower.some((keyword) => searchText.includes(keyword))
+            && !exclude.some((keyword) => searchText.includes(keyword));
         })
         .map((item) => {
           const bidNo = textValue(item.bidNum);
@@ -176,6 +213,9 @@ export default {
           const rawStatus = textValue(item.bidProgrsStatus);
           const isClosed = parseDeadline(deadline) < now
             || ["낙찰", "유찰", "마감", "취소"].some((status) => rawStatus.includes(status));
+          const matchedBy = searchFields(item)
+            .filter((field) => includeLower.some((keyword) => field.value.toLowerCase().includes(keyword)))
+            .map((field) => field.label);
           return {
             id: `lh-${bidNo}-${bidDegree}`,
             source: "LH",
@@ -185,6 +225,7 @@ export default {
             agency: textValue(item.zoneHqCd) || "한국토지주택공사",
             regionText: [item.zoneHqCd, item.zoneRstrct1, item.zoneRstrct2, item.zoneRstrct3, item.zoneRstrct4]
               .map(textValue).filter(Boolean).join(" "),
+            matchedBy,
             noticeDate: textValue(item.tndrbidRegDt).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"),
             deadline,
             status: isClosed ? "마감" : "진행중",
@@ -203,10 +244,27 @@ export default {
         notices,
         fetchedAt: new Date().toISOString(),
         diagnostics: {
+          source: "LH",
           receivedCount: fetchedItems.length,
           matchedCount: notices.length,
           totalCount: firstPage.totalCount,
-          truncated: firstPage.totalCount > pageCount * firstPage.rowsPerPage,
+          pagesFetched: pageCount - failedPages,
+          requestedPages: pageCount,
+          failedCalls: 0,
+          failedPages,
+          truncated,
+          partial,
+        },
+        partial,
+        truncated,
+        failedCalls: 0,
+        sourceStatus: {
+          lh: {
+            status: partial ? "partial" : "normal",
+            failedCalls: 0,
+            failedPages,
+            truncated,
+          },
         },
       });
     } catch (error) {
