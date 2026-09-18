@@ -6,5 +6,10 @@
       "main": true,
       "design/dispatch-pc-refinement-20260911": true
     }
+  },
+  "functions": {
+    "api/lh.ts": {
+      "regions": ["icn1"]
+    }
   }
 }

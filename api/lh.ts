@@ -11,6 +11,8 @@ type LhPage = {
 
 const LH_MAX_PAGES = 30;
 const LH_PAGE_BATCH_SIZE = 5;
+const LH_FETCH_ATTEMPTS = 3;
+const LH_FETCH_TIMEOUT_MS = 8000;
 const LH_SEARCH_FIELDS = [
   { key: "bidnmKor", label: "title" },
   { key: "cstrtnJobGbNm", label: "businessType" },
@@ -93,6 +95,43 @@ const responseText = async (response: Response) => {
   }
 };
 
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const fetchLhResponse = async (url: string) => {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < LH_FETCH_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), LH_FETCH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/xml, text/xml, */*",
+          "User-Agent": "taemyung-erp/1.0",
+        },
+        signal: controller.signal,
+      });
+
+      if (response.ok || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
+        return response;
+      }
+      lastError = new Error(`LH 연결 실패 (${response.status})`);
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (attempt < LH_FETCH_ATTEMPTS - 1) await wait(250 * (attempt + 1));
+  }
+
+  if (lastError instanceof Error && lastError.name === "AbortError") {
+    throw new Error("LH 연결 시간이 초과되었습니다.");
+  }
+  throw lastError instanceof Error ? lastError : new Error("LH 연결에 실패했습니다.");
+};
+
 const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: number): Promise<LhPage> => {
   const params = new URLSearchParams({
     serviceKey,
@@ -101,7 +140,7 @@ const fetchPage = async (serviceKey: string, from: string, to: string, pageNo: n
     tndrbidRegDtStart: dateKey(from),
     tndrbidRegDtEnd: dateKey(to),
   });
-  const response = await fetch(`${LH_BASE_URL}?${params.toString()}`);
+  const response = await fetchLhResponse(`${LH_BASE_URL}?${params.toString()}`);
   const body = await responseText(response);
   if (!response.ok) throw new Error(`LH 연결 실패 (${response.status})`);
   const items = parseItems(body);
