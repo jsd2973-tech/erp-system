@@ -29,7 +29,10 @@ type NumberToken = {
   position: number;
   hasCurrency: boolean;
   hasThousandsSeparator: boolean;
+  hasDecimal: boolean;
+  hasVolumeUnit: boolean;
 };
+type ParsedNumber = { value: number; confidence: number };
 
 const cleanText = (value: unknown) => String(value ?? "")
   .replace(/[\u200b\u00a0]/g, " ")
@@ -67,21 +70,25 @@ const normalizeLabelText = (value: string) => value.replace(/(?<=[가-힣])\s+(?
 
 const extractNumberTokens = (value: string) => {
   const result: NumberToken[] = [];
-  const pattern = /(?<![\d-])(?:₩|￦)?\s*(\d[\d,\s]*(?:\.\d+)?)\s*(?:원|₩|L|ℓ|리터)?/gi;
+  const pattern = /(?<![\d-])(?:₩|￦)?\s*((?:\d{1,3}(?:,\s*\d{3})+|\d+(?:\s\d{3})+(?!\s*,\s*\d{3})|\d+)(?:(?:\.\s*\d+|,\s*\d{1,2}))?)\s*(?:원|₩|L|ℓ|리터)?/gi;
   for (const match of value.matchAll(pattern)) {
     const raw = match[1].replace(/\s/g, "");
     const decimalComma = /^\d{1,3},\d{1,2}$/.test(raw);
     const numeric = Number(decimalComma ? raw.replace(",", ".") : raw.replace(/,/g, ""));
-    const hasThousandsSeparator = /^\d{1,3}(?:[,.]\d{3})+$/.test(raw);
-    const amountValue = hasThousandsSeparator ? Number(raw.replace(/[,.]/g, "")) : numeric;
     const hasCurrency = /[원₩￦]/.test(match[0]);
+    const hasThousandsSeparator = /^\d{1,3}(?:,\d{3})+$/.test(raw)
+      || (hasCurrency && /^\d{1,3}(?:\.\d{3})+$/.test(raw));
+    const amountValue = hasThousandsSeparator ? Number(raw.replace(/[,.]/g, "")) : numeric;
+    const valueNumber = hasCurrency && /^\d{1,3}(?:\.\d{3})+$/.test(raw) ? amountValue : numeric;
     if (Number.isFinite(numeric) && numeric > 0 && Number.isFinite(amountValue)) {
       result.push({
-        value: numeric,
+        value: valueNumber,
         amountValue,
         position: match.index || 0,
         hasCurrency,
         hasThousandsSeparator,
+        hasDecimal: /\.\d+/.test(raw),
+        hasVolumeUnit: /(?:L|ℓ|리터)\b/i.test(match[0]),
       });
     }
   }
@@ -89,13 +96,23 @@ const extractNumberTokens = (value: string) => {
 };
 
 // 금액 라벨 옆에는 필기 메모의 숫자가 함께 OCR될 수 있다.
-// `원/₩` 또는 천 단위 구분이 있는 토큰만 금액 후보로 인정해 메모 숫자를 우선 선택하지 않는다.
+// `원/₩` 또는 콤마 천 단위 구분이 있는 토큰만 금액 후보로 인정해 메모 숫자를 우선 선택하지 않는다.
 const selectAmountToken = (tokens: NumberToken[]) => {
   const candidates = tokens.filter((token) => token.hasCurrency || token.hasThousandsSeparator);
   candidates.sort((a, b) => {
     const aStrength = (a.hasCurrency ? 4 : 0) + (a.hasThousandsSeparator ? 3 : 0);
     const bStrength = (b.hasCurrency ? 4 : 0) + (b.hasThousandsSeparator ? 3 : 0);
     return bStrength - aStrength || a.position - b.position;
+  });
+  return candidates[0];
+};
+
+const selectQuantityToken = (tokens: NumberToken[], preferLast = false) => {
+  const candidates = [...tokens];
+  candidates.sort((a, b) => {
+    const aStrength = (a.hasVolumeUnit ? 6 : 0) + (a.hasDecimal ? 3 : 0);
+    const bStrength = (b.hasVolumeUnit ? 6 : 0) + (b.hasDecimal ? 3 : 0);
+    return bStrength - aStrength || (preferLast ? b.position - a.position : a.position - b.position);
   });
   return candidates[0];
 };
@@ -122,6 +139,42 @@ const findLabeledNumber = (
       candidates.push({
         value: selected.value,
         score: score + (after.length ? 10 : before.length ? 4 : 1) - line.index * 0.2,
+      });
+    });
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  const selected = candidates[0];
+  return selected
+    ? { value: selected.value, confidence: selected.score >= 100 ? 0.95 : 0.78 }
+    : undefined;
+};
+
+const findLabeledQuantity = (
+  lines: TextLine[],
+  labels: Array<{ pattern: RegExp; score: number }>,
+  maxValue: number,
+) => {
+  const candidates: NumberCandidate[] = [];
+
+  lines.forEach((line, lineIndex) => {
+    const searchable = normalizeLabelText(line.text);
+    labels.forEach(({ pattern, score }) => {
+      const match = searchable.match(pattern);
+      if (!match || match.index == null) return;
+
+      const after = selectQuantityToken(extractNumberTokens(searchable.slice(match.index + match[0].length)));
+      const before = selectQuantityToken(extractNumberTokens(searchable.slice(0, match.index)), true);
+      const next = selectQuantityToken(extractNumberTokens(normalizeLabelText(lines[lineIndex + 1]?.text || "")));
+      const selected = after || before || next;
+      if (!selected || selected.value > maxValue) return;
+
+      candidates.push({
+        value: selected.value,
+        score: score + (after ? 10 : before ? 4 : 1)
+          + (selected.hasVolumeUnit ? 5 : 0)
+          + (selected.hasDecimal ? 3 : 0)
+          - line.index * 0.2,
       });
     });
   });
@@ -267,13 +320,13 @@ const TOTAL_LABELS = [
 ];
 
 const parseQuantity = (lines: TextLine[]) => {
-  const labeled = findLabeledNumber(lines, QUANTITY_LABELS, 100_000);
+  const labeled = findLabeledQuantity(lines, QUANTITY_LABELS, 100_000);
   if (labeled) return labeled;
 
   const fallback: NumberCandidate[] = [];
   lines.forEach((line, index) => {
     if (!/(?:L|ℓ|리터)\b/i.test(line.text) || /원\s*\/\s*(?:L|ℓ|리터)/i.test(line.text)) return;
-    const token = extractNumberTokens(line.text)[0];
+    const token = selectQuantityToken(extractNumberTokens(line.text));
     if (token && token.value <= 100_000) fallback.push({ value: token.value, score: 58 - index * 0.2 });
   });
   fallback.sort((a, b) => b.score - a.score);
@@ -295,16 +348,98 @@ const parseUnitPrice = (lines: TextLine[]) => {
   return fallback[0] ? { value: fallback[0].value, confidence: 0.68 } : undefined;
 };
 
-// 카드승인형 주유영수증은 주유량을 별도 표기하지 않고 거래금액과 단가만 표시하는 경우가 있다.
-// 이때만 공급가액(거래금액) ÷ 단가로 보조 계산하고, 사용자가 입력칸에서 확인·수정할 수 있게 한다.
+const approximatelyEqual = (left: number, right: number) =>
+  Math.abs(left - right) <= Math.max(2, Math.round(Math.max(Math.abs(left), Math.abs(right)) * 0.001));
+
+const collectAmountValues = (lines: TextLine[]) => Array.from(new Set(
+  lines.flatMap((line) => extractNumberTokens(line.text))
+    .filter((token) => token.hasCurrency || token.hasThousandsSeparator)
+    .map((token) => Math.round(token.amountValue))
+    .filter((value) => value >= 10 && value <= 1_000_000_000),
+)).sort((a, b) => b - a);
+
+const inferReceiptAmounts = (lines: TextLine[]) => {
+  const values = collectAmountValues(lines);
+  for (let totalIndex = 0; totalIndex < values.length; totalIndex += 1) {
+    const total = values[totalIndex];
+    for (let leftIndex = totalIndex + 1; leftIndex < values.length; leftIndex += 1) {
+      const left = values[leftIndex];
+      if (left >= total) continue;
+      for (let rightIndex = leftIndex + 1; rightIndex < values.length; rightIndex += 1) {
+        const right = values[rightIndex];
+        if (right >= left) continue;
+        if (!approximatelyEqual(left + right, total)) continue;
+
+        return {
+          supply: Math.max(left, right),
+          vat: Math.min(left, right),
+          total,
+        };
+      }
+    }
+  }
+
+  // OCR이 세금 줄을 놓쳐도 총액과 공급가액만 남는 카드 영수증이 있다.
+  // 두 금액의 차이가 일반적인 부가세 범위일 때만 보조적으로 복원한다.
+  if (values.length >= 2) {
+    const total = values[0];
+    const supply = values[1];
+    const vat = total - supply;
+    const vatRate = supply > 0 ? vat / supply : 0;
+    if (vat > 0 && vatRate >= 0.05 && vatRate <= 0.2) {
+      return { supply, vat, total };
+    }
+  }
+  return undefined;
+};
+
+const reconcileReceiptAmounts = (
+  lines: TextLine[],
+  supplyAmount: ParsedNumber | undefined,
+  vatAmount: ParsedNumber | undefined,
+  totalAmount: ParsedNumber | undefined,
+) => {
+  // 할인·포인트 등이 포함된 영수증은 공급가액+부가세와 최종금액이 다를 수 있다.
+  // 세 항목을 라벨과 함께 모두 찾은 경우에는 그 원본 관계를 덮어쓰지 않는다.
+  if (supplyAmount && vatAmount && totalAmount
+    && totalAmount.value > supplyAmount.value
+    && totalAmount.value > vatAmount.value) {
+    return { supplyAmount, vatAmount, totalAmount };
+  }
+
+  const inferred = inferReceiptAmounts(lines);
+  if (!inferred) return { supplyAmount, vatAmount, totalAmount };
+
+  return {
+    supplyAmount: { value: inferred.supply, confidence: 0.9 },
+    vatAmount: { value: inferred.vat, confidence: 0.9 },
+    totalAmount: { value: inferred.total, confidence: 0.92 },
+  };
+};
+
+// 카드승인형 주유영수증은 단가가 부가세 포함 금액인 경우가 있어 총금액 ÷ 단가를 먼저 시도한다.
+// 주유량을 별도 표기하지 않은 경우에만 보조 계산하고, 사용자가 입력칸에서 확인·수정할 수 있게 한다.
 const deriveQuantity = (
   supplyAmount: { value: number } | undefined,
+  totalAmount: { value: number } | undefined,
   unitPrice: { value: number } | undefined,
 ) => {
-  if (!supplyAmount || !unitPrice || supplyAmount.value <= 0 || unitPrice.value <= 0) return undefined;
-  const value = supplyAmount.value / unitPrice.value;
-  if (!Number.isFinite(value) || value <= 0 || value > 100_000) return undefined;
-  return { value, confidence: 0.58 };
+  if (!unitPrice || unitPrice.value <= 0) return undefined;
+
+  const candidates = [
+    ...(totalAmount ? [{ amount: totalAmount.value, confidence: 0.66 }] : []),
+    ...(supplyAmount ? [{ amount: supplyAmount.value, confidence: 0.58 }] : []),
+  ];
+  for (const candidate of candidates) {
+    if (candidate.amount <= 0) continue;
+    const value = candidate.amount / unitPrice.value;
+    const roundedValue = Math.round(value * 1000) / 1000;
+    if (!Number.isFinite(roundedValue) || roundedValue <= 0 || roundedValue > 100_000) continue;
+    if (approximatelyEqual(roundedValue * unitPrice.value, candidate.amount)) {
+      return { value: roundedValue, confidence: candidate.confidence };
+    }
+  }
+  return undefined;
 };
 
 const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
@@ -319,10 +454,22 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
   const station = parseStation(lines, base.merchant);
   const product = parseProduct(lines);
   const unitPrice = parseUnitPrice(lines);
-  const supplyAmount = parseAmount(lines, SUPPLY_LABELS);
-  const vatAmount = parseAmount(lines, VAT_LABELS);
-  const totalAmount = parseAmount(lines, TOTAL_LABELS);
-  const quantity = parseQuantity(lines) || deriveQuantity(supplyAmount, unitPrice);
+  const parsedSupplyAmount = parseAmount(lines, SUPPLY_LABELS);
+  const parsedVatAmount = parseAmount(lines, VAT_LABELS);
+  const parsedTotalAmount = parseAmount(lines, TOTAL_LABELS);
+  const { supplyAmount, vatAmount, totalAmount } = reconcileReceiptAmounts(
+    lines,
+    parsedSupplyAmount,
+    parsedVatAmount,
+    parsedTotalAmount,
+  );
+  const parsedQuantity = parseQuantity(lines);
+  const quantityMatchesAmount = parsedQuantity && unitPrice
+    ? [supplyAmount, totalAmount].filter(Boolean).some((amount) => approximatelyEqual(parsedQuantity.value * unitPrice.value, amount!.value))
+    : true;
+  const quantity = (parsedQuantity && quantityMatchesAmount)
+    ? parsedQuantity
+    : deriveQuantity(supplyAmount, totalAmount, unitPrice) || parsedQuantity;
   const calculatedTotal = totalAmount || (supplyAmount && vatAmount
     ? { value: Math.round(supplyAmount.value + vatAmount.value), confidence: 0.7 }
     : undefined);
