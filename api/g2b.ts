@@ -303,19 +303,18 @@ export default {
     const dateRanges = splitDateRanges(beginDate, endDate);
 
     try {
-      // 제목 외 품목명·세부품명까지 검색하려면 무키워드 조회가 기준이 됩니다.
-      // 정상적으로 전체 페이지를 받은 경우에는 키워드별 중복 조회를 생략합니다.
-      // 90일 조회도 30일 단위로 유지하고, 외부 동시성은 4개로 제한합니다.
-      const expandedRequests: G2bRequest[] = dateRanges.flatMap((range) =>
-        G2B_OPERATIONS.map((operation) => ({
+      const primaryRequests: G2bRequest[] = dateRanges.flatMap((range) =>
+        G2B_OPERATIONS.flatMap((operation) => include.map((keyword) => ({
           operation,
-          keyword: "",
+          keyword,
           begin: dateTimeKey(range.from),
           end: dateTimeKey(range.to, true),
-        })),
+        }))),
       );
-      const expandedSettled = await settleInBatches(
-        expandedRequests.map((request) => () => fetchOperation(
+      // 일반 조회는 키워드별 검색을 우선해 응답 속도를 유지합니다.
+      // 페이지 요청까지 겹치지 않도록 외부 동시성은 4개로 제한합니다.
+      const primarySettled = await settleInBatches(
+        primaryRequests.map((request) => () => fetchOperation(
           request.operation,
           request.keyword,
           normalizedServiceKey,
@@ -327,38 +326,37 @@ export default {
       const resultGroups: Array<{
         requests: G2bRequest[];
         settled: PromiseSettledResult<G2bFetchResult>[];
-      }> = [{ requests: expandedRequests, settled: expandedSettled }];
-      let successful = expandedSettled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      }> = [{ requests: primaryRequests, settled: primarySettled }];
+      let successful = primarySettled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       let fetchedItems = successful.flatMap((result) => result.items);
 
-      // 전체검색이 실패하거나 페이지 상한에 걸린 날짜·업무유형만
-      // 제목 키워드 검색으로 보완해 누락 가능성을 줄입니다.
-      const incompleteExpandedRequests = expandedRequests.filter((request, index) => {
-        const result = expandedSettled[index];
-        return result.status === "rejected"
-          || result.value.diagnostic.failedPages > 0
-          || result.value.diagnostic.truncated;
-      });
-      if (incompleteExpandedRequests.length) {
-        const primaryRequests: G2bRequest[] = incompleteExpandedRequests.flatMap((request) =>
-          include.map((keyword) => ({ ...request, keyword }))
+      // 제목 검색이 완전히 빈 결과일 때만 무키워드 전체검색을 추가합니다.
+      // 평소에는 대량 전체검색으로 30일 조회가 지연되지 않도록 합니다.
+      if (!fetchedItems.length) {
+        const expandedRequests: G2bRequest[] = dateRanges.flatMap((range) =>
+          G2B_OPERATIONS.map((operation) => ({
+            operation,
+            keyword: "",
+            begin: dateTimeKey(range.from),
+            end: dateTimeKey(range.to, true),
+          })),
         );
-        const primarySettled = await settleInBatches(
-          primaryRequests.map((request) => () => fetchOperation(
+        const expandedSettled = await settleInBatches(
+          expandedRequests.map((request) => () => fetchOperation(
             request.operation,
-            request.keyword,
+            "",
             normalizedServiceKey,
             request.begin,
             request.end,
           )),
           4,
         );
-        resultGroups.push({ requests: primaryRequests, settled: primarySettled });
-        const primarySuccessful = primarySettled.flatMap((result) =>
+        resultGroups.push({ requests: expandedRequests, settled: expandedSettled });
+        const expandedSuccessful = expandedSettled.flatMap((result) =>
           result.status === "fulfilled" ? [result.value] : []
         );
-        successful = [...successful, ...primarySuccessful];
-        fetchedItems = [...fetchedItems, ...primarySuccessful.flatMap((result) => result.items)];
+        successful = [...successful, ...expandedSuccessful];
+        fetchedItems = [...fetchedItems, ...expandedSuccessful.flatMap((result) => result.items)];
       }
       if (!successful.length) {
         const firstError = resultGroups.flatMap((group) => group.settled)
