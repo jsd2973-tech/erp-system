@@ -23,6 +23,13 @@ export type FuelReceiptOcrResult = {
 
 type TextLine = { text: string; index: number };
 type NumberCandidate = { value: number; score: number };
+type NumberToken = {
+  value: number;
+  amountValue: number;
+  position: number;
+  hasCurrency: boolean;
+  hasThousandsSeparator: boolean;
+};
 
 const cleanText = (value: unknown) => String(value ?? "")
   .replace(/[\u200b\u00a0]/g, " ")
@@ -59,15 +66,38 @@ const toLines = (text: string): TextLine[] => text
 const normalizeLabelText = (value: string) => value.replace(/(?<=[가-힣])\s+(?=[가-힣])/g, "");
 
 const extractNumberTokens = (value: string) => {
-  const result: Array<{ value: number; position: number }> = [];
+  const result: NumberToken[] = [];
   const pattern = /(?<![\d-])(?:₩|￦)?\s*(\d[\d,\s]*(?:\.\d+)?)\s*(?:원|₩|L|ℓ|리터)?/gi;
   for (const match of value.matchAll(pattern)) {
     const raw = match[1].replace(/\s/g, "");
     const decimalComma = /^\d{1,3},\d{1,2}$/.test(raw);
     const numeric = Number(decimalComma ? raw.replace(",", ".") : raw.replace(/,/g, ""));
-    if (Number.isFinite(numeric) && numeric > 0) result.push({ value: numeric, position: match.index || 0 });
+    const hasThousandsSeparator = /^\d{1,3}(?:[,.]\d{3})+$/.test(raw);
+    const amountValue = hasThousandsSeparator ? Number(raw.replace(/[,.]/g, "")) : numeric;
+    const hasCurrency = /[원₩￦]/.test(match[0]);
+    if (Number.isFinite(numeric) && numeric > 0 && Number.isFinite(amountValue)) {
+      result.push({
+        value: numeric,
+        amountValue,
+        position: match.index || 0,
+        hasCurrency,
+        hasThousandsSeparator,
+      });
+    }
   }
   return result;
+};
+
+// 금액 라벨 옆에는 필기 메모의 숫자가 함께 OCR될 수 있다.
+// `원/₩` 또는 천 단위 구분이 있는 토큰만 금액 후보로 인정해 메모 숫자를 우선 선택하지 않는다.
+const selectAmountToken = (tokens: NumberToken[]) => {
+  const candidates = tokens.filter((token) => token.hasCurrency || token.hasThousandsSeparator);
+  candidates.sort((a, b) => {
+    const aStrength = (a.hasCurrency ? 4 : 0) + (a.hasThousandsSeparator ? 3 : 0);
+    const bStrength = (b.hasCurrency ? 4 : 0) + (b.hasThousandsSeparator ? 3 : 0);
+    return bStrength - aStrength || a.position - b.position;
+  });
+  return candidates[0];
 };
 
 const findLabeledNumber = (
@@ -92,6 +122,42 @@ const findLabeledNumber = (
       candidates.push({
         value: selected.value,
         score: score + (after.length ? 10 : before.length ? 4 : 1) - line.index * 0.2,
+      });
+    });
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  const selected = candidates[0];
+  return selected
+    ? { value: selected.value, confidence: selected.score >= 100 ? 0.95 : 0.78 }
+    : undefined;
+};
+
+const findLabeledAmount = (
+  lines: TextLine[],
+  labels: Array<{ pattern: RegExp; score: number }>,
+  maxValue: number,
+) => {
+  const candidates: NumberCandidate[] = [];
+
+  lines.forEach((line, lineIndex) => {
+    const searchable = normalizeLabelText(line.text);
+    labels.forEach(({ pattern, score }) => {
+      const match = searchable.match(pattern);
+      if (!match || match.index == null) return;
+
+      const after = selectAmountToken(extractNumberTokens(searchable.slice(match.index + match[0].length)));
+      const before = selectAmountToken(extractNumberTokens(searchable.slice(0, match.index)));
+      const next = selectAmountToken(extractNumberTokens(normalizeLabelText(lines[lineIndex + 1]?.text || "")));
+      const selected = after || before || next;
+      if (!selected || selected.amountValue > maxValue) return;
+
+      candidates.push({
+        value: selected.amountValue,
+        score: score + (after ? 10 : before ? 4 : 1)
+          + (selected.hasCurrency ? 5 : 0)
+          + (selected.hasThousandsSeparator ? 3 : 0)
+          - line.index * 0.2,
       });
     });
   });
@@ -242,7 +308,7 @@ const deriveQuantity = (
 };
 
 const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
-  findLabeledNumber(lines, labels, 1_000_000_000);
+  findLabeledAmount(lines, labels, 1_000_000_000);
 
 export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
   const text = extractOcrText(input);
