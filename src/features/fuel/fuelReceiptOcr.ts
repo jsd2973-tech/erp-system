@@ -442,6 +442,42 @@ const deriveQuantity = (
   return undefined;
 };
 
+// 손글씨가 단가 줄을 덮으면 OCR이 `1,146`을 `1`처럼 잘라 읽을 수 있다.
+// 주유량과 최종 합계가 함께 있으면 영수증의 VAT 포함 단가를 역산해 보정한다.
+const deriveUnitPrice = (
+  quantity: { value: number } | undefined,
+  supplyAmount: { value: number } | undefined,
+  totalAmount: { value: number } | undefined,
+) => {
+  if (!quantity || quantity.value <= 0) return undefined;
+
+  const candidates = [
+    ...(totalAmount ? [{ amount: totalAmount.value, confidence: 0.72 }] : []),
+    ...(supplyAmount ? [{ amount: supplyAmount.value, confidence: 0.64 }] : []),
+  ];
+  for (const candidate of candidates) {
+    if (candidate.amount <= 0) continue;
+    const value = Math.round(candidate.amount / quantity.value);
+    if (!Number.isFinite(value) || value <= 0 || value > 10_000_000) continue;
+    if (approximatelyEqual(value * quantity.value, candidate.amount)) {
+      return { value, confidence: candidate.confidence };
+    }
+  }
+  return undefined;
+};
+
+const unitPriceMatchesReceipt = (
+  unitPrice: { value: number } | undefined,
+  quantity: { value: number } | undefined,
+  supplyAmount: { value: number } | undefined,
+  totalAmount: { value: number } | undefined,
+) => {
+  if (!unitPrice || !quantity || unitPrice.value <= 0 || quantity.value <= 0) return false;
+  return [supplyAmount, totalAmount]
+    .filter(Boolean)
+    .some((amount) => approximatelyEqual(unitPrice.value * quantity.value, amount!.value));
+};
+
 const parseAmount = (lines: TextLine[], labels: Array<{ pattern: RegExp; score: number }>) =>
   findLabeledAmount(lines, labels, 1_000_000_000);
 
@@ -464,12 +500,21 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
     parsedTotalAmount,
   );
   const parsedQuantity = parseQuantity(lines);
-  const quantityMatchesAmount = parsedQuantity && unitPrice
-    ? [supplyAmount, totalAmount].filter(Boolean).some((amount) => approximatelyEqual(parsedQuantity.value * unitPrice.value, amount!.value))
+  const parsedUnitPriceMatches = unitPriceMatchesReceipt(
+    unitPrice,
+    parsedQuantity,
+    supplyAmount,
+    totalAmount,
+  );
+  const reconciledUnitPrice = parsedUnitPriceMatches
+    ? unitPrice
+    : deriveUnitPrice(parsedQuantity, supplyAmount, totalAmount) || unitPrice;
+  const quantityMatchesAmount = parsedQuantity && reconciledUnitPrice
+    ? unitPriceMatchesReceipt(reconciledUnitPrice, parsedQuantity, supplyAmount, totalAmount)
     : true;
   const quantity = (parsedQuantity && quantityMatchesAmount)
     ? parsedQuantity
-    : deriveQuantity(supplyAmount, totalAmount, unitPrice) || parsedQuantity;
+    : deriveQuantity(supplyAmount, totalAmount, reconciledUnitPrice) || parsedQuantity;
   const calculatedTotal = totalAmount || (supplyAmount && vatAmount
     ? { value: Math.round(supplyAmount.value + vatAmount.value), confidence: 0.7 }
     : undefined);
@@ -479,7 +524,7 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
     ...(station ? { stationName: station.value } : {}),
     ...(product ? { productName: product.value } : {}),
     ...(quantity ? { quantity: quantity.value } : {}),
-    ...(unitPrice ? { unitPrice: Math.round(unitPrice.value * 1000) / 1000 } : {}),
+    ...(reconciledUnitPrice ? { unitPrice: Math.round(reconciledUnitPrice.value * 1000) / 1000 } : {}),
     ...(supplyAmount ? { supplyAmount: Math.round(supplyAmount.value) } : {}),
     ...(vatAmount ? { vatAmount: Math.round(vatAmount.value) } : {}),
     ...(calculatedTotal ? { totalAmount: Math.round(calculatedTotal.value) } : {}),
@@ -488,7 +533,7 @@ export const parseFuelReceiptOcr = (input: unknown): FuelReceiptOcrResult => {
       ...(station ? { stationName: station.confidence } : {}),
       ...(product ? { productName: product.confidence } : {}),
       ...(quantity ? { quantity: quantity.confidence } : {}),
-      ...(unitPrice ? { unitPrice: unitPrice.confidence } : {}),
+      ...(reconciledUnitPrice ? { unitPrice: reconciledUnitPrice.confidence } : {}),
       ...(supplyAmount ? { supplyAmount: supplyAmount.confidence } : {}),
       ...(vatAmount ? { vatAmount: vatAmount.confidence } : {}),
       ...(calculatedTotal ? { totalAmount: calculatedTotal.confidence } : {}),
