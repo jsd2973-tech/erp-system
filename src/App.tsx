@@ -28,6 +28,24 @@ type MaintItem = { id: string; item: string; spec: string; qty: string | number;
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
   image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
+type MaintenancePurchaseLink = {
+  id: string;
+  maintenance_id: string;
+  maintenance_row_id: string;
+  purchase_id: string;
+  purchase_row_id: string;
+  item_name: string;
+  spec: string;
+  used_qty: number;
+  unit_price_snapshot: number;
+  purchase_date_snapshot: string;
+  vendor_snapshot: string;
+  maintenance_date_snapshot: string;
+  maintenance_equipment_snapshot: string;
+  maintenance_title_snapshot: string;
+  created_by?: string;
+  created_at?: string;
+};
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string;
   image_urls?: string[]; created_at?: string };
@@ -145,6 +163,36 @@ const fromPurchase = (p: Purchase) => ({
 });
 
 const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
+
+const toMaintenancePurchaseLink = (row: any): MaintenancePurchaseLink => ({
+  id: String(row?.id || ""),
+  maintenance_id: String(row?.maintenance_id || ""),
+  maintenance_row_id: String(row?.maintenance_row_id || ""),
+  purchase_id: String(row?.purchase_id || ""),
+  purchase_row_id: String(row?.purchase_row_id || ""),
+  item_name: String(row?.item_name || ""),
+  spec: String(row?.spec || ""),
+  used_qty: Number(row?.used_qty || 0),
+  unit_price_snapshot: Number(row?.unit_price_snapshot || 0),
+  purchase_date_snapshot: String(row?.purchase_date_snapshot || ""),
+  vendor_snapshot: String(row?.vendor_snapshot || ""),
+  maintenance_date_snapshot: String(row?.maintenance_date_snapshot || ""),
+  maintenance_equipment_snapshot: String(row?.maintenance_equipment_snapshot || ""),
+  maintenance_title_snapshot: String(row?.maintenance_title_snapshot || ""),
+  created_by: row?.created_by ? String(row.created_by) : undefined,
+  created_at: row?.created_at ? String(row.created_at) : undefined,
+});
+
+const numericValue = (value: unknown) => {
+  const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const maintenancePurchaseLinkKey = (link: Pick<MaintenancePurchaseLink, "maintenance_row_id" | "purchase_id" | "purchase_row_id">) =>
+  `${link.maintenance_row_id}\u001f${link.purchase_id}\u001f${link.purchase_row_id}`;
+
+const maintenancePurchaseLinkIdentity = (link: MaintenancePurchaseLink) =>
+  link.id || maintenancePurchaseLinkKey(link);
 
 const KEY = {
   vendors: "erp_vendors_v2",
@@ -701,6 +749,7 @@ type BackupExport = {
   items: Item[];
   purchases: Purchase[];
   maints: Maint[];
+  maintenance_purchase_links: MaintenancePurchaseLink[];
   card_uses: CardUse[];
   receipt_photos: ReceiptPhoto[];
   maintenance_photos: MaintenancePhoto[];
@@ -1501,6 +1550,25 @@ export default function App() {
   const [showAllMaintSuggestions, setShowAllMaintSuggestions] = useState(false);
   const [maintTemplateOpen, setMaintTemplateOpen] = useState(false);
   const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
+  const [maintenancePurchaseLinks, setMaintenancePurchaseLinks] = useState<MaintenancePurchaseLink[]>([]);
+  const [maintPurchaseLinksDraft, setMaintPurchaseLinksDraft] = useState<MaintenancePurchaseLink[]>([]);
+  const [maintenancePurchaseLinkModal, setMaintenancePurchaseLinkModal] = useState<{
+    open: boolean;
+    maintenanceRowId: string;
+    search: string;
+    selectedPurchaseId: string;
+    selectedPurchaseRowId: string;
+    usedQty: string;
+    editingLinkId: string;
+  }>({
+    open: false,
+    maintenanceRowId: "",
+    search: "",
+    selectedPurchaseId: "",
+    selectedPurchaseRowId: "",
+    usedQty: "",
+    editingLinkId: "",
+  });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
@@ -2226,7 +2294,7 @@ export default function App() {
 
 
   const loadAll = async () => {
-    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes] = await Promise.all([
+    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes, mplRes] = await Promise.all([
       fetchAllRows("vendors", "code", 1000),
       fetchAllRows("warehouse_groups", "code", 1000),
       fetchAllRows("warehouses", "code", 1000),
@@ -2234,10 +2302,11 @@ export default function App() {
       fetchAllRows("purchases", "date", 1000, false),
       fetchAllRows("maints", "date", 1000, false),
       fetchAllRows("card_uses", "date", 1000, false),
+      fetchAllRows("maintenance_purchase_links", "created_at", 1000, false),
     ]);
 
-    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error) {
-      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error);
+    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error) {
+      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error);
       alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
       return;
     }
@@ -2254,6 +2323,7 @@ export default function App() {
     setPurchases(((pRes.data || []) as any[]).map(toPurchase));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
+    setMaintenancePurchaseLinks(((mplRes.data || []) as any[]).map(toMaintenancePurchaseLink));
 
     setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
     setGroupForm({ code: nextCode(nextGroups), name: "" });
@@ -2805,6 +2875,33 @@ export default function App() {
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
+      const linkedPurchaseRows = maintenancePurchaseLinks.filter((link) => link.purchase_id === payload.id);
+      if (linkedPurchaseRows.length) {
+        const nextRowsById = new Map(payload.rows.map((row) => [String(row.id), row]));
+        const removedLinkedRows = linkedPurchaseRows.filter((link) => !nextRowsById.has(link.purchase_row_id));
+        if (removedLinkedRows.length) {
+          return alert("정비에 연결된 구매 품목은 행을 삭제하거나 새 ID로 바꿀 수 없습니다. 먼저 정비 연결을 해제하세요.");
+        }
+        const usedByRow = new Map<string, number>();
+        linkedPurchaseRows.forEach((link) => {
+          usedByRow.set(link.purchase_row_id, (usedByRow.get(link.purchase_row_id) || 0) + numericValue(link.used_qty));
+        });
+        for (const [rowId, usedQty] of usedByRow.entries()) {
+          const nextRow = nextRowsById.get(rowId);
+          if (nextRow && usedQty > numericValue(nextRow.qty)) {
+            return alert(`${nextRow.item || "구매 품목"}은 정비에 ${usedQty}개가 연결되어 있어 구매수량을 ${usedQty}개보다 적게 줄일 수 없습니다.`);
+          }
+        }
+        const changedLinkedRows = linkedPurchaseRows.filter((link) => {
+          const nextRow = nextRowsById.get(link.purchase_row_id);
+          if (!nextRow) return false;
+          return getPurchasePriceHistoryKey(nextRow.item, nextRow.spec)
+            !== getPurchasePriceHistoryKey(link.item_name, link.spec);
+        });
+        if (changedLinkedRows.length) {
+          return alert("정비에 연결된 구매 품목의 품목명·규격은 변경할 수 없습니다. 먼저 정비 연결을 해제하세요.");
+        }
+      }
       const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
       if (error) return alert(`구매 저장 실패: ${error.message}`);
       setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
@@ -3973,7 +4070,7 @@ export default function App() {
     setLinkingReceiptPhotoId("");
     setEditingPurchaseId(p.id);
     setPurchaseHeader({ date: p.date || "", vendor: p.vendor || "", warehouse: p.warehouse || "", image_urls: p.image_urls || (p.image_url ? [p.image_url] : []) });
-    setRows((p.rows || []).map((r) => ({ ...r, id: uid() })));
+    setRows((p.rows || []).map((r) => ({ ...r, id: String(r.id || uid()) })));
   };
 
   const updatePurchaseTaxInvoiceStatus = async (purchase: Purchase, received: boolean) => {
@@ -4438,6 +4535,10 @@ export default function App() {
   };
 
   const removeMaintItem = (index: number) => {
+    const targetRow = maintItems[index];
+    if (targetRow && maintPurchaseLinksDraft.some((link) => link.maintenance_row_id === targetRow.id)) {
+      return alert("구매품목이 연결된 정비 행은 먼저 구매 연결을 해제한 후 삭제하세요.");
+    }
     const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, rowIndex) => rowIndex !== index);
     setMaintItems(next);
     const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
@@ -4602,6 +4703,163 @@ const purchasePriceHistoryMap = useMemo(
     return purchasePriceHistoryMap.get(getPurchasePriceHistoryKey(row.item, row.spec));
   };
 
+  const activeMaintenanceLinkRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
+  const maintenancePurchaseLinkCandidates = useMemo(() => {
+    if (!maintenancePurchaseLinkModal.open || !activeMaintenanceLinkRow?.item?.trim()) return [];
+
+    const targetKey = getPurchasePriceHistoryKey(activeMaintenanceLinkRow.item, activeMaintenanceLinkRow.spec);
+    const search = maintenancePurchaseLinkModal.search.trim().toLocaleLowerCase("ko-KR");
+    const editingLinkId = maintenancePurchaseLinkModal.editingLinkId;
+    const isEditingLink = (link: MaintenancePurchaseLink) => maintenancePurchaseLinkIdentity(link) === editingLinkId;
+    const committedLinks = maintenancePurchaseLinks.filter((link) => {
+      if (!editingMaintId) return true;
+      return link.maintenance_id !== editingMaintId;
+    });
+    const draftLinks = maintPurchaseLinksDraft.filter((link) => !isEditingLink(link));
+    const consumed = new Map<string, number>();
+
+    [...committedLinks, ...draftLinks].forEach((link) => {
+      const key = `${link.purchase_id}\u001f${link.purchase_row_id}`;
+      consumed.set(key, (consumed.get(key) || 0) + numericValue(link.used_qty));
+    });
+
+    const allCandidates = purchases.flatMap((purchase) =>
+      (purchase.rows || []).flatMap((row) => {
+        const purchaseRowId = String(row.id || "").trim();
+        if (!purchaseRowId) return [];
+
+        const rowKey = `${purchase.id}\u001f${purchaseRowId}`;
+        const purchaseQty = numericValue(row.qty);
+        const usedQty = consumed.get(rowKey) || 0;
+        const remainingQty = purchaseQty - usedQty;
+        const exact = getPurchasePriceHistoryKey(row.item, row.spec) === targetKey;
+        const searchable = [
+          purchase.date,
+          purchase.vendor,
+          purchase.warehouse,
+          row.item,
+          row.spec,
+        ].join(" ").toLocaleLowerCase("ko-KR");
+
+        if (search ? !searchable.includes(search) : !exact) return [];
+        if (remainingQty <= 0 && !editingLinkId) return [];
+
+        return [{
+          purchase,
+          row,
+          rowKey,
+          exact,
+          usedQty,
+          remainingQty: Math.max(0, remainingQty),
+        }];
+      })
+    );
+
+    return allCandidates
+      .sort((a, b) => {
+        if (a.exact !== b.exact) return a.exact ? -1 : 1;
+        if ((a.remainingQty > 0) !== (b.remainingQty > 0)) return a.remainingQty > 0 ? -1 : 1;
+        const dateCompare = String(b.purchase.date || "").localeCompare(String(a.purchase.date || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return String(b.purchase.id || "").localeCompare(String(a.purchase.id || ""));
+      })
+      .slice(0, 80);
+  }, [activeMaintenanceLinkRow, editingMaintId, maintenancePurchaseLinkModal.editingLinkId, maintenancePurchaseLinkModal.open, maintenancePurchaseLinkModal.search, maintenancePurchaseLinks, maintPurchaseLinksDraft, purchases]);
+
+  const openMaintPurchaseLinkModal = (row: MaintItem, link?: MaintenancePurchaseLink) => {
+    if (!String(row.item || "").trim()) return alert("먼저 정비 품목을 입력하세요.");
+    const rowQty = numericValue(row.qty);
+    if (rowQty <= 0) return alert("구매품목을 연결하려면 정비 수량을 먼저 입력하세요.");
+    setMaintenancePurchaseLinkModal({
+      open: true,
+      maintenanceRowId: row.id,
+      search: "",
+      selectedPurchaseId: link?.purchase_id || "",
+      selectedPurchaseRowId: link?.purchase_row_id || "",
+      usedQty: link ? String(link.used_qty) : String(rowQty),
+      editingLinkId: link ? maintenancePurchaseLinkIdentity(link) : "",
+    });
+  };
+
+  const closeMaintPurchaseLinkModal = () => {
+    setMaintenancePurchaseLinkModal({
+      open: false,
+      maintenanceRowId: "",
+      search: "",
+      selectedPurchaseId: "",
+      selectedPurchaseRowId: "",
+      usedQty: "",
+      editingLinkId: "",
+    });
+  };
+
+  const selectMaintPurchaseCandidate = (candidate: (typeof maintenancePurchaseLinkCandidates)[number]) => {
+    const rowQty = numericValue(activeMaintenanceLinkRow?.qty);
+    const suggestedQty = Math.min(rowQty, candidate.remainingQty);
+    setMaintenancePurchaseLinkModal((prev) => ({
+      ...prev,
+      selectedPurchaseId: candidate.purchase.id,
+      selectedPurchaseRowId: String(candidate.row.id),
+      usedQty: String(suggestedQty || rowQty || ""),
+    }));
+  };
+
+  const applyMaintPurchaseLink = () => {
+    const targetRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
+    const candidate = maintenancePurchaseLinkCandidates.find((item) =>
+      item.purchase.id === maintenancePurchaseLinkModal.selectedPurchaseId &&
+      String(item.row.id) === maintenancePurchaseLinkModal.selectedPurchaseRowId
+    );
+    if (!targetRow || !candidate) return alert("연결할 구매 품목을 선택하세요.");
+
+    const usedQty = numericValue(maintenancePurchaseLinkModal.usedQty);
+    const maintenanceQty = numericValue(targetRow.qty);
+    if (usedQty <= 0) return alert("사용수량은 0보다 커야 합니다.");
+    if (usedQty > maintenanceQty) return alert(`정비 수량 ${maintenanceQty}를 초과해 연결할 수 없습니다.`);
+    if (usedQty > candidate.remainingQty) return alert(`이 구매 품목의 남은 연결 가능 수량은 ${candidate.remainingQty}입니다.`);
+
+    const editingIdentity = maintenancePurchaseLinkModal.editingLinkId;
+    const otherLinksForMaintenanceRow = maintPurchaseLinksDraft.filter((link) =>
+      link.maintenance_row_id === targetRow.id && maintenancePurchaseLinkIdentity(link) !== editingIdentity
+    );
+    const linkedQtyForRow = otherLinksForMaintenanceRow.reduce((sum, link) => sum + numericValue(link.used_qty), 0);
+    if (linkedQtyForRow + usedQty > maintenanceQty) {
+      return alert(`이 정비 품목에 이미 ${linkedQtyForRow}개가 연결되어 있어 ${maintenanceQty}개를 초과할 수 없습니다.`);
+    }
+
+    const nextLink: MaintenancePurchaseLink = {
+      id: "",
+      maintenance_id: editingMaintId || "",
+      maintenance_row_id: targetRow.id,
+      purchase_id: candidate.purchase.id,
+      purchase_row_id: String(candidate.row.id),
+      item_name: String(candidate.row.item || targetRow.item || ""),
+      spec: String(candidate.row.spec || targetRow.spec || ""),
+      used_qty: usedQty,
+      unit_price_snapshot: getPurchaseEffectiveUnitPrice(candidate.row).price,
+      purchase_date_snapshot: candidate.purchase.date || "",
+      vendor_snapshot: candidate.purchase.vendor || "",
+      maintenance_date_snapshot: maintForm.date || getTodayKey(),
+      maintenance_equipment_snapshot: maintForm.warehouse || "",
+      maintenance_title_snapshot: maintForm.title || "",
+    };
+
+    setMaintPurchaseLinksDraft((previous) => {
+      const editingId = maintenancePurchaseLinkModal.editingLinkId;
+      const withoutEdited = previous.filter((link) => {
+        if (editingId && maintenancePurchaseLinkIdentity(link) === editingId) return false;
+        return maintenancePurchaseLinkKey(link) !== maintenancePurchaseLinkKey(nextLink);
+      });
+      return [...withoutEdited, nextLink];
+    });
+    closeMaintPurchaseLinkModal();
+  };
+
+  const removeMaintPurchaseLink = (link: MaintenancePurchaseLink) => {
+    const identity = maintenancePurchaseLinkIdentity(link);
+    setMaintPurchaseLinksDraft((previous) => previous.filter((item) => maintenancePurchaseLinkIdentity(item) !== identity));
+  };
+
     const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
   const maintSuggestedItems = useMemo(() => {
     if (!maintWarehouseKey) return [];
@@ -4738,12 +4996,15 @@ const purchasePriceHistoryMap = useMemo(
     maintForm.cost ||
     (maintForm.image_urls || []).length ||
     maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total) ||
+    maintPurchaseLinksDraft.length ||
     editingMaintId
   );
 
   const clearMaintForm = () => {
     setMaintForm({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
     setMaintItems([emptyMaintItem()]);
+    setMaintPurchaseLinksDraft([]);
+    closeMaintPurchaseLinkModal();
     setEditingMaintId("");
     setLinkingMaintenancePhotoId("");
     setMaintSaveError("");
@@ -4762,6 +5023,7 @@ const purchasePriceHistoryMap = useMemo(
       const draft = JSON.parse(saved);
       if (draft?.maintForm) setMaintForm(draft.maintForm);
       if (Array.isArray(draft?.maintItems) && draft.maintItems.length) setMaintItems(draft.maintItems);
+      if (Array.isArray(draft?.maintPurchaseLinks)) setMaintPurchaseLinksDraft(draft.maintPurchaseLinks.map(toMaintenancePurchaseLink));
       if (draft?.editingMaintId) setEditingMaintId(draft.editingMaintId);
     } catch {
       clearMaintDraft();
@@ -4786,6 +5048,7 @@ const purchasePriceHistoryMap = useMemo(
       localStorage.setItem(MAINT_DRAFT_KEY, JSON.stringify({
         maintForm,
         maintItems,
+        maintPurchaseLinks: maintPurchaseLinksDraft,
         editingMaintId,
         saved_at: new Date().toISOString(),
       }));
@@ -4793,7 +5056,117 @@ const purchasePriceHistoryMap = useMemo(
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maintForm, maintItems, editingMaintId, maintDraftReady]);
+  }, [maintForm, maintItems, maintPurchaseLinksDraft, editingMaintId, maintDraftReady]);
+
+  const syncMaintenancePurchaseLinks = async (maintenanceId: string, nextLinks: MaintenancePurchaseLink[]) => {
+    const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
+    const validLinkRows = nextLinks.map((link) => {
+      const row: Record<string, any> = {
+        maintenance_id: maintenanceId,
+        maintenance_row_id: link.maintenance_row_id,
+        purchase_id: link.purchase_id,
+        purchase_row_id: link.purchase_row_id,
+        item_name: link.item_name,
+        spec: link.spec,
+        used_qty: numericValue(link.used_qty),
+        unit_price_snapshot: numericValue(link.unit_price_snapshot),
+        purchase_date_snapshot: link.purchase_date_snapshot,
+        vendor_snapshot: link.vendor_snapshot,
+        maintenance_date_snapshot: link.maintenance_date_snapshot,
+        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
+        maintenance_title_snapshot: link.maintenance_title_snapshot,
+      };
+      if (link.id) row.id = link.id;
+      if (link.created_by) row.created_by = link.created_by;
+      if (link.created_at) row.created_at = link.created_at;
+      return row;
+    });
+
+    const { error: deleteError } = await supabase
+      .from("maintenance_purchase_links")
+      .delete()
+      .eq("maintenance_id", maintenanceId);
+    if (deleteError) {
+      alert(`정비 구매연결을 갱신하지 못했습니다: ${deleteError.message}`);
+      return false;
+    }
+
+    let savedLinks: MaintenancePurchaseLink[] = [];
+    if (validLinkRows.length) {
+      const { data, error: insertError } = await supabase
+        .from("maintenance_purchase_links")
+        .insert(validLinkRows)
+        .select("*");
+
+      if (insertError) {
+        if (previousLinks.length) {
+          const rollbackRows = previousLinks.map((link) => ({
+            id: link.id,
+            maintenance_id: link.maintenance_id,
+            maintenance_row_id: link.maintenance_row_id,
+            purchase_id: link.purchase_id,
+            purchase_row_id: link.purchase_row_id,
+            item_name: link.item_name,
+            spec: link.spec,
+            used_qty: link.used_qty,
+            unit_price_snapshot: link.unit_price_snapshot,
+            purchase_date_snapshot: link.purchase_date_snapshot,
+            vendor_snapshot: link.vendor_snapshot,
+            maintenance_date_snapshot: link.maintenance_date_snapshot,
+            maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
+            maintenance_title_snapshot: link.maintenance_title_snapshot,
+            created_by: link.created_by,
+            created_at: link.created_at,
+          }));
+          await supabase.from("maintenance_purchase_links").insert(rollbackRows);
+        }
+        alert(`정비 구매연결 저장에 실패했습니다: ${insertError.message}`);
+        return false;
+      }
+
+      savedLinks = ((data || validLinkRows) as any[]).map(toMaintenancePurchaseLink);
+    }
+
+    setMaintenancePurchaseLinks((previous) => [
+      ...previous.filter((link) => link.maintenance_id !== maintenanceId),
+      ...savedLinks,
+    ]);
+
+    const previousSignature = previousLinks
+      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
+      .sort()
+      .join("|");
+    const nextSignature = savedLinks
+      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
+      .sort()
+      .join("|");
+    if (previousSignature !== nextSignature) {
+      const previousKeys = new Set(previousLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
+      const nextKeys = new Set(savedLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
+      const added = savedLinks.filter((link) => !previousKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
+      const removed = previousLinks.filter((link) => !nextKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
+      if (added.length) {
+        await addActivityLog({
+          module: "정비",
+          action: "구매품목 연결",
+          target_id: maintenanceId,
+          target_title: added.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: added.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+        });
+      }
+      if (removed.length) {
+        await addActivityLog({
+          module: "정비",
+          action: "구매품목 연결 해제",
+          target_id: maintenanceId,
+          target_title: removed.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: removed.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+        });
+      }
+    }
+
+    return true;
+  };
 
   const saveMaint = async () => {
     if (maintSavingRef.current) return;
@@ -4812,6 +5185,73 @@ const purchasePriceHistoryMap = useMemo(
 
     try {
       const validItems = validMaintItems;
+      const validRowIds = new Set(validItems.map((row) => row.id));
+      const invalidLinks = maintPurchaseLinksDraft.filter((link) => !validRowIds.has(link.maintenance_row_id));
+      if (invalidLinks.length) {
+        const message = "구매품목이 연결된 정비 행은 먼저 연결을 해제한 후 삭제하거나 품목을 변경하세요.";
+        setMaintSaveError(message);
+        alert(message);
+        return;
+      }
+
+      const nextLinks = maintPurchaseLinksDraft.map((link) => ({
+        ...link,
+        maintenance_id: editingMaintId || "",
+        maintenance_date_snapshot: maintForm.date || getTodayKey(),
+        maintenance_equipment_snapshot: maintForm.warehouse || "",
+        maintenance_title_snapshot: maintForm.title || "",
+      }));
+      const changedLinkedItems = nextLinks.filter((link) => {
+        const maintenanceRow = validItems.find((row) => row.id === link.maintenance_row_id);
+        if (!maintenanceRow) return false;
+        return getPurchasePriceHistoryKey(maintenanceRow.item, maintenanceRow.spec)
+          !== getPurchasePriceHistoryKey(link.item_name, link.spec);
+      });
+      if (changedLinkedItems.length) {
+        const message = "구매품목이 연결된 정비 행의 품목명·규격은 변경할 수 없습니다. 먼저 연결을 해제한 후 수정하세요.";
+        setMaintSaveError(message);
+        alert(message);
+        return;
+      }
+      const rowUsage = new Map<string, number>();
+      nextLinks.forEach((link) => {
+        rowUsage.set(link.maintenance_row_id, (rowUsage.get(link.maintenance_row_id) || 0) + numericValue(link.used_qty));
+      });
+      for (const row of validItems) {
+        const linkedQty = rowUsage.get(row.id) || 0;
+        if (linkedQty > numericValue(row.qty)) {
+          const message = `${row.item || "정비 품목"}의 구매 연결수량(${linkedQty})이 정비 수량(${numericValue(row.qty)})을 초과합니다.`;
+          setMaintSaveError(message);
+          alert(message);
+          return;
+        }
+      }
+
+      const otherMaintenanceLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id !== (editingMaintId || "__new__"));
+      const purchaseUsage = new Map<string, number>();
+      [...otherMaintenanceLinks, ...nextLinks].forEach((link) => {
+        const key = `${link.purchase_id}\u001f${link.purchase_row_id}`;
+        purchaseUsage.set(key, (purchaseUsage.get(key) || 0) + numericValue(link.used_qty));
+      });
+      for (const [key, usedQty] of purchaseUsage.entries()) {
+        const [purchaseId, purchaseRowId] = key.split("\u001f");
+        const purchase = purchases.find((item) => item.id === purchaseId);
+        const purchaseRow = purchase?.rows.find((row) => String(row.id) === purchaseRowId);
+        if (!purchase || !purchaseRow) {
+          const message = "연결된 구매 품목을 찾지 못했습니다. 구매내역을 확인한 후 다시 저장하세요.";
+          setMaintSaveError(message);
+          alert(message);
+          return;
+        }
+        if (usedQty > numericValue(purchaseRow.qty)) {
+          const message = `${purchaseRow.item || "구매 품목"}의 정비 연결수량(${usedQty})이 구매수량(${numericValue(purchaseRow.qty)})을 초과합니다.`;
+          setMaintSaveError(message);
+          alert(message);
+          return;
+        }
+      }
+
+      const wasEditing = Boolean(editingMaintId);
       const payload = {
         id: editingMaintId || uid(),
         ...maintForm,
@@ -4835,6 +5275,13 @@ const purchasePriceHistoryMap = useMemo(
 
       setMaints((prev) => (editingMaintId ? prev.map((m) => (m.id === editingMaintId ? payload : m)) : [payload, ...prev]));
 
+      const linksSaved = await syncMaintenancePurchaseLinks(payload.id, nextLinks);
+      if (!linksSaved) {
+        const message = "정비는 저장되었지만 구매품목 연결 저장에 실패했습니다. 연결을 확인한 후 다시 저장하세요.";
+        setMaintSaveError(message);
+        return;
+      }
+
       await addActivityLog({
         module: "정비",
         action: editingMaintId ? "수정" : "등록",
@@ -4849,7 +5296,7 @@ const purchasePriceHistoryMap = useMemo(
       }
 
       clearMaintForm();
-      showToast(editingMaintId ? "정비내역을 수정했습니다." : "정비내역을 저장했습니다.");
+      showToast(wasEditing ? "정비내역을 수정했습니다." : "정비내역을 저장했습니다.");
       setMenuTab("maint_list");
     } catch (error: any) {
       const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
@@ -4867,7 +5314,8 @@ const purchasePriceHistoryMap = useMemo(
     setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
     setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
-    setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: uid() })));
+    setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: String(r.id || uid()) })));
+    setMaintPurchaseLinksDraft(maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id));
   };
 
 
@@ -4895,6 +5343,14 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = purchases.find((p) => p.id === id);
     if (!target) return alert("삭제할 구매내역을 찾지 못했습니다.");
+    const { data: linkedRows, error: linkedRowsError } = await supabase
+      .from("maintenance_purchase_links")
+      .select("id, maintenance_id, maintenance_row_id, used_qty")
+      .eq("purchase_id", id);
+    if (linkedRowsError) return alert(`구매 연결정보 확인 실패: ${linkedRowsError.message}`);
+    if ((linkedRows || []).length) {
+      return alert(`이 구매내역은 정비 ${(linkedRows || []).length}건에 연결된 품목이 있어 삭제할 수 없습니다. 먼저 정비에서 연결을 해제하세요.`);
+    }
     if (!confirm("구매내역을 휴지통으로 이동할까요?")) return;
 
     const ok = await moveToTrash({
@@ -5005,6 +5461,11 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = maints.find((item) => item.id === id);
     if (!target) return alert("삭제할 정비내역을 찾지 못했습니다.");
+    const { data: linkedRows, error: linkedRowsError } = await supabase
+      .from("maintenance_purchase_links")
+      .select("*")
+      .eq("maintenance_id", id);
+    if (linkedRowsError) return alert(`정비 구매연결 확인 실패: ${linkedRowsError.message}`);
     if (!confirm("정비내역을 휴지통으로 이동할까요?")) return;
 
     const ok = await moveToTrash({
@@ -5013,13 +5474,30 @@ const purchasePriceHistoryMap = useMemo(
       record_id: id,
       title: target.title || "",
       detail: `${target.date || "-"} · ${target.warehouse || "-"}`,
-      data: target,
+      data: {
+        ...target,
+        __maintenance_purchase_links: (linkedRows || []).map(toMaintenancePurchaseLink),
+      },
     });
     if (!ok) return;
 
+    if ((linkedRows || []).length) {
+      const { error: linkDeleteError } = await supabase
+        .from("maintenance_purchase_links")
+        .delete()
+        .eq("maintenance_id", id);
+      if (linkDeleteError) return alert(`정비 구매연결 삭제 실패: ${linkDeleteError.message}`);
+    }
+
     const { error } = await supabase.from("maints").delete().eq("id", id);
-    if (error) return alert(`정비 삭제 실패: ${error.message}`);
+    if (error) {
+      if ((linkedRows || []).length) {
+        await supabase.from("maintenance_purchase_links").insert(linkedRows);
+      }
+      return alert(`정비 삭제 실패: ${error.message}`);
+    }
     setMaints((prev) => prev.filter((m) => m.id !== id));
+    setMaintenancePurchaseLinks((prev) => prev.filter((link) => link.maintenance_id !== id));
     await addActivityLog({
       module: "정비",
       action: "휴지통 이동",
@@ -5272,8 +5750,42 @@ const purchasePriceHistoryMap = useMemo(
     if (!isAdmin) return alert("관리자만 복구할 수 있습니다.");
     if (!confirm(`${record.title || record.module} 항목을 복구할까요?`)) return;
 
-    const { error: restoreError } = await supabase.from(record.source_table).upsert(record.data);
+    const restoreData = record.source_table === "maints" && record.data && typeof record.data === "object"
+      ? { ...record.data }
+      : record.data;
+    const maintenanceLinks: MaintenancePurchaseLink[] = record.source_table === "maints" && restoreData && Array.isArray(restoreData.__maintenance_purchase_links)
+      ? restoreData.__maintenance_purchase_links.map((link: any) => toMaintenancePurchaseLink(link))
+      : [];
+    if (restoreData && typeof restoreData === "object") delete restoreData.__maintenance_purchase_links;
+
+    const { error: restoreError } = await supabase.from(record.source_table).upsert(restoreData);
     if (restoreError) return alert(`복구 실패: ${restoreError.message}`);
+
+    if (record.source_table === "maints" && maintenanceLinks.length) {
+      const restoreRows = maintenanceLinks.map((link) => ({
+        id: link.id,
+        maintenance_id: record.record_id,
+        maintenance_row_id: link.maintenance_row_id,
+        purchase_id: link.purchase_id,
+        purchase_row_id: link.purchase_row_id,
+        item_name: link.item_name,
+        spec: link.spec,
+        used_qty: link.used_qty,
+        unit_price_snapshot: link.unit_price_snapshot,
+        purchase_date_snapshot: link.purchase_date_snapshot,
+        vendor_snapshot: link.vendor_snapshot,
+        maintenance_date_snapshot: link.maintenance_date_snapshot,
+        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
+        maintenance_title_snapshot: link.maintenance_title_snapshot,
+        created_by: link.created_by,
+        created_at: link.created_at,
+      }));
+      const { error: linkRestoreError } = await supabase.from("maintenance_purchase_links").insert(restoreRows);
+      if (linkRestoreError) {
+        await supabase.from(record.source_table).delete().eq("id", record.record_id);
+        return alert(`정비는 복구되었지만 구매연결 복구에 실패했습니다: ${linkRestoreError.message}`);
+      }
+    }
 
     const { error: deleteTrashError } = await supabase.from("deleted_records").delete().eq("id", record.id);
     if (deleteTrashError) return alert(`휴지통 정리 실패: ${deleteTrashError.message}`);
@@ -5347,6 +5859,7 @@ const purchasePriceHistoryMap = useMemo(
         backupItems,
         backupPurchases,
         backupMaints,
+        backupMaintenancePurchaseLinks,
         backupCardUses,
         backupReceiptPhotos,
         backupMaintenancePhotos,
@@ -5365,6 +5878,7 @@ const purchasePriceHistoryMap = useMemo(
         fetchBackupTable("items", "code"),
         fetchBackupTable("purchases", "date"),
         fetchBackupTable("maints", "date"),
+        fetchBackupTable("maintenance_purchase_links", "created_at"),
         fetchBackupTable("card_uses", "date"),
         fetchBackupTable("receipt_photos", "receipt_date"),
         fetchBackupTable("maintenance_photos", "maint_date"),
@@ -5388,6 +5902,7 @@ const purchasePriceHistoryMap = useMemo(
           items: backupItems.length,
           purchases: backupPurchases.length,
           maints: backupMaints.length,
+          maintenance_purchase_links: backupMaintenancePurchaseLinks.length,
           card_uses: backupCardUses.length,
           receipt_photos: backupReceiptPhotos.length,
           maintenance_photos: backupMaintenancePhotos.length,
@@ -5406,6 +5921,7 @@ const purchasePriceHistoryMap = useMemo(
         items: backupItems as Item[],
         purchases: (backupPurchases as any[]).map(toPurchase),
         maints: backupMaints as Maint[],
+        maintenance_purchase_links: (backupMaintenancePurchaseLinks as any[]).map(toMaintenancePurchaseLink),
         card_uses: backupCardUses as CardUse[],
         receipt_photos: backupReceiptPhotos as ReceiptPhoto[],
         maintenance_photos: backupMaintenancePhotos as MaintenancePhoto[],
@@ -5447,6 +5963,7 @@ const purchasePriceHistoryMap = useMemo(
       { 구분: "품목", 건수: items.length },
       { 구분: "구매", 건수: purchases.length },
       { 구분: "정비", 건수: maints.length },
+      { 구분: "구매-정비 연결", 건수: maintenancePurchaseLinks.length },
       { 구분: "카드사용", 건수: cardUses.length },
       { 구분: "입고사진", 건수: receiptPhotos.length },
       { 구분: "정비사진", 건수: maintenancePhotos.length },
@@ -7243,6 +7760,7 @@ const purchasePriceHistoryMap = useMemo(
             items={items}
             permits={permits}
             vendorAccounts={vendorAccounts}
+            maintenancePurchaseLinks={maintenancePurchaseLinks}
             receiptPhotos={receiptPhotos}
             maintenancePhotos={maintenancePhotos}
             maintenanceSchedules={maintenanceSchedules}
@@ -7663,7 +8181,7 @@ const purchasePriceHistoryMap = useMemo(
           </section>
         )}
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
 
@@ -8011,6 +8529,7 @@ const purchasePriceHistoryMap = useMemo(
                 <tbody>
                   {maintItems.map((r, i) => {
                     const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
+                    const linkedPurchaseRows = maintPurchaseLinksDraft.filter((link) => link.maintenance_row_id === r.id);
 
                     return (
                       <tr key={r.id}>
@@ -8035,6 +8554,16 @@ const purchasePriceHistoryMap = useMemo(
                               최근구매: {recentPurchaseInfo.date || "-"} / {recentPurchaseInfo.vendor || "거래처 미입력"} / 단가 {money(recentPurchaseInfo.price)}원
                             </div>
                           )}
+                          <div className="maintenance-purchase-link-editor">
+                            <button type="button" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
+                            {linkedPurchaseRows.map((link) => (
+                              <span key={maintenancePurchaseLinkIdentity(link)}>
+                                {link.vendor_snapshot || "거래처 미입력"} · {link.purchase_date_snapshot || "-"} · {money(link.unit_price_snapshot)}원 · {link.used_qty} 사용
+                                <button type="button" onClick={() => openMaintPurchaseLinkModal(r, link)}>수정</button>
+                                <button type="button" onClick={() => removeMaintPurchaseLink(link)}>해제</button>
+                              </span>
+                            ))}
+                          </div>
                         </td>
                         <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
                         <td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
@@ -8057,6 +8586,7 @@ const purchasePriceHistoryMap = useMemo(
             <div className="mobile-entry-item-list" aria-label="정비 사용 품목 입력">
               {maintItems.map((r, i) => {
                 const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
+                const linkedPurchaseRows = maintPurchaseLinksDraft.filter((link) => link.maintenance_row_id === r.id);
 
                 return (
                   <div className="mobile-entry-item-card maintenance" key={`mobile-maint-${r.id}`}>
@@ -8086,6 +8616,17 @@ const purchasePriceHistoryMap = useMemo(
                         <em>단가 {money(recentPurchaseInfo.price)}원</em>
                       </div>
                     )}
+
+                    <div className="maintenance-purchase-link-editor mobile">
+                      <button type="button" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
+                      {linkedPurchaseRows.map((link) => (
+                        <span key={maintenancePurchaseLinkIdentity(link)}>
+                          {link.vendor_snapshot || "거래처 미입력"} · {link.purchase_date_snapshot || "-"} · {money(link.unit_price_snapshot)}원 · {link.used_qty} 사용
+                          <button type="button" onClick={() => openMaintPurchaseLinkModal(r, link)}>수정</button>
+                          <button type="button" onClick={() => removeMaintPurchaseLink(link)}>해제</button>
+                        </span>
+                      ))}
+                    </div>
 
                     <Field label="규격">
                       <input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} placeholder="규격 입력" />
@@ -8178,7 +8719,7 @@ const purchasePriceHistoryMap = useMemo(
           </section>
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={canEditDeleteRecords} onLinkPhoto={openMaintPhotoPicker} />}
+        {menuTab === "maint_list" && <MaintList maints={filteredMaints} purchases={purchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={canEditDeleteRecords} onLinkPhoto={openMaintPhotoPicker} />}
 
         {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
 
@@ -8336,6 +8877,75 @@ const purchasePriceHistoryMap = useMemo(
               <div className="actions right-actions">
                 <button disabled={isAuxiliarySaving("newItemModal")} onClick={closeNewItemModal}>취소</button>
                 <button className="primary" disabled={isAuxiliarySaving("newItemModal")} onClick={() => runAuxiliarySave("newItemModal", saveNewItemFromModal)}>{isAuxiliarySaving("newItemModal") ? "저장 중..." : "저장"}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {maintenancePurchaseLinkModal.open && (
+          <div className="modal-backdrop" onClick={closeMaintPurchaseLinkModal}>
+            <div className="modal-box wide-modal maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="between">
+                <div>
+                  <h2>구매품목 연결</h2>
+                  <p className="muted">정비 품목과 같은 품목·규격의 구매이력을 우선 표시합니다.</p>
+                </div>
+                <button type="button" onClick={closeMaintPurchaseLinkModal}>닫기</button>
+              </div>
+
+              <div className="maintenance-purchase-link-target">
+                <strong>{activeMaintenanceLinkRow?.item || "품목 미입력"}</strong>
+                <span>{activeMaintenanceLinkRow?.spec || "규격 미입력"} · 정비 사용수량 {activeMaintenanceLinkRow?.qty || 0}</span>
+              </div>
+
+              <input
+                value={maintenancePurchaseLinkModal.search}
+                onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, search: event.target.value }))}
+                placeholder="거래처 / 날짜 / 품목 / 규격 검색 (비우면 동일 품목만)"
+              />
+
+              <ScrollTable>
+                <table className="maintenance-purchase-link-table">
+                  <thead>
+                    <tr><th>구매일</th><th>거래처</th><th>품목·규격</th><th>구매수량</th><th>단가</th><th>사용/남음</th><th>선택</th></tr>
+                  </thead>
+                  <tbody>
+                    {!maintenancePurchaseLinkCandidates.length ? (
+                      <tr><td colSpan={7} className="empty">연결 가능한 구매품목이 없습니다. 검색어를 바꾸거나 구매수량을 확인하세요.</td></tr>
+                    ) : maintenancePurchaseLinkCandidates.map((candidate) => {
+                      const selected = maintenancePurchaseLinkModal.selectedPurchaseId === candidate.purchase.id && maintenancePurchaseLinkModal.selectedPurchaseRowId === String(candidate.row.id);
+                      const unitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
+                      return (
+                        <tr key={candidate.rowKey} className={selected ? "selected" : ""}>
+                          <td>{candidate.purchase.date || "-"}</td>
+                          <td>{candidate.purchase.vendor || "거래처 미입력"}</td>
+                          <td><b>{candidate.row.item || "-"}</b><small>{candidate.row.spec || "규격 없음"}</small></td>
+                          <td className="right">{candidate.row.qty || 0}</td>
+                          <td className="right">{money(unitPrice)}원</td>
+                          <td className="right">{money(candidate.usedQty)} / {money(candidate.remainingQty)}</td>
+                          <td><button type="button" className={selected ? "primary" : ""} onClick={() => selectMaintPurchaseCandidate(candidate)}>{selected ? "선택됨" : "선택"}</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </ScrollTable>
+
+              <div className="maintenance-purchase-link-quantity">
+                <Field label="이번 정비 사용수량" required>
+                  <input
+                    inputMode="decimal"
+                    value={maintenancePurchaseLinkModal.usedQty}
+                    onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, usedQty: event.target.value }))}
+                    placeholder="0"
+                  />
+                </Field>
+                <span>구매단가는 참고용으로 표시하며, 정비 단가를 자동으로 바꾸지 않습니다.</span>
+              </div>
+
+              <div className="actions right-actions">
+                <button type="button" onClick={closeMaintPurchaseLinkModal}>취소</button>
+                <button type="button" className="primary" onClick={applyMaintPurchaseLink}>{maintenancePurchaseLinkModal.editingLinkId ? "연결 수정" : "구매품목 연결"}</button>
               </div>
             </div>
           </div>
@@ -8741,7 +9351,7 @@ function PurchasePriceHistoryModal({ history, onClose }: { history: PurchasePric
   );
 }
 
-function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
+function PurchaseList({ purchases, maintenancePurchaseLinks = [], search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
   const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
   const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
   const [purchasePage, setPurchasePage] = useState(1);
@@ -8892,7 +9502,7 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
           <ScrollTable>
             <table className="purchase-detail-table">
               <thead>
-                <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr>
+                <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>정비사용</th></tr>
               </thead>
               <tbody>
                 {(liveDetailPurchase.rows || []).map((row: PurchaseRow) => (
@@ -8904,6 +9514,21 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
                     <td className="right">{money(row.supply)}</td>
                     <td className="right">{money(row.vat)}</td>
                     <td className="right">{money(row.total)}</td>
+                    <td>
+                      {(() => {
+                        const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.purchase_id === liveDetailPurchase.id && link.purchase_row_id === row.id);
+                        const usedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + numericValue(link.used_qty), 0);
+                        const remainingQty = Math.max(0, numericValue(row.qty) - usedQty);
+                        return (
+                          <div className="purchase-maintenance-usage-cell">
+                            {links.length
+                              ? links.map((link: MaintenancePurchaseLink) => <span key={maintenancePurchaseLinkIdentity(link)}>{link.maintenance_date_snapshot || "-"} · {link.maintenance_title_snapshot || link.maintenance_equipment_snapshot || "정비"} · {link.used_qty} 사용</span>)
+                              : <span>사용처 없음</span>}
+                            <small>구매 {money(row.qty)} · 정비사용 {money(usedQty)} · 미연결 {money(remainingQty)}</small>
+                          </div>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -8913,6 +9538,19 @@ function PurchaseList({ purchases, search, setSearch, editPurchase, deletePurcha
             <span>공급가액 {money(liveDetailPurchase.supplyTotal)}원</span>
             <span>부가세 {money(liveDetailPurchase.vatTotal)}원</span>
             <b>합계 {money(liveDetailPurchase.total)}원</b>
+          </div>
+          <div className="purchase-maintenance-summary">
+            <h3>정비 사용내역</h3>
+            {(() => {
+              const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.purchase_id === liveDetailPurchase.id);
+              return links.length ? links.map((link: MaintenancePurchaseLink) => (
+                <div key={maintenancePurchaseLinkIdentity(link)}>
+                  <strong>{link.item_name || "품목"}</strong>
+                  <span>{link.maintenance_date_snapshot || "-"} · {link.maintenance_equipment_snapshot || "대상 미입력"} · {link.maintenance_title_snapshot || "정비"}</span>
+                  <b>{link.used_qty} 사용 · {money(link.used_qty * link.unit_price_snapshot)}원</b>
+                </div>
+              )) : <p className="muted">연결된 정비 사용내역이 없습니다.</p>;
+            })()}
           </div>
           <div className="purchase-payment-detail">
             <div>
@@ -9485,7 +10123,7 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
 
 
 
-function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
+function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
   const [selected, setSelected] = useState<Maint | null>(null);
 
   const maintNoMap = useMemo(() => {
@@ -9571,18 +10209,21 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
               <th>공급가액</th>
               <th>부가세</th>
               <th>합계</th>
+              <th>구매연결</th>
               <th>첨부</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
             {!maints.length ? (
-              <tr><td colSpan={10} className="empty">저장된 정비내역 없음</td></tr>
+              <tr><td colSpan={11} className="empty">저장된 정비내역 없음</td></tr>
             ) : (
               maints.map((m: Maint) => {
                 const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
                 const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
                 const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
+                const linkedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + Number(link.used_qty || 0), 0);
                 return (
                   <tr key={m.id}>
                     <td>{maintNoMap.get(m.id) || "-"}</td>
@@ -9593,6 +10234,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                     <td className="right">{money(supply)}</td>
                     <td className="right">{money(vat)}</td>
                     <td className="right bold">{money(total)}</td>
+                    <td>{links.length ? <span className="maintenance-link-badge">{links.length}건 · {money(linkedQty)} 사용</span> : "-"}</td>
                     <td>
                       <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
                     </td>
@@ -9620,6 +10262,8 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
           const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
           const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
           const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
+          const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
+          const linkedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + Number(link.used_qty || 0), 0);
 
           return (
             <div className="mobile-list-card" key={m.id}>
@@ -9634,6 +10278,7 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                 <div><label>제목</label><p>{m.title}</p></div>
                 <div><label>내용</label><p>{m.detail || "-"}</p></div>
                 <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
+                <div><label>구매연결</label><p>{links.length ? `${links.length}건 · ${money(linkedQty)} 사용` : "없음"}</p></div>
               </div>
 
               <div className="mobile-list-attachment">
@@ -9687,6 +10332,23 @@ function MaintList({ maints, search, setSearch, editMaint, deleteMaint, setMenuT
                 </tbody>
               </table>
             </ScrollTable>
+            <div className="maintenance-purchase-summary">
+              <h3>연결된 구매품목</h3>
+              {(() => {
+                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === selected.id);
+                return links.length ? links.map((link: MaintenancePurchaseLink) => {
+                  const purchase = (purchases || []).find((candidate: Purchase) => candidate.id === link.purchase_id);
+                  const purchaseRow = purchase?.rows?.find((row: PurchaseRow) => row.id === link.purchase_row_id);
+                  return (
+                    <div key={maintenancePurchaseLinkIdentity(link)}>
+                      <strong>{link.item_name || "품목"}</strong>
+                      <span>{link.purchase_date_snapshot || "-"} · {link.vendor_snapshot || "거래처 미입력"} · 단가 {money(link.unit_price_snapshot)}원</span>
+                      <b>구매 {purchaseRow?.qty ?? "-"} · {link.used_qty} 사용 · 구매ID {link.purchase_id}</b>
+                    </div>
+                  );
+                }) : <p className="muted">연결된 구매품목이 없습니다.</p>;
+              })()}
+            </div>
             <div className="actions right-actions"><button onClick={() => setSelected(null)}>닫기</button></div>
           </div>
         </div>
@@ -10977,6 +11639,7 @@ function BackupPermissionPage({
   items,
   permits,
   vendorAccounts,
+  maintenancePurchaseLinks,
   receiptPhotos,
   maintenancePhotos,
   maintenanceSchedules,
@@ -11032,6 +11695,7 @@ function BackupPermissionPage({
     data: {
       purchases,
       maints,
+      maintenancePurchaseLinks,
       cardUses,
       vendors,
       groups,
@@ -11414,6 +12078,7 @@ function BackupPermissionPage({
         ["items", data.items],
         ["purchases", data.purchases],
         ["maints", data.maints],
+        ["maintenance_purchase_links", data.maintenance_purchase_links || data.maintenancePurchaseLinks],
         ["card_uses", data.card_uses || data.cardUses],
         ["permit_renewals", data.permits],
         ["vendor_accounts", data.vendor_accounts || data.vendorAccounts],
@@ -11431,6 +12096,25 @@ function BackupPermissionPage({
         if (!Array.isArray(rows) || !rows.length) continue;
         const normalizedRows = table === "purchases"
           ? rows.map((row) => fromPurchase(toPurchase(row)))
+          : table === "maintenance_purchase_links"
+            ? rows.map((row) => ({
+              id: row.id,
+              maintenance_id: row.maintenance_id,
+              maintenance_row_id: row.maintenance_row_id,
+              purchase_id: row.purchase_id,
+              purchase_row_id: row.purchase_row_id,
+              item_name: row.item_name,
+              spec: row.spec,
+              used_qty: row.used_qty,
+              unit_price_snapshot: row.unit_price_snapshot,
+              purchase_date_snapshot: row.purchase_date_snapshot,
+              vendor_snapshot: row.vendor_snapshot,
+              maintenance_date_snapshot: row.maintenance_date_snapshot,
+              maintenance_equipment_snapshot: row.maintenance_equipment_snapshot,
+              maintenance_title_snapshot: row.maintenance_title_snapshot,
+              created_by: row.created_by,
+              created_at: row.created_at,
+            }))
           : rows;
         const error = await upsertInChunks(table, normalizedRows, 500);
         if (error) throw new Error(`${table} 복구 실패: ${error.message}`);
@@ -24807,5 +25491,9 @@ html,body,#root{
 
 .purchase-status-section-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}.purchase-status-detail-count{color:#64748b;font-size:.75em;font-weight:800}.purchase-status-mobile-toggle{display:none;min-height:34px;padding:7px 10px;border:1px solid #dbe4ef;border-radius:8px;background:#f8fafc;color:#334155;font-size:11px;font-weight:900;white-space:nowrap}.purchase-status-collapsible-body{display:block}
 @media(max-width:900px){.purchase-status-mobile-toggle{display:inline-flex;align-items:center;justify-content:center}.purchase-status-section-actions{align-items:center}.purchase-status-collapsible-body:not(.open){display:none}.purchase-status-section-head{gap:8px}.purchase-status-section-head>div{min-width:0}.purchase-status-section-head h3{font-size:15px}.purchase-status-section-head .muted{font-size:10px;line-height:1.4}}
+
+.maintenance-purchase-link-editor{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:7px}.maintenance-purchase-link-editor>button:first-child{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor>span{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 6px;border:1px solid #dbeafe;border-radius:8px;background:#f8fbff;color:#475569;font-size:10px;font-weight:800}.maintenance-purchase-link-editor span button{padding:2px 4px;border:0;background:transparent;color:#2563eb;font-size:10px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor span button:last-child{color:#dc2626}.maintenance-purchase-link-editor.mobile{display:grid;align-items:stretch;gap:7px}.maintenance-purchase-link-editor.mobile>span{white-space:normal;line-height:1.35}
+.maintenance-purchase-link-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto}.maintenance-purchase-link-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}.maintenance-purchase-link-target strong{color:#172033;font-size:14px;font-weight:950}.maintenance-purchase-link-target span{color:#64748b;font-size:12px;font-weight:800}.maintenance-purchase-link-modal>input{width:100%;margin-bottom:10px}.maintenance-purchase-link-table{min-width:760px}.maintenance-purchase-link-table tr.selected{background:#eff6ff}.maintenance-purchase-link-table td:nth-child(3){min-width:180px}.maintenance-purchase-link-table td:nth-child(3) small{display:block;margin-top:3px;color:#64748b;font-size:10px}.maintenance-purchase-link-quantity{display:flex;align-items:end;gap:12px;margin-top:12px}.maintenance-purchase-link-quantity .field{max-width:220px;flex:0 0 220px}.maintenance-purchase-link-quantity>span{padding-bottom:10px;color:#64748b;font-size:11px;font-weight:750}.maintenance-link-badge{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary,.maintenance-purchase-summary{display:grid;gap:8px;margin-top:16px;padding:13px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;text-align:left}.purchase-maintenance-summary h3,.maintenance-purchase-summary h3{margin:0;color:#172033;font-size:14px;font-weight:950}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(180px,1.5fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #e5edf7}.purchase-maintenance-summary>div:first-of-type,.maintenance-purchase-summary>div:first-of-type{border-top:0}.purchase-maintenance-summary span,.maintenance-purchase-summary span{color:#64748b;font-size:11px;font-weight:800}.purchase-maintenance-summary b,.maintenance-purchase-summary b{color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary p,.maintenance-purchase-summary p{margin:0}.purchase-maintenance-usage-cell{display:grid;gap:3px;min-width:150px}.purchase-maintenance-usage-cell span{color:#475569;font-size:10px;line-height:1.35}
+@media(max-width:700px){.maintenance-purchase-link-modal{width:96vw;max-height:92vh;padding:15px}.maintenance-purchase-link-quantity{display:grid;align-items:stretch}.maintenance-purchase-link-quantity .field{max-width:none;width:100%;flex:auto}.maintenance-purchase-link-quantity>span{padding:0}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{grid-template-columns:1fr;gap:3px}.purchase-maintenance-summary b,.maintenance-purchase-summary b{white-space:normal}.maintenance-purchase-link-table{min-width:720px}}
 
 `;
