@@ -8949,10 +8949,12 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
   const [mobileItemAnalysisOpen, setMobileItemAnalysisOpen] = useState(false);
   const [mobileMonthlyOpen, setMobileMonthlyOpen] = useState(false);
   const [mobileVendorOpen, setMobileVendorOpen] = useState(false);
+  const [mobilePurchaseDetailOpen, setMobilePurchaseDetailOpen] = useState(false);
 
   const hasItemAnalysisFilter = Boolean(from || to || vendor || item);
   useEffect(() => {
     setMobileItemAnalysisOpen(hasItemAnalysisFilter);
+    setMobilePurchaseDetailOpen(hasItemAnalysisFilter);
   }, [hasItemAnalysisFilter]);
 
   const allPriceHistoryMap = useMemo(() => buildPurchasePriceHistory(purchases), [purchases]);
@@ -9318,13 +9320,28 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
         )}
       </div>
 
-      <h3>상세 구매내역</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
-        </table>
-      </ScrollTable>
+      <div className="purchase-status-detail-section">
+        <div className="between purchase-status-section-head purchase-status-detail-head">
+          <h3>상세 구매내역 <span className="purchase-status-detail-count">({filtered.length}건)</span></h3>
+          <button
+            type="button"
+            className="purchase-status-mobile-toggle"
+            onClick={() => setMobilePurchaseDetailOpen((open) => !open)}
+            aria-expanded={mobilePurchaseDetailOpen}
+          >
+            {mobilePurchaseDetailOpen ? "접기" : "내역 보기"}
+          </button>
+        </div>
+        <div className={`purchase-status-collapsible-body${mobilePurchaseDetailOpen ? " open" : ""}`}>
+        <ScrollTable>
+          <table>
+            <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
+            <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
+          </table>
+        </ScrollTable>
+
+        </div>
+      </div>
       {priceHistoryModal && <PurchasePriceHistoryModal history={priceHistoryModal} onClose={() => setPriceHistoryModal(null)} />}
     </section>
   );
@@ -24788,7 +24805,7 @@ html,body,#root{
 .purchase-price-history-modal-backdrop{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:22px;background:rgba(15,23,42,.5)}.purchase-price-history-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid #dbe4ef;border-radius:20px;background:#f8fafc;box-shadow:0 30px 90px rgba(15,23,42,.3);text-align:left}.purchase-price-history-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:15px}.purchase-price-history-modal-head span{color:#2563eb;font-size:11px;font-weight:950;letter-spacing:.08em}.purchase-price-history-modal-head h2{margin:4px 0 0;color:#172033;font-size:23px;font-weight:1000}.purchase-price-history-modal-head p{margin:3px 0 0;color:#64748b;font-size:13px;font-weight:800}.purchase-price-history-modal-head>button{background:#e2e8f0;color:#334155;font-weight:900}.purchase-price-history-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.purchase-price-history-kpis>div{display:grid;gap:5px;padding:12px;border:1px solid #dbe4ef;border-radius:13px;background:#fff}.purchase-price-history-kpis span{color:#64748b;font-size:11px;font-weight:850}.purchase-price-history-kpis b{color:#172033;font-size:15px;font-weight:1000}.purchase-price-history-modal-section{margin-top:14px;padding:14px;border:1px solid #e1e8f0;border-radius:15px;background:#fff}.purchase-price-history-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.purchase-price-history-section-head h3{margin:0;color:#172033;font-size:15px}.purchase-price-history-section-head small{color:#94a3b8;font-size:11px;font-weight:800}.purchase-price-history-modal .scroll-table{overflow-x:auto}.purchase-price-history-modal table{min-width:690px}.purchase-price-history-modal th{background:#edf3f9;color:#334155;font-size:11px;white-space:nowrap}.purchase-price-history-modal td{font-size:12px;white-space:nowrap}.purchase-price-history-note{margin:10px 2px 0;color:#94a3b8;font-size:11px;font-weight:700}.purchase-price-analysis-mobile{display:none}.purchase-price-analysis-mobile-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #dbe4ef;border-radius:12px;background:#f8fafc;text-align:left}.purchase-price-analysis-mobile-toggle>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-mobile-toggle strong{color:#172033;font-size:13px;font-weight:950}.purchase-price-analysis-mobile-toggle span{overflow:hidden;color:#64748b;font-size:10px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-mobile-toggle button{flex:none;min-height:34px;padding:7px 10px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-mobile-list{display:grid;gap:10px}.purchase-price-analysis-desktop{display:block}.purchase-price-analysis-head{margin-top:20px}.purchase-price-analysis-delta{font-weight:900;white-space:nowrap}.purchase-price-analysis-card{display:grid;gap:10px;padding:15px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 7px 18px rgba(15,23,42,.05);text-align:left}.purchase-price-analysis-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.purchase-price-analysis-card-head>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-card-head strong{overflow:hidden;color:#172033;font-size:16px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head span{overflow:hidden;color:#64748b;font-size:12px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head small{color:#64748b;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.purchase-price-analysis-card-grid>div{display:grid;gap:2px;padding:8px;border-radius:10px;background:#f8fafc}.purchase-price-analysis-card-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-analysis-card-grid b{overflow:hidden;color:#172033;font-size:12px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-change{padding:8px 10px;border-radius:9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:950}.purchase-price-analysis-card-meta{overflow:hidden;color:#64748b;font-size:11px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card .purchase-price-history-link{justify-content:center;width:100%;min-height:38px}
 @media(max-width:900px){.purchase-price-history-summary{margin-top:0;padding:11px}.purchase-price-history-grid{grid-template-columns:1fr}.purchase-price-history-grid>div{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}.purchase-price-history-grid small{text-align:right}.purchase-price-history-head button{min-height:34px}.purchase-price-history-modal-backdrop{align-items:end;padding:0}.purchase-price-history-modal{width:100%;max-height:92vh;padding:16px;border-radius:20px 20px 0 0}.purchase-price-history-modal-head h2{font-size:20px}.purchase-price-history-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.purchase-price-history-kpis b{font-size:13px}.purchase-price-analysis-desktop{display:none}.purchase-price-analysis-mobile{display:grid;gap:10px;margin:10px 0 18px}.purchase-price-analysis-head{align-items:flex-start;gap:10px}.purchase-price-analysis-head>button{width:auto;white-space:nowrap}.purchase-price-analysis-head .muted{font-size:11px;line-height:1.4}}
 
-.purchase-status-section-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}.purchase-status-mobile-toggle{display:none;min-height:34px;padding:7px 10px;border:1px solid #dbe4ef;border-radius:8px;background:#f8fafc;color:#334155;font-size:11px;font-weight:900;white-space:nowrap}.purchase-status-collapsible-body{display:block}
+.purchase-status-section-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}.purchase-status-detail-count{color:#64748b;font-size:.75em;font-weight:800}.purchase-status-mobile-toggle{display:none;min-height:34px;padding:7px 10px;border:1px solid #dbe4ef;border-radius:8px;background:#f8fafc;color:#334155;font-size:11px;font-weight:900;white-space:nowrap}.purchase-status-collapsible-body{display:block}
 @media(max-width:900px){.purchase-status-mobile-toggle{display:inline-flex;align-items:center;justify-content:center}.purchase-status-section-actions{align-items:center}.purchase-status-collapsible-body:not(.open){display:none}.purchase-status-section-head{gap:8px}.purchase-status-section-head>div{min-width:0}.purchase-status-section-head h3{font-size:15px}.purchase-status-section-head .muted{font-size:10px;line-height:1.4}}
 
 `;
