@@ -9313,7 +9313,14 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
               전회 대비 {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
             </div>
             <div className="purchase-price-analysis-card-meta">주요거래처 {analysis.majorVendor} · 최저 {analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`} · 최고 {analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</div>
-            <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) set      <div className="purchase-status-detail-section">
+            <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>최근 구매이력·거래처 비교</button>
+          </article>
+        ))}
+          </div>
+        )}
+      </div>
+
+      <div className="purchase-status-detail-section">
         <div className="between purchase-status-section-head purchase-status-detail-head">
           <h3>상세 구매내역 <span className="purchase-status-detail-count">({filtered.length}건)</span></h3>
           <button
@@ -9335,9 +9342,6 @@ function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
 
         </div>
       </div>
-Name="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
-        </table>
-      </ScrollTable>
       {priceHistoryModal && <PurchasePriceHistoryModal history={priceHistoryModal} onClose={() => setPriceHistoryModal(null)} />}
     </section>
   );
