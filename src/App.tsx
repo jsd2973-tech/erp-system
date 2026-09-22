@@ -5208,11 +5208,11 @@ const purchasePriceHistoryMap = useMemo(
       const changedLinkedItems = nextLinks.filter((link) => {
         const maintenanceRow = validItems.find((row) => row.id === link.maintenance_row_id);
         if (!maintenanceRow) return false;
-        return getPurchasePriceHistoryKey(maintenanceRow.item, maintenanceRow.spec)
-          !== getPurchasePriceHistoryKey(link.item_name, link.spec);
+        return normalizePurchasePriceText(maintenanceRow.item)
+          !== normalizePurchasePriceText(link.item_name);
       });
       if (changedLinkedItems.length) {
-        const message = "구매품목이 연결된 정비 행의 품목명·규격은 변경할 수 없습니다. 먼저 연결을 해제한 후 수정하세요.";
+        const message = "구매품목이 연결된 정비 행의 품목명은 변경할 수 없습니다. 규격은 달라도 연결할 수 있습니다.";
         setMaintSaveError(message);
         alert(message);
         return;
