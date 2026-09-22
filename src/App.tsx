@@ -1569,6 +1569,11 @@ export default function App() {
     usedQty: "",
     editingLinkId: "",
   });
+  const [maintenancePurchaseCopyModal, setMaintenancePurchaseCopyModal] = useState({
+    open: false,
+    search: "",
+    selectedRowKeys: [] as string[],
+  });
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
@@ -4584,6 +4589,121 @@ export default function App() {
     applyMaintItems([...current, ...nextSuggested]);
   };
 
+  const maintenancePurchaseCopyCandidates = useMemo(() => {
+    if (!maintenancePurchaseCopyModal.open) return [];
+
+    const warehouseKey = normalizePurchasePriceText(maintForm.warehouse);
+    if (!warehouseKey) return [];
+
+    const search = maintenancePurchaseCopyModal.search.trim().toLocaleLowerCase("ko-KR");
+    const committedLinks = maintenancePurchaseLinks.filter((link) => {
+      if (!editingMaintId) return true;
+      return link.maintenance_id !== editingMaintId;
+    });
+    const consumed = new Map<string, number>();
+    [...committedLinks, ...maintPurchaseLinksDraft].forEach((link) => {
+      const key = `${link.purchase_id}\u001f${link.purchase_row_id}`;
+      consumed.set(key, (consumed.get(key) || 0) + numericValue(link.used_qty));
+    });
+    const currentDraftPurchaseKeys = new Set(
+      maintPurchaseLinksDraft.map((link) => `${link.purchase_id}\u001f${link.purchase_row_id}`)
+    );
+
+    return purchases.flatMap((purchase) => {
+      if (normalizePurchasePriceText(purchase.warehouse) !== warehouseKey) return [];
+
+      return (purchase.rows || []).flatMap((row) => {
+        const purchaseRowId = String(row.id || "").trim();
+        const itemName = String(row.item || "").trim();
+        const rowKey = `${purchase.id}\u001f${purchaseRowId}`;
+        if (!purchaseRowId || !itemName || currentDraftPurchaseKeys.has(rowKey)) return [];
+
+        const purchaseQty = numericValue(row.qty);
+        const usedQty = consumed.get(rowKey) || 0;
+        const remainingQty = purchaseQty - usedQty;
+        if (remainingQty <= 0) return [];
+
+        const searchable = [purchase.date, purchase.vendor, purchase.warehouse, row.item, row.spec]
+          .join(" ")
+          .toLocaleLowerCase("ko-KR");
+        if (search && !searchable.includes(search)) return [];
+
+        return [{ purchase, row, rowKey, usedQty, remainingQty }];
+      });
+    })
+      .sort((a, b) => {
+        const dateCompare = String(b.purchase.date || "").localeCompare(String(a.purchase.date || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return String(a.row.item || "").localeCompare(String(b.row.item || ""), "ko-KR");
+      })
+      .slice(0, 120);
+  }, [editingMaintId, maintForm.warehouse, maintenancePurchaseCopyModal.open, maintenancePurchaseCopyModal.search, maintenancePurchaseLinks, maintPurchaseLinksDraft, purchases]);
+
+  const openMaintenancePurchaseCopyModal = () => {
+    if (!String(maintForm.warehouse || "").trim()) return alert("먼저 정비 창고를 선택하세요.");
+    setMaintenancePurchaseCopyModal({ open: true, search: "", selectedRowKeys: [] });
+  };
+
+  const closeMaintenancePurchaseCopyModal = () => {
+    setMaintenancePurchaseCopyModal({ open: false, search: "", selectedRowKeys: [] });
+  };
+
+  const toggleMaintenancePurchaseCopyCandidate = (rowKey: string) => {
+    setMaintenancePurchaseCopyModal((previous) => ({
+      ...previous,
+      selectedRowKeys: previous.selectedRowKeys.includes(rowKey)
+        ? previous.selectedRowKeys.filter((key) => key !== rowKey)
+        : [...previous.selectedRowKeys, rowKey],
+    }));
+  };
+
+  const copySelectedPurchaseItemsToMaintenance = () => {
+    const selectedCandidates = maintenancePurchaseCopyCandidates.filter((candidate) =>
+      maintenancePurchaseCopyModal.selectedRowKeys.includes(candidate.rowKey)
+    );
+    if (!selectedCandidates.length) return alert("정비에 넣을 구매품목을 선택하세요.");
+
+    const currentItems = maintItems.filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total);
+    const copiedItems = selectedCandidates.map((candidate) => {
+      const qty = candidate.remainingQty;
+      const price = getPurchaseEffectiveUnitPrice(candidate.row).price;
+      const supply = qty * price;
+      const vat = Math.round(supply * 0.1);
+      return {
+        id: uid(),
+        item: String(candidate.row.item || "").trim(),
+        spec: String(candidate.row.spec || ""),
+        qty,
+        price,
+        supply,
+        vat,
+        total: supply + vat,
+      } satisfies MaintItem;
+    });
+    const copiedLinks: MaintenancePurchaseLink[] = selectedCandidates.map((candidate, index) => ({
+      id: "",
+      maintenance_id: editingMaintId || "",
+      maintenance_row_id: copiedItems[index].id,
+      purchase_id: candidate.purchase.id,
+      purchase_row_id: String(candidate.row.id),
+      item_name: copiedItems[index].item,
+      spec: String(candidate.row.spec || ""),
+      used_qty: copiedItems[index].qty as number,
+      unit_price_snapshot: copiedItems[index].price as number,
+      purchase_date_snapshot: candidate.purchase.date || "",
+      vendor_snapshot: candidate.purchase.vendor || "",
+      maintenance_date_snapshot: maintForm.date || getTodayKey(),
+      maintenance_equipment_snapshot: maintForm.warehouse || "",
+      maintenance_title_snapshot: maintForm.title || "",
+    }));
+    const nextItems = [...currentItems, ...copiedItems];
+
+    applyMaintItems(nextItems);
+    setMaintPurchaseLinksDraft((previous) => [...previous, ...copiedLinks]);
+    closeMaintenancePurchaseCopyModal();
+    showToast(`${selectedCandidates.length}개 구매품목을 정비품목으로 추가했습니다.`);
+  };
+
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
 
@@ -4705,10 +4825,12 @@ const purchasePriceHistoryMap = useMemo(
 
   const activeMaintenanceLinkRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
   const maintenancePurchaseLinkCandidates = useMemo(() => {
-    if (!maintenancePurchaseLinkModal.open || !activeMaintenanceLinkRow?.item?.trim()) return [];
+    if (!maintenancePurchaseLinkModal.open || !activeMaintenanceLinkRow) return [];
 
     const targetItemKey = normalizePurchasePriceText(activeMaintenanceLinkRow.item);
     const targetSpecKey = normalizePurchasePriceText(activeMaintenanceLinkRow.spec);
+    const hasTargetItem = Boolean(targetItemKey);
+    const hasTargetSpec = Boolean(targetSpecKey);
     const search = maintenancePurchaseLinkModal.search.trim().toLocaleLowerCase("ko-KR");
     const editingLinkId = maintenancePurchaseLinkModal.editingLinkId;
     const isEditingLink = (link: MaintenancePurchaseLink) => maintenancePurchaseLinkIdentity(link) === editingLinkId;
@@ -4727,14 +4849,15 @@ const purchasePriceHistoryMap = useMemo(
     const allCandidates = purchases.flatMap((purchase) =>
       (purchase.rows || []).flatMap((row) => {
         const purchaseRowId = String(row.id || "").trim();
-        if (!purchaseRowId) return [];
+        const purchaseItemName = String(row.item || "").trim();
+        if (!purchaseRowId || !purchaseItemName) return [];
 
         const rowKey = `${purchase.id}\u001f${purchaseRowId}`;
         const purchaseQty = numericValue(row.qty);
         const usedQty = consumed.get(rowKey) || 0;
         const remainingQty = purchaseQty - usedQty;
-        const sameItem = normalizePurchasePriceText(row.item) === targetItemKey;
-        const sameSpec = normalizePurchasePriceText(row.spec) === targetSpecKey;
+        const sameItem = hasTargetItem && normalizePurchasePriceText(row.item) === targetItemKey;
+        const sameSpec = hasTargetSpec && normalizePurchasePriceText(row.spec) === targetSpecKey;
         const searchable = [
           purchase.date,
           purchase.vendor,
@@ -4743,7 +4866,7 @@ const purchasePriceHistoryMap = useMemo(
           row.spec,
         ].join(" ").toLocaleLowerCase("ko-KR");
 
-        if (search ? !searchable.includes(search) : !sameItem) return [];
+        if (search ? !searchable.includes(search) : (hasTargetItem && !sameItem)) return [];
         if (remainingQty <= 0 && !editingLinkId) return [];
 
         return [{
@@ -4771,7 +4894,6 @@ const purchasePriceHistoryMap = useMemo(
   }, [activeMaintenanceLinkRow, editingMaintId, maintenancePurchaseLinkModal.editingLinkId, maintenancePurchaseLinkModal.open, maintenancePurchaseLinkModal.search, maintenancePurchaseLinks, maintPurchaseLinksDraft, purchases]);
 
   const openMaintPurchaseLinkModal = (row: MaintItem, link?: MaintenancePurchaseLink) => {
-    if (!String(row.item || "").trim()) return alert("먼저 정비 품목을 입력하세요.");
     const rowQty = numericValue(row.qty);
     if (rowQty <= 0) return alert("구매품목을 연결하려면 정비 수량을 먼저 입력하세요.");
     setMaintenancePurchaseLinkModal({
@@ -4831,16 +4953,35 @@ const purchasePriceHistoryMap = useMemo(
       return alert(`이 정비 품목에 이미 ${linkedQtyForRow}개가 연결되어 있어 ${maintenanceQty}개를 초과할 수 없습니다.`);
     }
 
+    const linkedItemName = String(candidate.row.item || targetRow.item || "").trim();
+    if (!linkedItemName) return alert("선택한 구매품목의 품목명을 확인하세요.");
+    const linkedSpec = String(targetRow.spec || candidate.row.spec || "");
+    const linkedUnitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
+    const nextItems = maintItems.map((row) => {
+      if (row.id !== targetRow.id) return row;
+      const supply = numericValue(row.qty) * linkedUnitPrice;
+      const vat = Math.round(supply * 0.1);
+      return {
+        ...row,
+        item: linkedItemName,
+        spec: linkedSpec,
+        price: linkedUnitPrice,
+        supply,
+        vat,
+        total: supply + vat,
+      };
+    });
+
     const nextLink: MaintenancePurchaseLink = {
       id: "",
       maintenance_id: editingMaintId || "",
       maintenance_row_id: targetRow.id,
       purchase_id: candidate.purchase.id,
       purchase_row_id: String(candidate.row.id),
-      item_name: String(candidate.row.item || targetRow.item || ""),
+      item_name: linkedItemName,
       spec: String(candidate.row.spec || targetRow.spec || ""),
       used_qty: usedQty,
-      unit_price_snapshot: getPurchaseEffectiveUnitPrice(candidate.row).price,
+      unit_price_snapshot: linkedUnitPrice,
       purchase_date_snapshot: candidate.purchase.date || "",
       vendor_snapshot: candidate.purchase.vendor || "",
       maintenance_date_snapshot: maintForm.date || getTodayKey(),
@@ -4848,6 +4989,11 @@ const purchasePriceHistoryMap = useMemo(
       maintenance_title_snapshot: maintForm.title || "",
     };
 
+    setMaintItems(nextItems);
+    setMaintForm((previous) => ({
+      ...previous,
+      cost: String(nextItems.reduce((sum, row) => sum + numericValue(row.total), 0)),
+    }));
     setMaintPurchaseLinksDraft((previous) => {
       const editingId = maintenancePurchaseLinkModal.editingLinkId;
       const withoutEdited = previous.filter((link) => {
@@ -8470,11 +8616,18 @@ const purchasePriceHistoryMap = useMemo(
                     </span>
                   </div>
 
-                  {!!maintSuggestedItems.length && (
-                    <button className="primary" onClick={() => addMaintSuggestedItems(maintSuggestedItems)}>
-                      추천 품목 전체 추가
-                    </button>
-                  )}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {!!maintWarehouseKey && (
+                      <button type="button" className="primary" onClick={openMaintenancePurchaseCopyModal}>
+                        구매내역에서 품목 추가
+                      </button>
+                    )}
+                    {!!maintSuggestedItems.length && (
+                      <button type="button" className="primary" onClick={() => addMaintSuggestedItems(maintSuggestedItems)}>
+                        추천 품목 전체 추가
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {!!maintSuggestedItems.length && (
@@ -8886,13 +9039,79 @@ const purchasePriceHistoryMap = useMemo(
           </div>
         )}
 
+        {maintenancePurchaseCopyModal.open && (
+          <div className="modal-backdrop" onClick={closeMaintenancePurchaseCopyModal}>
+            <div className="modal-box wide-modal maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
+              <div className="between">
+                <div>
+                  <h2>구매내역에서 정비품목 추가</h2>
+                  <p className="muted">날짜와 관계없이 현재 정비 창고의 구매품목을 선택해 품목·규격·수량·단가를 한 번에 넣습니다.</p>
+                </div>
+                <button type="button" onClick={closeMaintenancePurchaseCopyModal}>닫기</button>
+              </div>
+
+              <div className="maintenance-purchase-link-target">
+                <strong>{maintForm.warehouse || "창고 미선택"}</strong>
+                <span>정비일자 {maintForm.date || getTodayKey()} · 남은 구매수량이 있는 품목만 표시</span>
+              </div>
+
+              <input
+                value={maintenancePurchaseCopyModal.search}
+                onChange={(event) => setMaintenancePurchaseCopyModal((previous) => ({ ...previous, search: event.target.value }))}
+                placeholder="거래처 / 구매일 / 품목 / 규격 검색"
+              />
+
+              <ScrollTable>
+                <table className="maintenance-purchase-link-table">
+                  <thead>
+                    <tr><th>선택</th><th>구매일</th><th>거래처</th><th>품목·규격</th><th>구매수량</th><th>단가</th><th>사용/남음</th></tr>
+                  </thead>
+                  <tbody>
+                    {!maintenancePurchaseCopyCandidates.length ? (
+                      <tr><td colSpan={7} className="empty">현재 창고에서 추가할 수 있는 구매품목이 없습니다.</td></tr>
+                    ) : maintenancePurchaseCopyCandidates.map((candidate) => {
+                      const selected = maintenancePurchaseCopyModal.selectedRowKeys.includes(candidate.rowKey);
+                      const unitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
+                      return (
+                        <tr key={candidate.rowKey} className={selected ? "selected" : ""}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleMaintenancePurchaseCopyCandidate(candidate.rowKey)}
+                              aria-label={`${candidate.row.item || "구매품목"} 선택`}
+                            />
+                          </td>
+                          <td>{candidate.purchase.date || "-"}</td>
+                          <td>{candidate.purchase.vendor || "거래처 미입력"}</td>
+                          <td><b>{candidate.row.item || "-"}</b><small>{candidate.row.spec || "규격 없음"}</small></td>
+                          <td className="right">{candidate.row.qty || 0}</td>
+                          <td className="right">{money(unitPrice)}원</td>
+                          <td className="right">{money(candidate.usedQty)} / {money(candidate.remainingQty)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </ScrollTable>
+
+              <div className="actions right-actions">
+                <button type="button" onClick={closeMaintenancePurchaseCopyModal}>취소</button>
+                <button type="button" className="primary" onClick={copySelectedPurchaseItemsToMaintenance}>
+                  선택한 {maintenancePurchaseCopyModal.selectedRowKeys.length}개 추가
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {maintenancePurchaseLinkModal.open && (
           <div className="modal-backdrop" onClick={closeMaintPurchaseLinkModal}>
             <div className="modal-box wide-modal maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
               <div className="between">
                 <div>
                   <h2>구매품목 연결</h2>
-                  <p className="muted">품목명이 같은 구매이력을 우선 표시하며, 규격은 참고정보로 표시합니다.</p>
+                  <p className="muted">품목명이 있으면 같은 구매이력을 우선 표시합니다. 품목이 비어 있으면 전체 구매이력에서 직접 선택할 수 있습니다.</p>
                 </div>
                 <button type="button" onClick={closeMaintPurchaseLinkModal}>닫기</button>
               </div>
@@ -8905,7 +9124,7 @@ const purchasePriceHistoryMap = useMemo(
               <input
                 value={maintenancePurchaseLinkModal.search}
                 onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, search: event.target.value }))}
-                placeholder="거래처 / 날짜 / 품목 / 규격 검색 (비우면 동일 품목만)"
+                placeholder={activeMaintenanceLinkRow?.item?.trim() ? "거래처 / 날짜 / 품목 / 규격 검색 (비우면 동일 품목만)" : "거래처 / 날짜 / 품목 / 규격 검색 (비우면 전체 구매품목)"}
               />
 
               <ScrollTable>
@@ -8944,7 +9163,7 @@ const purchasePriceHistoryMap = useMemo(
                     placeholder="0"
                   />
                 </Field>
-                <span>구매단가는 참고용으로 표시하며, 정비 단가를 자동으로 바꾸지 않습니다.</span>
+                <span>구매단가를 정비 단가에 자동 반영하고 공급가액·부가세·합계를 다시 계산합니다.</span>
               </div>
 
               <div className="actions right-actions">
@@ -10227,7 +10446,6 @@ function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], sear
                 const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
                 const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
                 const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-                const linkedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + Number(link.used_qty || 0), 0);
                 return (
                   <tr key={m.id}>
                     <td>{maintNoMap.get(m.id) || "-"}</td>
@@ -10238,7 +10456,7 @@ function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], sear
                     <td className="right">{money(supply)}</td>
                     <td className="right">{money(vat)}</td>
                     <td className="right bold">{money(total)}</td>
-                    <td>{links.length ? <span className="maintenance-link-badge">{links.length}건 · {money(linkedQty)} 사용</span> : "-"}</td>
+                    <td>{links.length ? <span className="maintenance-link-badge">연결됨</span> : "-"}</td>
                     <td>
                       <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
                     </td>
@@ -10267,8 +10485,6 @@ function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], sear
           const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
           const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
           const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-          const linkedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + Number(link.used_qty || 0), 0);
-
           return (
             <div className="mobile-list-card" key={m.id}>
               <div className="mobile-list-top">
@@ -10282,7 +10498,7 @@ function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], sear
                 <div><label>제목</label><p>{m.title}</p></div>
                 <div><label>내용</label><p>{m.detail || "-"}</p></div>
                 <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
-                <div><label>구매연결</label><p>{links.length ? `${links.length}건 · ${money(linkedQty)} 사용` : "없음"}</p></div>
+                <div><label>구매연결</label><p>{links.length ? "연결됨" : "없음"}</p></div>
               </div>
 
               <div className="mobile-list-attachment">
@@ -25322,197 +25538,3 @@ html,body,#root{
     margin:0 !important;
   }
   .permit-page>.grid5,
-  .permit-page>.grid3,
-  .trash-page>.grid3,
-  .activity-log-page>.grid3,
-  .bulk-transfer-filter{
-    display:grid !important;
-    grid-template-columns:1fr !important;
-    gap:10px !important;
-    margin:0 0 14px !important;
-    padding:12px !important;
-    border:1px solid #e1e8f0;
-    border-radius:13px;
-    background:#f8fafc;
-  }
-  .permit-page>.grid5 .field,
-  .permit-page>.grid3 .field,
-  .trash-page>.grid3 .field,
-  .activity-log-page>.grid3 .field,
-  .bulk-transfer-filter .field{margin:0 !important}
-  .vendor-account-card,
-  .bulk-transfer-card,
-  .permit-card,
-  .mobile-list-card{
-    min-width:0;
-    border-radius:14px;
-    overflow:hidden;
-  }
-  .vendor-account-card *,
-  .bulk-transfer-card *,
-  .permit-card *,
-  .mobile-list-card *{
-    max-width:100%;
-    word-break:keep-all;
-    overflow-wrap:anywhere;
-  }
-  .mobile-list-actions,
-  .permit-card-actions,
-  .schedule-row-actions{
-    display:grid !important;
-    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-    gap:8px !important;
-  }
-  .mobile-list-actions>button,
-  .permit-card-actions>button,
-  .schedule-row-actions>button{
-    width:100% !important;
-    min-width:0 !important;
-    justify-content:center !important;
-  }
-  .site-notice-modern-card-top,
-  .receipt-clean-card-top,
-  .bulk-card-main{
-    min-width:0;
-    gap:10px;
-  }
-  .site-notice-modern-card-top>*,
-  .receipt-clean-card-top>*,
-  .bulk-card-main>*{min-width:0}
-}
-
-/* ===== Desktop Sidebar Alignment Fix ===== */
-@media(min-width:901px){
-  .app .menu>button:not(.desktop-sidebar-toggle),
-  .app .menu-group>button{
-    justify-content:flex-start;
-    padding-right:34px;
-    padding-left:13px;
-    text-align:left;
-  }
-  .app .menu-group>.sub,
-  .app .menu .maint-menu-group>.maint-sub{
-    position:static !important;
-    width:100% !important;
-    min-width:0 !important;
-    grid-template-columns:1fr !important;
-    gap:3px !important;
-    margin:3px 0 7px !important;
-    padding:0 0 0 31px !important;
-    border:0 !important;
-    background:transparent !important;
-    box-shadow:none !important;
-  }
-  .app .menu .sub button,
-  .app .menu .maint-menu-group .maint-sub button,
-  .app .menu .maint-menu-group .maint-sub button:first-child,
-  .app .menu .maint-menu-group .maint-sub button:last-child{
-    position:static !important;
-    width:100% !important;
-    min-width:0 !important;
-    min-height:34px !important;
-    display:flex !important;
-    align-items:center !important;
-    justify-content:flex-start !important;
-    margin:0 !important;
-    padding:7px 10px !important;
-    border:0 !important;
-    border-radius:8px !important;
-    background:transparent !important;
-    color:#9eabc0 !important;
-    font-size:12.5px !important;
-    font-weight:800 !important;
-    line-height:1.25 !important;
-    text-align:left !important;
-    white-space:nowrap !important;
-    box-shadow:none !important;
-  }
-  .app .menu .sub button::before,
-  .app .menu .maint-menu-group .maint-sub button::before{
-    content:none !important;
-    display:none !important;
-  }
-  .app .menu .sub button:hover,
-  .app .menu .maint-menu-group .maint-sub button:hover{
-    background:rgba(255,255,255,.07) !important;
-    color:#fff !important;
-  }
-  .app .menu .sub button.active,
-  .app .menu .maint-menu-group .maint-sub button.active{
-    background:rgba(37,99,235,.26) !important;
-    color:#eaf2ff !important;
-    box-shadow:inset 3px 0 0 #60a5fa !important;
-  }
-  .app.sidebar-collapsed .menu>button:not(.desktop-sidebar-toggle),
-  .app.sidebar-collapsed .menu-group>button{
-    justify-content:center;
-    padding:10px !important;
-    text-align:center;
-  }
-}
-
-/* ===== Bid Notices: Phase 1 ===== */
-.bid-notice-page{display:grid;gap:13px}
-.bid-notice-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px;border-radius:18px;background:linear-gradient(135deg,#10233f,#1d4f91);color:#fff;box-shadow:0 12px 26px rgba(15,35,63,.14)}
-.bid-notice-head>div:first-child>span{display:block;margin-bottom:6px;color:#93c5fd;font-size:12px;font-weight:900;letter-spacing:.12em}
-.bid-notice-head h2{margin:0 0 5px;color:#fff;font-size:25px;text-shadow:0 1px 2px rgba(0,0,0,.18)}
-.bid-notice-head p{margin:0;color:#dbeafe;font-size:14px}
-.bid-notice-stage{display:grid;justify-items:center;gap:3px;min-width:145px;padding:11px 16px;border:1px solid rgba(255,255,255,.24);border-radius:13px;background:rgba(255,255,255,.1)}.bid-notice-stage.partial{background:rgba(245,158,11,.22)}.bid-notice-stage.failed{background:rgba(239,68,68,.25)}
-.bid-notice-stage b{font-size:16px}.bid-notice-stage span{color:#dbeafe;font-size:12px}
-.bid-keyword-panel{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:13px 16px 10px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
-.bid-keyword-group{display:grid;grid-template-columns:auto minmax(0,auto) minmax(180px,1fr);align-items:center;gap:9px;min-width:0;text-align:left}.bid-keyword-group:first-child{padding-right:15px;border-right:1px solid #e7edf4}.bid-keyword-group:nth-child(2){padding-left:15px}.bid-keyword-group strong{color:#25364d;font-size:13px;white-space:nowrap}
-.bid-keyword-group>div{display:flex;flex-wrap:wrap;gap:7px}
-.bid-keyword-group span{padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
-.bid-keyword-group span.include{background:#e8f2ff;color:#1d4ed8}.bid-keyword-group span.exclude{background:#fff0f0;color:#c24141}
-.bid-keyword-chips{min-height:33px;align-items:center;flex-wrap:nowrap !important}.bid-keyword-chips em{color:#94a3b8;font-size:12px;font-style:normal}
-.bid-keyword-chips span{display:inline-flex;align-items:center;gap:7px}
-.bid-keyword-chips span button{display:grid;place-items:center;width:18px;height:18px;min-width:18px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.72);color:currentColor;font-size:16px;line-height:1}
-.bid-keyword-add{display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:7px !important}
-.bid-keyword-add input{width:100%;min-width:0}.bid-keyword-add button{min-width:60px;font-weight:800}
-.bid-keyword-actions{grid-column:1/-1;display:flex !important;align-items:center;justify-content:space-between;gap:12px;margin-top:9px;padding-top:9px;border-top:1px solid #edf1f6}
-.bid-keyword-actions span{padding:0;color:#64748b;font-size:12px;font-weight:600}.bid-keyword-actions button{white-space:nowrap}
-.bid-range-panel{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:13px 16px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
-.bid-range-group{display:grid;grid-template-columns:auto auto minmax(220px,1fr);align-items:center;align-content:start;gap:8px 10px;min-width:0;text-align:left}.bid-range-group:first-child{grid-template-columns:auto minmax(0,1fr);padding-right:15px;border-right:1px solid #e7edf4}.bid-range-group:nth-child(2){padding-left:15px}.bid-range-group>strong{color:#25364d;font-size:13px;white-space:nowrap}.bid-range-group>small{grid-column:1/-1;color:#718096;font-size:11px;line-height:1.4}
-.bid-region-buttons,.bid-date-quick{display:flex;flex-wrap:wrap;gap:7px}.bid-region-buttons button,.bid-date-quick button{padding:8px 11px;border:1px solid #d8e1ec;border-radius:9px;background:#f8fafc;color:#526176;font-size:12px;font-weight:800}
-.bid-region-buttons button.active{border-color:#7db2ff;background:#e8f2ff;color:#1d4ed8;box-shadow:0 0 0 2px rgba(59,130,246,.08)}
-.bid-date-inputs{display:grid;grid-template-columns:minmax(125px,1fr) auto minmax(125px,1fr);align-items:center;gap:8px}.bid-date-inputs input{width:100%;min-width:0}.bid-date-inputs span{color:#718096;font-weight:800}
-.bid-filter-bar{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;align-items:center;gap:12px;padding:15px;border:1px solid #dce5f0;border-radius:16px;background:#fff}
-.bid-source-tabs{display:flex;gap:5px;padding:4px;border-radius:11px;background:#eef2f7}
-.bid-source-tabs button{border:0;background:transparent;color:#64748b;font-weight:800}
-.bid-source-tabs button.active{background:#fff;color:#1d4ed8;box-shadow:0 2px 7px rgba(15,23,42,.1)}
-.bid-filter-bar input{width:100%;min-width:0}
-.bid-result-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 18px;border:1px solid #dce5f0;border-radius:14px;background:#fff}
-.bid-result-summary>div{display:flex;align-items:baseline;gap:7px}.bid-result-summary strong{color:#1d4ed8;font-size:22px}.bid-result-summary span,.bid-result-summary p{margin:0;color:#64748b;font-size:12px;font-weight:700}
-.bid-api-error{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:12px 15px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:700;line-height:1.5}.bid-api-error.failed{border-color:#fecaca;background:#fff1f2;color:#b42318}.bid-api-error>strong{font-size:12px;white-space:nowrap}.bid-api-error>span{flex:1 1 260px}.bid-source-status-list{display:flex;flex-wrap:wrap;gap:5px;width:100%}.bid-source-status-list span{padding:3px 7px;border-radius:999px;background:#fff;border:1px solid #fed7aa;color:#9a3412;font-size:10px;font-weight:900}.bid-source-status-list span.normal{border-color:#bbf7d0;color:#166534}.bid-source-status-list span.failed{border-color:#fecaca;color:#b42318}
-.bid-list-head{display:none}
-.bid-notice-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.bid-notice-row{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(70px,1fr) auto auto;align-items:start;gap:9px;min-width:0;min-height:190px;padding:15px;border:1px solid #dce5f0;border-radius:15px;background:#fff;box-shadow:0 4px 13px rgba(15,23,42,.04)}
-.bid-notice-source{display:flex;align-items:center;justify-content:space-between;gap:8px}.bid-notice-source>div{display:flex;align-items:center;gap:6px}.bid-notice-source b{padding:5px 8px;border-radius:7px;background:#e8f2ff;color:#1d4ed8;font-size:11px}.bid-notice-source span{color:#64748b;font-size:11px;font-weight:800}.bid-new-badge{padding:3px 6px;border-radius:999px;background:#dcfce7;color:#15803d;font-size:10px;font-style:normal;font-weight:900}
-.bid-notice-main{display:grid;align-content:start;gap:7px;min-width:0}.bid-notice-main a{display:-webkit-box;overflow:hidden;color:#172033;font-size:14px;font-weight:900;line-height:1.45;text-decoration:none;-webkit-box-orient:vertical;-webkit-line-clamp:3;white-space:normal}.bid-notice-main a:hover{color:#1d4ed8;text-decoration:underline}.bid-notice-main span{overflow:hidden;color:#718096;font-size:11px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}
-.bid-notice-amount{width:100%;padding-top:9px;border-top:1px solid #edf1f6;color:#334155;font-size:13px;text-align:right}.bid-notice-deadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:100%}.bid-notice-deadline span{color:#334155;font-size:12px;font-weight:800}.bid-notice-deadline i{padding:3px 7px;border-radius:999px;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline i.open{background:#dcfce7;color:#15803d}.bid-notice-deadline i.closed{background:#f1f5f9;color:#64748b}.bid-deadline-badge{padding:3px 6px;border-radius:999px;background:#fff7ed;color:#c2410c;font-size:10px;font-style:normal;font-weight:900}.bid-notice-deadline a{margin-left:auto;color:#2563eb;font-size:11px;font-weight:900;text-decoration:none}
-.bid-empty-state{display:grid;justify-items:center;gap:8px;min-height:270px;padding:42px 24px;border:1px dashed #bdc9d8;border-radius:18px;background:#f8fafc;text-align:center;color:#64748b}
-.bid-empty-state svg{color:#94a3b8}.bid-empty-state strong{color:#27364a;font-size:17px}.bid-empty-state p{max-width:580px;margin:0;line-height:1.6}.bid-empty-state small{color:#8090a5}
-@media(min-width:2800px){.bid-notice-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:1250px){.bid-notice-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:1500px){.bid-keyword-group{grid-template-columns:auto minmax(0,1fr)}.bid-keyword-add{grid-column:1/-1}.bid-range-group{grid-template-columns:auto minmax(0,1fr)}.bid-range-group .bid-date-inputs{grid-column:1/-1}}
-@media(max-width:700px){
-  .bid-notice-head{align-items:flex-start;padding:20px;flex-direction:column}.bid-notice-stage{width:100%;box-sizing:border-box}
-  .bid-keyword-panel,.bid-range-panel{grid-template-columns:1fr}.bid-keyword-group:first-child,.bid-range-group:first-child{padding-right:0;padding-bottom:12px;border-right:0;border-bottom:1px solid #e7edf4}.bid-keyword-group:nth-child(2),.bid-range-group:nth-child(2){padding-top:12px;padding-left:0}.bid-keyword-chips{flex-wrap:wrap !important}.bid-keyword-actions{grid-column:auto;align-items:stretch;flex-direction:column}.bid-keyword-actions button{width:100%}.bid-date-inputs{grid-template-columns:1fr auto 1fr}.bid-filter-bar{grid-template-columns:1fr}.bid-source-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
-  .bid-result-summary{align-items:flex-start;flex-direction:column}.bid-notice-list{grid-template-columns:1fr}.bid-notice-row{grid-template-columns:1fr;min-height:0;padding:15px}.bid-notice-source{display:flex;align-items:center}.bid-notice-main a{-webkit-line-clamp:unset}.bid-notice-main a,.bid-notice-main span{overflow:visible;white-space:normal}.bid-notice-amount{text-align:left}.bid-notice-deadline{display:flex;align-items:center;justify-content:space-between}.bid-empty-state{min-height:230px;padding:34px 18px}
-}
-
-/* ===== Purchase price history ===== */
-.purchase-price-history-summary{display:grid;gap:7px;margin-top:8px;padding:9px 10px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;text-align:left}
-.purchase-price-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.purchase-price-history-head strong{color:#1e3a8a;font-size:11px;font-weight:950}.purchase-price-history-head button,.purchase-price-history-link{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-history-head button:hover,.purchase-price-history-link:hover{background:#dbeafe}
-.purchase-price-history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.purchase-price-history-grid>div{display:grid;gap:2px;min-width:0;padding:6px 7px;border-radius:9px;background:#fff;border:1px solid #e6edf7}.purchase-price-history-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-history-grid b{color:#172033;font-size:12px;font-weight:1000;white-space:nowrap}.purchase-price-history-grid small{overflow:hidden;color:#8090a5;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.purchase-price-change.up b,.purchase-price-current-comparison.up b,.purchase-price-analysis-delta.up,.purchase-price-analysis-card-change.up{color:#dc2626}.purchase-price-change.down b,.purchase-price-current-comparison.down b,.purchase-price-analysis-delta.down,.purchase-price-analysis-card-change.down{color:#059669}.purchase-price-vendor-hint{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#64748b;font-size:10px;font-weight:800}.purchase-price-vendor-hint b{color:#1d4ed8;font-size:11px}.purchase-price-vendor-hint span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.purchase-price-current-comparison{display:flex;align-items:center;gap:5px;flex-wrap:wrap;color:#475569;font-size:10px;font-weight:800}.purchase-price-current-comparison b{font-size:11px}.purchase-price-current-comparison.strong{padding:5px 7px;border-radius:8px;background:#fff7ed;color:#9a3412}.purchase-price-current-comparison.strong.down{background:#ecfdf5;color:#047857}.purchase-price-current-comparison small{width:100%;font-size:10px;font-weight:900}.purchase-price-derived-note{color:#94a3b8;font-size:9px;font-weight:700}.purchase-price-derived-mark{margin-left:2px;color:#94a3b8;font-size:9px}
-.purchase-price-history-modal-backdrop{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:22px;background:rgba(15,23,42,.5)}.purchase-price-history-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto;padding:22px;border:1px solid #dbe4ef;border-radius:20px;background:#f8fafc;box-shadow:0 30px 90px rgba(15,23,42,.3);text-align:left}.purchase-price-history-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:15px}.purchase-price-history-modal-head span{color:#2563eb;font-size:11px;font-weight:950;letter-spacing:.08em}.purchase-price-history-modal-head h2{margin:4px 0 0;color:#172033;font-size:23px;font-weight:1000}.purchase-price-history-modal-head p{margin:3px 0 0;color:#64748b;font-size:13px;font-weight:800}.purchase-price-history-modal-head>button{background:#e2e8f0;color:#334155;font-weight:900}.purchase-price-history-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.purchase-price-history-kpis>div{display:grid;gap:5px;padding:12px;border:1px solid #dbe4ef;border-radius:13px;background:#fff}.purchase-price-history-kpis span{color:#64748b;font-size:11px;font-weight:850}.purchase-price-history-kpis b{color:#172033;font-size:15px;font-weight:1000}.purchase-price-history-modal-section{margin-top:14px;padding:14px;border:1px solid #e1e8f0;border-radius:15px;background:#fff}.purchase-price-history-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.purchase-price-history-section-head h3{margin:0;color:#172033;font-size:15px}.purchase-price-history-section-head small{color:#94a3b8;font-size:11px;font-weight:800}.purchase-price-history-modal .scroll-table{overflow-x:auto}.purchase-price-history-modal table{min-width:690px}.purchase-price-history-modal th{background:#edf3f9;color:#334155;font-size:11px;white-space:nowrap}.purchase-price-history-modal td{font-size:12px;white-space:nowrap}.purchase-price-history-note{margin:10px 2px 0;color:#94a3b8;font-size:11px;font-weight:700}.purchase-price-analysis-mobile{display:none}.purchase-price-analysis-mobile-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #dbe4ef;border-radius:12px;background:#f8fafc;text-align:left}.purchase-price-analysis-mobile-toggle>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-mobile-toggle strong{color:#172033;font-size:13px;font-weight:950}.purchase-price-analysis-mobile-toggle span{overflow:hidden;color:#64748b;font-size:10px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-mobile-toggle button{flex:none;min-height:34px;padding:7px 10px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-mobile-list{display:grid;gap:10px}.purchase-price-analysis-desktop{display:block}.purchase-price-analysis-head{margin-top:20px}.purchase-price-analysis-delta{font-weight:900;white-space:nowrap}.purchase-price-analysis-card{display:grid;gap:10px;padding:15px;border:1px solid #dbe4ef;border-radius:16px;background:#fff;box-shadow:0 7px 18px rgba(15,23,42,.05);text-align:left}.purchase-price-analysis-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.purchase-price-analysis-card-head>div{display:grid;gap:3px;min-width:0}.purchase-price-analysis-card-head strong{overflow:hidden;color:#172033;font-size:16px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head span{overflow:hidden;color:#64748b;font-size:12px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-head small{color:#64748b;font-size:11px;font-weight:900;white-space:nowrap}.purchase-price-analysis-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.purchase-price-analysis-card-grid>div{display:grid;gap:2px;padding:8px;border-radius:10px;background:#f8fafc}.purchase-price-analysis-card-grid span{color:#64748b;font-size:10px;font-weight:850}.purchase-price-analysis-card-grid b{overflow:hidden;color:#172033;font-size:12px;font-weight:1000;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card-change{padding:8px 10px;border-radius:9px;background:#f8fafc;color:#475569;font-size:12px;font-weight:950}.purchase-price-analysis-card-meta{overflow:hidden;color:#64748b;font-size:11px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.purchase-price-analysis-card .purchase-price-history-link{justify-content:center;width:100%;min-height:38px}
-@media(max-width:900px){.purchase-price-history-summary{margin-top:0;padding:11px}.purchase-price-history-grid{grid-template-columns:1fr}.purchase-price-history-grid>div{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px}.purchase-price-history-grid small{text-align:right}.purchase-price-history-head button{min-height:34px}.purchase-price-history-modal-backdrop{align-items:end;padding:0}.purchase-price-history-modal{width:100%;max-height:92vh;padding:16px;border-radius:20px 20px 0 0}.purchase-price-history-modal-head h2{font-size:20px}.purchase-price-history-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.purchase-price-history-kpis b{font-size:13px}.purchase-price-analysis-desktop{display:none}.purchase-price-analysis-mobile{display:grid;gap:10px;margin:10px 0 18px}.purchase-price-analysis-head{align-items:flex-start;gap:10px}.purchase-price-analysis-head>button{width:auto;white-space:nowrap}.purchase-price-analysis-head .muted{font-size:11px;line-height:1.4}}
-
-.purchase-status-section-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}.purchase-status-detail-count{color:#64748b;font-size:.75em;font-weight:800}.purchase-status-mobile-toggle{display:none;min-height:34px;padding:7px 10px;border:1px solid #dbe4ef;border-radius:8px;background:#f8fafc;color:#334155;font-size:11px;font-weight:900;white-space:nowrap}.purchase-status-collapsible-body{display:block}
-@media(max-width:900px){.purchase-status-mobile-toggle{display:inline-flex;align-items:center;justify-content:center}.purchase-status-section-actions{align-items:center}.purchase-status-collapsible-body:not(.open){display:none}.purchase-status-section-head{gap:8px}.purchase-status-section-head>div{min-width:0}.purchase-status-section-head h3{font-size:15px}.purchase-status-section-head .muted{font-size:10px;line-height:1.4}}
-
-.maintenance-purchase-link-editor{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:7px}.maintenance-purchase-link-editor>button:first-child{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor>span{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 6px;border:1px solid #dbeafe;border-radius:8px;background:#f8fbff;color:#475569;font-size:10px;font-weight:800}.maintenance-purchase-link-editor span button{padding:2px 4px;border:0;background:transparent;color:#2563eb;font-size:10px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor span button:last-child{color:#dc2626}.maintenance-purchase-link-editor.mobile{display:grid;align-items:stretch;gap:7px}.maintenance-purchase-link-editor.mobile>span{white-space:normal;line-height:1.35}
-.maintenance-purchase-link-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto}.maintenance-purchase-link-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}.maintenance-purchase-link-target strong{color:#172033;font-size:14px;font-weight:950}.maintenance-purchase-link-target span{color:#64748b;font-size:12px;font-weight:800}.maintenance-purchase-link-modal>input{width:100%;margin-bottom:10px}.maintenance-purchase-link-table{min-width:760px}.maintenance-purchase-link-table tr.selected{background:#eff6ff}.maintenance-purchase-link-table td:nth-child(3){min-width:180px}.maintenance-purchase-link-table td:nth-child(3) small{display:block;margin-top:3px;color:#64748b;font-size:10px}.maintenance-purchase-link-quantity{display:flex;align-items:end;gap:12px;margin-top:12px}.maintenance-purchase-link-quantity .field{max-width:220px;flex:0 0 220px}.maintenance-purchase-link-quantity>span{padding-bottom:10px;color:#64748b;font-size:11px;font-weight:750}.maintenance-link-badge{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary,.maintenance-purchase-summary{display:grid;gap:8px;margin-top:16px;padding:13px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;text-align:left}.purchase-maintenance-summary h3,.maintenance-purchase-summary h3{margin:0;color:#172033;font-size:14px;font-weight:950}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(180px,1.5fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #e5edf7}.purchase-maintenance-summary>div:first-of-type,.maintenance-purchase-summary>div:first-of-type{border-top:0}.purchase-maintenance-summary span,.maintenance-purchase-summary span{color:#64748b;font-size:11px;font-weight:800}.purchase-maintenance-summary b,.maintenance-purchase-summary b{color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary p,.maintenance-purchase-summary p{margin:0}.purchase-maintenance-usage-cell{display:grid;gap:3px;min-width:150px}.purchase-maintenance-usage-cell span{color:#475569;font-size:10px;line-height:1.35}
-@media(max-width:700px){.maintenance-purchase-link-modal{width:96vw;max-height:92vh;padding:15px}.maintenance-purchase-link-quantity{display:grid;align-items:stretch}.maintenance-purchase-link-quantity .field{max-width:none;width:100%;flex:auto}.maintenance-purchase-link-quantity>span{padding:0}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{grid-template-columns:1fr;gap:3px}.purchase-maintenance-summary b,.maintenance-purchase-summary b{white-space:normal}.maintenance-purchase-link-table{min-width:720px}}
-
-`;
