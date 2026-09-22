@@ -4707,7 +4707,8 @@ const purchasePriceHistoryMap = useMemo(
   const maintenancePurchaseLinkCandidates = useMemo(() => {
     if (!maintenancePurchaseLinkModal.open || !activeMaintenanceLinkRow?.item?.trim()) return [];
 
-    const targetKey = getPurchasePriceHistoryKey(activeMaintenanceLinkRow.item, activeMaintenanceLinkRow.spec);
+    const targetItemKey = normalizePurchasePriceText(activeMaintenanceLinkRow.item);
+    const targetSpecKey = normalizePurchasePriceText(activeMaintenanceLinkRow.spec);
     const search = maintenancePurchaseLinkModal.search.trim().toLocaleLowerCase("ko-KR");
     const editingLinkId = maintenancePurchaseLinkModal.editingLinkId;
     const isEditingLink = (link: MaintenancePurchaseLink) => maintenancePurchaseLinkIdentity(link) === editingLinkId;
@@ -4732,7 +4733,8 @@ const purchasePriceHistoryMap = useMemo(
         const purchaseQty = numericValue(row.qty);
         const usedQty = consumed.get(rowKey) || 0;
         const remainingQty = purchaseQty - usedQty;
-        const exact = getPurchasePriceHistoryKey(row.item, row.spec) === targetKey;
+        const sameItem = normalizePurchasePriceText(row.item) === targetItemKey;
+        const sameSpec = normalizePurchasePriceText(row.spec) === targetSpecKey;
         const searchable = [
           purchase.date,
           purchase.vendor,
@@ -4741,14 +4743,15 @@ const purchasePriceHistoryMap = useMemo(
           row.spec,
         ].join(" ").toLocaleLowerCase("ko-KR");
 
-        if (search ? !searchable.includes(search) : !exact) return [];
+        if (search ? !searchable.includes(search) : !sameItem) return [];
         if (remainingQty <= 0 && !editingLinkId) return [];
 
         return [{
           purchase,
           row,
           rowKey,
-          exact,
+          sameItem,
+          sameSpec,
           usedQty,
           remainingQty: Math.max(0, remainingQty),
         }];
@@ -4757,7 +4760,8 @@ const purchasePriceHistoryMap = useMemo(
 
     return allCandidates
       .sort((a, b) => {
-        if (a.exact !== b.exact) return a.exact ? -1 : 1;
+        if (a.sameItem !== b.sameItem) return a.sameItem ? -1 : 1;
+        if (a.sameSpec !== b.sameSpec) return a.sameSpec ? -1 : 1;
         if ((a.remainingQty > 0) !== (b.remainingQty > 0)) return a.remainingQty > 0 ? -1 : 1;
         const dateCompare = String(b.purchase.date || "").localeCompare(String(a.purchase.date || ""));
         if (dateCompare !== 0) return dateCompare;
@@ -8888,7 +8892,7 @@ const purchasePriceHistoryMap = useMemo(
               <div className="between">
                 <div>
                   <h2>구매품목 연결</h2>
-                  <p className="muted">정비 품목과 같은 품목·규격의 구매이력을 우선 표시합니다.</p>
+                  <p className="muted">품목명이 같은 구매이력을 우선 표시하며, 규격은 참고정보로 표시합니다.</p>
                 </div>
                 <button type="button" onClick={closeMaintPurchaseLinkModal}>닫기</button>
               </div>
