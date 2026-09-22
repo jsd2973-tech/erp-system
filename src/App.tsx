@@ -10349,7 +10349,21 @@ function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], sear
                 }) : <p className="muted">연결된 구매품목이 없습니다.</p>;
               })()}
             </div>
-            <div className="actions right-actions"><button onClick={() => setSelected(null)}>닫기</button></div>
+            <div className="actions right-actions">
+              {isAdmin && (
+                <button
+                  className="primary"
+                  onClick={() => {
+                    const target = selected;
+                    setSelected(null);
+                    editMaint(target);
+                  }}
+                >
+                  <Pencil size={16} /> 수정·구매이력 연결
+                </button>
+              )}
+              <button onClick={() => setSelected(null)}>닫기</button>
+            </div>
           </div>
         </div>
       )}
