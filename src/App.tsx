@@ -24026,16 +24026,17 @@ button:disabled{
     word-break:keep-all !important;
     overflow-wrap:anywhere !important;
   }
-  .maint-lookup-page .maint-lookup-table th:nth-child(1){width:10%}
-  .maint-lookup-page .maint-lookup-table th:nth-child(2){width:15%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(1){width:9%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(2){width:13%}
   .maint-lookup-page .maint-lookup-table th:nth-child(3){width:9%}
-  .maint-lookup-page .maint-lookup-table th:nth-child(4){width:16%}
-  .maint-lookup-page .maint-lookup-table th:nth-child(5){width:12%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(4){width:14%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(5){width:11%}
   .maint-lookup-page .maint-lookup-table th:nth-child(6){width:7%}
   .maint-lookup-page .maint-lookup-table th:nth-child(7){width:7%}
   .maint-lookup-page .maint-lookup-table th:nth-child(8){width:7%}
-  .maint-lookup-page .maint-lookup-table th:nth-child(9){width:7%}
-  .maint-lookup-page .maint-lookup-table th:nth-child(10){width:10%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(9){width:8%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(10){width:6%}
+  .maint-lookup-page .maint-lookup-table th:nth-child(11){width:9%}
   .maint-lookup-page .maint-lookup-table td:nth-child(1),
   .maint-lookup-page .maint-lookup-table td:nth-child(6),
   .maint-lookup-page .maint-lookup-table td:nth-child(7),
