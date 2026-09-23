@@ -1,0 +1,70 @@
+name: ERP checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:unit
+      - run: npm run test:e2e:typecheck
+
+  browser-e2e:
+    needs: build-and-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Check dedicated test secrets
+        id: e2e-secrets
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+        run: |
+          if [ -n "$E2E_SUPABASE_URL" ] && [ -n "$E2E_SUPABASE_ANON_KEY" ] && [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### Browser E2E skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Configure the four dedicated test-project secrets listed in E2E_SETUP.md to enable browser E2E." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Install Playwright Chromium
+        if: steps.e2e-secrets.outputs.ready == 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Run browser E2E
+        if: steps.e2e-secrets.outputs.ready == 'true'
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+        run: npm run test:e2e
+      - name: Upload Playwright report and failure traces
+        if: always() && steps.e2e-secrets.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

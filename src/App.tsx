@@ -853,6 +853,7 @@ function SearchSelect({
   onSelect,
   placeholder,
   variant = "default",
+  testId,
 }: {
   label?: string;
   required?: boolean;
@@ -862,6 +863,7 @@ function SearchSelect({
   onSelect?: (option: any) => void;
   placeholder?: string;
   variant?: "default" | "item";
+  testId?: string;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -914,6 +916,7 @@ function SearchSelect({
       {label && <label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>}
 
       <input
+        data-testid={testId}
         value={query}
         placeholder={value || placeholder}
         onFocus={() => {
@@ -1430,7 +1433,7 @@ export default function App() {
   };
   const canShowAny = (tabs: readonly string[]) => tabs.some((tab) => canAccessTab(tab));
   const menuButton = (tab: string, label: string) =>
-    canAccessTab(tab) ? <button className={menuTab === tab ? "active" : ""} onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
+    canAccessTab(tab) ? <button data-testid={`menu-${tab}`} className={menuTab === tab ? "active" : ""} onMouseDown={() => setMenuTab(tab)}>{label}</button> : null;
 
   const visibleSiteNotices = useMemo(() => {
     return (siteNotices || []).filter((notice) => {
@@ -6645,7 +6648,7 @@ const purchasePriceHistoryMap = useMemo(
 
           {canShowAny(["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"]) && (
             <div className={`menu-group ${openMenuGroup === "purchase" ? "expanded" : ""}`}>
-              <button type="button" aria-expanded={openMenuGroup === "purchase"} onClick={() => setOpenMenuGroup((current) => current === "purchase" ? null : "purchase")}><ShoppingCart size={17} /> 구매</button>
+              <button type="button" data-testid="nav-group-purchase" aria-expanded={openMenuGroup === "purchase"} onClick={() => setOpenMenuGroup((current) => current === "purchase" ? null : "purchase")}><ShoppingCart size={17} /> 구매</button>
               <div className="sub">
                 {menuButton("new", "구매입력")}
                 {menuButton("list", "구매조회")}
@@ -6670,7 +6673,7 @@ const purchasePriceHistoryMap = useMemo(
 
           {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
             <div className={`menu-group maint-menu-group ${openMenuGroup === "maintenance" ? "expanded" : ""}`}>
-              <button type="button" aria-expanded={openMenuGroup === "maintenance"} onClick={() => setOpenMenuGroup((current) => current === "maintenance" ? null : "maintenance")}><Wrench size={17} /> 정비</button>
+              <button type="button" data-testid="nav-group-maintenance" aria-expanded={openMenuGroup === "maintenance"} onClick={() => setOpenMenuGroup((current) => current === "maintenance" ? null : "maintenance")}><Wrench size={17} /> 정비</button>
               <div className="sub maint-sub">
                 {menuButton("maint_new", "정비등록")}
                 {menuButton("maint_list", "정비조회")}
@@ -8163,8 +8166,8 @@ const purchasePriceHistoryMap = useMemo(
                   ariaLabel="구매일자 선택"
                 />
               </Field>
-              <SearchSelect label="거래처" required value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
-              <SearchSelect label="창고" required value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
+              <SearchSelect testId="purchase-vendor" label="거래처" required value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
+              <SearchSelect testId="purchase-warehouse" label="창고" required value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
             </div>
             <div className="table-wrap entry-desktop-table">
               <table>
@@ -8184,6 +8187,7 @@ const purchasePriceHistoryMap = useMemo(
                   return <tr key={r.id}><td>
   <div className="purchase-item-editor">
     <SearchSelect
+      testId={`purchase-item-search-${i}`}
       value={r.item}
       options={itemOptions}
       onChange={(v) => updateRow(i, "item", v)}
@@ -8210,7 +8214,7 @@ const purchasePriceHistoryMap = useMemo(
     selectedVendor={purchaseHeader.vendor}
     onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
   />
-</td><td><input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>;
+</td><td><input data-testid={`purchase-spec-${i}`} value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input data-testid={`purchase-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input data-testid={`purchase-price-${i}`} className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>;
                 })}</tbody>
               </table>
             </div>
@@ -8225,6 +8229,7 @@ const purchasePriceHistoryMap = useMemo(
                   </div>
 
                   <SearchSelect
+                    testId={`purchase-mobile-item-search-${i}`}
                     label="품목"
                     required
                     value={r.item}
@@ -8250,15 +8255,15 @@ const purchasePriceHistoryMap = useMemo(
                   />
 
                   <Field label="규격">
-                    <input value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
+                    <input data-testid={`purchase-mobile-spec-${i}`} value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
                   </Field>
 
                   <div className="mobile-entry-grid">
                     <Field label="수량" required>
-                      <input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="0" />
+                      <input data-testid={`purchase-mobile-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="0" />
                     </Field>
                     <Field label="단가">
-                      <input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} placeholder="0" />
+                      <input data-testid={`purchase-mobile-price-${i}`} className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} placeholder="0" />
                     </Field>
                     <Field label="공급가액">
                       <input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} placeholder="0" />
@@ -8326,7 +8331,7 @@ const purchasePriceHistoryMap = useMemo(
                 <div className="big"><em>총합</em><strong>{money(purchaseTotal)}원</strong></div>
               </div>
             </div>
-            <div className="actions right-actions entry-actions"><button className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
+            <div className="actions right-actions entry-actions"><button data-testid="purchase-save" className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
             <p className="draft-help-text">작성 중인 구매입력 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 구매입력에 들어오면 복원됩니다.</p>
           </section>
         )}
@@ -8585,12 +8590,12 @@ const purchasePriceHistoryMap = useMemo(
                   ariaLabel="정비일자 선택"
                 />
               </Field>
-              <SearchSelect label="창고" required value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
+              <SearchSelect testId="maintenance-warehouse" label="창고" required value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
               <Field label="작업자">
                 <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
               </Field>
               <Field label="정비제목" required>
-                <input value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
+                <input data-testid="maintenance-title" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
               </Field>
               <Field label="정비내용">
                 <textarea className="maint-detail-input" rows={3} value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} placeholder="정비 작업내용을 입력하세요" />
@@ -8693,6 +8698,7 @@ const purchasePriceHistoryMap = useMemo(
                         <td>
                           <div className="maintenance-item-editor">
                             <SearchSelect
+                              testId={`maintenance-item-search-${i}`}
                               value={r.item}
                               options={itemOptions}
                               onChange={(v) => updateMaintItem(i, "item", v)}
@@ -8712,7 +8718,7 @@ const purchasePriceHistoryMap = useMemo(
                             </div>
                           )}
                           <div className="maintenance-purchase-link-editor">
-                            <button type="button" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
+                            <button type="button" data-testid="maintenance-purchase-link" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
                             {linkedPurchaseRows.map((link) => (
                               <span key={maintenancePurchaseLinkIdentity(link)}>
                                 {link.vendor_snapshot || "거래처 미입력"} · {link.purchase_date_snapshot || "-"} · {money(link.unit_price_snapshot)}원 · {link.used_qty} 사용
@@ -8722,8 +8728,8 @@ const purchasePriceHistoryMap = useMemo(
                             ))}
                           </div>
                         </td>
-                        <td><input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
-                        <td><input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
+                        <td><input data-testid={`maintenance-spec-${i}`} value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
+                        <td><input data-testid={`maintenance-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
                         <td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
                         <td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
                         <td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
@@ -8867,7 +8873,7 @@ const purchasePriceHistoryMap = useMemo(
             {maintSaveError && <div className="save-error-box">{maintSaveError}</div>}
 
             <div className="actions right-actions entry-actions">
-              <button className="primary" disabled={maintSaving || maintUploading} onClick={saveMaint}>
+              <button data-testid="maintenance-save" className="primary" disabled={maintSaving || maintUploading} onClick={saveMaint}>
                 <Save size={16} /> {maintUploading ? "업로드 중..." : maintSaving ? "저장 중..." : editingMaintId ? "수정 저장" : "저장"}
               </button>
               <button disabled={maintSaving || maintUploading} onClick={resetMaintForm}><RotateCcw size={16} /> 초기화</button>
@@ -9107,7 +9113,7 @@ const purchasePriceHistoryMap = useMemo(
 
         {maintenancePurchaseLinkModal.open && (
           <div className="modal-backdrop" onClick={closeMaintPurchaseLinkModal}>
-            <div className="modal-box wide-modal maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-box wide-modal maintenance-purchase-link-modal" data-testid="maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
               <div className="between">
                 <div>
                   <h2>구매품목 연결</h2>
@@ -9139,7 +9145,7 @@ const purchasePriceHistoryMap = useMemo(
                       const selected = maintenancePurchaseLinkModal.selectedPurchaseId === candidate.purchase.id && maintenancePurchaseLinkModal.selectedPurchaseRowId === String(candidate.row.id);
                       const unitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
                       return (
-                        <tr key={candidate.rowKey} className={selected ? "selected" : ""}>
+                        <tr key={candidate.rowKey} data-testid="maintenance-purchase-candidate" className={selected ? "selected" : ""}>
                           <td>{candidate.purchase.date || "-"}</td>
                           <td>{candidate.purchase.vendor || "거래처 미입력"}</td>
                           <td><b>{candidate.row.item || "-"}</b><small>{candidate.row.spec || "규격 없음"}</small></td>
@@ -9157,6 +9163,7 @@ const purchasePriceHistoryMap = useMemo(
               <div className="maintenance-purchase-link-quantity">
                 <Field label="이번 정비 사용수량" required>
                   <input
+                    data-testid="maintenance-link-used-qty"
                     inputMode="decimal"
                     value={maintenancePurchaseLinkModal.usedQty}
                     onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, usedQty: event.target.value }))}
@@ -9168,7 +9175,7 @@ const purchasePriceHistoryMap = useMemo(
 
               <div className="actions right-actions">
                 <button type="button" onClick={closeMaintPurchaseLinkModal}>취소</button>
-                <button type="button" className="primary" onClick={applyMaintPurchaseLink}>{maintenancePurchaseLinkModal.editingLinkId ? "연결 수정" : "구매품목 연결"}</button>
+                <button type="button" data-testid="maintenance-link-apply" className="primary" onClick={applyMaintPurchaseLink}>{maintenancePurchaseLinkModal.editingLinkId ? "연결 수정" : "구매품목 연결"}</button>
               </div>
             </div>
           </div>
@@ -9661,6 +9668,7 @@ function PurchaseList({ purchases, maintenancePurchaseLinks = [], search, setSea
       <label className={`payment-status-check${paid ? " checked" : ""}`}>
         <input
           type="checkbox"
+          data-testid={`purchase-payment-toggle-${purchase.id}`}
           checked={paid}
           disabled={!isAdmin || Boolean(paymentSavingId)}
           onChange={(event) => onUpdatePayment(purchase, event.target.checked ? "paid" : "unpaid")}
