@@ -98,8 +98,8 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
       id: purchase.rows[0].id,
       item: e2e.itemName,
       spec: e2e.itemSpec,
-      qty: 4,
     });
+    expect(Number(currentPurchase?.rows[0].qty)).toBe(4);
     const { data: currentLinks, error: currentLinksError } = await e2e.db
       .from("maintenance_purchase_links").select("id,purchase_row_id,used_qty,spec").eq("purchase_id", purchase.id);
     expect(currentLinksError).toBeNull();
@@ -155,7 +155,8 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
   const { data: updatedPurchase, error: updatedPurchaseError } = await e2e.db
     .from("purchases").select("rows").eq("id", purchase.id).single();
   expect(updatedPurchaseError).toBeNull();
-  expect(updatedPurchase?.rows[0]).toMatchObject({ item: e2e.itemName, spec: "E2E-UPDATED-SPEC", qty: 4 });
+  expect(updatedPurchase?.rows[0]).toMatchObject({ item: e2e.itemName, spec: "E2E-UPDATED-SPEC" });
+  expect(Number(updatedPurchase?.rows[0].qty)).toBe(4);
   const { data: links, error: linksError } = await e2e.db
     .from("maintenance_purchase_links").select("id,used_qty,purchase_row_id,spec").eq("purchase_id", purchase.id);
   expect(linksError).toBeNull();
