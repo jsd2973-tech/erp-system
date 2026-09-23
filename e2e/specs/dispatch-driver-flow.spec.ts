@@ -13,9 +13,13 @@ const seoulToday = () => new Intl.DateTimeFormat("en-CA", {
 }).format(new Date());
 
 const openDispatchView = async (page: Page, view: "dispatch_status" | "dispatch_results") => {
-  const group = page.locator(".menu-group").filter({ has: page.getByRole("button", { name: "운행관리", exact: true }) });
-  const menu = group.getByTestId(`menu-${view}`);
-  if (!(await menu.isVisible())) await group.getByRole("button", { name: "운행관리", exact: true }).click();
+  const menu = page.getByTestId(`menu-${view}`);
+  if (!(await menu.isVisible())) {
+    const dispatchToggle = page.getByRole("button", { name: "운행관리", exact: true });
+    await expect(dispatchToggle).toBeVisible();
+    await dispatchToggle.click();
+  }
+  await expect(menu).toBeVisible();
   await menu.click();
 };
 
