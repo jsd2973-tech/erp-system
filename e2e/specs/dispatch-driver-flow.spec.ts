@@ -38,7 +38,7 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
   let fixture: Awaited<ReturnType<typeof createDispatchE2EFixture>> | undefined;
   let driverContext: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
-    fixture = await createDispatchE2EFixture(e2e.db, e2e.prefix, driverSession.user.id);
+    fixture = await createDispatchE2EFixture(e2e.db, driverAuth, e2e.prefix, driverSession.user.id);
     driverContext = await browser.newContext({
       baseURL: env.baseURL,
       ...devices["Pixel 7"],

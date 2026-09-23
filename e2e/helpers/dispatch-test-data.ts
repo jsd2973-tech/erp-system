@@ -12,13 +12,14 @@ export type DispatchE2EFixture = {
 
 export async function createDispatchE2EFixture(
   db: SupabaseClient,
+  driverDb: SupabaseClient,
   prefix: string,
   driverAuthUserId: string,
 ): Promise<DispatchE2EFixture> {
   const orderId = `${prefix}-dispatch-order`;
   const vendorName = `${prefix} E2E 운송거래처`;
   const itemName = `${prefix} E2E 골재`;
-  const driverLookup = await db
+  const driverLookup = await driverDb
     .from("dispatch_drivers")
     .select("*")
     .eq("auth_user_id", driverAuthUserId)
@@ -29,7 +30,7 @@ export async function createDispatchE2EFixture(
   if (!previousDriver.active) throw new Error("E2E driver fixture row must be active.");
   const vehicleId = String(previousDriver.assigned_vehicle_id || "");
   if (!vehicleId) throw new Error("E2E driver fixture must have an assigned test vehicle.");
-  const vehicleLookup = await db
+  const vehicleLookup = await driverDb
     .from("dispatch_vehicles")
     .select("id,active")
     .eq("id", vehicleId)
