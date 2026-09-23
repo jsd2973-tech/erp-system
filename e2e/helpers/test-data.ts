@@ -13,8 +13,6 @@ export type E2EData = {
   itemId: string;
   itemName: string;
   itemSpec: string;
-  vendorAccountId: string;
-  vendorAccountSeeded: boolean;
   cleanup: () => Promise<void>;
 };
 
@@ -38,8 +36,6 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
     itemId: `${prefix}-item`,
     itemName: `${prefix} 테스트 베어링`,
     itemSpec: "E2E-PURCHASE-SPEC",
-    vendorAccountId: `${prefix}-vendor-account`,
-    vendorAccountSeeded: false,
     cleanup: async () => {},
   };
 
@@ -89,11 +85,6 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
       if (purchaseIds.length) {
         const { error } = await db.from("purchases").delete().in("id", purchaseIds);
         if (error) throw new Error(`E2E purchase cleanup failed: ${error.message}`);
-      }
-
-      if (data.vendorAccountSeeded) {
-        const { error: accountCleanupError } = await db.from("vendor_accounts").delete().eq("id", data.vendorAccountId);
-        if (accountCleanupError) throw new Error(`E2E vendor account cleanup failed: ${accountCleanupError.message}`);
       }
 
       for (const [table, id] of [["items", data.itemId], ["warehouses", data.warehouseId], ["vendors", data.vendorId]] as const) {

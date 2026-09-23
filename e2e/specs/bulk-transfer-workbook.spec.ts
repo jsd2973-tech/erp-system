@@ -29,21 +29,6 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   expect(purchases).toHaveLength(2);
   if (!purchases || purchases.length !== 2) throw new Error("Both E2E purchase rows were not returned.");
 
-  const account = {
-    id: e2e.vendorAccountId,
-    vendor_name: e2e.vendorName,
-    bank_code: "088",
-    bank_name: "E2E 테스트 은행",
-    account_name: `${e2e.prefix} 예금주`,
-    customer_display_name: `${e2e.prefix} 표시명`,
-    account_number: "123-456-789012",
-    memo: `${e2e.prefix} 대량이체 회귀`,
-  };
-  const { error: accountError } = await e2e.db.from("vendor_accounts").insert(account);
-  expect(accountError).toBeNull();
-  if (accountError) throw new Error(`E2E vendor account fixture could not be created: ${accountError.message}`);
-  e2e.vendorAccountSeeded = true;
-
   await purchasePage.openList();
   const paidCandidate = purchases.find((row) => Number(row.rows?.[0]?.qty) === 1);
   const unpaidCandidate = purchases.find((row) => Number(row.rows?.[0]?.qty) === 2);
@@ -68,6 +53,11 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   await expect(candidateCard).toBeVisible();
   await expect(candidateCard).toContainText("220,000원");
   await expect(bulkPage.locator(".bulk-transfer-list")).not.toContainText("110,000원");
+  const inputFor = (label: string) => candidateCard.locator(".bulk-edit-grid .field").filter({ hasText: label }).locator("input");
+  await inputFor("입금은행").fill("088");
+  await inputFor("입금계좌").fill("123-456-789012");
+  await inputFor("고객관리성명").fill(`${e2e.prefix} 표시명`);
+  await expect(candidateCard.getByText("계좌매칭", { exact: true })).toBeVisible();
 
   await bulkPage.getByRole("button", { name: "대량이체 엑셀 다운로드", exact: true }).click();
   const selection = page.locator(".bulk-select-modal");
@@ -85,7 +75,7 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: true });
   expect(matrix).toEqual([
     ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"],
-    ["088", "123456789012", 220000, account.customer_display_name, "(주)태명산업개발", `${e2e.itemName}/${e2e.vendorName}${month.slice(5)}`, "", "", ""],
+    ["088", "123456789012", 220000, `${e2e.prefix} 표시명`, "(주)태명산업개발", `${e2e.itemName}/${e2e.vendorName}${month.slice(5)}`, "", "", ""],
   ]);
   expect(sheet.A2.t).toBe("s");
   expect(sheet.B2.t).toBe("s");

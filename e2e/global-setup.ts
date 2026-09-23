@@ -79,7 +79,6 @@ export default async function globalSetup() {
     "activity_logs",
     "deleted_records",
     "maintenance_purchase_links",
-    "vendor_accounts",
     "fuel_records",
     "fuel_master_options",
     "dispatch_admin_users",
