@@ -2903,11 +2903,11 @@ export default function App() {
         const changedLinkedRows = linkedPurchaseRows.filter((link) => {
           const nextRow = nextRowsById.get(link.purchase_row_id);
           if (!nextRow) return false;
-          return getPurchasePriceHistoryKey(nextRow.item, nextRow.spec)
-            !== getPurchasePriceHistoryKey(link.item_name, link.spec);
+          return normalizePurchasePriceText(nextRow.item)
+            !== normalizePurchasePriceText(link.item_name);
         });
         if (changedLinkedRows.length) {
-          return alert("정비에 연결된 구매 품목의 품목명·규격은 변경할 수 없습니다. 먼저 정비 연결을 해제하세요.");
+          return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
         }
       }
       const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));

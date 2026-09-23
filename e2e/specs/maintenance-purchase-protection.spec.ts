@@ -84,6 +84,32 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
     .from("purchases").select("id,rows").eq("vendor", e2e.vendorName).single();
   expect(purchaseError).toBeNull();
   if (!purchase) throw new Error("The E2E purchase row was not found before editing.");
+  const { data: originalLinks, error: originalLinksError } = await e2e.db
+    .from("maintenance_purchase_links").select("id,purchase_row_id,used_qty,spec").eq("purchase_id", purchase.id);
+  expect(originalLinksError).toBeNull();
+  expect(originalLinks).toHaveLength(1);
+  const originalLinkId = originalLinks?.[0].id;
+
+  const expectOriginalPurchaseAndLink = async () => {
+    const { data: currentPurchase, error: currentPurchaseError } = await e2e.db
+      .from("purchases").select("rows").eq("id", purchase.id).single();
+    expect(currentPurchaseError).toBeNull();
+    expect(currentPurchase?.rows[0]).toMatchObject({
+      id: purchase.rows[0].id,
+      item: e2e.itemName,
+      spec: e2e.itemSpec,
+      qty: 4,
+    });
+    const { data: currentLinks, error: currentLinksError } = await e2e.db
+      .from("maintenance_purchase_links").select("id,purchase_row_id,used_qty,spec").eq("purchase_id", purchase.id);
+    expect(currentLinksError).toBeNull();
+    expect(currentLinks).toEqual([{
+      id: originalLinkId,
+      purchase_row_id: purchase.rows[0].id,
+      used_qty: 3,
+      spec: e2e.itemSpec,
+    }]);
+  };
 
   await purchases.openList();
   await purchases.editFromList(e2e.vendorName);
@@ -98,6 +124,7 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
   await clickPromise;
   expect(message).toContain("정비에 3개가 연결되어 있어 구매수량을 3개보다 적게 줄일 수 없습니다.");
   await expect(page.getByTestId("purchase-qty-0")).toHaveValue("2");
+  await expectOriginalPurchaseAndLink();
 
   await page.getByTestId("purchase-qty-0").fill("4");
   await page.getByPlaceholder("품목명 직접수정").fill(`${e2e.itemName} 변경`);
@@ -107,7 +134,8 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
   message = dialog.message();
   await dialog.accept();
   await clickPromise;
-  expect(message).toContain("정비에 연결된 구매 품목의 품목명·규격은 변경할 수 없습니다.");
+  expect(message).toContain("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다.");
+  await expectOriginalPurchaseAndLink();
 
   await page.getByPlaceholder("품목명 직접수정").fill(e2e.itemName);
   await page.getByTestId("purchase-spec-0").fill("E2E-UPDATED-SPEC");
@@ -129,8 +157,9 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
   expect(updatedPurchaseError).toBeNull();
   expect(updatedPurchase?.rows[0]).toMatchObject({ item: e2e.itemName, spec: "E2E-UPDATED-SPEC", qty: 4 });
   const { data: links, error: linksError } = await e2e.db
-    .from("maintenance_purchase_links").select("used_qty,purchase_row_id,spec").eq("purchase_id", purchase.id);
+    .from("maintenance_purchase_links").select("id,used_qty,purchase_row_id,spec").eq("purchase_id", purchase.id);
   expect(linksError).toBeNull();
   expect(links).toHaveLength(1);
-  expect(links?.[0]).toMatchObject({ purchase_row_id: purchase.rows[0].id, used_qty: 3, spec: e2e.itemSpec });
+  expect(links?.[0]).toMatchObject({ id: originalLinkId, purchase_row_id: purchase.rows[0].id, used_qty: 3, spec: e2e.itemSpec });
+  expect(Number(updatedPurchase?.rows[0].qty) - Number(links?.[0].used_qty)).toBe(1);
 });
