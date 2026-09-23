@@ -32,7 +32,9 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   const paidCandidate = purchases.find((row) => Number(row.rows?.[0]?.qty) === 1);
   const unpaidCandidate = purchases.find((row) => Number(row.rows?.[0]?.qty) === 2);
   if (!paidCandidate || !unpaidCandidate) throw new Error("The paid and unpaid purchase fixtures could not be distinguished.");
-  const paymentToggle = page.getByTestId(`purchase-payment-toggle-${paidCandidate.id}`);
+  const paymentToggle = page.locator(".purchase-lookup-page .scroll-table")
+    .getByTestId(`purchase-payment-toggle-${paidCandidate.id}`);
+  await expect(paymentToggle).toHaveCount(1);
   await paymentToggle.check();
   await expect(paymentToggle).toBeChecked();
   await expect.poll(async () => {
