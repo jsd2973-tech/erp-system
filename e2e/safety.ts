@@ -10,6 +10,47 @@ export type E2EEnvironment = {
   adminPassword: string;
 };
 
+export type SupabaseDiagnostic = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
+export function sanitizeSupabaseDiagnostic(
+  error: SupabaseDiagnostic,
+  sensitiveValues: string[] = [],
+): Required<SupabaseDiagnostic> {
+  const redactText = (value: string | null | undefined) => {
+    if (typeof value !== "string") return null;
+
+    let safe = value;
+    for (const sensitiveValue of sensitiveValues) {
+      if (sensitiveValue.length > 0) safe = safe.split(sensitiveValue).join("[redacted]");
+    }
+
+    return safe
+      .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+      .replace(/\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted-token]")
+      .replace(/\bsb_(?:publishable|secret)_[A-Za-z0-9_-]+\b/g, "[redacted-api-key]")
+      .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[redacted-email]")
+      .replace(/\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/gi, "[redacted-id]")
+      .replace(/\b(?:\+?\d[\d ().-]{6,}\d)\b/g, "[redacted-phone]")
+      .slice(0, 800);
+  };
+
+  const code = typeof error.code === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(error.code)
+    ? error.code
+    : null;
+
+  return {
+    code,
+    message: redactText(error.message),
+    details: redactText(error.details),
+    hint: redactText(error.hint),
+  };
+}
+
 const isPublishableSupabaseKey = (key: string) => {
   if (key.startsWith("sb_publishable_")) return true;
   const segments = key.split(".");

@@ -8,7 +8,7 @@ const source = fs.readFileSync(new URL('../e2e/safety.ts', import.meta.url), 'ut
 const code = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
 }).outputText;
-const { readE2EEnvironment } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { readE2EEnvironment, sanitizeSupabaseDiagnostic } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 
 const defaults = {
   E2E_BASE_URL: 'http://127.0.0.1:4173',
@@ -61,4 +61,30 @@ test('rejects remote browser targets and non-test Supabase projects', () => {
     () => withEnvironment({ E2E_SUPABASE_URL: 'https://different.supabase.co' }, () => readE2EEnvironment()),
     /dedicated test Supabase project/,
   );
+});
+
+test('sanitizes marker diagnostics before they are written to workflow logs', () => {
+  const email = 'e2e-admin@example.invalid';
+  const password = 'test-only-password-123';
+  const anonKey = 'sb_publishable_test_key_123';
+  const accessToken = `eyJ${Buffer.from(JSON.stringify({ sub: 'test-user' })).toString('base64url')}.payload.signature`;
+  const diagnostic = sanitizeSupabaseDiagnostic({
+    code: 'PGRST116',
+    message: `query for ${email} failed; bearer ${accessToken}`,
+    details: `key=${anonKey}; password=${password}; phone=+1 (555) 010-1234`,
+    hint: 'request referenced 123e4567-e89b-12d3-a456-426614174000',
+  }, [email, password, anonKey, accessToken]);
+
+  assert.equal(diagnostic.code, 'PGRST116');
+  const serialized = JSON.stringify(diagnostic);
+  for (const secret of [email, password, anonKey, accessToken, '555) 010-1234', '123e4567-e89b-12d3-a456-426614174000']) {
+    assert.equal(serialized.includes(secret), false);
+  }
+  assert.match(diagnostic.message, /query for \[redacted\] failed/);
+  assert.match(diagnostic.details, /key=\[redacted\]/);
+  assert.match(diagnostic.details, /\[redacted-phone\]/);
+  assert.match(diagnostic.hint, /\[redacted-id\]/);
+
+  const genericEmail = sanitizeSupabaseDiagnostic({ message: 'contact support@example.invalid' });
+  assert.match(genericEmail.message, /contact \[redacted-email\]/);
 });

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { readE2EEnvironment, E2E_TEST_PROJECT_REF } from "./safety";
+import { readE2EEnvironment, E2E_TEST_PROJECT_REF, sanitizeSupabaseDiagnostic } from "./safety";
 
 export default async function globalSetup() {
   const env = readE2EEnvironment();
@@ -12,19 +12,61 @@ export default async function globalSetup() {
     password: env.adminPassword,
   });
   if (authError || !authData.user) {
-    throw new Error(`E2E test account cannot sign in: ${authError?.message || "no user returned"}`);
+    const diagnostic = authError
+      ? `: ${JSON.stringify(sanitizeSupabaseDiagnostic(authError, [env.adminEmail, env.adminPassword, env.anonKey]))}`
+      : ": no user returned";
+    throw new Error(`E2E test account cannot sign in${diagnostic}`);
   }
 
-  const [{ data: permission, error: permissionError }, { data: marker, error: markerError }] = await Promise.all([
-    supabase.from("user_permissions").select("email,role").eq("email", env.adminEmail).maybeSingle(),
-    supabase.from("e2e_environment").select("project_ref").eq("environment", "test").single(),
-  ]);
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  if (sessionError || !session || session.user.id !== authData.user.id || !session.access_token) {
+    const diagnostic = sessionError
+      ? `: ${JSON.stringify(sanitizeSupabaseDiagnostic(sessionError, [env.adminEmail, env.adminPassword, env.anonKey]))}`
+      : ": authenticated session was not available after sign-in";
+    throw new Error(`E2E authenticated session was not established${diagnostic}`);
+  }
+
+  const { data: verifiedUserData, error: verifiedUserError } = await supabase.auth.getUser(session.access_token);
+  if (verifiedUserError || verifiedUserData.user?.id !== authData.user.id) {
+    const diagnostic = verifiedUserError
+      ? `: ${JSON.stringify(sanitizeSupabaseDiagnostic(verifiedUserError, [env.adminEmail, env.adminPassword, env.anonKey, session.access_token]))}`
+      : ": server-verified user did not match the signed-in test account";
+    throw new Error(`E2E authenticated session could not be verified${diagnostic}`);
+  }
+
+  const { data: permission, error: permissionError } = await supabase
+    .from("user_permissions")
+    .select("email,role")
+    .eq("email", env.adminEmail)
+    .maybeSingle();
 
   if (permissionError || permission?.role !== "admin") {
     throw new Error("E2E account must have role=admin in the isolated test project's user_permissions table.");
   }
-  if (markerError || marker?.project_ref !== E2E_TEST_PROJECT_REF) {
-    throw new Error("E2E project marker is missing or does not match the approved test project.");
+
+  const { data: marker, error: markerError } = await supabase
+    .from("e2e_environment")
+    .select("project_ref")
+    .eq("environment", "test")
+    .single();
+  if (markerError) {
+    const diagnostic = sanitizeSupabaseDiagnostic(markerError, [
+      env.adminEmail,
+      env.adminPassword,
+      env.anonKey,
+      session.access_token,
+    ]);
+    throw new Error(`E2E marker query failed: ${JSON.stringify(diagnostic)}`);
+  }
+  if (marker?.project_ref !== E2E_TEST_PROJECT_REF) {
+    const rawReceived = marker?.project_ref;
+    const received = rawReceived == null
+      ? "null"
+      : typeof rawReceived === "string" && /^[a-z0-9-]{1,64}$/i.test(rawReceived)
+        ? rawReceived
+        : "[invalid value]";
+    throw new Error(`E2E marker mismatch: expected ${E2E_TEST_PROJECT_REF}, received ${received}.`);
   }
 
   for (const table of ["vendors", "warehouses", "items", "purchases", "maints", "card_uses", "maintenance_purchase_links"]) {
