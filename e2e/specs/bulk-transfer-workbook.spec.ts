@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import * as XLSX from "xlsx-js-style";
+import XLSX from "xlsx-js-style";
 import { test, expect } from "../fixtures";
 import { loginAsE2EAdmin } from "../pages/login.page";
 import { PurchasePage } from "../pages/purchase.page";
