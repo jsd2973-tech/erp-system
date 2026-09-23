@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-const code = ts.transpileModule(fs.readFileSync(new URL('../src/features/dispatch/transportResults.ts', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
+const code = ts.transpileModule(fs.readFileSync(new URL('../src/features/dispatch/transportResults.ts', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText
+  .replace('import { dispatchToday } from "./dispatchUtils";', 'const dispatchToday = () => "2026-09-12";');
 const { koreaDay, periodBounds, summarizeResults, groupResults, sumVolume } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const orders = [{ id: 'o1', vendor_id: 'v1', vendor_name: '거래처', item_id: 'i1', item_name: '모래' }, { id: 'o2', vendor_id: 'v2', vendor_name: '거래처', item_id: 'i2', item_name: '자갈' }];
 const trip = (id, patch = {}) => ({ id, dispatch_order_id: 'o1', vehicle_id: 'truck1', trip_no: 1, status: '완료', actual_volume: 17, unloading_completed_at: '2026-09-11T15:00:00Z', ...patch });
