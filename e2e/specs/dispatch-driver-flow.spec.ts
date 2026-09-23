@@ -15,9 +15,9 @@ const seoulToday = () => new Intl.DateTimeFormat("en-CA", {
 const openDispatchView = async (page: Page, view: "dispatch_status" | "dispatch_results") => {
   const menu = page.getByTestId(`menu-${view}`);
   if (!(await menu.isVisible())) {
-    const dispatchToggle = page.getByRole("button", { name: "운행관리", exact: true });
-    await expect(dispatchToggle).toBeVisible();
-    await dispatchToggle.click();
+    const group = page.locator(`.menu-group:has([data-testid="menu-${view}"])`);
+    await expect(group).toHaveCount(1);
+    await group.locator(":scope > button").click();
   }
   await expect(menu).toBeVisible();
   await menu.click();
