@@ -35,7 +35,12 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   const paymentToggle = page.locator(".purchase-lookup-page .scroll-table")
     .getByTestId(`purchase-payment-toggle-${paidCandidate.id}`);
   await expect(paymentToggle).toHaveCount(1);
-  await paymentToggle.check();
+  const paymentDialogPromise = page.waitForEvent("dialog");
+  const paymentClickPromise = paymentToggle.click();
+  const paymentDialog = await paymentDialogPromise;
+  expect(paymentDialog.message()).toContain("지급완료 처리하시겠습니까?");
+  await paymentDialog.accept();
+  await paymentClickPromise;
   await expect(paymentToggle).toBeChecked();
   await expect.poll(async () => {
     const { data, error } = await e2e.db
