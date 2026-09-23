@@ -39,6 +39,8 @@ jobs:
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_DRIVER_EMAIL: ${{ secrets.E2E_DRIVER_EMAIL }}
+          E2E_DRIVER_PASSWORD: ${{ secrets.E2E_DRIVER_PASSWORD }}
         run: |
           if [ -n "$E2E_SUPABASE_URL" ] && [ -n "$E2E_SUPABASE_ANON_KEY" ] && [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_PASSWORD" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -46,6 +48,17 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "### Browser E2E skipped" >> "$GITHUB_STEP_SUMMARY"
             echo "Configure the four dedicated test-project secrets listed in E2E_SETUP.md to enable browser E2E." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -n "$E2E_DRIVER_EMAIL" ] && [ -z "$E2E_DRIVER_PASSWORD" ] || [ -z "$E2E_DRIVER_EMAIL" ] && [ -n "$E2E_DRIVER_PASSWORD" ]; then
+            echo "E2E_DRIVER_EMAIL and E2E_DRIVER_PASSWORD must be configured together." >&2
+            exit 1
+          fi
+          if [ -n "$E2E_DRIVER_EMAIL" ] && [ -n "$E2E_DRIVER_PASSWORD" ]; then
+            echo "dispatch_ready=true" >> "$GITHUB_OUTPUT"
+            echo "Dedicated test driver credentials found; dispatch browser coverage is enabled." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "dispatch_ready=false" >> "$GITHUB_OUTPUT"
+            echo "Dispatch browser coverage will be skipped. Configure E2E_DRIVER_EMAIL and E2E_DRIVER_PASSWORD using a test-only Auth driver account." >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Install Playwright Chromium
         if: steps.e2e-secrets.outputs.ready == 'true'
@@ -57,6 +70,8 @@ jobs:
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_DRIVER_EMAIL: ${{ secrets.E2E_DRIVER_EMAIL }}
+          E2E_DRIVER_PASSWORD: ${{ secrets.E2E_DRIVER_PASSWORD }}
         run: npm run test:e2e
       - name: Upload Playwright report and failure traces
         if: always() && steps.e2e-secrets.outputs.ready == 'true'

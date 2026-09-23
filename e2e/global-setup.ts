@@ -69,7 +69,28 @@ export default async function globalSetup() {
     throw new Error(`E2E marker mismatch: expected ${E2E_TEST_PROJECT_REF}, received ${received}.`);
   }
 
-  for (const table of ["vendors", "warehouses", "items", "purchases", "maints", "card_uses", "maintenance_purchase_links"]) {
+  for (const table of [
+    "vendors",
+    "warehouses",
+    "items",
+    "purchases",
+    "maints",
+    "card_uses",
+    "activity_logs",
+    "deleted_records",
+    "maintenance_purchase_links",
+    "vendor_accounts",
+    "fuel_records",
+    "fuel_master_options",
+    "dispatch_admin_users",
+    "dispatch_vehicles",
+    "dispatch_drivers",
+    "dispatch_orders",
+    "dispatch_order_vehicles",
+    "dispatch_trips",
+    "dispatch_trip_locations",
+    "dispatch_trip_corrections",
+  ]) {
     const { error } = await supabase.from(table).select("*").limit(0);
     if (error) throw new Error(`E2E test schema is not ready (${table}): ${error.message}`);
   }

@@ -18,6 +18,33 @@ export class MaintenancePage {
     return this.page.locator(".maintenance-purchase-summary");
   }
 
+  async deleteFromList(title: string) {
+    const row = this.page.locator(".maint-lookup-table tbody tr").filter({ hasText: title });
+    await expect(row).toBeVisible();
+    const dialogPromise = this.page.waitForEvent("dialog");
+    await row.locator("button.icon").nth(2).click();
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toContain("정비내역을 휴지통으로 이동");
+    await dialog.accept();
+    await expect(row).toHaveCount(0);
+  }
+
+  async restoreFromTrash(title: string) {
+    await this.page.getByRole("button", { name: "휴지통", exact: true }).click();
+    const trash = this.page.locator(".trash-page");
+    await expect(trash.getByRole("heading", { name: "휴지통" })).toBeVisible();
+    await trash.locator("select").selectOption({ label: "정비" });
+    await trash.getByPlaceholder("제목/내용/삭제자 검색").fill(title);
+    const row = trash.locator("tbody tr").filter({ hasText: title });
+    await expect(row).toBeVisible();
+    const dialogPromise = this.page.waitForEvent("dialog");
+    await row.getByRole("button", { name: "복구", exact: true }).click();
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toContain("복구할까요");
+    await dialog.accept();
+    await expect(row).toHaveCount(0);
+  }
+
   async openEntry() {
     const menu = this.page.getByTestId("menu-maint_new");
     if (!(await menu.isVisible())) await this.page.getByTestId("nav-group-maintenance").click();

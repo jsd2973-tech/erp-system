@@ -8,6 +8,8 @@ export type E2EEnvironment = {
   anonKey: string;
   adminEmail: string;
   adminPassword: string;
+  driverEmail?: string;
+  driverPassword?: string;
 };
 
 export type SupabaseDiagnostic = {
@@ -69,6 +71,8 @@ export function readE2EEnvironment(): E2EEnvironment {
   const anonKey = (process.env.E2E_SUPABASE_ANON_KEY || "").trim();
   const adminEmail = (process.env.E2E_ADMIN_EMAIL || "").trim().toLowerCase();
   const adminPassword = process.env.E2E_ADMIN_PASSWORD || "";
+  const driverEmail = (process.env.E2E_DRIVER_EMAIL || "").trim().toLowerCase();
+  const driverPassword = process.env.E2E_DRIVER_PASSWORD || "";
 
   const missing = [
     ["E2E_SUPABASE_URL", supabaseURL],
@@ -102,6 +106,19 @@ export function readE2EEnvironment(): E2EEnvironment {
   if (!adminEmail.includes("@")) {
     throw new Error("E2E_ADMIN_EMAIL must be a test Auth email address.");
   }
+  if (Boolean(driverEmail) !== Boolean(driverPassword)) {
+    throw new Error("E2E_DRIVER_EMAIL and E2E_DRIVER_PASSWORD must both be set to enable dispatch browser coverage.");
+  }
+  if (driverEmail && !driverEmail.includes("@")) {
+    throw new Error("E2E_DRIVER_EMAIL must be a test Auth email address.");
+  }
 
-  return { baseURL, supabaseURL, anonKey, adminEmail, adminPassword };
+  return {
+    baseURL,
+    supabaseURL,
+    anonKey,
+    adminEmail,
+    adminPassword,
+    ...(driverEmail ? { driverEmail, driverPassword } : {}),
+  };
 }

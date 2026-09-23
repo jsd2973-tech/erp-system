@@ -42,6 +42,13 @@ export class PurchasePage {
     await expect(this.page.getByRole("heading", { name: "구매조회" })).toBeVisible();
   }
 
+  async editFromList(vendorName: string) {
+    const row = this.page.locator(".purchase-lookup-page .scroll-table tbody tr").filter({ hasText: vendorName });
+    await expect(row).toBeVisible();
+    await row.locator("button.icon").nth(1).click();
+    await expect(this.page.getByTestId("purchase-save")).toContainText("수정 저장");
+  }
+
   async preparePurchaseItem(data: E2EData) {
     await this.openEntry();
     await this.page.getByTestId("purchase-vendor").fill(data.vendorName);
