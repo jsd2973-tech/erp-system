@@ -50,7 +50,9 @@ test("@regression 구매 품목을 정비에 연결하면 stable row ID와 사�
   await expect(maintenanceSummary).toContainText(e2e.vendorName);
   await expect(maintenanceSummary).toContainText("910,000원");
 
-  await page.locator(".modal-backdrop .modal-box").getByRole("button", { name: "닫기", exact: true }).click();
+  const maintenanceDetailBackdrop = maintenanceSummary.locator("xpath=ancestor::div[contains(@class, 'modal-backdrop')]");
+  await maintenanceDetailBackdrop.click({ position: { x: 5, y: 5 } });
+  await expect(maintenanceSummary).toBeHidden();
   await purchases.openList();
   const purchaseRowInList = page.locator(".purchase-lookup-page .scroll-table tbody tr").filter({ hasText: e2e.vendorName });
   await purchaseRowInList.locator(".purchase-item-detail-button").click();
@@ -81,10 +83,11 @@ test("@regression 구매 잔량만큼 추가 연결되고 초과 사용은 차�
   await candidate.getByRole("button", { name: "선택", exact: true }).click();
   await modal.getByTestId("maintenance-link-used-qty").fill("2");
   const alertPromise = page.waitForEvent("dialog");
-  await modal.getByTestId("maintenance-link-apply").click();
+  const applyPromise = modal.getByTestId("maintenance-link-apply").click();
   const alert = await alertPromise;
   expect(alert.message()).toContain("남은 연결 가능 수량은 1");
   await alert.accept();
+  await applyPromise;
   await expect(modal).toBeVisible();
   await modal.getByRole("button", { name: "취소", exact: true }).click();
 

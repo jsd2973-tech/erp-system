@@ -24,7 +24,7 @@ test("@regression 최근·직전 구매단가와 규격별 이력이 분리된�
   });
 
   await purchases.preparePurchaseItem(e2e);
-  const history = page.locator(".purchase-entry-card .purchase-price-history-summary");
+  const history = page.locator(".purchase-entry-card .entry-desktop-table .purchase-price-history-summary");
   await expect(history).toBeVisible();
   await expect(history).toContainText("최근단가");
   await expect(history).toContainText("910,000원");
