@@ -16,10 +16,6 @@ export async function createDispatchE2EFixture(
   driverAuthUserId: string,
 ): Promise<DispatchE2EFixture> {
   const orderId = `${prefix}-dispatch-order`;
-  const vehicleId = `${prefix}-dispatch-vehicle`;
-  const driverId = `${prefix}-dispatch-driver`;
-  const companyName = `${prefix} E2E 업체`;
-  const driverName = `${prefix} E2E 기사`;
   const vendorName = `${prefix} E2E 운송거래처`;
   const itemName = `${prefix} E2E 골재`;
   const driverLookup = await db
@@ -29,8 +25,19 @@ export async function createDispatchE2EFixture(
     .maybeSingle();
   if (driverLookup.error) throw new Error(`E2E driver fixture lookup failed: ${driverLookup.error.message}`);
   const previousDriver = driverLookup.data;
-  let vehicleSeeded = false;
-  let driverSeeded = false;
+  if (!previousDriver) throw new Error("E2E driver fixture is missing the dedicated authenticated driver row.");
+  if (!previousDriver.active) throw new Error("E2E driver fixture row must be active.");
+  const vehicleId = String(previousDriver.assigned_vehicle_id || "");
+  if (!vehicleId) throw new Error("E2E driver fixture must have an assigned test vehicle.");
+  const vehicleLookup = await db
+    .from("dispatch_vehicles")
+    .select("id,active")
+    .eq("id", vehicleId)
+    .maybeSingle();
+  if (vehicleLookup.error) throw new Error(`E2E assigned vehicle lookup failed: ${vehicleLookup.error.message}`);
+  if (!vehicleLookup.data?.active) throw new Error("E2E assigned test vehicle is missing or inactive.");
+  const driverId = String(previousDriver.id);
+  const driverName = String(previousDriver.name || "E2E test driver");
   let orderSeeded = false;
 
   const cleanup = async () => {
@@ -90,51 +97,9 @@ export async function createDispatchE2EFixture(
         if (error) throw new Error(`E2E dispatch permanent cleanup failed: ${error.message}`);
       }
     }
-
-    if (driverSeeded) {
-      if (previousDriver) {
-        const { error } = await db.from("dispatch_drivers").upsert(previousDriver);
-        if (error) throw new Error(`E2E previous driver restore failed: ${error.message}`);
-      } else {
-        const { error } = await db.from("dispatch_drivers").delete().eq("id", driverId);
-        if (error) throw new Error(`E2E dispatch driver cleanup failed: ${error.message}`);
-      }
-    }
-    if (vehicleSeeded) {
-      const { error } = await db.from("dispatch_vehicles").delete().eq("id", vehicleId);
-      if (error) throw new Error(`E2E dispatch vehicle cleanup failed: ${error.message}`);
-    }
   };
 
   try {
-    const { error: vehicleError } = await db.from("dispatch_vehicles").insert({
-      id: vehicleId,
-      vehicle_number: `${prefix}-덤프`,
-      company_name: companyName,
-      active: true,
-      memo: prefix,
-    });
-    if (vehicleError) throw new Error(`E2E dispatch vehicle seed failed: ${vehicleError.message}`);
-    vehicleSeeded = true;
-
-    const driverPayload = previousDriver
-      ? { ...previousDriver, assigned_vehicle_id: vehicleId, company_name: companyName, active: true }
-      : {
-        id: driverId,
-        name: driverName,
-        phone: "",
-        company_name: companyName,
-        assigned_vehicle_id: vehicleId,
-        auth_user_id: driverAuthUserId,
-        active: true,
-        memo: prefix,
-      };
-    const { error: driverError } = await db.from("dispatch_drivers").upsert(driverPayload);
-    if (driverError) throw new Error(`E2E dispatch driver seed failed: ${driverError.message}`);
-    driverSeeded = true;
-    const effectiveDriverId = String(driverPayload.id);
-    const effectiveDriverName = String(driverPayload.name || driverName);
-
     const { error: orderError } = await db.rpc("save_dispatch_order_with_assignments", {
       p_order: {
         id: orderId,
@@ -154,12 +119,12 @@ export async function createDispatchE2EFixture(
         status: "대기",
         memo: prefix,
       },
-      p_assignments: [{ vehicle_id: vehicleId, driver_id: effectiveDriverId }],
+      p_assignments: [{ vehicle_id: vehicleId, driver_id: driverId }],
     });
     if (orderError) throw new Error(`E2E dispatch order seed failed: ${orderError.message}`);
     orderSeeded = true;
 
-    return { orderId, vehicleId, driverId: effectiveDriverId, driverName: effectiveDriverName, vendorName, itemName, cleanup };
+    return { orderId, vehicleId, driverId, driverName, vendorName, itemName, cleanup };
   } catch (error) {
     try {
       await cleanup();
