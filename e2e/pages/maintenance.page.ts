@@ -22,10 +22,12 @@ export class MaintenancePage {
     const row = this.page.locator(".maint-lookup-table tbody tr").filter({ hasText: title });
     await expect(row).toBeVisible();
     const dialogPromise = this.page.waitForEvent("dialog");
-    await row.locator("button.icon").nth(2).click();
+    const clickPromise = row.locator("button.icon").nth(2).click();
     const dialog = await dialogPromise;
-    expect(dialog.message()).toContain("정비내역을 휴지통으로 이동");
+    const message = dialog.message();
     await dialog.accept();
+    await clickPromise;
+    expect(message).toContain("정비내역을 휴지통으로 이동");
     await expect(row).toHaveCount(0);
   }
 
@@ -38,10 +40,12 @@ export class MaintenancePage {
     const row = trash.locator("tbody tr").filter({ hasText: title });
     await expect(row).toBeVisible();
     const dialogPromise = this.page.waitForEvent("dialog");
-    await row.getByRole("button", { name: "복구", exact: true }).click();
+    const clickPromise = row.getByRole("button", { name: "복구", exact: true }).click();
     const dialog = await dialogPromise;
-    expect(dialog.message()).toContain("복구할까요");
+    const message = dialog.message();
     await dialog.accept();
+    await clickPromise;
+    expect(message).toContain("복구할까요");
     await expect(row).toHaveCount(0);
   }
 

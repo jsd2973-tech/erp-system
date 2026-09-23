@@ -23,8 +23,7 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   const { data: purchases, error: purchasesError } = await e2e.db
     .from("purchases")
     .select("id,rows,total,payment_status,paid_date")
-    .eq("vendor", e2e.vendorName)
-    .order("created_at", { ascending: true });
+    .eq("vendor", e2e.vendorName);
   expect(purchasesError).toBeNull();
   expect(purchases).toHaveLength(2);
   if (!purchases || purchases.length !== 2) throw new Error("Both E2E purchase rows were not returned.");

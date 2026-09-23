@@ -91,32 +91,36 @@ test("@regression 연결된 구매는 수량 축소·품목명 변경을 막고 
 
   await page.getByTestId("purchase-qty-0").fill("2");
   let dialogPromise = page.waitForEvent("dialog");
-  await save.click();
+  let clickPromise = save.click();
   let dialog = await dialogPromise;
-  expect(dialog.message()).toContain("정비에 3개가 연결되어 있어 구매수량을 3개보다 적게 줄일 수 없습니다.");
+  let message = dialog.message();
   await dialog.accept();
+  await clickPromise;
+  expect(message).toContain("정비에 3개가 연결되어 있어 구매수량을 3개보다 적게 줄일 수 없습니다.");
   await expect(page.getByTestId("purchase-qty-0")).toHaveValue("2");
 
   await page.getByTestId("purchase-qty-0").fill("4");
   await page.getByPlaceholder("품목명 직접수정").fill(`${e2e.itemName} 변경`);
   dialogPromise = page.waitForEvent("dialog");
-  await save.click();
+  clickPromise = save.click();
   dialog = await dialogPromise;
-  expect(dialog.message()).toContain("정비에 연결된 구매 품목의 품목명·규격은 변경할 수 없습니다.");
+  message = dialog.message();
   await dialog.accept();
+  await clickPromise;
+  expect(message).toContain("정비에 연결된 구매 품목의 품목명·규격은 변경할 수 없습니다.");
 
   await page.getByPlaceholder("품목명 직접수정").fill(e2e.itemName);
   await page.getByTestId("purchase-spec-0").fill("E2E-UPDATED-SPEC");
-  let specChangeDialogMessage: string | null = null;
   const specDialogPromise = page.waitForEvent("dialog", { timeout: 5000 }).then(async (specDialog) => {
-    specChangeDialogMessage = specDialog.message();
+    const message = specDialog.message();
     await specDialog.accept();
-  }).catch(() => undefined);
+    return message;
+  }).catch(() => null);
   const specChangeSaved = page.getByText("구매내역을 수정했습니다.", { exact: true })
     .waitFor({ state: "visible", timeout: 5000 })
     .then(() => true, () => false);
-  await save.click();
-  const [, specChangeDidSave] = await Promise.all([specDialogPromise, specChangeSaved]);
+  const specSaveClick = save.click();
+  const [specChangeDialogMessage, specChangeDidSave] = await Promise.all([specDialogPromise, specChangeSaved, specSaveClick]);
   expect(specChangeDialogMessage).toBeNull();
   expect(specChangeDidSave).toBe(true);
 
