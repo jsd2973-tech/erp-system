@@ -186,7 +186,7 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
     const driverSummary = dashboard.locator(".driver-detail-stats");
     await expect(driverSummary).toContainText("3회");
     await expect(driverSummary).toContainText("51루베");
-    await dashboard.locator(".dispatch-mobile-editor-toggle").filter({ hasText: "오늘의 운행내역" }).click();
+
     const tripRows = dashboard.locator(".driver-trip-history-detail .driver-trip-row");
     await expect(tripRows).toHaveCount(3);
     await expect(tripRows.first()).toContainText("회귀동 테스트로");
@@ -222,7 +222,7 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
 
     await openDispatchView(page, "dispatch_status");
     await dashboard.locator(".driver-master-item").filter({ hasText: fixture.driverName }).click();
-    await dashboard.locator(".dispatch-mobile-editor-toggle").filter({ hasText: "오늘의 운행내역" }).click();
+
     const correctedRow = dashboard.locator(".driver-trip-history-detail .driver-trip-row").filter({ hasText: "진행중" });
     await correctedRow.getByRole("button", { name: "정정", exact: true }).click();
     let nextCorrection = page.getByRole("dialog");
