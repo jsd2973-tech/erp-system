@@ -63,10 +63,13 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
 
     let firstTripId = "";
     for (let tripIndex = 0; tripIndex < 3; tripIndex += 1) {
-      if (tripIndex === 0) await orderCard.getByRole("button", { name: "운행 입력", exact: true }).click();
-      else await driverApp.getByRole("button", { name: "다음 운행 시작", exact: true }).click();
-
-      await driverApp.getByRole("button", { name: "운행 시작", exact: true }).click();
+      if (tripIndex === 0) {
+        await orderCard.getByRole("button", { name: "운행 입력", exact: true }).click();
+        await driverApp.getByRole("button", { name: "운행 시작", exact: true }).click();
+      } else {
+        // "다음 운행 시작" is the start action itself and creates the next trip.
+        await driverApp.getByRole("button", { name: "다음 운행 시작", exact: true }).click();
+      }
       await expect(driverApp.getByRole("button", { name: "상차 완료", exact: true })).toBeVisible();
       await expect.poll(async () => {
         const { data, error } = await e2e.db
