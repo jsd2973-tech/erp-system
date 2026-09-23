@@ -65,7 +65,9 @@ export class PurchasePage {
     await this.page.getByTestId(this.isMobile ? "purchase-mobile-spec-0" : "purchase-spec-0").fill(spec);
     await this.page.getByTestId(this.isMobile ? "purchase-mobile-qty-0" : "purchase-qty-0").fill(String(qty));
     await this.page.getByTestId(this.isMobile ? "purchase-mobile-price-0" : "purchase-price-0").fill(String(price));
-    await this.page.getByTestId("purchase-save").click();
+    const saveButton = this.page.getByTestId("purchase-save");
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
     await expect(this.page.getByText("구매내역을 저장했습니다.", { exact: true })).toBeVisible();
   }
 }

@@ -40,7 +40,7 @@ export class MaintenancePage {
     await selectSearchOption(this.page, "maintenance-item-search-0", data.itemName);
     await this.page.getByTestId("maintenance-spec-0").fill("E2E-MAINTENANCE-SPEC");
     await this.page.getByTestId("maintenance-qty-0").fill(String(maintenanceQty));
-    await this.page.locator(".maintenance-item-editor").getByTestId("maintenance-purchase-link").click();
+    await this.page.locator('button[data-testid="maintenance-purchase-link"]:visible').first().click();
     const modal = this.page.getByTestId("maintenance-purchase-link-modal");
     await expect(modal).toBeVisible();
     const candidate = modal.getByTestId("maintenance-purchase-candidate").filter({ hasText: data.vendorName });

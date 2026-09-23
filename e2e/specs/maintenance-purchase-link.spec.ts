@@ -75,7 +75,7 @@ test("@regression 구매 잔량만큼 추가 연결되고 초과 사용은 차�
   await page.getByTestId("maintenance-item-search-0").fill(e2e.itemName);
   await selectSearchOption(page, "maintenance-item-search-0", e2e.itemName);
   await page.getByTestId("maintenance-qty-0").fill("2");
-  await page.locator(".maintenance-item-editor").getByTestId("maintenance-purchase-link").click();
+  await page.locator('button[data-testid="maintenance-purchase-link"]:visible').first().click();
   const modal = page.getByTestId("maintenance-purchase-link-modal");
   const candidate = modal.getByTestId("maintenance-purchase-candidate").filter({ hasText: e2e.vendorName });
   await candidate.getByRole("button", { name: "선택", exact: true }).click();

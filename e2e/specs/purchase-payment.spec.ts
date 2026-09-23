@@ -23,11 +23,12 @@ test("@smoke 구매 등록과 지급완료/취소가 조회 필터 및 DB에 반
   await expect(purchaseTable.getByText(e2e.vendorName, { exact: true })).toBeVisible();
   const paymentToggle = purchaseTable.getByTestId(`purchase-payment-toggle-${purchase.id}`);
   await expect(paymentToggle).toBeVisible();
-  await paymentToggle.check();
+  await paymentToggle.click();
   await expect.poll(async () => {
     const { data } = await e2e.db.from("purchases").select("payment_status,paid_date").eq("id", purchase.id).single();
     return data;
   }).toMatchObject({ payment_status: "paid", paid_date: expect.any(String) });
+  await expect(paymentToggle).toBeChecked();
 
   await page.getByRole("combobox", { name: "지급상태" }).selectOption("paid");
   await expect(paymentToggle).toBeVisible();
@@ -36,7 +37,7 @@ test("@smoke 구매 등록과 지급완료/취소가 조회 필터 및 DB에 반
   await expect(paymentToggle).toBeHidden();
 
   await page.getByRole("combobox", { name: "지급상태" }).selectOption("paid");
-  await purchaseTable.getByTestId(`purchase-payment-toggle-${purchase.id}`).uncheck();
+  await purchaseTable.getByTestId(`purchase-payment-toggle-${purchase.id}`).click();
   await expect.poll(async () => {
     const { data } = await e2e.db.from("purchases").select("payment_status,paid_date").eq("id", purchase.id).single();
     return data;
