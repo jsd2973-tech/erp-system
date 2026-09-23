@@ -62,6 +62,7 @@ const E2E_REAL_TABLES = new Set([
   "items",
   "purchases",
   "maints",
+  "card_uses",
   "maintenance_purchase_links",
   "activity_logs",
   "deleted_records",

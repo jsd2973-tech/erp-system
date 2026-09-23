@@ -100,6 +100,18 @@ create table if not exists public.maints (
   image_urls text[] not null default '{}'
 );
 
+create table if not exists public.card_uses (
+  id text primary key,
+  date text not null,
+  user_name text not null default '',
+  place text not null default '',
+  amount numeric not null default 0,
+  memo text not null default '',
+  image_url text not null default '',
+  image_urls text[] not null default '{}',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.activity_logs (
   id text primary key,
   module text not null default '',
@@ -130,7 +142,7 @@ declare
 begin
   foreach table_name in array array[
     'vendors', 'warehouse_groups', 'warehouses', 'items',
-    'purchases', 'maints', 'activity_logs', 'deleted_records'
+    'purchases', 'maints', 'card_uses', 'activity_logs', 'deleted_records'
   ] loop
     execute format('alter table public.%I enable row level security', table_name);
     execute format('grant select, insert, update, delete on public.%I to authenticated', table_name);

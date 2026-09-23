@@ -41,15 +41,18 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
 
   data.cleanup = async () => {
     try {
-      const [purchaseResult, maintenanceResult] = await Promise.all([
+      const [purchaseResult, maintenanceResult, cardResult] = await Promise.all([
         db.from("purchases").select("id").eq("vendor", data.vendorName),
         db.from("maints").select("id").ilike("title", `${prefix}%`),
+        db.from("card_uses").select("id").eq("place", `${prefix} 테스트상사`),
       ]);
       if (purchaseResult.error) throw new Error(`E2E purchase cleanup lookup failed: ${purchaseResult.error.message}`);
       if (maintenanceResult.error) throw new Error(`E2E maintenance cleanup lookup failed: ${maintenanceResult.error.message}`);
+      if (cardResult.error) throw new Error(`E2E card cleanup lookup failed: ${cardResult.error.message}`);
       const purchaseIds = (purchaseResult.data || []).map((row) => String(row.id));
       const maintenanceIds = (maintenanceResult.data || []).map((row) => String(row.id));
-      const recordIds = [...purchaseIds, ...maintenanceIds];
+      const cardIds = (cardResult.data || []).map((row) => String(row.id));
+      const recordIds = [...purchaseIds, ...maintenanceIds, ...cardIds];
 
       if (purchaseIds.length) {
         const { error } = await db.from("maintenance_purchase_links").delete().in("purchase_id", purchaseIds);
@@ -66,6 +69,10 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
       if (maintenanceIds.length) {
         const { error } = await db.from("maints").delete().in("id", maintenanceIds);
         if (error) throw new Error(`E2E maintenance cleanup failed: ${error.message}`);
+      }
+      if (cardIds.length) {
+        const { error } = await db.from("card_uses").delete().in("id", cardIds);
+        if (error) throw new Error(`E2E card cleanup failed: ${error.message}`);
       }
       if (purchaseIds.length) {
         const { error } = await db.from("purchases").delete().in("id", purchaseIds);

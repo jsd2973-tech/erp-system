@@ -27,7 +27,7 @@ export default async function globalSetup() {
     throw new Error("E2E project marker is missing or does not match the approved test project.");
   }
 
-  for (const table of ["vendors", "warehouses", "items", "purchases", "maints", "maintenance_purchase_links"]) {
+  for (const table of ["vendors", "warehouses", "items", "purchases", "maints", "card_uses", "maintenance_purchase_links"]) {
     const { error } = await supabase.from(table).select("*").limit(0);
     if (error) throw new Error(`E2E test schema is not ready (${table}): ${error.message}`);
   }
