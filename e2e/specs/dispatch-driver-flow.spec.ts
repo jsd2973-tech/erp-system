@@ -144,7 +144,7 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
     const vendorGroup = results.locator(".transport-group").filter({ hasText: fixture.vendorName });
     await expect(vendorGroup).toContainText("3회");
     await expect(vendorGroup).toContainText("51루베");
-    await vendorGroup.locator("summary").click();
+    await vendorGroup.locator(":scope > summary").click();
     const vendorDay = vendorGroup.locator(".transport-day-drilldown");
     await expect(vendorDay).toHaveCount(1);
     await expect(vendorDay.first()).toContainText("3회 · 51루베");
@@ -163,7 +163,7 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
     const itemGroup = results.locator(".transport-group").filter({ hasText: fixture.itemName });
     await expect(itemGroup).toContainText("3회");
     await expect(itemGroup).toContainText("51루베");
-    await itemGroup.locator("summary").click();
+    await itemGroup.locator(":scope > summary").click();
     const itemVendorBreakdown = itemGroup.locator(".transport-breakdown-list").last();
     await expect(itemVendorBreakdown).toContainText(fixture.vendorName);
     await expect(itemVendorBreakdown).toContainText("3회 · 51루베");
