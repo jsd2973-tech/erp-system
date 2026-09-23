@@ -2,6 +2,7 @@ import { test, expect } from "../fixtures";
 import { loginAsE2EAdmin } from "../pages/login.page";
 import { MaintenancePage } from "../pages/maintenance.page";
 import { PurchasePage } from "../pages/purchase.page";
+import { selectSearchOption } from "../pages/search-select";
 
 test("@regression 구매 품목을 정비에 연결하면 stable row ID와 사용수량이 저장된다", async ({ page, e2e }) => {
   await loginAsE2EAdmin(page);
@@ -69,10 +70,10 @@ test("@regression 구매 잔량만큼 추가 연결되고 초과 사용은 차�
 
   await maintenance.openEntry();
   await page.getByTestId("maintenance-warehouse").fill(e2e.warehouseName);
-  await page.getByText(e2e.warehouseName, { exact: true }).last().click();
+  await selectSearchOption(page, "maintenance-warehouse", e2e.warehouseName);
   await page.getByTestId("maintenance-title").fill(`${e2e.prefix} 정비 3`);
   await page.getByTestId("maintenance-item-search-0").fill(e2e.itemName);
-  await page.getByText(e2e.itemName, { exact: true }).last().click();
+  await selectSearchOption(page, "maintenance-item-search-0", e2e.itemName);
   await page.getByTestId("maintenance-qty-0").fill("2");
   await page.locator(".maintenance-item-editor").getByTestId("maintenance-purchase-link").click();
   const modal = page.getByTestId("maintenance-purchase-link-modal");

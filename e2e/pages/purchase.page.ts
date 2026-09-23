@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import type { E2EData } from "../helpers/test-data";
+import { selectSearchOption } from "./search-select";
 
 export class PurchasePage {
   constructor(private readonly page: Page) {}
@@ -44,12 +45,12 @@ export class PurchasePage {
   async preparePurchaseItem(data: E2EData) {
     await this.openEntry();
     await this.page.getByTestId("purchase-vendor").fill(data.vendorName);
-    await this.page.getByText(data.vendorName, { exact: true }).last().click();
+    await selectSearchOption(this.page, "purchase-vendor", data.vendorName);
     await this.page.getByTestId("purchase-warehouse").fill(data.warehouseName);
-    await this.page.getByText(data.warehouseName, { exact: true }).last().click();
+    await selectSearchOption(this.page, "purchase-warehouse", data.warehouseName);
     const itemSearchId = this.isMobile ? "purchase-mobile-item-search-0" : "purchase-item-search-0";
     await this.page.getByTestId(itemSearchId).fill(data.itemName);
-    await this.page.getByText(data.itemName, { exact: true }).last().click();
+    await selectSearchOption(this.page, itemSearchId, data.itemName);
   }
 
   async createPurchase(

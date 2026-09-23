@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import type { E2EData } from "../helpers/test-data";
+import { selectSearchOption } from "./search-select";
 
 export class MaintenancePage {
   constructor(private readonly page: Page) {}
@@ -33,10 +34,10 @@ export class MaintenancePage {
     const usedQty = options.usedQty ?? maintenanceQty;
     await this.openEntry();
     await this.page.getByTestId("maintenance-warehouse").fill(data.warehouseName);
-    await this.page.getByText(data.warehouseName, { exact: true }).last().click();
+    await selectSearchOption(this.page, "maintenance-warehouse", data.warehouseName);
     await this.page.getByTestId("maintenance-title").fill(title);
     await this.page.getByTestId("maintenance-item-search-0").fill(data.itemName);
-    await this.page.getByText(data.itemName, { exact: true }).last().click();
+    await selectSearchOption(this.page, "maintenance-item-search-0", data.itemName);
     await this.page.getByTestId("maintenance-spec-0").fill("E2E-MAINTENANCE-SPEC");
     await this.page.getByTestId("maintenance-qty-0").fill(String(maintenanceQty));
     await this.page.locator(".maintenance-item-editor").getByTestId("maintenance-purchase-link").click();
