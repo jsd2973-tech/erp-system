@@ -33,7 +33,7 @@ test("@mobile-smoke @regression 카드 OCR은 날짜·상호·금액만 채우�
   await expect(page.locator(".card-ocr-status")).toContainText("날짜·상호명·총합계");
   await expect(cardForm.locator("input.date-picker-input")).toHaveValue(expectedDate);
   await expect(cardForm.getByPlaceholder("상호/구매처")).toHaveValue(`${e2e.prefix} 테스트상사`);
-  await expect(cardForm.getByPlaceholder("0")).toHaveValue("128500");
+  await expect(cardForm.getByPlaceholder("0", { exact: true })).toHaveValue("128500");
   await expect(cardForm.getByPlaceholder("사용자/작업자")).toHaveValue("");
   await expect(cardForm.getByPlaceholder("구매내용 메모")).toHaveValue("");
   await expect(cardForm.getByRole("button", { name: "저장", exact: true })).toBeEnabled();

@@ -50,6 +50,7 @@ test("@regression 구매 품목을 정비에 연결하면 stable row ID와 사�
   await expect(maintenanceSummary).toContainText(e2e.vendorName);
   await expect(maintenanceSummary).toContainText("910,000원");
 
+  await page.locator(".modal-backdrop .modal-box").getByRole("button", { name: "닫기", exact: true }).click();
   await purchases.openList();
   const purchaseRowInList = page.locator(".purchase-lookup-page .scroll-table tbody tr").filter({ hasText: e2e.vendorName });
   await purchaseRowInList.locator(".purchase-item-detail-button").click();
@@ -59,7 +60,6 @@ test("@regression 구매 품목을 정비에 연결하면 stable row ID와 사�
 });
 
 test("@regression 구매 잔량만큼 추가 연결되고 초과 사용은 차단된다", async ({ page, e2e }) => {
-  page.on("dialog", (dialog) => dialog.accept());
   await loginAsE2EAdmin(page);
   const purchases = new PurchasePage(page);
   await purchases.createPurchase(e2e, { qty: 4, price: 910000 });

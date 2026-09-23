@@ -69,5 +69,6 @@ export class PurchasePage {
     await expect(saveButton).toBeEnabled();
     await saveButton.click();
     await expect(this.page.getByText("구매내역을 저장했습니다.", { exact: true })).toBeVisible();
+    await expect(this.page.getByRole("heading", { name: "구매조회" })).toBeVisible();
   }
 }
