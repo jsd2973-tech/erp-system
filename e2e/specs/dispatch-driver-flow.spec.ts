@@ -150,7 +150,14 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
     await expect(vendorDay.first()).toContainText("3회 · 51루베");
     const vehicleSummary = vendorGroup.locator(".transport-vehicle-detail");
     await expect(vehicleSummary).toHaveCount(1);
-    await expect(vehicleSummary.first()).toContainText(`${e2e.prefix}-덤프`);
+    const { data: assignedVehicle, error: assignedVehicleError } = await e2e.db
+      .from("dispatch_vehicles")
+      .select("vehicle_number")
+      .eq("id", fixture.vehicleId)
+      .single();
+    expect(assignedVehicleError).toBeNull();
+    if (!assignedVehicle) throw new Error("The assigned E2E vehicle was not returned from the test database.");
+    await expect(vehicleSummary.first()).toContainText(assignedVehicle.vehicle_number);
     await expect(vehicleSummary.first()).toContainText("3회 · 51루베");
     await vendorGroup.locator(".transport-day-drilldown").click();
     const drilldown = page.getByRole("dialog");
