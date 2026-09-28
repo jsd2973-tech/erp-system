@@ -39,6 +39,16 @@ import type {
   PurchaseRow,
   PurchaseSearch,
 } from "./features/purchase/purchaseTypes";
+import type { Maint, MaintItem } from "./features/maintenance/maintenanceTypes";
+import {
+  calculateLinkedMaintenanceItem,
+  calculateMaintenanceTotals,
+  createEmptyMaintItem,
+  sumMaintenanceRowTotals,
+  updateMaintenanceItem,
+  validateMaintenancePurchaseLinkQuantity,
+} from "./features/maintenance/maintenanceModel";
+import { validateLinkedPurchaseRowsForEdit } from "./features/maintenance/maintenancePurchaseModel";
 import {
   buildPurchasePriceHistory,
   getPurchasePriceHistoryKey,
@@ -54,10 +64,6 @@ type Vendor = { id: string; code: string; name: string; owner?: string; phone?: 
 type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
-type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
-  image_url?: string;
-  image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 type PermitRenewal = {
   id: string;
   company: string;
@@ -965,7 +971,7 @@ function DateInput({
 }
 
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
-const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
+const emptyMaintItem = (): MaintItem => createEmptyMaintItem(uid());
 
 
 const loginCss = `
@@ -2677,32 +2683,19 @@ export default function App() {
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
-      const linkedPurchaseRows = maintenancePurchaseLinks.filter((link) => link.purchase_id === payload.id);
-      if (linkedPurchaseRows.length) {
-        const nextRowsById = new Map(payload.rows.map((row) => [String(row.id), row]));
-        const removedLinkedRows = linkedPurchaseRows.filter((link) => !nextRowsById.has(link.purchase_row_id));
-        if (removedLinkedRows.length) {
-          return alert("정비에 연결된 구매 품목은 행을 삭제하거나 새 ID로 바꿀 수 없습니다. 먼저 정비 연결을 해제하세요.");
-        }
-        const usedByRow = new Map<string, number>();
-        linkedPurchaseRows.forEach((link) => {
-          usedByRow.set(link.purchase_row_id, (usedByRow.get(link.purchase_row_id) || 0) + numericValue(link.used_qty));
-        });
-        for (const [rowId, usedQty] of usedByRow.entries()) {
-          const nextRow = nextRowsById.get(rowId);
-          if (nextRow && usedQty > numericValue(nextRow.qty)) {
-            return alert(`${nextRow.item || "구매 품목"}은 정비에 ${usedQty}개가 연결되어 있어 구매수량을 ${usedQty}개보다 적게 줄일 수 없습니다.`);
-          }
-        }
-        const changedLinkedRows = linkedPurchaseRows.filter((link) => {
-          const nextRow = nextRowsById.get(link.purchase_row_id);
-          if (!nextRow) return false;
-          return normalizePurchasePriceText(nextRow.item)
-            !== normalizePurchasePriceText(link.item_name);
-        });
-        if (changedLinkedRows.length) {
-          return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
-        }
+      const linkedPurchaseEditViolation = validateLinkedPurchaseRowsForEdit({
+        purchaseId: payload.id,
+        rows: payload.rows,
+        links: maintenancePurchaseLinks,
+      });
+      if (linkedPurchaseEditViolation?.reason === "linked-row-removed") {
+        return alert("정비에 연결된 구매 품목은 행을 삭제하거나 새 ID로 바꿀 수 없습니다. 먼저 정비 연결을 해제하세요.");
+      }
+      if (linkedPurchaseEditViolation?.reason === "quantity-below-used") {
+        return alert(`${linkedPurchaseEditViolation.itemName}은 정비에 ${linkedPurchaseEditViolation.usedQty}개가 연결되어 있어 구매수량을 ${linkedPurchaseEditViolation.usedQty}개보다 적게 줄일 수 없습니다.`);
+      }
+      if (linkedPurchaseEditViolation?.reason === "item-name-changed") {
+        return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
       }
       const { error } = await purchaseService.savePurchaseRecord(payload);
       if (error) return alert(`구매 저장 실패: ${error.message}`);
@@ -3960,40 +3953,14 @@ export default function App() {
 
 
   const updateMaintItem = (index: number, key: keyof MaintItem, value: any, selectedItem?: Partial<Item>) => {
-    const next = [...maintItems];
-    next[index] = { ...next[index], [key]: value };
-
+    let found: Partial<Item> | undefined;
     if (key === "item") {
       const exactMatches = items.filter((it) => it.name === value);
-      const found = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
-      if (found) {
-        next[index].spec = found.spec || "";
-        next[index].price = found.price || 0;
-      }
+      found = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
     }
-
-    if (["item", "qty", "price"].includes(key)) {
-      const qty = Number(next[index].qty || 0);
-      const price = Number(next[index].price || 0);
-      next[index].supply = qty * price;
-      next[index].vat = Math.round(next[index].supply * 0.1);
-      next[index].total = next[index].supply + next[index].vat;
-    }
-
-    if (key === "supply") {
-      next[index].supply = Number(value || 0);
-      next[index].vat = Math.round(next[index].supply * 0.1);
-      next[index].total = next[index].supply + next[index].vat;
-    }
-
-    if (key === "vat") {
-      next[index].vat = Number(value || 0);
-      next[index].total = Number(next[index].supply || 0) + next[index].vat;
-    }
-
+    const next = updateMaintenanceItem(maintItems, index, key, value, found);
     setMaintItems(next);
-    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+    setMaintForm((prev) => ({ ...prev, cost: String(sumMaintenanceRowTotals(next)) }));
   };
 
   const removeMaintItem = (index: number) => {
@@ -4003,8 +3970,7 @@ export default function App() {
     }
     const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, rowIndex) => rowIndex !== index);
     setMaintItems(next);
-    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+    setMaintForm((prev) => ({ ...prev, cost: String(sumMaintenanceRowTotals(next)) }));
   };
 
   const makeMaintItemFromSuggestion = (source: Partial<MaintItem>): MaintItem => {
@@ -4150,10 +4116,7 @@ export default function App() {
       return aValue - bValue;
     });
 
-  const validMaintItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
-  const maintSupplyTotal = validMaintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
-  const maintVatTotal = validMaintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
-  const maintGrandTotal = validMaintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
+  const { validItems: validMaintItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal } = calculateMaintenanceTotals(maintItems);
 
   const getRecentPurchaseInfo = (itemName: string) => {
     const keyword = String(itemName || "").trim();
@@ -4208,17 +4171,24 @@ const purchasePriceHistoryMap = useMemo(
 
     const usedQty = numericValue(maintenancePurchaseLinkModal.usedQty);
     const maintenanceQty = numericValue(targetRow.qty);
-    if (usedQty <= 0) return alert("사용수량은 0보다 커야 합니다.");
-    if (usedQty > maintenanceQty) return alert(`정비 수량 ${maintenanceQty}를 초과해 연결할 수 없습니다.`);
-    if (usedQty > candidate.remainingQty) return alert(`이 구매 품목의 남은 연결 가능 수량은 ${candidate.remainingQty}입니다.`);
-
     const editingIdentity = maintenancePurchaseLinkModal.editingLinkId;
     const otherLinksForMaintenanceRow = maintPurchaseLinksDraft.filter((link) =>
       link.maintenance_row_id === targetRow.id && maintenancePurchaseLinkIdentity(link) !== editingIdentity
     );
     const linkedQtyForRow = otherLinksForMaintenanceRow.reduce((sum, link) => sum + numericValue(link.used_qty), 0);
-    if (linkedQtyForRow + usedQty > maintenanceQty) {
-      return alert(`이 정비 품목에 이미 ${linkedQtyForRow}개가 연결되어 있어 ${maintenanceQty}개를 초과할 수 없습니다.`);
+    const quantityValidation = validateMaintenancePurchaseLinkQuantity({
+      usedQty,
+      maintenanceQty,
+      remainingQty: candidate.remainingQty,
+      linkedQtyForMaintenanceRow: linkedQtyForRow,
+    });
+    if (!quantityValidation.valid) {
+      switch (quantityValidation.reason) {
+        case "non-positive-quantity": return alert("사용수량은 0보다 커야 합니다.");
+        case "maintenance-quantity-exceeded": return alert(`정비 수량 ${quantityValidation.maintenanceQty}를 초과해 연결할 수 없습니다.`);
+        case "purchase-remaining-exceeded": return alert(`이 구매 품목의 남은 연결 가능 수량은 ${quantityValidation.remainingQty}입니다.`);
+        case "maintenance-row-quantity-exceeded": return alert(`이 정비 품목에 이미 ${quantityValidation.linkedQty}개가 연결되어 있어 ${quantityValidation.maintenanceQty}개를 초과할 수 없습니다.`);
+      }
     }
 
     const linkedItemName = String(candidate.row.item || targetRow.item || "").trim();
@@ -4227,17 +4197,7 @@ const purchasePriceHistoryMap = useMemo(
     const linkedUnitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
     const nextItems = maintItems.map((row) => {
       if (row.id !== targetRow.id) return row;
-      const supply = numericValue(row.qty) * linkedUnitPrice;
-      const vat = Math.round(supply * 0.1);
-      return {
-        ...row,
-        item: linkedItemName,
-        spec: linkedSpec,
-        price: linkedUnitPrice,
-        supply,
-        vat,
-        total: supply + vat,
-      };
+      return calculateLinkedMaintenanceItem({ ...row, item: linkedItemName, spec: linkedSpec }, linkedUnitPrice);
     });
 
     const nextLink: MaintenancePurchaseLink = {
@@ -4260,7 +4220,7 @@ const purchasePriceHistoryMap = useMemo(
     setMaintItems(nextItems);
     setMaintForm((previous) => ({
       ...previous,
-      cost: String(nextItems.reduce((sum, row) => sum + numericValue(row.total), 0)),
+      cost: String(sumMaintenanceRowTotals(nextItems)),
     }));
     setMaintPurchaseLinksDraft((previous) => {
       const editingId = maintenancePurchaseLinkModal.editingLinkId;
