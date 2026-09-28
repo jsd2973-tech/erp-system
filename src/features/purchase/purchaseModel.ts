@@ -46,6 +46,11 @@ export const fromPurchase = (purchase: Purchase) => ({
 
 export const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
 
+export const numericValue = (value: unknown) => {
+  const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export const toMaintenancePurchaseLink = (value: unknown): MaintenancePurchaseLink => {
   const row = asRecord(value);
   return {
