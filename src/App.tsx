@@ -1,7 +1,7 @@
 import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
+import { Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
@@ -27,8 +27,8 @@ import {
 import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
 import { createPurchaseService } from "./features/purchase/purchaseService";
 import { PurchaseEntryView, PurchasePriceHistoryModal } from "./features/purchase/PurchaseEntry";
+import { MaintenanceEntry } from "./features/maintenance/MaintenanceEntry";
 import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
-import PurchaseMaintenanceModals from "./features/purchase/PurchaseMaintenanceModals";
 import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
 import { buildPurchaseMaintenanceCopyRows } from "./features/purchase/purchaseMaintenanceModel";
 import type {
@@ -39,6 +39,25 @@ import type {
   PurchaseRow,
   PurchaseSearch,
 } from "./features/purchase/purchaseTypes";
+import type { Maint, MaintItem } from "./features/maintenance/maintenanceTypes";
+import {
+  buildMaintenanceEditData,
+  buildMaintenanceSuggestedItems,
+  buildMaintenanceTemplateData,
+  calculateLinkedMaintenanceItem,
+  calculateMaintenanceTotals,
+  createEmptyMaintItem,
+  createMaintenanceItemFromSuggestion,
+  filterMaintenanceTemplateRecords,
+  filterAndSortMaintenances,
+  sumMaintenanceRowTotals,
+  updateMaintenanceItem,
+  validateMaintenancePurchaseLinkQuantity,
+} from "./features/maintenance/maintenanceModel";
+import { validateLinkedPurchaseRowsForEdit } from "./features/maintenance/maintenancePurchaseModel";
+import { createMaintenanceService } from "./features/maintenance/maintenanceService";
+import { createMaintenancePurchaseLinkService } from "./features/maintenance/maintenancePurchaseLinkService";
+import { MaintenanceList, MaintenanceStats } from "./features/maintenance/MaintenanceScreens";
 import {
   buildPurchasePriceHistory,
   getPurchasePriceHistoryKey,
@@ -49,15 +68,13 @@ import {
 
 const purchaseService = createPurchaseService(supabase);
 const cardService = createCardService(supabase);
+const maintenanceService = createMaintenanceService(supabase);
+const maintenancePurchaseLinkService = createMaintenancePurchaseLinkService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
-type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
-  image_url?: string;
-  image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
 type PermitRenewal = {
   id: string;
   company: string;
@@ -965,7 +982,7 @@ function DateInput({
 }
 
 const emptyRow = (): PurchaseRow => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
-const emptyMaintItem = (): MaintItem => ({ id: uid(), item: "", spec: "", qty: "", price: "", supply: 0, vat: 0, total: 0 });
+const emptyMaintItem = (): MaintItem => createEmptyMaintItem(uid());
 
 
 const loginCss = `
@@ -2102,7 +2119,7 @@ export default function App() {
       fetchAllRows("warehouses", "code", 1000),
       fetchAllRows("items", "code", 1000),
       purchaseService.fetchPurchases(),
-      fetchAllRows("maints", "date", 1000, false),
+      maintenanceService.fetchMaintenances(),
       cardService.fetchCardUses(),
       purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
@@ -2677,32 +2694,19 @@ export default function App() {
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
-      const linkedPurchaseRows = maintenancePurchaseLinks.filter((link) => link.purchase_id === payload.id);
-      if (linkedPurchaseRows.length) {
-        const nextRowsById = new Map(payload.rows.map((row) => [String(row.id), row]));
-        const removedLinkedRows = linkedPurchaseRows.filter((link) => !nextRowsById.has(link.purchase_row_id));
-        if (removedLinkedRows.length) {
-          return alert("정비에 연결된 구매 품목은 행을 삭제하거나 새 ID로 바꿀 수 없습니다. 먼저 정비 연결을 해제하세요.");
-        }
-        const usedByRow = new Map<string, number>();
-        linkedPurchaseRows.forEach((link) => {
-          usedByRow.set(link.purchase_row_id, (usedByRow.get(link.purchase_row_id) || 0) + numericValue(link.used_qty));
-        });
-        for (const [rowId, usedQty] of usedByRow.entries()) {
-          const nextRow = nextRowsById.get(rowId);
-          if (nextRow && usedQty > numericValue(nextRow.qty)) {
-            return alert(`${nextRow.item || "구매 품목"}은 정비에 ${usedQty}개가 연결되어 있어 구매수량을 ${usedQty}개보다 적게 줄일 수 없습니다.`);
-          }
-        }
-        const changedLinkedRows = linkedPurchaseRows.filter((link) => {
-          const nextRow = nextRowsById.get(link.purchase_row_id);
-          if (!nextRow) return false;
-          return normalizePurchasePriceText(nextRow.item)
-            !== normalizePurchasePriceText(link.item_name);
-        });
-        if (changedLinkedRows.length) {
-          return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
-        }
+      const linkedPurchaseEditViolation = validateLinkedPurchaseRowsForEdit({
+        purchaseId: payload.id,
+        rows: payload.rows,
+        links: maintenancePurchaseLinks,
+      });
+      if (linkedPurchaseEditViolation?.reason === "linked-row-removed") {
+        return alert("정비에 연결된 구매 품목은 행을 삭제하거나 새 ID로 바꿀 수 없습니다. 먼저 정비 연결을 해제하세요.");
+      }
+      if (linkedPurchaseEditViolation?.reason === "quantity-below-used") {
+        return alert(`${linkedPurchaseEditViolation.itemName}은 정비에 ${linkedPurchaseEditViolation.usedQty}개가 연결되어 있어 구매수량을 ${linkedPurchaseEditViolation.usedQty}개보다 적게 줄일 수 없습니다.`);
+      }
+      if (linkedPurchaseEditViolation?.reason === "item-name-changed") {
+        return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
       }
       const { error } = await purchaseService.savePurchaseRecord(payload);
       if (error) return alert(`구매 저장 실패: ${error.message}`);
@@ -2885,33 +2889,11 @@ export default function App() {
 
 
   const uploadMaintFiles = async (files: FileList | File[]) => {
-    const uploadedUrls: string[] = [];
-    const validFiles = validateAttachmentFiles(files);
-    if (!validFiles) return uploadedUrls;
-
-    for (const file of validFiles) {
-      const isImage = file.type.startsWith("image/");
-      const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = isImage ? "jpg" : getUploadFileExtension(file);
-      const fileName = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
-      });
-
-      if (error) {
-        alert(`정비 첨부 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
-        continue;
-      }
-
-      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
-      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
-    }
-
-    return uploadedUrls;
+    return maintenanceService.uploadAttachments(files, {
+      validateFiles: validateAttachmentFiles,
+      compressImage: compressReceiptImage,
+      getFileExtension: getUploadFileExtension,
+    }, (fileName, message) => alert(`정비 첨부 업로드 실패 (${fileName}): ${message}`));
   };
 
 
@@ -3960,40 +3942,14 @@ export default function App() {
 
 
   const updateMaintItem = (index: number, key: keyof MaintItem, value: any, selectedItem?: Partial<Item>) => {
-    const next = [...maintItems];
-    next[index] = { ...next[index], [key]: value };
-
+    let found: Partial<Item> | undefined;
     if (key === "item") {
       const exactMatches = items.filter((it) => it.name === value);
-      const found = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
-      if (found) {
-        next[index].spec = found.spec || "";
-        next[index].price = found.price || 0;
-      }
+      found = selectedItem || (exactMatches.length === 1 ? exactMatches[0] : undefined);
     }
-
-    if (["item", "qty", "price"].includes(key)) {
-      const qty = Number(next[index].qty || 0);
-      const price = Number(next[index].price || 0);
-      next[index].supply = qty * price;
-      next[index].vat = Math.round(next[index].supply * 0.1);
-      next[index].total = next[index].supply + next[index].vat;
-    }
-
-    if (key === "supply") {
-      next[index].supply = Number(value || 0);
-      next[index].vat = Math.round(next[index].supply * 0.1);
-      next[index].total = next[index].supply + next[index].vat;
-    }
-
-    if (key === "vat") {
-      next[index].vat = Number(value || 0);
-      next[index].total = Number(next[index].supply || 0) + next[index].vat;
-    }
-
+    const next = updateMaintenanceItem(maintItems, index, key, value, found);
     setMaintItems(next);
-    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+    setMaintForm((prev) => ({ ...prev, cost: String(sumMaintenanceRowTotals(next)) }));
   };
 
   const removeMaintItem = (index: number) => {
@@ -4003,28 +3959,18 @@ export default function App() {
     }
     const next = maintItems.length === 1 ? [emptyMaintItem()] : maintItems.filter((_, rowIndex) => rowIndex !== index);
     setMaintItems(next);
-    const total = next.reduce((sum, row) => sum + Number(row.total || 0), 0);
-    setMaintForm((prev) => ({ ...prev, cost: String(total) }));
+    setMaintForm((prev) => ({ ...prev, cost: String(sumMaintenanceRowTotals(next)) }));
   };
 
   const makeMaintItemFromSuggestion = (source: Partial<MaintItem>): MaintItem => {
     const itemName = String(source.item || "").trim();
     const master = items.find((it) => it.name === itemName);
-    const qty = Number(source.qty || 1) || 1;
-    const price = Number(source.price || master?.price || 0);
-    const supply = qty * price;
-    const vat = Math.round(supply * 0.1);
-
-    return {
-      id: uid(),
+    return createMaintenanceItemFromSuggestion({
       item: itemName,
-      spec: String(source.spec || master?.spec || ""),
-      qty,
-      price,
-      supply,
-      vat,
-      total: supply + vat,
-    };
+      spec: source.spec,
+      qty: source.qty,
+      price: source.price,
+    }, master, uid);
   };
 
   const applyMaintItems = (nextItems: MaintItem[]) => {
@@ -4150,10 +4096,7 @@ export default function App() {
       return aValue - bValue;
     });
 
-  const validMaintItems = maintItems.filter((r) => r.item && Number(r.qty || 0) > 0);
-  const maintSupplyTotal = validMaintItems.reduce((sum, r) => sum + Number(r.supply || 0), 0);
-  const maintVatTotal = validMaintItems.reduce((sum, r) => sum + Number(r.vat || 0), 0);
-  const maintGrandTotal = validMaintItems.reduce((sum, r) => sum + Number(r.total || 0), 0);
+  const { validItems: validMaintItems, supplyTotal: maintSupplyTotal, vatTotal: maintVatTotal, total: maintGrandTotal } = calculateMaintenanceTotals(maintItems);
 
   const getRecentPurchaseInfo = (itemName: string) => {
     const keyword = String(itemName || "").trim();
@@ -4208,17 +4151,24 @@ const purchasePriceHistoryMap = useMemo(
 
     const usedQty = numericValue(maintenancePurchaseLinkModal.usedQty);
     const maintenanceQty = numericValue(targetRow.qty);
-    if (usedQty <= 0) return alert("사용수량은 0보다 커야 합니다.");
-    if (usedQty > maintenanceQty) return alert(`정비 수량 ${maintenanceQty}를 초과해 연결할 수 없습니다.`);
-    if (usedQty > candidate.remainingQty) return alert(`이 구매 품목의 남은 연결 가능 수량은 ${candidate.remainingQty}입니다.`);
-
     const editingIdentity = maintenancePurchaseLinkModal.editingLinkId;
     const otherLinksForMaintenanceRow = maintPurchaseLinksDraft.filter((link) =>
       link.maintenance_row_id === targetRow.id && maintenancePurchaseLinkIdentity(link) !== editingIdentity
     );
     const linkedQtyForRow = otherLinksForMaintenanceRow.reduce((sum, link) => sum + numericValue(link.used_qty), 0);
-    if (linkedQtyForRow + usedQty > maintenanceQty) {
-      return alert(`이 정비 품목에 이미 ${linkedQtyForRow}개가 연결되어 있어 ${maintenanceQty}개를 초과할 수 없습니다.`);
+    const quantityValidation = validateMaintenancePurchaseLinkQuantity({
+      usedQty,
+      maintenanceQty,
+      remainingQty: candidate.remainingQty,
+      linkedQtyForMaintenanceRow: linkedQtyForRow,
+    });
+    if (!quantityValidation.valid) {
+      switch (quantityValidation.reason) {
+        case "non-positive-quantity": return alert("사용수량은 0보다 커야 합니다.");
+        case "maintenance-quantity-exceeded": return alert(`정비 수량 ${quantityValidation.maintenanceQty}를 초과해 연결할 수 없습니다.`);
+        case "purchase-remaining-exceeded": return alert(`이 구매 품목의 남은 연결 가능 수량은 ${quantityValidation.remainingQty}입니다.`);
+        case "maintenance-row-quantity-exceeded": return alert(`이 정비 품목에 이미 ${quantityValidation.linkedQty}개가 연결되어 있어 ${quantityValidation.maintenanceQty}개를 초과할 수 없습니다.`);
+      }
     }
 
     const linkedItemName = String(candidate.row.item || targetRow.item || "").trim();
@@ -4227,17 +4177,7 @@ const purchasePriceHistoryMap = useMemo(
     const linkedUnitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
     const nextItems = maintItems.map((row) => {
       if (row.id !== targetRow.id) return row;
-      const supply = numericValue(row.qty) * linkedUnitPrice;
-      const vat = Math.round(supply * 0.1);
-      return {
-        ...row,
-        item: linkedItemName,
-        spec: linkedSpec,
-        price: linkedUnitPrice,
-        supply,
-        vat,
-        total: supply + vat,
-      };
+      return calculateLinkedMaintenanceItem({ ...row, item: linkedItemName, spec: linkedSpec }, linkedUnitPrice);
     });
 
     const nextLink: MaintenancePurchaseLink = {
@@ -4260,7 +4200,7 @@ const purchasePriceHistoryMap = useMemo(
     setMaintItems(nextItems);
     setMaintForm((previous) => ({
       ...previous,
-      cost: String(nextItems.reduce((sum, row) => sum + numericValue(row.total), 0)),
+      cost: String(sumMaintenanceRowTotals(nextItems)),
     }));
     setMaintPurchaseLinksDraft((previous) => {
       const editingId = maintenancePurchaseLinkModal.editingLinkId;
@@ -4279,51 +4219,10 @@ const purchasePriceHistoryMap = useMemo(
   };
 
     const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
-  const maintSuggestedItems = useMemo(() => {
-    if (!maintWarehouseKey) return [];
-
-    const rows = new Map<string, {
-      item: string;
-      spec: string;
-      qty: number;
-      price: number;
-      count: number;
-      lastDate: string;
-    }>();
-
-    maints.forEach((record) => {
-      if (editingMaintId && record.id === editingMaintId) return;
-      const recordWarehouseKey = String(record.warehouse || "").trim().toLowerCase().replace(/\s+/g, "");
-      if (recordWarehouseKey !== maintWarehouseKey) return;
-
-      (record.items || []).forEach((row) => {
-        const itemName = String(row.item || "").trim();
-        if (!itemName) return;
-
-        const prev = rows.get(itemName) || {
-          item: itemName,
-          spec: String(row.spec || ""),
-          qty: Number(row.qty || 1) || 1,
-          price: Number(row.price || 0),
-          count: 0,
-          lastDate: "",
-        };
-
-        prev.count += 1;
-        if (String(record.date || "") >= String(prev.lastDate || "")) {
-          prev.spec = String(row.spec || prev.spec || "");
-          prev.qty = Number(row.qty || prev.qty || 1) || 1;
-          prev.price = Number(row.price || prev.price || 0);
-          prev.lastDate = String(record.date || "");
-        }
-
-        rows.set(itemName, prev);
-      });
-    });
-
-    return Array.from(rows.values())
-      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
-  }, [maints, maintWarehouseKey, editingMaintId]);
+  const maintSuggestedItems = useMemo(
+    () => buildMaintenanceSuggestedItems(maints, maintWarehouseKey, editingMaintId),
+    [maints, maintWarehouseKey, editingMaintId],
+  );
 
   const visibleMaintSuggestedItems = showAllMaintSuggestions ? maintSuggestedItems : maintSuggestedItems.slice(0, 8);
 
@@ -4332,66 +4231,24 @@ const purchasePriceHistoryMap = useMemo(
   }, [maintWarehouseKey]);
 
 
-  const maintTemplateRecords = useMemo(() => {
-    const keyword = maintTemplateSearch.trim().toLowerCase();
-
-    return [...maints]
-      .filter((record) => !editingMaintId || record.id !== editingMaintId)
-      .filter((record) => {
-        if (!keyword) return true;
-
-        const target = [
-          record.date,
-          record.warehouse,
-          record.manager,
-          record.title,
-          record.detail,
-          ...(record.items || []).map((item) => `${item.item || ""} ${item.spec || ""}`),
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return target.includes(keyword);
-      })
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-      .slice(0, 50);
-  }, [maints, maintTemplateSearch, editingMaintId]);
+  const maintTemplateRecords = useMemo(
+    () => filterMaintenanceTemplateRecords(maints, maintTemplateSearch, editingMaintId),
+    [maints, maintTemplateSearch, editingMaintId],
+  );
 
   const applyMaintTemplate = (record: Maint) => {
-    const copiedItems = (record.items || [])
-      .filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total)
-      .map((row) => {
-        const qty = Number(row.qty || 0);
-        const price = Number(row.price || 0);
-        const supply = Number(row.supply || qty * price || 0);
-        const vat = Number(row.vat || Math.round(supply * 0.1) || 0);
-        const total = Number(row.total || supply + vat || 0);
-
-        return {
-          ...row,
-          id: uid(),
-          qty: row.qty || "",
-          price: row.price || "",
-          supply,
-          vat,
-          total,
-        };
-      });
-
-    const nextItems = copiedItems.length ? copiedItems : [emptyMaintItem()];
-    const nextTotal = nextItems.reduce((sum, row) => sum + Number(row.total || 0), 0);
-
+    const next = buildMaintenanceTemplateData(record, uid);
     setMaintForm((prev) => ({
       ...prev,
       warehouse: record.warehouse || prev.warehouse,
       title: record.title || "",
       detail: record.detail || "",
-      cost: String(nextTotal),
+      cost: String(next.total),
       date: prev.date,
       manager: prev.manager,
       image_urls: prev.image_urls || [],
     }));
-    setMaintItems(nextItems);
+    setMaintItems(next.items);
     setMaintTemplateOpen(false);
     setMaintTemplateSearch("");
   };
@@ -4478,107 +4335,41 @@ const purchasePriceHistoryMap = useMemo(
 
   const syncMaintenancePurchaseLinks = async (maintenanceId: string, nextLinks: MaintenancePurchaseLink[]) => {
     const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
-    const validLinkRows = nextLinks.map((link) => {
-      const row: Record<string, any> = {
-        maintenance_id: maintenanceId,
-        maintenance_row_id: link.maintenance_row_id,
-        purchase_id: link.purchase_id,
-        purchase_row_id: link.purchase_row_id,
-        item_name: link.item_name,
-        spec: link.spec,
-        used_qty: numericValue(link.used_qty),
-        unit_price_snapshot: numericValue(link.unit_price_snapshot),
-        purchase_date_snapshot: link.purchase_date_snapshot,
-        vendor_snapshot: link.vendor_snapshot,
-        maintenance_date_snapshot: link.maintenance_date_snapshot,
-        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-        maintenance_title_snapshot: link.maintenance_title_snapshot,
-      };
-      if (link.id) row.id = link.id;
-      if (link.created_by) row.created_by = link.created_by;
-      if (link.created_at) row.created_at = link.created_at;
-      return row;
-    });
-
-    const { error: deleteError } = await supabase
-      .from("maintenance_purchase_links")
-      .delete()
-      .eq("maintenance_id", maintenanceId);
-    if (deleteError) {
-      alert(`정비 구매연결을 갱신하지 못했습니다: ${deleteError.message}`);
+    const syncResult = await maintenancePurchaseLinkService.replaceForMaintenance(maintenanceId, nextLinks, previousLinks);
+    if (syncResult.error) {
+      const message = syncResult.stage === "delete"
+        ? "정비 구매연결을 갱신하지 못했습니다: " + syncResult.error.message
+        : "정비 구매연결 저장에 실패했습니다: " + syncResult.error.message;
+      alert(message);
       return false;
-    }
-
-    let savedLinks: MaintenancePurchaseLink[] = [];
-    if (validLinkRows.length) {
-      const { data, error: insertError } = await supabase
-        .from("maintenance_purchase_links")
-        .insert(validLinkRows)
-        .select("*");
-
-      if (insertError) {
-        if (previousLinks.length) {
-          const rollbackRows = previousLinks.map((link) => ({
-            id: link.id,
-            maintenance_id: link.maintenance_id,
-            maintenance_row_id: link.maintenance_row_id,
-            purchase_id: link.purchase_id,
-            purchase_row_id: link.purchase_row_id,
-            item_name: link.item_name,
-            spec: link.spec,
-            used_qty: link.used_qty,
-            unit_price_snapshot: link.unit_price_snapshot,
-            purchase_date_snapshot: link.purchase_date_snapshot,
-            vendor_snapshot: link.vendor_snapshot,
-            maintenance_date_snapshot: link.maintenance_date_snapshot,
-            maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-            maintenance_title_snapshot: link.maintenance_title_snapshot,
-            created_by: link.created_by,
-            created_at: link.created_at,
-          }));
-          await supabase.from("maintenance_purchase_links").insert(rollbackRows);
-        }
-        alert(`정비 구매연결 저장에 실패했습니다: ${insertError.message}`);
-        return false;
-      }
-
-      savedLinks = ((data || validLinkRows) as any[]).map(toMaintenancePurchaseLink);
     }
 
     setMaintenancePurchaseLinks((previous) => [
       ...previous.filter((link) => link.maintenance_id !== maintenanceId),
-      ...savedLinks,
+      ...syncResult.savedLinks,
     ]);
 
-    const previousSignature = previousLinks
-      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
-      .sort()
-      .join("|");
-    const nextSignature = savedLinks
-      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
-      .sort()
-      .join("|");
-    if (previousSignature !== nextSignature) {
-      const previousKeys = new Set(previousLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const nextKeys = new Set(savedLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const added = savedLinks.filter((link) => !previousKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const removed = previousLinks.filter((link) => !nextKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      if (added.length) {
+    if (syncResult.changed) {
+      if (syncResult.added.length) {
         await addActivityLog({
           module: "정비",
           action: "구매품목 연결",
           target_id: maintenanceId,
-          target_title: added.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
-          detail: added.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+          target_title: syncResult.added.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: syncResult.added.map((link) =>
+            (link.vendor_snapshot || "거래처 미입력") + " · " + (link.item_name || "품목") + " · " + link.used_qty + " 사용"
+          ).join(" / "),
         });
       }
-      if (removed.length) {
+      if (syncResult.removed.length) {
         await addActivityLog({
           module: "정비",
           action: "구매품목 연결 해제",
           target_id: maintenanceId,
-          target_title: removed.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
-          detail: removed.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+          target_title: syncResult.removed.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: syncResult.removed.map((link) =>
+            (link.vendor_snapshot || "거래처 미입력") + " · " + (link.item_name || "품목") + " · " + link.used_qty + " 사용"
+          ).join(" / "),
         });
       }
     }
@@ -4683,7 +4474,7 @@ const purchasePriceHistoryMap = useMemo(
         cost: Number(maintGrandTotal || maintForm.cost || 0),
       };
 
-      const { error } = await supabase.from("maints").upsert(payload);
+      const { error } = await maintenanceService.saveMaintenance(payload);
       if (error) {
         const message = `정비 저장 실패: ${error.message}`;
         setMaintSaveError(message);
@@ -4726,13 +4517,14 @@ const purchasePriceHistoryMap = useMemo(
     }
   };
   const editMaint = (m: Maint) => {
+    const editData = buildMaintenanceEditData(m, uid);
     setMenuTab("maint_new");
     setMaintSaveError("");
     clearMaintDraft();
     setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
-    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
-    setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: String(r.id || uid()) })));
+    setMaintForm(editData.form);
+    setMaintItems(editData.items);
     setMaintPurchaseLinksDraft(maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id));
   };
 
@@ -4876,10 +4668,7 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = maints.find((item) => item.id === id);
     if (!target) return alert("삭제할 정비내역을 찾지 못했습니다.");
-    const { data: linkedRows, error: linkedRowsError } = await supabase
-      .from("maintenance_purchase_links")
-      .select("*")
-      .eq("maintenance_id", id);
+    const { data: linkedRows, error: linkedRowsError } = await maintenancePurchaseLinkService.fetchForMaintenance(id);
     if (linkedRowsError) return alert(`정비 구매연결 확인 실패: ${linkedRowsError.message}`);
     if (!confirm("정비내역을 휴지통으로 이동할까요?")) return;
 
@@ -4897,17 +4686,14 @@ const purchasePriceHistoryMap = useMemo(
     if (!ok) return;
 
     if ((linkedRows || []).length) {
-      const { error: linkDeleteError } = await supabase
-        .from("maintenance_purchase_links")
-        .delete()
-        .eq("maintenance_id", id);
+      const { error: linkDeleteError } = await maintenancePurchaseLinkService.deleteForMaintenance(id);
       if (linkDeleteError) return alert(`정비 구매연결 삭제 실패: ${linkDeleteError.message}`);
     }
 
-    const { error } = await supabase.from("maints").delete().eq("id", id);
+    const { error } = await maintenanceService.deleteMaintenance(id);
     if (error) {
       if ((linkedRows || []).length) {
-        await supabase.from("maintenance_purchase_links").insert(linkedRows);
+        await maintenancePurchaseLinkService.restoreRawLinks(linkedRows || []);
       }
       return alert(`정비 삭제 실패: ${error.message}`);
     }
@@ -4922,13 +4708,7 @@ const purchasePriceHistoryMap = useMemo(
     });
   };
 
-  const filteredMaints = maints
-    .filter((m) => (!maintSearch.from || (m.date || "") >= maintSearch.from) && (!maintSearch.to || (m.date || "") <= maintSearch.to) && (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)))
-    .sort((a, b) => {
-      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
-      if (dateCompare !== 0) return dateCompare;
-      return String(b.id || "").localeCompare(String(a.id || ""));
-    });
+  const filteredMaints = filterAndSortMaintenances(maints, maintSearch);
 
   const filteredActivityLogs = activityLogs.filter((log) => {
     const moduleOk = !activityLogSearch.module || log.module === activityLogSearch.module;
@@ -5196,31 +4976,15 @@ const purchasePriceHistoryMap = useMemo(
       : [];
     if (restoreData && typeof restoreData === "object") delete restoreData.__maintenance_purchase_links;
 
-    const { error: restoreError } = await supabase.from(record.source_table).upsert(restoreData);
+    const { error: restoreError } = record.source_table === "maints"
+      ? await maintenanceService.restoreMaintenance(restoreData)
+      : await supabase.from(record.source_table).upsert(restoreData);
     if (restoreError) return alert(`복구 실패: ${restoreError.message}`);
 
     if (record.source_table === "maints" && maintenanceLinks.length) {
-      const restoreRows = maintenanceLinks.map((link) => ({
-        id: link.id,
-        maintenance_id: record.record_id,
-        maintenance_row_id: link.maintenance_row_id,
-        purchase_id: link.purchase_id,
-        purchase_row_id: link.purchase_row_id,
-        item_name: link.item_name,
-        spec: link.spec,
-        used_qty: link.used_qty,
-        unit_price_snapshot: link.unit_price_snapshot,
-        purchase_date_snapshot: link.purchase_date_snapshot,
-        vendor_snapshot: link.vendor_snapshot,
-        maintenance_date_snapshot: link.maintenance_date_snapshot,
-        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-        maintenance_title_snapshot: link.maintenance_title_snapshot,
-        created_by: link.created_by,
-        created_at: link.created_at,
-      }));
-      const { error: linkRestoreError } = await supabase.from("maintenance_purchase_links").insert(restoreRows);
+      const { error: linkRestoreError } = await maintenancePurchaseLinkService.restoreMaintenanceLinks(record.record_id, maintenanceLinks);
       if (linkRestoreError) {
-        await supabase.from(record.source_table).delete().eq("id", record.record_id);
+        await maintenanceService.deleteMaintenance(record.record_id);
         return alert(`정비는 복구되었지만 구매연결 복구에 실패했습니다: ${linkRestoreError.message}`);
       }
     }
@@ -7524,352 +7288,106 @@ const purchasePriceHistoryMap = useMemo(
         )}
 
         {menuTab === "maint_new" && (
-          <section className="card">
-            <div className="between">
-              <h2>{editingMaintId ? "정비 수정" : "정비 등록"}</h2>
-              <button onClick={() => setMaintTemplateOpen((value) => !value)}>이전 작업 불러오기</button>
-            </div>
-
-            {maintTemplateOpen && (
-              <div className="subcard" style={{ marginBottom: 14 }}>
-                <div className="between">
-                  <strong>이전 정비작업 선택</strong>
-                  <input
-                    style={{ maxWidth: 320 }}
-                    value={maintTemplateSearch}
-                    onChange={(e) => setMaintTemplateSearch(e.target.value)}
-                    placeholder="작업명/창고/품목 검색"
-                  />
-                </div>
-                <ScrollTable>
-                  <table>
-                    <thead>
-                      <tr><th>정비일자</th><th>창고</th><th>정비제목</th><th>품목</th><th>합계</th><th>불러오기</th></tr>
-                    </thead>
-                    <tbody>
-                      {!maintTemplateRecords.length ? (
-                        <tr><td colSpan={6} className="empty">불러올 정비 이력이 없습니다.</td></tr>
-                      ) : maintTemplateRecords.map((record) => (
-                        <tr key={`maint-template-${record.id}`}>
-                          <td>{record.date || "-"}</td>
-                          <td>{record.warehouse || "-"}</td>
-                          <td className="bold">{record.title || "-"}</td>
-                          <td>{(record.items || []).map((item) => item.item).filter(Boolean).slice(0, 3).join(", ") || "-"}</td>
-                          <td className="right bold">{money(record.total || record.cost || 0)}</td>
-                          <td><button className="primary" onClick={() => applyMaintTemplate(record)}>선택</button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </ScrollTable>
-                <p className="draft-help-text">날짜, 작업자, 사진은 복사하지 않고 제목/내용/창고/품목/수량/단가만 현재 정비등록에 채웁니다.</p>
-              </div>
-            )}
-
-            <div className="grid3">
-              <Field label="정비일자" required>
-                <DateInput
-                  value={maintForm.date || getTodayKey()}
-                  onChange={(value) => setMaintForm({ ...maintForm, date: value })}
-                  placeholder="20260519 또는 260519"
-                  ariaLabel="정비일자 선택"
-                />
-              </Field>
-              <SearchSelect testId="maintenance-warehouse" label="창고" required value={maintForm.warehouse} options={warehouseNames} onChange={(v) => setMaintForm({ ...maintForm, warehouse: v })} placeholder="창고 선택/검색" />
-              <Field label="작업자">
-                <input value={maintForm.manager} onChange={(e) => setMaintForm({ ...maintForm, manager: e.target.value })} />
-              </Field>
-              <Field label="정비제목" required>
-                <input data-testid="maintenance-title" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} />
-              </Field>
-              <Field label="정비내용">
-                <textarea className="maint-detail-input" rows={3} value={maintForm.detail} onChange={(e) => setMaintForm({ ...maintForm, detail: e.target.value })} placeholder="정비 작업내용을 입력하세요" />
-              </Field>
-              <Field label="정비비용">
-                <input value={maintForm.cost} readOnly />
-              </Field>
-            </div>
-
-            <div className="maint-suggest-box">
-                <div className="maint-suggest-head">
-                  <div>
-                    <strong>
-                      창고 추천 품목
-                      {!!maintWarehouseKey && <em>{maintSuggestedItems.length}개</em>}
-                    </strong>
-                    <span>
-                      {!maintWarehouseKey
-                        ? "창고를 선택하면 해당 창고의 과거 정비 사용품목을 보여줍니다."
-                        : maintSuggestedItems.length
-                          ? `"${maintForm.warehouse}"에서 자주 사용된 품목입니다.`
-                          : `"${maintForm.warehouse}"의 기존 정비 이력에 등록된 사용품목이 없습니다.`}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {!!maintWarehouseKey && (
-                      <button type="button" className="primary" onClick={openMaintenancePurchaseCopyModal}>
-                        구매내역에서 품목 추가
-                      </button>
-                    )}
-                    {!!maintSuggestedItems.length && (
-                      <button type="button" className="primary" onClick={() => addMaintSuggestedItems(maintSuggestedItems)}>
-                        추천 품목 전체 추가
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {!!maintSuggestedItems.length && (
-                  <>
-                    <div className="maint-suggest-chips">
-                      {visibleMaintSuggestedItems.map((item) => (
-                        <button key={item.item} onClick={() => addMaintSuggestedItems([item])}>
-                          <b>{item.item}</b>
-                          <span>{item.count}회 사용</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {maintSuggestedItems.length > 8 && (
-                      <div className="maint-suggest-more">
-                        <button onClick={() => setShowAllMaintSuggestions((value) => !value)}>
-                          {showAllMaintSuggestions ? "접기" : `더보기 ${maintSuggestedItems.length - 8}개`}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {!maintSuggestedItems.length && (
-                  <div className="maint-suggest-empty">
-                    {maintWarehouseKey ? "이 창고의 첫 정비 품목을 등록하면 다음부터 자동 추천됩니다." : "먼저 위에서 창고를 선택하세요."}
-                  </div>
-                )}
-              </div>
-
-            <h3>사용 품목</h3>
-            <div className="table-wrap entry-desktop-table">
-              <table>
-                <colgroup>
-                  <col style={{ width: "42%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "7%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "9%" }} />
-                  <col style={{ width: "9%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "7%" }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>품목</th>
-                    <th>규격</th>
-                    <th>수량</th>
-                    <th>단가</th>
-                    <th>공급가액</th>
-                    <th>부가세</th>
-                    <th>합계</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {maintItems.map((r, i) => {
-                    const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
-                    const linkedPurchaseRows = maintPurchaseLinksDraft.filter((link) => link.maintenance_row_id === r.id);
-
-                    return (
-                      <tr key={r.id}>
-                        <td>
-                          <div className="maintenance-item-editor">
-                            <SearchSelect
-                              testId={`maintenance-item-search-${i}`}
-                              value={r.item}
-                              options={itemOptions}
-                              onChange={(v) => updateMaintItem(i, "item", v)}
-                              onSelect={(option) => updateMaintItem(i, "item", option.name || option.value, option)}
-                              placeholder="품목 검색"
-                              variant="item"
-                            />
-                            <input
-                              value={r.item}
-                              onChange={(e) => updateMaintItem(i, "item", e.target.value)}
-                              placeholder="품목명 직접수정"
-                            />
-                          </div>
-                          {recentPurchaseInfo && (
-                            <div style={{ marginTop: 6, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
-                              최근구매: {recentPurchaseInfo.date || "-"} / {recentPurchaseInfo.vendor || "거래처 미입력"} / 단가 {money(recentPurchaseInfo.price)}원
-                            </div>
-                          )}
-                          <div className="maintenance-purchase-link-editor">
-                            <button type="button" data-testid="maintenance-purchase-link" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
-                            {linkedPurchaseRows.map((link) => (
-                              <span key={maintenancePurchaseLinkIdentity(link)}>
-                                {link.vendor_snapshot || "거래처 미입력"} · {link.purchase_date_snapshot || "-"} · {money(link.unit_price_snapshot)}원 · {link.used_qty} 사용
-                                <button type="button" onClick={() => openMaintPurchaseLinkModal(r, link)}>수정</button>
-                                <button type="button" onClick={() => removeMaintPurchaseLink(link)}>해제</button>
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td><input data-testid={`maintenance-spec-${i}`} value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} /></td>
-                        <td><input data-testid={`maintenance-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} /></td>
-                        <td><input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} /></td>
-                        <td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} /></td>
-                        <td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} /></td>
-                        <td className="right bold">{money(r.total)}</td>
-                        <td>
-                          <button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removeMaintItem(i)}>
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mobile-entry-item-list" aria-label="정비 사용 품목 입력">
-              {maintItems.map((r, i) => {
-                const recentPurchaseInfo = getRecentPurchaseInfo(String(r.item || ""));
-                const linkedPurchaseRows = maintPurchaseLinksDraft.filter((link) => link.maintenance_row_id === r.id);
-
-                return (
-                  <div className="mobile-entry-item-card maintenance" key={`mobile-maint-${r.id}`}>
-                    <div className="mobile-entry-item-head">
-                      <div><span>정비 품목</span><b>{i + 1}</b></div>
-                      <button type="button" className="mobile-entry-delete" onClick={() => removeMaintItem(i)} aria-label={`${i + 1}번 정비 품목 삭제`}><Trash2 size={16} /> 삭제</button>
-                    </div>
-
-                    <SearchSelect
-                      label="품목"
-                      value={r.item}
-                      options={itemOptions}
-                      onChange={(value) => updateMaintItem(i, "item", value)}
-                      onSelect={(option) => updateMaintItem(i, "item", option.name || option.value, option)}
-                      placeholder="품목명 검색"
-                      variant="item"
-                    />
-
-                    <Field label="품목명 직접수정">
-                      <input value={r.item} onChange={(e) => updateMaintItem(i, "item", e.target.value)} placeholder="이번 정비에서 사용할 품목명" />
-                    </Field>
-
-                    {recentPurchaseInfo && (
-                      <div className="mobile-entry-recent">
-                        <span>최근 구매</span>
-                        <b>{recentPurchaseInfo.date || "-"} · {recentPurchaseInfo.vendor || "거래처 미입력"}</b>
-                        <em>단가 {money(recentPurchaseInfo.price)}원</em>
-                      </div>
-                    )}
-
-                    <div className="maintenance-purchase-link-editor mobile">
-                      <button type="button" onClick={() => openMaintPurchaseLinkModal(r)}>구매이력 연결</button>
-                      {linkedPurchaseRows.map((link) => (
-                        <span key={maintenancePurchaseLinkIdentity(link)}>
-                          {link.vendor_snapshot || "거래처 미입력"} · {link.purchase_date_snapshot || "-"} · {money(link.unit_price_snapshot)}원 · {link.used_qty} 사용
-                          <button type="button" onClick={() => openMaintPurchaseLinkModal(r, link)}>수정</button>
-                          <button type="button" onClick={() => removeMaintPurchaseLink(link)}>해제</button>
-                        </span>
-                      ))}
-                    </div>
-
-                    <Field label="규격">
-                      <input value={r.spec} onChange={(e) => updateMaintItem(i, "spec", e.target.value)} placeholder="규격 입력" />
-                    </Field>
-
-                    <div className="mobile-entry-grid">
-                      <Field label="수량">
-                        <input className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateMaintItem(i, "qty", e.target.value)} placeholder="0" />
-                      </Field>
-                      <Field label="단가">
-                        <input className="right" inputMode="decimal" value={r.price} onChange={(e) => updateMaintItem(i, "price", e.target.value)} placeholder="0" />
-                      </Field>
-                      <Field label="공급가액">
-                        <input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateMaintItem(i, "supply", e.target.value)} placeholder="0" />
-                      </Field>
-                      <Field label="부가세">
-                        <input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateMaintItem(i, "vat", e.target.value)} placeholder="0" />
-                      </Field>
-                    </div>
-
-                    <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="maintenance-entry-footer">
-              <div className="maintenance-entry-support">
-                <button className="maintenance-add-item-button" onClick={() => setMaintItems([...maintItems, emptyMaintItem()])}><Plus size={16} /> 품목 추가</button>
-                <div className="maintenance-upload-panel">
-                  <strong>정비 첨부파일</strong>
-                  <p>사진 20MB · PDF 30MB · 음성 50MB 이하, 한 번에 최대 20개입니다.</p>
-                  <label className={`upload${maintUploading ? " upload-busy" : ""}`} aria-disabled={maintUploading}>
-                    <Upload size={16} /> {maintUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
-                      multiple
-                      disabled={maintUploading}
-                      onChange={async (e) => {
-                        const input = e.currentTarget;
-                        const files = e.target.files;
-                        if (!files?.length) return;
-                        setMaintUploading(true);
-                        try {
-                          const urls = await uploadMaintFiles(files);
-                          setMaintForm((prev) => ({
-                            ...prev,
-                            image_urls: [...(prev.image_urls || []), ...urls],
-                          }));
-                        } finally {
-                          input.value = "";
-                          setMaintUploading(false);
-                        }
-                      }}
-                    />
-                  </label>
-                  <div className="receipt-preview">
-                    {(maintForm.image_urls || []).length ? (
-                      <AttachmentGroup
-                        urls={maintForm.image_urls || []}
-                        onRemove={(removeIndex) => setMaintForm((prev) => ({
-                          ...prev,
-                          image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
-                        }))}
-                      />
-                    ) : (
-                      <span>첨부파일 없음</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="totals maintenance-entry-summary">
-                <span>정비금액 요약</span>
-                <div>공급가액 합계 <b>{money(maintSupplyTotal)}원</b></div>
-                <div>부가세액 합계 <b>{money(maintVatTotal)}원</b></div>
-                <div className="big"><em>총합</em><strong>{money(maintGrandTotal)}원</strong></div>
-              </div>
-            </div>
-
-            {maintSaveError && <div className="save-error-box">{maintSaveError}</div>}
-
-            <div className="actions right-actions entry-actions">
-              <button data-testid="maintenance-save" className="primary" disabled={maintSaving || maintUploading} onClick={saveMaint}>
-                <Save size={16} /> {maintUploading ? "업로드 중..." : maintSaving ? "저장 중..." : editingMaintId ? "수정 저장" : "저장"}
-              </button>
-              <button disabled={maintSaving || maintUploading} onClick={resetMaintForm}><RotateCcw size={16} /> 초기화</button>
-            </div>
-            <p className="draft-help-text">작성 중인 정비등록 내용은 자동 임시저장됩니다. 저장 실패나 메뉴 이동 후에도 다시 정비등록에 들어오면 복원됩니다.</p>
-          </section>
+          <MaintenanceEntry
+            model={{
+              form: {
+                value: maintForm,
+                setValue: setMaintForm,
+                editingId: editingMaintId,
+                saving: maintSaving,
+                uploading: maintUploading,
+                saveError: maintSaveError,
+                onSave: saveMaint,
+                onReset: resetMaintForm,
+              },
+              items: {
+                rows: maintItems,
+                update: updateMaintItem,
+                remove: removeMaintItem,
+                add: () => setMaintItems([...maintItems, emptyMaintItem()]),
+                supplyTotal: maintSupplyTotal,
+                vatTotal: maintVatTotal,
+                grandTotal: maintGrandTotal,
+              },
+              suggestions: {
+                warehouseKey: maintWarehouseKey,
+                all: maintSuggestedItems,
+                visible: visibleMaintSuggestedItems,
+                showAll: showAllMaintSuggestions,
+                setShowAll: setShowAllMaintSuggestions,
+                onOpenPurchaseCopy: openMaintenancePurchaseCopyModal,
+                onAdd: addMaintSuggestedItems,
+              },
+              templates: {
+                open: maintTemplateOpen,
+                setOpen: setMaintTemplateOpen,
+                search: maintTemplateSearch,
+                setSearch: setMaintTemplateSearch,
+                records: maintTemplateRecords,
+                onApply: applyMaintTemplate,
+              },
+              purchaseLinks: {
+                drafts: maintPurchaseLinksDraft,
+                onOpen: openMaintPurchaseLinkModal,
+                onRemove: removeMaintPurchaseLink,
+                modals: {
+                  copy: {
+                    state: maintenancePurchaseCopyModal,
+                    warehouse: maintForm.warehouse,
+                    maintenanceDate: maintForm.date || getTodayKey(),
+                    candidates: maintenancePurchaseCopyCandidates,
+                    onClose: purchaseMaintenanceUi.closeCopyModal,
+                    onSearchChange: purchaseMaintenanceUi.setCopySearch,
+                    onToggleCandidate: purchaseMaintenanceUi.toggleCopyCandidate,
+                    onConfirm: copySelectedPurchaseItemsToMaintenance,
+                  },
+                  link: {
+                    state: maintenancePurchaseLinkModal,
+                    targetRow: activeMaintenanceLinkRow,
+                    candidates: maintenancePurchaseLinkCandidates,
+                    onClose: closeMaintPurchaseLinkModal,
+                    onSearchChange: purchaseMaintenanceUi.setLinkSearch,
+                    onSelectCandidate: purchaseMaintenanceUi.selectLinkCandidate,
+                    onUsedQtyChange: purchaseMaintenanceUi.setUsedQty,
+                    onConfirm: applyMaintPurchaseLink,
+                  },
+                  formatMoney: money,
+                },
+              },
+              attachments: {
+                setUploading: setMaintUploading,
+                uploadFiles: uploadMaintFiles,
+              },
+              catalog: {
+                warehouseNames,
+                itemOptions,
+                getRecentPurchaseInfo,
+              },
+              todayKey: getTodayKey(),
+            }}
+            ui={{ Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money }}
+          />
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} purchases={purchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={canEditDeleteRecords} onLinkPhoto={openMaintPhotoPicker} />}
+        {menuTab === "maint_list" && (
+          <MaintenanceList
+            model={{
+              maints: filteredMaints,
+              purchases,
+              maintenancePurchaseLinks,
+              search: { ...maintSearch, warehouseNames },
+              setSearch: setMaintSearch,
+              editMaint,
+              deleteMaint,
+              setMenuTab,
+              isAdmin: canEditDeleteRecords,
+              onLinkPhoto: openMaintPhotoPicker,
+            }}
+            ui={purchaseScreensUi}
+          />
+        )}
 
-        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
+        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} ui={purchaseScreensUi} />}
 
         {menuTab === "maintenance_schedule_new" && (
           <section className="maintenance-schedule-pro-page">
@@ -8029,30 +7547,6 @@ const purchasePriceHistoryMap = useMemo(
             </div>
           </div>
         )}
-
-        <PurchaseMaintenanceModals
-          copy={{
-            state: maintenancePurchaseCopyModal,
-            warehouse: maintForm.warehouse,
-            maintenanceDate: maintForm.date || getTodayKey(),
-            candidates: maintenancePurchaseCopyCandidates,
-            onClose: purchaseMaintenanceUi.closeCopyModal,
-            onSearchChange: purchaseMaintenanceUi.setCopySearch,
-            onToggleCandidate: purchaseMaintenanceUi.toggleCopyCandidate,
-            onConfirm: copySelectedPurchaseItemsToMaintenance,
-          }}
-          link={{
-            state: maintenancePurchaseLinkModal,
-            targetRow: activeMaintenanceLinkRow,
-            candidates: maintenancePurchaseLinkCandidates,
-            onClose: closeMaintPurchaseLinkModal,
-            onSearchChange: purchaseMaintenanceUi.setLinkSearch,
-            onSelectCandidate: purchaseMaintenanceUi.selectLinkCandidate,
-            onUsedQtyChange: purchaseMaintenanceUi.setUsedQty,
-            onConfirm: applyMaintPurchaseLink,
-          }}
-          formatMoney={money}
-        />
 
         {photoLinkModal.mode && (
           <div className="photo-link-modal-backdrop" onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>
@@ -8458,255 +7952,6 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
     </section>
   );
 }
-
-
-
-function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
-  const [selected, setSelected] = useState<Maint | null>(null);
-
-  const maintNoMap = useMemo(() => {
-    const dateCounts = new Map<string, number>();
-    const orderedByOldest = [...maints].sort((a, b) => {
-      const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
-      if (dateCompare !== 0) return dateCompare;
-      return String(a.id || "").localeCompare(String(b.id || ""));
-    });
-
-    orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
-      const nextNo = (dateCounts.get(date) || 0) + 1;
-      dateCounts.set(date, nextNo);
-    });
-
-    const running = new Map<string, number>();
-    const map = new Map<string, string>();
-
-    orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
-      const nextNo = (running.get(date) || 0) + 1;
-      running.set(date, nextNo);
-      const displayDate = date === "날짜없음" ? "날짜없음" : date;
-      map.set(m.id, `${displayDate}-${String(nextNo).padStart(2, "0")}`);
-    });
-
-    return map;
-  }, [maints]);
-
-  return (
-    <section className="card lookup-page maint-lookup-page">
-      <div className="between" style={{marginBottom:16}}>
-        <h2 style={{margin:0}}>정비조회</h2>
-        <div style={{display:"flex", gap:8}}>
-          <button onClick={() => downloadExcel(`정비조회_${todayText()}`, withTotalRow(
-            maints.map((m: Maint) => {
-              const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-              const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-              const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
-            }),
-            {
-              관리번호: "총합계",
-              공급가액: maints.reduce((sum: number, m: Maint) => sum + Number(m.supplyTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.supply || 0), 0)), 0),
-              부가세: maints.reduce((sum: number, m: Maint) => sum + Number(m.vatTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.vat || 0), 0)), 0),
-              합계: maints.reduce((sum: number, m: Maint) => sum + Number(m.total || m.cost || (m.items || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0)), 0)
-            }
-          ))}>엑셀 다운로드</button>
-          <button className="primary" onClick={() => setMenuTab("maint_new")}>
-            <Plus size={16} /> 정비등록
-          </button>
-        </div>
-      </div>
-
-      <div className="maint-filter">
-        <Field label="시작일">
-          <DateInput value={search.from || ""} onChange={(value) => setSearch({ ...search, from: value })} />
-        </Field>
-        <Field label="종료일">
-          <DateInput value={search.to || ""} onChange={(value) => setSearch({ ...search, to: value })} />
-        </Field>
-        <Field label="창고">
-          <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
-        </Field>
-        <Field label="제목/내용/작업자">
-          <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
-        </Field>
-        <Field label="초기화">
-          <button onClick={() => setSearch({ ...search, from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
-        </Field>
-      </div>
-
-      <ScrollTable>
-        <table className="maint-lookup-table">
-          <thead>
-            <tr>
-              <th>관리번호</th>
-              <th>창고</th>
-              <th>작업자</th>
-              <th>제목</th>
-              <th>내용</th>
-              <th>공급가액</th>
-              <th>부가세</th>
-              <th>합계</th>
-              <th>구매연결</th>
-              <th>첨부</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!maints.length ? (
-              <tr><td colSpan={11} className="empty">저장된 정비내역 없음</td></tr>
-            ) : (
-              maints.map((m: Maint) => {
-                const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-                const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-                const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-                return (
-                  <tr key={m.id}>
-                    <td>{maintNoMap.get(m.id) || "-"}</td>
-                    <td>{m.warehouse}</td>
-                    <td>{m.manager || "-"}</td>
-                    <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
-                    <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
-                    <td className="right">{money(supply)}</td>
-                    <td className="right">{money(vat)}</td>
-                    <td className="right bold">{money(total)}</td>
-                    <td>{links.length ? <span className="maintenance-link-badge">연결됨</span> : "-"}</td>
-                    <td>
-                      <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
-                    </td>
-                    <td>
-                      {isAdmin ? <>
-                        <button className="icon" onClick={() => onLinkPhoto(m)}>사진</button>
-                        <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
-                        <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
-                      </> : "-"}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </ScrollTable>
-      <div className="mobile-card-list mobile-card-list-maints">
-        {maints.map((m: Maint, index: number) => {
-          const sameDateBeforeCount = maints
-            .slice(0, index)
-            .filter((x: Maint) => x.date === m.date).length;
-          const seq = sameDateBeforeCount + 1;
-
-          const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-          const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-          const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-          const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-          return (
-            <div className="mobile-list-card" key={m.id}>
-              <div className="mobile-list-top">
-                <b>{`${m.date || ""}-${String(seq).padStart(2, "0")}`}</b>
-                <span>{money(total)}원</span>
-              </div>
-
-              <div className="mobile-list-body">
-                <div><label>창고</label><p>{m.warehouse}</p></div>
-                <div><label>작업자</label><p>{m.manager || "-"}</p></div>
-                <div><label>제목</label><p>{m.title}</p></div>
-                <div><label>내용</label><p>{m.detail || "-"}</p></div>
-                <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
-                <div><label>구매연결</label><p>{links.length ? "연결됨" : "없음"}</p></div>
-              </div>
-
-              <div className="mobile-list-attachment">
-                <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
-              </div>
-
-              <div className="mobile-card-actions">
-                {isAdmin ? (
-                  <>
-                    <button onClick={() => onLinkPhoto(m)}>사진연결</button>
-                    <button onClick={() => editMaint(m)}>수정</button>
-                    <button onClick={() => deleteMaint(m.id)}>삭제</button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-
-      {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{selected.title}</h2>
-            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>작업자:</b> {selected.manager || "-"}</p>
-            <p><b>내용:</b> {selected.detail || "-"}</p>
-            <div className="maint-modal-attachments">
-              <b>첨부:</b>
-              <AttachmentGroup urls={selected.image_urls || (selected.image_url ? [selected.image_url] : [])} />
-            </div>
-            <ScrollTable>
-              <table>
-                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-                <tbody>
-                  {!(selected.items || []).length ? (
-                    <tr><td colSpan={7} className="empty">사용 품목 없음</td></tr>
-                  ) : (
-                    (selected.items || []).map((r: any) => (
-                      <tr key={r.id || `${r.item}-${r.spec}`}>
-                        <td>{r.item}</td>
-                        <td>{r.spec || "-"}</td>
-                        <td className="right">{r.qty}</td>
-                        <td className="right">{money(r.price)}</td>
-                        <td className="right">{money(r.supply)}</td>
-                        <td className="right">{money(r.vat)}</td>
-                        <td className="right bold">{money(r.total)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </ScrollTable>
-            <div className="maintenance-purchase-summary">
-              <h3>연결된 구매품목</h3>
-              {(() => {
-                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === selected.id);
-                return links.length ? links.map((link: MaintenancePurchaseLink) => {
-                  const purchase = (purchases || []).find((candidate: Purchase) => candidate.id === link.purchase_id);
-                  const purchaseRow = purchase?.rows?.find((row: PurchaseRow) => row.id === link.purchase_row_id);
-                  return (
-                    <div key={maintenancePurchaseLinkIdentity(link)}>
-                      <strong>{link.item_name || "품목"}</strong>
-                      <span>{link.purchase_date_snapshot || "-"} · {link.vendor_snapshot || "거래처 미입력"} · 단가 {money(link.unit_price_snapshot)}원</span>
-                      <b>구매 {purchaseRow?.qty ?? "-"} · {link.used_qty} 사용 · 구매ID {link.purchase_id}</b>
-                    </div>
-                  );
-                }) : <p className="muted">연결된 구매품목이 없습니다.</p>;
-              })()}
-            </div>
-            <div className="actions right-actions">
-              {isAdmin && (
-                <button
-                  className="primary"
-                  onClick={() => {
-                    const target = selected;
-                    setSelected(null);
-                    editMaint(target);
-                  }}
-                >
-                  <Pencil size={16} /> 수정·구매이력 연결
-                </button>
-              )}
-              <button onClick={() => setSelected(null)}>닫기</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-
 
 
 
@@ -11285,193 +10530,6 @@ function HomeDashboard({
     </section>
   );
 }
-
-function MaintenanceStats({ maints }: { maints: Maint[] }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [warehouse, setWarehouse] = useState("");
-  const [keyword, setKeyword] = useState("");
-
-  const filtered = useMemo(() => {
-    return maints.filter((m) => {
-      const d = m.date || "";
-      const okFrom = !from || d >= from;
-      const okTo = !to || d <= to;
-      const okWarehouse = !warehouse || (m.warehouse || "").includes(warehouse);
-      const okKeyword = !keyword || `${m.title || ""} ${m.detail || ""} ${m.manager || ""}`.includes(keyword);
-      return okFrom && okTo && okWarehouse && okKeyword;
-    });
-  }, [maints, from, to, warehouse, keyword]);
-
-  const getSupply = (m: Maint) => Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-  const getVat = (m: Maint) => Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-  const getTotal = (m: Maint) => Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-
-  const summary = useMemo(() => {
-    const supply = filtered.reduce((sum, m) => sum + getSupply(m), 0);
-    const vat = filtered.reduce((sum, m) => sum + getVat(m), 0);
-    const total = filtered.reduce((sum, m) => sum + getTotal(m), 0);
-
-    const byWh = new Map<string, number>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      byWh.set(name, (byWh.get(name) || 0) + getTotal(m));
-    });
-
-    const topWarehouse = Array.from(byWh.entries()).sort((a, b) => b[1] - a[1])[0];
-
-    return {
-      count: filtered.length,
-      supply,
-      vat,
-      total,
-      topWarehouseName: topWarehouse?.[0] || "-",
-      topWarehouseTotal: topWarehouse?.[1] || 0,
-    };
-  }, [filtered]);
-
-  const byWarehouse = useMemo(() => {
-    const map = new Map<string, { warehouse: string; count: number; supply: number; vat: number; total: number }>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      const cur = map.get(name) || { warehouse: name, count: 0, supply: 0, vat: 0, total: 0 };
-      cur.count += 1;
-      cur.supply += getSupply(m);
-      cur.vat += getVat(m);
-      cur.total += getTotal(m);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filtered]);
-
-  const byMonth = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; total: number }>();
-    filtered.forEach((m) => {
-      const month = (m.date || "미지정").slice(0, 7) || "미지정";
-      const cur = map.get(month) || { month, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += getTotal(m);
-      map.set(month, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [filtered]);
-
-  const byItem = useMemo(() => {
-    const map = new Map<string, { item: string; count: number; qty: number; total: number }>();
-    filtered.forEach((m) => {
-      (m.items || []).forEach((r: any) => {
-        const name = r.item || "미지정";
-        const cur = map.get(name) || { item: name, count: 0, qty: 0, total: 0 };
-        cur.count += 1;
-        cur.qty += Number(r.qty || 0);
-        cur.total += Number(r.total || 0);
-        map.set(name, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 20);
-  }, [filtered]);
-
-  const recent = useMemo(() => {
-    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
-  }, [filtered]);
-
-  return (
-    <section className="card">
-      <div className="between"><h2>정비통계</h2><button onClick={() => downloadExcel(`정비통계_${todayText()}`, withTotalRow(
-  filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })),
-  { 일자: "총합계", 공급가액: filtered.reduce((sum, m) => sum + getSupply(m), 0), 부가세: filtered.reduce((sum, m) => sum + getVat(m), 0), 합계: filtered.reduce((sum, m) => sum + getTotal(m), 0) }
-))}>엑셀 다운로드</button></div>
-
-      <div className="grid5">
-        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
-        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
-        <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
-        <Field label="제목/내용/작업자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
-      </div>
-
-      <div className="status-cards">
-        <div><span>정비건수</span><b>{summary.count}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.supply)}원</b></div>
-        <div><span>부가세</span><b>{money(summary.vat)}원</b></div>
-        <div><span>총 정비비</span><b>{money(summary.total)}원</b></div>
-        <div><span>최고 지출 창고</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}원</b></div>
-      </div>
-
-      <h3>창고별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
-              <tr key={w.warehouse}>
-                <td>{i + 1}</td>
-                <td>{w.warehouse}</td>
-                <td>{w.count}</td>
-                <td className="right">{money(w.supply)}</td>
-                <td className="right">{money(w.vat)}</td>
-                <td className="right bold">{money(w.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>월별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
-              <tr key={m.month}>
-                <td>{m.month}</td>
-                <td>{m.count}</td>
-                <td className="right bold">{money(m.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>품목별 사용금액 TOP 20</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
-          <tbody>
-            {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
-              <tr key={it.item}>
-                <td>{i + 1}</td>
-                <td>{it.item}</td>
-                <td>{it.count}</td>
-                <td className="right">{money(it.qty)}</td>
-                <td className="right bold">{money(it.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>최근 정비내역</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
-          <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
-              <tr key={m.id}>
-                <td>{m.date || "-"}</td>
-                <td>{m.warehouse || "-"}</td>
-                <td>{m.title || "-"}</td>
-                <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
-                <td className="right bold">{money(getTotal(m))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-    </section>
-  );
-}
-
 
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>주소</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{[v.address, v.address_detail].filter(Boolean).join(" ") || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
