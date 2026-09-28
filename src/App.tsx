@@ -49,6 +49,7 @@ import {
   validateMaintenancePurchaseLinkQuantity,
 } from "./features/maintenance/maintenanceModel";
 import { validateLinkedPurchaseRowsForEdit } from "./features/maintenance/maintenancePurchaseModel";
+import { createMaintenanceService } from "./features/maintenance/maintenanceService";
 import {
   buildPurchasePriceHistory,
   getPurchasePriceHistoryKey,
@@ -59,6 +60,7 @@ import {
 
 const purchaseService = createPurchaseService(supabase);
 const cardService = createCardService(supabase);
+const maintenanceService = createMaintenanceService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -2108,7 +2110,7 @@ export default function App() {
       fetchAllRows("warehouses", "code", 1000),
       fetchAllRows("items", "code", 1000),
       purchaseService.fetchPurchases(),
-      fetchAllRows("maints", "date", 1000, false),
+      maintenanceService.fetchMaintenances(),
       cardService.fetchCardUses(),
       purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
@@ -2878,33 +2880,11 @@ export default function App() {
 
 
   const uploadMaintFiles = async (files: FileList | File[]) => {
-    const uploadedUrls: string[] = [];
-    const validFiles = validateAttachmentFiles(files);
-    if (!validFiles) return uploadedUrls;
-
-    for (const file of validFiles) {
-      const isImage = file.type.startsWith("image/");
-      const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = isImage ? "jpg" : getUploadFileExtension(file);
-      const fileName = `maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: isImage ? "image/jpeg" : file.type || "application/octet-stream",
-      });
-
-      if (error) {
-        alert(`정비 첨부 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
-        continue;
-      }
-
-      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
-      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
-    }
-
-    return uploadedUrls;
+    return maintenanceService.uploadAttachments(files, {
+      validateFiles: validateAttachmentFiles,
+      compressImage: compressReceiptImage,
+      getFileExtension: getUploadFileExtension,
+    }, (fileName, message) => alert(`정비 첨부 업로드 실패 (${fileName}): ${message}`));
   };
 
 
@@ -4643,7 +4623,7 @@ const purchasePriceHistoryMap = useMemo(
         cost: Number(maintGrandTotal || maintForm.cost || 0),
       };
 
-      const { error } = await supabase.from("maints").upsert(payload);
+      const { error } = await maintenanceService.saveMaintenance(payload);
       if (error) {
         const message = `정비 저장 실패: ${error.message}`;
         setMaintSaveError(message);
@@ -4864,7 +4844,7 @@ const purchasePriceHistoryMap = useMemo(
       if (linkDeleteError) return alert(`정비 구매연결 삭제 실패: ${linkDeleteError.message}`);
     }
 
-    const { error } = await supabase.from("maints").delete().eq("id", id);
+    const { error } = await maintenanceService.deleteMaintenance(id);
     if (error) {
       if ((linkedRows || []).length) {
         await supabase.from("maintenance_purchase_links").insert(linkedRows);
@@ -5156,7 +5136,9 @@ const purchasePriceHistoryMap = useMemo(
       : [];
     if (restoreData && typeof restoreData === "object") delete restoreData.__maintenance_purchase_links;
 
-    const { error: restoreError } = await supabase.from(record.source_table).upsert(restoreData);
+    const { error: restoreError } = record.source_table === "maints"
+      ? await maintenanceService.restoreMaintenance(restoreData)
+      : await supabase.from(record.source_table).upsert(restoreData);
     if (restoreError) return alert(`복구 실패: ${restoreError.message}`);
 
     if (record.source_table === "maints" && maintenanceLinks.length) {
