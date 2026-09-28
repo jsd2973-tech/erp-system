@@ -9,7 +9,11 @@ export class CardPage {
       await this.page.locator(".role-mobile-sheet-grid").getByRole("button", { name: "카드사용", exact: true }).click();
     } else {
       const menu = this.page.getByTestId("menu-card_use");
-      if (!(await menu.isVisible())) await this.page.getByRole("button", { name: "카드", exact: true }).click();
+      if (!(await menu.isVisible())) {
+        const group = this.page.getByTestId("nav-group-card");
+        if ((await group.getAttribute("aria-expanded")) !== "true") await group.click();
+        await expect(menu).toBeVisible();
+      }
       await menu.click();
     }
     await expect(this.page.getByRole("heading", { name: "카드사용 등록" })).toBeVisible();

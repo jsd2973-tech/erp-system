@@ -1,11 +1,17 @@
 import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, Camera, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
+import { Save, RotateCcw, Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
-import type { ReceiptOcrResult } from "./features/card/receiptOcr";
+import type { CardUse } from "./features/card/cardTypes";
+import { normalizeCardUse } from "./features/card/cardModel";
+import { createCardService } from "./features/card/cardService";
+import { CardEntry } from "./features/card/CardEntry";
+import { CardList, CardUseStats } from "./features/card/CardScreens";
+import type { CardModuleUi } from "./features/card/cardUiTypes";
+import { useCardModule } from "./features/card/useCardModule";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
 import {
   cleanAccountNumber,
@@ -42,6 +48,7 @@ import {
 } from "./features/purchase/purchasePriceHistory";
 
 const purchaseService = createPurchaseService(supabase);
+const cardService = createCardService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -51,10 +58,6 @@ type MaintItem = { id: string; item: string; spec: string; qty: string | number;
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
   image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
-type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
-  image_url?: string;
-  image_urls?: string[]; created_at?: string };
-type CardOcrState = "idle" | "analyzing" | "success" | "error";
 type PermitRenewal = {
   id: string;
   company: string;
@@ -131,7 +134,6 @@ const KEY = {
 
 const AUTH_PREF_KEY = "erp_auth_preferences_v1";
 const PURCHASE_DRAFT_KEY = "erp_purchase_draft_v1";
-const CARD_DRAFT_KEY = "erp_card_draft_v1";
 const MAINT_DRAFT_KEY = "erp_maint_draft_v1";
 const INTERNAL_LOGIN_DOMAIN = "tm.local";
 
@@ -1482,18 +1484,6 @@ export default function App() {
   } = purchaseMaintenanceUi;
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
-  const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
-  const [editingCardUseId, setEditingCardUseId] = useState("");
-  const [cardSaving, setCardSaving] = useState(false);
-  const [cardUploading, setCardUploading] = useState(false);
-  const [cardDraftReady, setCardDraftReady] = useState(false);
-  const [cardOcrState, setCardOcrState] = useState<CardOcrState>("idle");
-  const [cardOcrMessage, setCardOcrMessage] = useState("");
-  const cardSavingRef = useRef(false);
-  const cardInputTouchedRef = useRef({ date: false, place: false, amount: false });
-  const cardFormRef = useRef(cardForm);
-  cardFormRef.current = cardForm;
-  const [cardSearch, setCardSearch] = useState({ from: "", to: "", user_name: "", place: "" });
   const auxiliarySavingRef = useRef<Set<string>>(new Set());
   const [auxiliarySaving, setAuxiliarySaving] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ id: number; message: string; tone: "success" | "info" } | null>(null);
@@ -1535,13 +1525,10 @@ export default function App() {
     if (menuTab === "new" && !editingPurchaseId && !purchaseHeader.date) {
       setPurchaseHeader((prev) => ({ ...prev, date: getTodayKey() }));
     }
-    if (menuTab === "card_use" && !editingCardUseId && !cardForm.date) {
-      setCardForm((prev) => ({ ...prev, date: getTodayKey() }));
-    }
     if (menuTab === "maint_new" && !editingMaintId && !maintForm.date) {
       setMaintForm((prev) => ({ ...prev, date: getTodayKey() }));
     }
-  }, [menuTab, editingPurchaseId, editingCardUseId, editingMaintId, purchaseHeader.date, cardForm.date, maintForm.date]);
+  }, [menuTab, editingPurchaseId, editingMaintId, purchaseHeader.date, maintForm.date]);
 
   const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
@@ -2116,7 +2103,7 @@ export default function App() {
       fetchAllRows("items", "code", 1000),
       purchaseService.fetchPurchases(),
       fetchAllRows("maints", "date", 1000, false),
-      fetchAllRows("card_uses", "date", 1000, false),
+      cardService.fetchCardUses(),
       purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
 
@@ -2137,7 +2124,7 @@ export default function App() {
     setItems(nextItems);
     setPurchases(((pRes.data || []) as any[]).map(toPurchase));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
-    setCardUses(((cRes.data || []) as any[]).map((c) => ({ ...c, amount: Number(c.amount || 0) })));
+    setCardUses(((cRes.data || []) as Record<string, unknown>[]).map(normalizeCardUse));
     setMaintenancePurchaseLinks(((mplRes.data || []) as any[]).map(toMaintenancePurchaseLink));
 
     setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
@@ -2897,151 +2884,6 @@ export default function App() {
   };
 
 
-  const uploadCardReceipts = async (files: FileList | File[]) => {
-    const uploadedUrls: string[] = [];
-    let ocrFile: File | null = null;
-    const validFiles = validateAttachmentFiles(files);
-    if (!validFiles) return { uploadedUrls, ocrFile };
-
-    for (const file of validFiles) {
-      const isImage =
-        file.type.startsWith("image/") ||
-        /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || "");
-
-      const uploadFile = isImage ? await compressReceiptImage(file) : file;
-      const ext = getUploadFileExtension(
-        uploadFile,
-        getUploadFileExtension(file, isImage ? "jpg" : "bin")
-      );
-      const uploadContentType =
-        uploadFile.type || file.type || "application/octet-stream";
-
-      const fileName = `card-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-      const { error } = await supabase.storage.from("receipts").upload(fileName, uploadFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: uploadContentType,
-      });
-
-      if (error) {
-        alert(`영수증 업로드 실패 (${file.name || "이름 없는 파일"}): ${error.message}`);
-        continue;
-      }
-
-      const { data } = supabase.storage.from("receipts").getPublicUrl(fileName);
-      const isAudioUpload = file.type.startsWith("audio/") || /\.(mp3|m4a|wav|webm|ogg|aac)$/i.test(file.name || "");
-      uploadedUrls.push(isAudioUpload ? `${data.publicUrl}?erp_file=audio` : data.publicUrl);
-      if (isImage && !ocrFile) ocrFile = uploadFile;
-    }
-
-    return { uploadedUrls, ocrFile };
-  };
-
-  const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("이미지를 읽지 못했습니다."));
-    };
-    reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
-    reader.readAsDataURL(file);
-  });
-
-  const cardOcrFieldLabels = (result: ReceiptOcrResult) => [
-    result.date ? "날짜" : "",
-    result.merchant ? "상호명" : "",
-    result.totalAmount != null ? "총합계" : "",
-  ].filter(Boolean);
-
-  const applyCardOcrResult = (result: ReceiptOcrResult) => {
-    const current = cardFormRef.current;
-    const touched = cardInputTouchedRef.current;
-    const appliedLabels = [
-      result.date && !touched.date && (!current.date || current.date === getTodayKey()) ? "날짜" : "",
-      result.merchant && !touched.place && !String(current.place || "").trim() ? "상호명" : "",
-      result.totalAmount != null && !touched.amount && !String(current.amount || "").trim() ? "총합계" : "",
-    ].filter(Boolean);
-    const detectedLabels = cardOcrFieldLabels(result);
-
-    setCardForm((prev) => ({
-      ...prev,
-      ...(result.date && !cardInputTouchedRef.current.date && (!prev.date || prev.date === getTodayKey()) ? { date: result.date } : {}),
-      ...(result.merchant && !cardInputTouchedRef.current.place && !String(prev.place || "").trim() ? { place: result.merchant } : {}),
-      ...(result.totalAmount != null && !cardInputTouchedRef.current.amount && !String(prev.amount || "").trim() ? { amount: String(result.totalAmount) } : {}),
-    }));
-
-    if (!detectedLabels.length) {
-      setCardOcrState("error");
-      setCardOcrMessage("영수증에서 날짜·상호명·총합계를 확인하지 못했습니다. 직접 입력해 주세요.");
-      return;
-    }
-
-    setCardOcrState("success");
-    if (!appliedLabels.length) {
-      setCardOcrMessage("영수증 분석 완료. 기존에 입력한 날짜·상호명·금액은 유지했습니다. 확인 후 저장해 주세요.");
-      return;
-    }
-
-    const missingLabels = detectedLabels.filter((label) => !appliedLabels.includes(label));
-    setCardOcrMessage(
-      missingLabels.length
-        ? `영수증에서 ${appliedLabels.join("·")}을(를) 자동 입력했습니다. ${missingLabels.join("·")}은(는) 기존 입력값을 유지했습니다.`
-        : "영수증에서 날짜·상호명·총합계를 자동 입력했습니다. 확인 후 저장해 주세요.",
-    );
-  };
-
-  const analyzeCardReceipt = async (file: File) => {
-    setCardOcrState("analyzing");
-    setCardOcrMessage("영수증 분석 중...");
-
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const response = await fetch("/api/receipt-ocr", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(session?.access_token ? { authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: JSON.stringify({ dataUrl }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(String(body?.error || "영수증 OCR 분석에 실패했습니다."));
-      applyCardOcrResult(body as ReceiptOcrResult);
-    } catch (error: any) {
-      setCardOcrState("error");
-      const message = String(error?.message || "OCR 분석에 실패했습니다.");
-      setCardOcrMessage(message.includes("직접 입력") ? message : `${message} 직접 입력해 주세요.`);
-    }
-  };
-
-  const handleCardAttachmentChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.currentTarget;
-    const files = input.files;
-    if (!files?.length) return;
-
-    setCardOcrState("idle");
-    setCardOcrMessage("");
-    setCardUploading(true);
-    try {
-      const { uploadedUrls, ocrFile } = await uploadCardReceipts(files);
-      setCardForm((prev) => {
-        const nextUrls = [...(prev.image_urls || []), ...uploadedUrls];
-        return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || prev.image_url };
-      });
-      if (ocrFile) await analyzeCardReceipt(ocrFile);
-    } catch (error: any) {
-      const message = String(error?.message || "영수증 첨부에 실패했습니다.");
-      setCardOcrState("error");
-      setCardOcrMessage(message.includes("직접 입력") ? message : `${message} 직접 입력해 주세요.`);
-    } finally {
-      input.value = "";
-      setCardUploading(false);
-    }
-  };
-
-
-
   const uploadMaintFiles = async (files: FileList | File[]) => {
     const uploadedUrls: string[] = [];
     const validFiles = validateAttachmentFiles(files);
@@ -3690,189 +3532,6 @@ export default function App() {
     await loadReceiptPhotos();
   };
 
-
-  const hasCardFormValue = () => !!(
-    (cardForm.date && cardForm.date !== getTodayKey()) ||
-    cardForm.user_name ||
-    cardForm.place ||
-    cardForm.amount ||
-    cardForm.memo ||
-    cardForm.image_url ||
-    (cardForm.image_urls || []).length ||
-    editingCardUseId
-  );
-
-  const clearCardDraft = () => {
-    try {
-      localStorage.removeItem(CARD_DRAFT_KEY);
-    } catch {
-      // ignore
-    }
-  };
-
-  const clearCardForm = () => {
-    setCardForm({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] });
-    setEditingCardUseId("");
-    cardInputTouchedRef.current = { date: false, place: false, amount: false };
-    setCardOcrState("idle");
-    setCardOcrMessage("");
-    clearCardDraft();
-  };
-
-  const resetCardForm = () => {
-    if (hasCardFormValue() && !window.confirm("작성 중인 카드사용 내용을 모두 초기화할까요?")) return;
-    clearCardForm();
-  };
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CARD_DRAFT_KEY);
-      if (saved) {
-        const draft = JSON.parse(saved);
-        if (draft?.cardForm) {
-          setCardForm(draft.cardForm);
-          cardInputTouchedRef.current = {
-            date: Boolean(draft.editingCardUseId || draft.cardForm.place || draft.cardForm.amount || (draft.cardForm.date && draft.cardForm.date !== getTodayKey())),
-            place: Boolean(draft.editingCardUseId || draft.cardForm.place),
-            amount: Boolean(draft.editingCardUseId || draft.cardForm.amount),
-          };
-        }
-        if (draft?.editingCardUseId) setEditingCardUseId(draft.editingCardUseId);
-      }
-    } catch {
-      clearCardDraft();
-    } finally {
-      setCardDraftReady(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!cardDraftReady) return;
-    if (!hasCardFormValue()) {
-      clearCardDraft();
-      return;
-    }
-
-    try {
-      localStorage.setItem(CARD_DRAFT_KEY, JSON.stringify({
-        cardForm,
-        editingCardUseId,
-        saved_at: new Date().toISOString(),
-      }));
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardForm, editingCardUseId, cardDraftReady]);
-
-  const saveCardUse = async () => {
-    if (cardSavingRef.current) return;
-    if (cardUploading) return alert("첨부파일 업로드가 끝난 후 저장해 주세요.");
-    if (editingCardUseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    const cardDate = cardForm.date || getTodayKey();
-    if (!cardForm.place || !Number(cardForm.amount || 0)) {
-      return alert("사용일자, 사용처, 금액을 확인하세요.");
-    }
-    cardSavingRef.current = true;
-    setCardSaving(true);
-
-    try {
-      const isEditing = !!editingCardUseId;
-      const payload: CardUse = {
-        id: editingCardUseId || uid(),
-        date: cardDate,
-        user_name: cardForm.user_name,
-        place: cardForm.place,
-        amount: Number(cardForm.amount || 0),
-        memo: cardForm.memo,
-        image_url: (cardForm.image_urls || [])[0] || cardForm.image_url,
-        image_urls: cardForm.image_urls || (cardForm.image_url ? [cardForm.image_url] : []),
-      };
-
-      const { error } = await supabase.from("card_uses").upsert(payload);
-      if (error) return alert(`카드사용 저장 실패: ${error.message}`);
-
-      setCardUses((prev) =>
-        isEditing
-          ? prev.map((c) => (c.id === editingCardUseId ? payload : c))
-          : [payload, ...prev]
-      );
-
-      await addActivityLog({
-        module: "카드",
-        action: isEditing ? "수정" : "등록",
-        target_id: payload.id,
-        target_title: payload.place || "",
-        detail: `${payload.date || "-"} · ${money(payload.amount)}원 · ${payload.memo || ""}`,
-      });
-
-      clearCardForm();
-      showToast(isEditing ? "카드사용 내역을 수정했습니다." : "카드사용 내역을 저장했습니다.");
-      setMenuTab("card_list");
-    } catch (error: any) {
-      const message = error?.message ? `카드사용 저장 중 오류: ${error.message}` : "카드사용 저장 중 알 수 없는 오류가 발생했습니다.";
-      alert(message);
-    } finally {
-      cardSavingRef.current = false;
-      setCardSaving(false);
-    }
-  };
-
-  const editCardUse = (c: CardUse) => {
-    setEditingCardUseId(c.id);
-    cardInputTouchedRef.current = {
-      date: Boolean(c.date),
-      place: Boolean(c.place),
-      amount: Boolean(c.amount),
-    };
-    setCardOcrState("idle");
-    setCardOcrMessage("");
-    setCardForm({
-      date: c.date || "",
-      user_name: c.user_name || "",
-      place: c.place || "",
-      amount: String(c.amount || ""),
-      memo: c.memo || "",
-      image_url: c.image_url || "",
-      image_urls: c.image_urls || (c.image_url ? [c.image_url] : []),
-    });
-    setMenuTab("card_use");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const deleteCardUse = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const target = cardUses.find((item) => item.id === id);
-    if (!target) return alert("삭제할 카드사용내역을 찾지 못했습니다.");
-    if (!confirm("카드사용내역을 휴지통으로 이동할까요?")) return;
-
-    const ok = await moveToTrash({
-      source_table: "card_uses",
-      module: "카드",
-      record_id: id,
-      title: target.place || "",
-      detail: `${target.date || "-"} · ${money(target.amount || 0)}원`,
-      data: target,
-    });
-    if (!ok) return;
-
-    const { error } = await supabase.from("card_uses").delete().eq("id", id);
-    if (error) return alert(`카드사용 삭제 실패: ${error.message}`);
-    setCardUses((prev) => prev.filter((c) => c.id !== id));
-    await addActivityLog({
-      module: "카드",
-      action: "휴지통 이동",
-      target_id: id,
-      target_title: target?.place || "",
-      detail: `${target?.date || "-"} · ${money(target?.amount || 0)}원`,
-    });
-  };
-
-  const filteredCardUses = cardUses
-    .filter((c) => (!cardSearch.from || (c.date || "") >= cardSearch.from) && (!cardSearch.to || (c.date || "") <= cardSearch.to) && (!cardSearch.user_name || (c.user_name || "").includes(cardSearch.user_name)) && (!cardSearch.place || (c.place || "").includes(cardSearch.place)))
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
 
   const editPurchase = (p: Purchase) => {
     setMenuTab("new");
@@ -5502,6 +5161,29 @@ const purchasePriceHistoryMap = useMemo(
     }]);
   };
 
+  const cardModule = useCardModule({
+    records: cardUses,
+    setRecords: setCardUses,
+    menuTab,
+    setMenuTab,
+    isAdmin,
+    canCreateRecords,
+    canEditDeleteRecords,
+    accessToken: session?.access_token,
+    service: cardService,
+    todayKey: getTodayKey,
+    createId: uid,
+    money,
+    addActivityLog,
+    showToast: (message) => showToast(message),
+    moveToTrash,
+    uploadTools: {
+      validateFiles: validateAttachmentFiles,
+      compressImage: compressReceiptImage,
+      getFileExtension: getUploadFileExtension,
+    },
+  });
+
   const restoreDeletedRecord = async (record: DeletedRecord) => {
     if (!isAdmin) return alert("관리자만 복구할 수 있습니다.");
     if (!confirm(`${record.title || record.module} 항목을 복구할까요?`)) return;
@@ -6113,6 +5795,18 @@ const purchasePriceHistoryMap = useMemo(
     toDateKey,
   };
 
+  const cardModuleUi: CardModuleUi = {
+    Field,
+    DateInput,
+    AttachmentGroup,
+    ScrollTable,
+    money,
+    downloadExcel,
+    downloadPdf,
+    todayText,
+    withTotalRow,
+  };
+
   return (
     <div>
       <style>{css}</style>
@@ -6284,7 +5978,7 @@ const purchasePriceHistoryMap = useMemo(
 
           {canShowAny(["card_use", "card_list", "card_stats"]) && (
             <div className={`menu-group ${openMenuGroup === "card" ? "expanded" : ""}`}>
-              <button type="button" aria-expanded={openMenuGroup === "card"} onClick={() => setOpenMenuGroup((current) => current === "card" ? null : "card")}><CreditCard size={17} /> 카드</button>
+              <button type="button" data-testid="nav-group-card" aria-expanded={openMenuGroup === "card"} onClick={() => setOpenMenuGroup((current) => current === "card" ? null : "card")}><CreditCard size={17} /> 카드</button>
               <div className="sub">
                 {menuButton("card_use", "카드사용")}
                 {menuButton("card_list", "카드조회")}
@@ -7541,7 +7235,7 @@ const purchasePriceHistoryMap = useMemo(
             maintenanceSchedules={maintenanceSchedules}
             purchaseDraft={purchaseHeader}
             maintenanceDraft={maintForm}
-            cardDraft={cardForm}
+            cardDraft={cardModule.cardDraft}
             updateNotices={updateNotices}
             siteNotices={siteNotices}
             userPermissions={userPermissions}
@@ -7813,188 +7507,9 @@ const purchasePriceHistoryMap = useMemo(
         {purchasePriceHistoryModal && <PurchasePriceHistoryModal ui={{ ScrollTable, money }} history={purchasePriceHistoryModal} onClose={() => setPurchasePriceHistoryModal(null)} />}
 
 
-        {menuTab === "card_use" && (
-          <section className="card">
-            <h2>{editingCardUseId ? "카드사용 수정" : "카드사용 등록"}</h2>
-
-            <div className="grid5">
-              <Field label="사용일자" required>
-                <DateInput
-                  value={cardForm.date || getTodayKey()}
-                  onChange={(value) => {
-                    cardInputTouchedRef.current.date = true;
-                    setCardForm((prev) => ({ ...prev, date: value }));
-                  }}
-                  placeholder="20260519 또는 260519"
-                  ariaLabel="사용일자 선택"
-                />
-              </Field>
-              <Field label="담당자">
-                <input value={cardForm.user_name} onChange={(e) => setCardForm({ ...cardForm, user_name: e.target.value })} placeholder="사용자/작업자" />
-              </Field>
-              <Field label="사용처" required>
-                <input value={cardForm.place} onChange={(e) => {
-                  cardInputTouchedRef.current.place = true;
-                  setCardForm((prev) => ({ ...prev, place: e.target.value }));
-                }} placeholder="상호/구매처" />
-              </Field>
-              <Field label="금액" required>
-                <input className="right" inputMode="decimal" value={cardForm.amount} onChange={(e) => {
-                  cardInputTouchedRef.current.amount = true;
-                  setCardForm((prev) => ({ ...prev, amount: e.target.value }));
-                }} placeholder="0" />
-              </Field>
-              <Field label="메모">
-                <input value={cardForm.memo} onChange={(e) => setCardForm({ ...cardForm, memo: e.target.value })} placeholder="구매내용 메모" />
-              </Field>
-            </div>
-
-            <div className="between card-receipt-upload-area">
-              <div className="card-receipt-upload-actions">
-                <label className={`upload card-receipt-capture${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
-                  <Camera size={16} /> 영수증 촬영
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    disabled={cardUploading}
-                    onChange={handleCardAttachmentChange}
-                  />
-                </label>
-                <label className={`upload${cardUploading ? " upload-busy" : ""}`} aria-disabled={cardUploading}>
-                  <Upload size={16} /> 사진/파일 선택
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm,.ogg,.aac"
-                    multiple
-                    disabled={cardUploading}
-                    onChange={handleCardAttachmentChange}
-                  />
-                </label>
-              </div>
-              <div className={`card-ocr-status card-ocr-status-${cardOcrState}`} aria-live="polite">
-                <strong>{cardOcrState === "analyzing" ? "영수증 분석 중..." : "영수증 OCR"}</strong>
-                <span>{cardOcrMessage || "이미지 첨부 시 날짜·상호명·총합계를 자동 입력합니다."}</span>
-              </div>
-              <div className="receipt-preview">
-                {(cardForm.image_urls || []).length ? (
-                  <AttachmentGroup
-                    urls={cardForm.image_urls || []}
-                    onRemove={(removeIndex) => setCardForm((prev) => {
-                      const nextUrls = (prev.image_urls || []).filter((_, idx) => idx !== removeIndex);
-                      return { ...prev, image_urls: nextUrls, image_url: nextUrls[0] || "" };
-                    })}
-                  />
-                ) : (
-                  cardForm.image_url ? <a href={cardForm.image_url} target="_blank" rel="noreferrer">업로드한 영수증 보기</a> : <span>영수증 미첨부</span>
-                )}
-              </div>
-            </div>
-
-            <div className="actions right-actions entry-actions">
-              <button className="primary" disabled={cardSaving || cardUploading} onClick={saveCardUse}><Save size={16} /> {cardOcrState === "analyzing" ? "영수증 분석 중..." : cardUploading ? "업로드 중..." : cardSaving ? "저장 중..." : editingCardUseId ? "수정 저장" : "저장"}</button>
-              <button disabled={cardSaving || cardUploading} onClick={resetCardForm}><RotateCcw size={16} /> 초기화</button>
-            </div>
-            <p className="draft-help-text">작성 중인 카드사용 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 카드사용에 들어오면 복원됩니다.</p>
-
-          </section>
-        )}
-
-
-                {menuTab === "card_list" && (
-          <section className="card lookup-page card-lookup-page">
-            <div className="between" style={{marginTop:24}}>
-              <h2>카드조회</h2>
-              <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
-  filteredCardUses.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
-  { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`카드사용_${todayText()}`, "카드사용", withTotalRow(filteredCardUses.map((c) => ({ 사용일자: c.date, 작업자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "" })), { 사용일자: "총합계", 금액: filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0) }))}>PDF 출력</button>
-            </div>
-            <div className="grid5">
-              <Field label="시작일"><DateInput value={cardSearch.from} onChange={(value) => setCardSearch({ ...cardSearch, from: value })} /></Field>
-              <Field label="종료일"><DateInput value={cardSearch.to} onChange={(value) => setCardSearch({ ...cardSearch, to: value })} /></Field>
-              <Field label="담당자"><input value={cardSearch.user_name} onChange={(e) => setCardSearch({ ...cardSearch, user_name: e.target.value })} placeholder="작업자 검색" /></Field>
-              <Field label="사용처"><input value={cardSearch.place} onChange={(e) => setCardSearch({ ...cardSearch, place: e.target.value })} placeholder="사용처 검색" /></Field>
-              <Field label="초기화"><button onClick={() => setCardSearch({ from: "", to: "", user_name: "", place: "" })}>검색 초기화</button></Field>
-            </div>
-
-            <div className="status-cards">
-              <div><span>카드사용 건수</span><b>{filteredCardUses.length}건</b></div>
-              <div><span>카드사용 합계</span><b>{money(filteredCardUses.reduce((sum, c) => sum + Number(c.amount || 0), 0))}원</b></div>
-            </div>
-
-            <ScrollTable>
-              <table>
-                <thead>
-                  <tr><th>관리번호</th><th>담당자</th><th>사용처</th><th>금액</th><th>메모</th><th>영수증</th><th>관리</th></tr>
-                </thead>
-                <tbody>
-                  {!filteredCardUses.length ? (
-                    <tr><td colSpan={7} className="empty">저장된 카드사용 내역 없음</td></tr>
-                  ) : (
-                    filteredCardUses.map((c, index) => {
-                      const sameDateBeforeCount = filteredCardUses
-                        .slice(0, index)
-                        .filter((x) => x.date === c.date).length;
-                      const seq = sameDateBeforeCount + 1;
-
-                      return (
-                      <tr key={c.id}>
-                        <td>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</td>
-                        <td>{c.user_name || "-"}</td>
-                        <td>{c.place}</td>
-                        <td className="right bold">{money(c.amount)}</td>
-                        <td>{c.memo || "-"}</td>
-                        <td><AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} /></td>
-                        <td>{isAdmin ? <><button className="icon" onClick={() => editCardUse(c)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteCardUse(c.id)}><Trash2 size={16} /></button></> : "-"}</td>
-                      </tr>
-                    )})
-                  )}
-                </tbody>
-              </table>
-            </ScrollTable>
-            <div className="mobile-card-list mobile-card-list-carduses">
-              {filteredCardUses.map((c, index) => {
-                const sameDateBeforeCount = filteredCardUses
-                  .slice(0, index)
-                  .filter((x) => x.date === c.date).length;
-                const seq = sameDateBeforeCount + 1;
-
-                return (
-                  <div className="mobile-list-card" key={c.id}>
-                    <div className="mobile-list-top mobile-maint-card-top">
-                      <b>{`${c.date || ""}-${String(seq).padStart(2, "0")}`}</b>
-                      <span>{money(c.amount)}원</span>
-                    </div>
-
-                    <div className="mobile-list-body">
-                      <div><label>사용처</label><p>{c.place}</p></div>
-                      <div><label>담당자</label><p>{c.user_name || "-"}</p></div>
-                      <div><label>메모</label><p>{c.memo || "-"}</p></div>
-                    </div>
-
-                    <div className="mobile-list-attachment">
-                      <AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} />
-                    </div>
-
-                    <div className="mobile-card-actions">
-                      {isAdmin ? (
-                        <>
-                          <button onClick={() => editCardUse(c)}>수정</button>
-                          <button onClick={() => deleteCardUse(c.id)}>삭제</button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-          </section>
-        )}
-
-
-        {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
+        {menuTab === "card_use" && <CardEntry model={cardModule.entry} ui={cardModuleUi} />}
+        {menuTab === "card_list" && <CardList model={cardModule.list} ui={cardModuleUi} />}
+        {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} ui={cardModuleUi} />}
 
         {menuTab === "vendors" && (
           <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5 vendor-register-grid"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} placeholder="거래처코드 직접 입력" /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="기본주소"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="주소 검색을 눌러 입력하세요" /><button type="button" onClick={openVendorAddressSearch}>주소 검색</button></div></Field><Field label="상세주소"><input ref={vendorAddressDetailRef} value={vendorForm.address_detail} onChange={(e) => setVendorForm({ ...vendorForm, address_detail: e.target.value })} placeholder="건물명, 층, 호수 등" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
@@ -11770,185 +11285,6 @@ function HomeDashboard({
     </section>
   );
 }
-
-function CardUseStats({ cardUses }: { cardUses: CardUse[] }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [userName, setUserName] = useState("");
-  const [place, setPlace] = useState("");
-
-  const filtered = useMemo(() => {
-    return cardUses.filter((c) => {
-      const d = c.date || "";
-      const okFrom = !from || d >= from;
-      const okTo = !to || d <= to;
-      const okUser = !userName || (c.user_name || "").includes(userName);
-      const okPlace = !place || (c.place || "").includes(place);
-      return okFrom && okTo && okUser && okPlace;
-    });
-  }, [cardUses, from, to, userName, place]);
-
-  const summary = useMemo(() => {
-    const total = filtered.reduce((sum, c) => sum + Number(c.amount || 0), 0);
-
-    const byUser = new Map<string, number>();
-    const byPlace = new Map<string, number>();
-
-    filtered.forEach((c) => {
-      const u = c.user_name || "미지정";
-      const p = c.place || "미지정";
-      byUser.set(u, (byUser.get(u) || 0) + Number(c.amount || 0));
-      byPlace.set(p, (byPlace.get(p) || 0) + Number(c.amount || 0));
-    });
-
-    const topUser = Array.from(byUser.entries()).sort((a, b) => b[1] - a[1])[0];
-    const topPlace = Array.from(byPlace.entries()).sort((a, b) => b[1] - a[1])[0];
-
-    return {
-      count: filtered.length,
-      total,
-      avg: filtered.length ? Math.round(total / filtered.length) : 0,
-      topUserName: topUser?.[0] || "-",
-      topUserTotal: topUser?.[1] || 0,
-      topPlaceName: topPlace?.[0] || "-",
-      topPlaceTotal: topPlace?.[1] || 0,
-    };
-  }, [filtered]);
-
-  const byMonth = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; total: number }>();
-    filtered.forEach((c) => {
-      const month = (c.date || "미지정").slice(0, 7) || "미지정";
-      const cur = map.get(month) || { month, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += Number(c.amount || 0);
-      map.set(month, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [filtered]);
-
-  const byUser = useMemo(() => {
-    const map = new Map<string, { user_name: string; count: number; total: number }>();
-    filtered.forEach((c) => {
-      const name = c.user_name || "미지정";
-      const cur = map.get(name) || { user_name: name, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += Number(c.amount || 0);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filtered]);
-
-  const byPlace = useMemo(() => {
-    const map = new Map<string, { place: string; count: number; total: number }>();
-    filtered.forEach((c) => {
-      const name = c.place || "미지정";
-      const cur = map.get(name) || { place: name, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += Number(c.amount || 0);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 30);
-  }, [filtered]);
-
-  const recent = useMemo(() => {
-    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
-  }, [filtered]);
-
-  return (
-    <section className="card">
-      <div className="between"><h2>카드통계</h2><button onClick={() => downloadExcel(`카드통계_${todayText()}`, withTotalRow(
-  filtered.map((c) => ({ 사용일자: c.date, 담당자: c.user_name, 사용처: c.place, 금액: c.amount, 메모: c.memo || "", 영수증: c.image_url || "" })),
-  { 사용일자: "총합계", 금액: filtered.reduce((sum, c) => sum + Number(c.amount || 0), 0) }
-))}>엑셀 다운로드</button></div>
-
-      <div className="grid5">
-        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
-        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
-        <Field label="담당자"><input placeholder="담당자 검색" value={userName} onChange={(e) => setUserName(e.target.value)} /></Field>
-        <Field label="사용처"><input placeholder="사용처 검색" value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setUserName(""); setPlace(""); }}>검색 초기화</button></Field>
-      </div>
-
-      <div className="status-cards">
-        <div><span>카드사용 건수</span><b>{summary.count}건</b></div>
-        <div><span>총 사용금액</span><b>{money(summary.total)}원</b></div>
-        <div><span>건당 평균</span><b>{money(summary.avg)}원</b></div>
-        <div><span>최고 사용 담당자</span><b>{summary.topUserName}<br />{money(summary.topUserTotal)}원</b></div>
-        <div><span>최고 사용처</span><b>{summary.topPlaceName}<br />{money(summary.topPlaceTotal)}원</b></div>
-      </div>
-
-      <h3>월별 카드사용</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>월</th><th>건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 카드사용 없음</td></tr> : byMonth.map((m) => (
-              <tr key={m.month}>
-                <td>{m.month}</td>
-                <td>{m.count}</td>
-                <td className="right bold">{money(m.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>담당자별 카드사용</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>작업자</th><th>건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byUser.length ? <tr><td colSpan={4} className="empty">조회된 담당자별 카드사용 없음</td></tr> : byUser.map((u, i) => (
-              <tr key={u.user_name}>
-                <td>{i + 1}</td>
-                <td>{u.user_name}</td>
-                <td>{u.count}</td>
-                <td className="right bold">{money(u.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>사용처별 카드사용 TOP 30</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>사용처</th><th>건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byPlace.length ? <tr><td colSpan={4} className="empty">조회된 사용처별 카드사용 없음</td></tr> : byPlace.map((p, i) => (
-              <tr key={p.place}>
-                <td>{i + 1}</td>
-                <td>{p.place}</td>
-                <td>{p.count}</td>
-                <td className="right bold">{money(p.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>최근 카드사용 내역</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>영수증</th></tr></thead>
-          <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 카드사용 없음</td></tr> : recent.map((c) => (
-              <tr key={c.id}>
-                <td>{c.date || "-"}</td>
-                <td>{c.user_name || "-"}</td>
-                <td>{c.place || "-"}</td>
-                <td className="right bold">{money(c.amount)}</td>
-                <td><AttachmentGroup urls={c.image_urls || (c.image_url ? [c.image_url] : [])} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-    </section>
-  );
-}
-
 
 function MaintenanceStats({ maints }: { maints: Maint[] }) {
   const [from, setFrom] = useState("");

@@ -41,24 +41,30 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
 
   data.cleanup = async () => {
     try {
-      const [purchaseResult, maintenanceResult, cardResult, trashResult] = await Promise.all([
+      const [purchaseResult, maintenanceResult, cardResult, trashResult, cardTrashResult] = await Promise.all([
         db.from("purchases").select("id").eq("vendor", data.vendorName),
         db.from("maints").select("id").ilike("title", `${prefix}%`),
         db.from("card_uses").select("id").eq("place", `${prefix} 테스트상사`),
         db.from("deleted_records").select("id").eq("source_table", "maints").ilike("title", `${prefix}%`),
+        db.from("deleted_records").select("id,record_id").eq("source_table", "card_uses").eq("title", `${prefix} 테스트상사`),
       ]);
       if (purchaseResult.error) throw new Error(`E2E purchase cleanup lookup failed: ${purchaseResult.error.message}`);
       if (maintenanceResult.error) throw new Error(`E2E maintenance cleanup lookup failed: ${maintenanceResult.error.message}`);
       if (cardResult.error) throw new Error(`E2E card cleanup lookup failed: ${cardResult.error.message}`);
       if (trashResult.error) throw new Error(`E2E trash cleanup lookup failed: ${trashResult.error.message}`);
+      if (cardTrashResult.error) throw new Error(`E2E card trash cleanup lookup failed: ${cardTrashResult.error.message}`);
       const purchaseIds = (purchaseResult.data || []).map((row) => String(row.id));
       const maintenanceIds = (maintenanceResult.data || []).map((row) => String(row.id));
       const cardIds = (cardResult.data || []).map((row) => String(row.id));
       const trashIds = (trashResult.data || []).map((row) => String(row.id));
-      const recordIds = [...purchaseIds, ...maintenanceIds, ...cardIds];
+      const cardTrashRows = cardTrashResult.data || [];
+      const cardTrashIds = cardTrashRows.map((row) => String(row.id));
+      const trashedCardRecordIds = cardTrashRows.map((row) => String(row.record_id));
+      const recordIds = [...purchaseIds, ...maintenanceIds, ...cardIds, ...trashedCardRecordIds];
 
-      if (trashIds.length) {
-        const { error } = await db.from("deleted_records").delete().in("id", trashIds);
+      const allTrashIds = [...trashIds, ...cardTrashIds];
+      if (allTrashIds.length) {
+        const { error } = await db.from("deleted_records").delete().in("id", allTrashIds);
         if (error) throw new Error(`E2E trash cleanup failed: ${error.message}`);
       }
 
