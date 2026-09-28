@@ -1,4 +1,4 @@
-import type { Maint, MaintItem } from "./maintenanceTypes";
+import type { Maint, MaintItem, MaintenanceSearch } from "./maintenanceTypes";
 
 export type MaintenanceTotals = {
   validItems: MaintItem[];
@@ -118,4 +118,37 @@ export const getMaintenanceCost = (maintenance: Maint, field: "supplyTotal" | "v
   const itemField = field === "supplyTotal" ? "supply" : field === "vatTotal" ? "vat" : "total";
   const fallback = (maintenance.items || []).reduce((sum, row) => sum + Number(row[itemField] || 0), 0);
   return Number(maintenance[field] || (field === "total" ? maintenance.cost : 0) || fallback);
+};
+
+export const filterAndSortMaintenances = (maints: Maint[], search: MaintenanceSearch): Maint[] =>
+  maints
+    .filter((m) =>
+      (!search.from || (m.date || "") >= search.from) &&
+      (!search.to || (m.date || "") <= search.to) &&
+      (!search.warehouse || m.warehouse.includes(search.warehouse)) &&
+      (!search.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(search.keyword)),
+    )
+    .sort((a, b) => {
+      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    });
+
+export const buildMaintenanceNumberMap = (maints: Maint[]): Map<string, string> => {
+  const orderedByOldest = [...maints].sort((a, b) => {
+    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare !== 0) return dateCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  const running = new Map<string, number>();
+  const map = new Map<string, string>();
+
+  orderedByOldest.forEach((maintenance) => {
+    const date = maintenance.date || "날짜없음";
+    const nextNo = (running.get(date) || 0) + 1;
+    running.set(date, nextNo);
+    map.set(maintenance.id, `${date}-${String(nextNo).padStart(2, "0")}`);
+  });
+
+  return map;
 };

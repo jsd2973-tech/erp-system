@@ -13,7 +13,9 @@ await writeFile(modulePath, ts.transpileModule(source, {
 const {
   calculateLinkedMaintenanceItem,
   calculateMaintenanceTotals,
+  buildMaintenanceNumberMap,
   createEmptyMaintItem,
+  filterAndSortMaintenances,
   sumMaintenanceRowTotals,
   updateMaintenanceItem,
   validateMaintenancePurchaseLinkQuantity,
@@ -53,6 +55,31 @@ test("구매 연결 수량 validation은 row와 구매 잔여량 한도를 모�
   assert.deepEqual(validateMaintenancePurchaseLinkQuantity({ ...base, linkedQtyForMaintenanceRow: 2 }), {
     valid: false, reason: "maintenance-row-quantity-exceeded", linkedQty: 2, maintenanceQty: 3,
   });
+});
+
+test("정비 조회 필터와 정렬은 기존 날짜·창고·검색어 규칙을 유지한다", () => {
+  const maints = [
+    { id: "b", date: "2026-09-27", warehouse: "동부", title: "수리", detail: "베어링", manager: "김" },
+    { id: "a", date: "2026-09-27", warehouse: "동부", title: "점검", detail: "벨트", manager: "이" },
+    { id: "c", date: "2026-09-26", warehouse: "서부", title: "수리", detail: "모터", manager: "박" },
+  ];
+  assert.deepEqual(filterAndSortMaintenances(maints, {
+    from: "2026-09-27", to: "2026-09-27", warehouse: "동부", keyword: "수리",
+  }).map((m) => m.id), ["b"]);
+  assert.deepEqual(filterAndSortMaintenances(maints, {
+    from: "", to: "", warehouse: "", keyword: "",
+  }).map((m) => m.id), ["b", "a", "c"]);
+});
+
+test("관리번호는 날짜별 오름차순 ID 순번을 유지한다", () => {
+  const map = buildMaintenanceNumberMap([
+    { id: "b", date: "2026-09-27" },
+    { id: "a", date: "2026-09-27" },
+    { id: "c", date: "2026-09-26" },
+  ]);
+  assert.equal(map.get("a"), "2026-09-27-01");
+  assert.equal(map.get("b"), "2026-09-27-02");
+  assert.equal(map.get("c"), "2026-09-26-01");
 });
 
 test.after(async () => {

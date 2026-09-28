@@ -1,7 +1,7 @@
 import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Plus, Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
+import { Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
@@ -44,6 +44,7 @@ import {
   calculateLinkedMaintenanceItem,
   calculateMaintenanceTotals,
   createEmptyMaintItem,
+  filterAndSortMaintenances,
   sumMaintenanceRowTotals,
   updateMaintenanceItem,
   validateMaintenancePurchaseLinkQuantity,
@@ -51,6 +52,7 @@ import {
 import { validateLinkedPurchaseRowsForEdit } from "./features/maintenance/maintenancePurchaseModel";
 import { createMaintenanceService } from "./features/maintenance/maintenanceService";
 import { createMaintenancePurchaseLinkService } from "./features/maintenance/maintenancePurchaseLinkService";
+import { MaintenanceList, MaintenanceStats } from "./features/maintenance/MaintenanceScreens";
 import {
   buildPurchasePriceHistory,
   getPurchasePriceHistoryKey,
@@ -4792,13 +4794,7 @@ const purchasePriceHistoryMap = useMemo(
     });
   };
 
-  const filteredMaints = maints
-    .filter((m) => (!maintSearch.from || (m.date || "") >= maintSearch.from) && (!maintSearch.to || (m.date || "") <= maintSearch.to) && (!maintSearch.warehouse || m.warehouse.includes(maintSearch.warehouse)) && (!maintSearch.keyword || `${m.title} ${m.detail} ${m.manager}`.includes(maintSearch.keyword)))
-    .sort((a, b) => {
-      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
-      if (dateCompare !== 0) return dateCompare;
-      return String(b.id || "").localeCompare(String(a.id || ""));
-    });
+  const filteredMaints = filterAndSortMaintenances(maints, maintSearch);
 
   const filteredActivityLogs = activityLogs.filter((log) => {
     const moduleOk = !activityLogSearch.module || log.module === activityLogSearch.module;
@@ -7459,9 +7455,25 @@ const purchasePriceHistoryMap = useMemo(
           />
         )}
 
-        {menuTab === "maint_list" && <MaintList maints={filteredMaints} purchases={purchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={{ ...maintSearch, warehouseNames }} setSearch={setMaintSearch} editMaint={editMaint} deleteMaint={deleteMaint} setMenuTab={setMenuTab} isAdmin={canEditDeleteRecords} onLinkPhoto={openMaintPhotoPicker} />}
+        {menuTab === "maint_list" && (
+          <MaintenanceList
+            model={{
+              maints: filteredMaints,
+              purchases,
+              maintenancePurchaseLinks,
+              search: { ...maintSearch, warehouseNames },
+              setSearch: setMaintSearch,
+              editMaint,
+              deleteMaint,
+              setMenuTab,
+              isAdmin: canEditDeleteRecords,
+              onLinkPhoto: openMaintPhotoPicker,
+            }}
+            ui={purchaseScreensUi}
+          />
+        )}
 
-        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} />}
+        {menuTab === "maint_stats" && <MaintenanceStats maints={maints} ui={purchaseScreensUi} />}
 
         {menuTab === "maintenance_schedule_new" && (
           <section className="maintenance-schedule-pro-page">
@@ -8026,255 +8038,6 @@ function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSched
     </section>
   );
 }
-
-
-
-function MaintList({ maints, purchases = [], maintenancePurchaseLinks = [], search, setSearch, editMaint, deleteMaint, setMenuTab, isAdmin, onLinkPhoto }: any) {
-  const [selected, setSelected] = useState<Maint | null>(null);
-
-  const maintNoMap = useMemo(() => {
-    const dateCounts = new Map<string, number>();
-    const orderedByOldest = [...maints].sort((a, b) => {
-      const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
-      if (dateCompare !== 0) return dateCompare;
-      return String(a.id || "").localeCompare(String(b.id || ""));
-    });
-
-    orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
-      const nextNo = (dateCounts.get(date) || 0) + 1;
-      dateCounts.set(date, nextNo);
-    });
-
-    const running = new Map<string, number>();
-    const map = new Map<string, string>();
-
-    orderedByOldest.forEach((m) => {
-      const date = m.date || "날짜없음";
-      const nextNo = (running.get(date) || 0) + 1;
-      running.set(date, nextNo);
-      const displayDate = date === "날짜없음" ? "날짜없음" : date;
-      map.set(m.id, `${displayDate}-${String(nextNo).padStart(2, "0")}`);
-    });
-
-    return map;
-  }, [maints]);
-
-  return (
-    <section className="card lookup-page maint-lookup-page">
-      <div className="between" style={{marginBottom:16}}>
-        <h2 style={{margin:0}}>정비조회</h2>
-        <div style={{display:"flex", gap:8}}>
-          <button onClick={() => downloadExcel(`정비조회_${todayText()}`, withTotalRow(
-            maints.map((m: Maint) => {
-              const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-              const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-              const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
-            }),
-            {
-              관리번호: "총합계",
-              공급가액: maints.reduce((sum: number, m: Maint) => sum + Number(m.supplyTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.supply || 0), 0)), 0),
-              부가세: maints.reduce((sum: number, m: Maint) => sum + Number(m.vatTotal || (m.items || []).reduce((s: number, r: any) => s + Number(r.vat || 0), 0)), 0),
-              합계: maints.reduce((sum: number, m: Maint) => sum + Number(m.total || m.cost || (m.items || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0)), 0)
-            }
-          ))}>엑셀 다운로드</button>
-          <button className="primary" onClick={() => setMenuTab("maint_new")}>
-            <Plus size={16} /> 정비등록
-          </button>
-        </div>
-      </div>
-
-      <div className="maint-filter">
-        <Field label="시작일">
-          <DateInput value={search.from || ""} onChange={(value) => setSearch({ ...search, from: value })} />
-        </Field>
-        <Field label="종료일">
-          <DateInput value={search.to || ""} onChange={(value) => setSearch({ ...search, to: value })} />
-        </Field>
-        <Field label="창고">
-          <SearchSelect value={search.warehouse || ""} options={search.warehouseNames || []} onChange={(v) => setSearch({ ...search, warehouse: v })} placeholder="창고 선택/검색" />
-        </Field>
-        <Field label="제목/내용/작업자">
-          <input placeholder="검색어 입력" value={search.keyword || ""} onChange={(e) => setSearch({ ...search, keyword: e.target.value })} />
-        </Field>
-        <Field label="초기화">
-          <button onClick={() => setSearch({ ...search, from: "", to: "", warehouse: "", keyword: "" })}>검색 초기화</button>
-        </Field>
-      </div>
-
-      <ScrollTable>
-        <table className="maint-lookup-table">
-          <thead>
-            <tr>
-              <th>관리번호</th>
-              <th>창고</th>
-              <th>작업자</th>
-              <th>제목</th>
-              <th>내용</th>
-              <th>공급가액</th>
-              <th>부가세</th>
-              <th>합계</th>
-              <th>구매연결</th>
-              <th>첨부</th>
-              <th>관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!maints.length ? (
-              <tr><td colSpan={11} className="empty">저장된 정비내역 없음</td></tr>
-            ) : (
-              maints.map((m: Maint) => {
-                const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-                const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-                const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-                return (
-                  <tr key={m.id}>
-                    <td>{maintNoMap.get(m.id) || "-"}</td>
-                    <td>{m.warehouse}</td>
-                    <td>{m.manager || "-"}</td>
-                    <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
-                    <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
-                    <td className="right">{money(supply)}</td>
-                    <td className="right">{money(vat)}</td>
-                    <td className="right bold">{money(total)}</td>
-                    <td>{links.length ? <span className="maintenance-link-badge">연결됨</span> : "-"}</td>
-                    <td>
-                      <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
-                    </td>
-                    <td>
-                      {isAdmin ? <>
-                        <button className="icon" onClick={() => onLinkPhoto(m)}>사진</button>
-                        <button className="icon" onClick={() => editMaint(m)}><Pencil size={16} /></button>
-                        <button className="icon" onClick={() => deleteMaint(m.id)}><Trash2 size={16} /></button>
-                      </> : "-"}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </ScrollTable>
-      <div className="mobile-card-list mobile-card-list-maints">
-        {maints.map((m: Maint, index: number) => {
-          const sameDateBeforeCount = maints
-            .slice(0, index)
-            .filter((x: Maint) => x.date === m.date).length;
-          const seq = sameDateBeforeCount + 1;
-
-          const supply = Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-          const vat = Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-          const total = Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-          const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
-          return (
-            <div className="mobile-list-card" key={m.id}>
-              <div className="mobile-list-top">
-                <b>{`${m.date || ""}-${String(seq).padStart(2, "0")}`}</b>
-                <span>{money(total)}원</span>
-              </div>
-
-              <div className="mobile-list-body">
-                <div><label>창고</label><p>{m.warehouse}</p></div>
-                <div><label>작업자</label><p>{m.manager || "-"}</p></div>
-                <div><label>제목</label><p>{m.title}</p></div>
-                <div><label>내용</label><p>{m.detail || "-"}</p></div>
-                <div><label>공급가액 / 부가세</label><p>{money(supply)}원 / {money(vat)}원</p></div>
-                <div><label>구매연결</label><p>{links.length ? "연결됨" : "없음"}</p></div>
-              </div>
-
-              <div className="mobile-list-attachment">
-                <AttachmentGroup urls={m.image_urls || (m.image_url ? [m.image_url] : [])} />
-              </div>
-
-              <div className="mobile-card-actions">
-                {isAdmin ? (
-                  <>
-                    <button onClick={() => onLinkPhoto(m)}>사진연결</button>
-                    <button onClick={() => editMaint(m)}>수정</button>
-                    <button onClick={() => deleteMaint(m.id)}>삭제</button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-
-      {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="modal-box wide-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>{selected.title}</h2>
-            <p><b>관리번호:</b> {maintNoMap.get(selected.id) || "-"} / <b>일자:</b> {selected.date} / <b>창고:</b> {selected.warehouse} / <b>작업자:</b> {selected.manager || "-"}</p>
-            <p><b>내용:</b> {selected.detail || "-"}</p>
-            <div className="maint-modal-attachments">
-              <b>첨부:</b>
-              <AttachmentGroup urls={selected.image_urls || (selected.image_url ? [selected.image_url] : [])} />
-            </div>
-            <ScrollTable>
-              <table>
-                <thead><tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-                <tbody>
-                  {!(selected.items || []).length ? (
-                    <tr><td colSpan={7} className="empty">사용 품목 없음</td></tr>
-                  ) : (
-                    (selected.items || []).map((r: any) => (
-                      <tr key={r.id || `${r.item}-${r.spec}`}>
-                        <td>{r.item}</td>
-                        <td>{r.spec || "-"}</td>
-                        <td className="right">{r.qty}</td>
-                        <td className="right">{money(r.price)}</td>
-                        <td className="right">{money(r.supply)}</td>
-                        <td className="right">{money(r.vat)}</td>
-                        <td className="right bold">{money(r.total)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </ScrollTable>
-            <div className="maintenance-purchase-summary">
-              <h3>연결된 구매품목</h3>
-              {(() => {
-                const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === selected.id);
-                return links.length ? links.map((link: MaintenancePurchaseLink) => {
-                  const purchase = (purchases || []).find((candidate: Purchase) => candidate.id === link.purchase_id);
-                  const purchaseRow = purchase?.rows?.find((row: PurchaseRow) => row.id === link.purchase_row_id);
-                  return (
-                    <div key={maintenancePurchaseLinkIdentity(link)}>
-                      <strong>{link.item_name || "품목"}</strong>
-                      <span>{link.purchase_date_snapshot || "-"} · {link.vendor_snapshot || "거래처 미입력"} · 단가 {money(link.unit_price_snapshot)}원</span>
-                      <b>구매 {purchaseRow?.qty ?? "-"} · {link.used_qty} 사용 · 구매ID {link.purchase_id}</b>
-                    </div>
-                  );
-                }) : <p className="muted">연결된 구매품목이 없습니다.</p>;
-              })()}
-            </div>
-            <div className="actions right-actions">
-              {isAdmin && (
-                <button
-                  className="primary"
-                  onClick={() => {
-                    const target = selected;
-                    setSelected(null);
-                    editMaint(target);
-                  }}
-                >
-                  <Pencil size={16} /> 수정·구매이력 연결
-                </button>
-              )}
-              <button onClick={() => setSelected(null)}>닫기</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-
 
 
 
@@ -10853,193 +10616,6 @@ function HomeDashboard({
     </section>
   );
 }
-
-function MaintenanceStats({ maints }: { maints: Maint[] }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [warehouse, setWarehouse] = useState("");
-  const [keyword, setKeyword] = useState("");
-
-  const filtered = useMemo(() => {
-    return maints.filter((m) => {
-      const d = m.date || "";
-      const okFrom = !from || d >= from;
-      const okTo = !to || d <= to;
-      const okWarehouse = !warehouse || (m.warehouse || "").includes(warehouse);
-      const okKeyword = !keyword || `${m.title || ""} ${m.detail || ""} ${m.manager || ""}`.includes(keyword);
-      return okFrom && okTo && okWarehouse && okKeyword;
-    });
-  }, [maints, from, to, warehouse, keyword]);
-
-  const getSupply = (m: Maint) => Number(m.supplyTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.supply || 0), 0));
-  const getVat = (m: Maint) => Number(m.vatTotal || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.vat || 0), 0));
-  const getTotal = (m: Maint) => Number(m.total || m.cost || (m.items || []).reduce((sum: number, r: any) => sum + Number(r.total || 0), 0));
-
-  const summary = useMemo(() => {
-    const supply = filtered.reduce((sum, m) => sum + getSupply(m), 0);
-    const vat = filtered.reduce((sum, m) => sum + getVat(m), 0);
-    const total = filtered.reduce((sum, m) => sum + getTotal(m), 0);
-
-    const byWh = new Map<string, number>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      byWh.set(name, (byWh.get(name) || 0) + getTotal(m));
-    });
-
-    const topWarehouse = Array.from(byWh.entries()).sort((a, b) => b[1] - a[1])[0];
-
-    return {
-      count: filtered.length,
-      supply,
-      vat,
-      total,
-      topWarehouseName: topWarehouse?.[0] || "-",
-      topWarehouseTotal: topWarehouse?.[1] || 0,
-    };
-  }, [filtered]);
-
-  const byWarehouse = useMemo(() => {
-    const map = new Map<string, { warehouse: string; count: number; supply: number; vat: number; total: number }>();
-    filtered.forEach((m) => {
-      const name = m.warehouse || "미지정";
-      const cur = map.get(name) || { warehouse: name, count: 0, supply: 0, vat: 0, total: 0 };
-      cur.count += 1;
-      cur.supply += getSupply(m);
-      cur.vat += getVat(m);
-      cur.total += getTotal(m);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filtered]);
-
-  const byMonth = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; total: number }>();
-    filtered.forEach((m) => {
-      const month = (m.date || "미지정").slice(0, 7) || "미지정";
-      const cur = map.get(month) || { month, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += getTotal(m);
-      map.set(month, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [filtered]);
-
-  const byItem = useMemo(() => {
-    const map = new Map<string, { item: string; count: number; qty: number; total: number }>();
-    filtered.forEach((m) => {
-      (m.items || []).forEach((r: any) => {
-        const name = r.item || "미지정";
-        const cur = map.get(name) || { item: name, count: 0, qty: 0, total: 0 };
-        cur.count += 1;
-        cur.qty += Number(r.qty || 0);
-        cur.total += Number(r.total || 0);
-        map.set(name, cur);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 20);
-  }, [filtered]);
-
-  const recent = useMemo(() => {
-    return [...filtered].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 20);
-  }, [filtered]);
-
-  return (
-    <section className="card">
-      <div className="between"><h2>정비통계</h2><button onClick={() => downloadExcel(`정비통계_${todayText()}`, withTotalRow(
-  filtered.map((m) => ({ 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: getSupply(m), 부가세: getVat(m), 합계: getTotal(m) })),
-  { 일자: "총합계", 공급가액: filtered.reduce((sum, m) => sum + getSupply(m), 0), 부가세: filtered.reduce((sum, m) => sum + getVat(m), 0), 합계: filtered.reduce((sum, m) => sum + getTotal(m), 0) }
-))}>엑셀 다운로드</button></div>
-
-      <div className="grid5">
-        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
-        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
-        <Field label="창고"><input placeholder="창고 일부 검색" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} /></Field>
-        <Field label="제목/내용/작업자"><input placeholder="검색어 입력" value={keyword} onChange={(e) => setKeyword(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setWarehouse(""); setKeyword(""); }}>검색 초기화</button></Field>
-      </div>
-
-      <div className="status-cards">
-        <div><span>정비건수</span><b>{summary.count}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.supply)}원</b></div>
-        <div><span>부가세</span><b>{money(summary.vat)}원</b></div>
-        <div><span>총 정비비</span><b>{money(summary.total)}원</b></div>
-        <div><span>최고 지출 창고</span><b>{summary.topWarehouseName}<br />{money(summary.topWarehouseTotal)}원</b></div>
-      </div>
-
-      <h3>창고별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
-              <tr key={w.warehouse}>
-                <td>{i + 1}</td>
-                <td>{w.warehouse}</td>
-                <td>{w.count}</td>
-                <td className="right">{money(w.supply)}</td>
-                <td className="right">{money(w.vat)}</td>
-                <td className="right bold">{money(w.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>월별 정비비</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
-          <tbody>
-            {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
-              <tr key={m.month}>
-                <td>{m.month}</td>
-                <td>{m.count}</td>
-                <td className="right bold">{money(m.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>품목별 사용금액 TOP 20</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
-          <tbody>
-            {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
-              <tr key={it.item}>
-                <td>{i + 1}</td>
-                <td>{it.item}</td>
-                <td>{it.count}</td>
-                <td className="right">{money(it.qty)}</td>
-                <td className="right bold">{money(it.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-
-      <h3>최근 정비내역</h3>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
-          <tbody>
-            {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
-              <tr key={m.id}>
-                <td>{m.date || "-"}</td>
-                <td>{m.warehouse || "-"}</td>
-                <td>{m.title || "-"}</td>
-                <td><span className="maint-detail-text">{m.detail || "-"}</span></td>
-                <td className="right bold">{money(getTotal(m))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </ScrollTable>
-    </section>
-  );
-}
-
 
 function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
   return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>주소</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{[v.address, v.address_detail].filter(Boolean).join(" ") || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
