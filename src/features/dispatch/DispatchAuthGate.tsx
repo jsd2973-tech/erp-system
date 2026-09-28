@@ -4,19 +4,7 @@ import { supabase } from "../../supabaseClient";
 import PushSettings from "../push/PushSettings";
 import DriverMobileApp from "./DriverMobileApp";
 import type { DispatchDriver } from "./dispatchTypes";
-
-const toDriver = (row: Record<string, unknown>): DispatchDriver => ({
-  id: String(row.id),
-  name: String(row.name || ""),
-  phone: String(row.phone || ""),
-  company_name: String(row.company_name || ""),
-  assigned_vehicle_id: row.assigned_vehicle_id ? String(row.assigned_vehicle_id) : null,
-  auth_user_id: row.auth_user_id ? String(row.auth_user_id) : null,
-  active: row.active !== false,
-  memo: String(row.memo || ""),
-  created_at: row.created_at ? String(row.created_at) : undefined,
-  updated_at: row.updated_at ? String(row.updated_at) : undefined,
-});
+import { loadActiveDispatchDriver, loadDispatchAccountAccess } from "./dispatchAuthService";
 
 export default function DispatchAuthGate({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
@@ -36,38 +24,28 @@ export default function DispatchAuthGate({ children }: { children: ReactNode }) 
 
     if (showChecking) setChecking(true);
     const userEmail = String(session.user.email || "").trim().toLowerCase();
-    const [adminResult, permissionResult] = await Promise.all([
-      supabase.rpc("is_dispatch_admin"),
-      userEmail
-        ? supabase.from("user_permissions").select("id").eq("email", userEmail).limit(1).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
+    const access = await loadDispatchAccountAccess(supabase, userEmail);
 
     if (requestId !== resolveRequestRef.current) return;
 
-    if (adminResult.error || permissionResult.error) {
-      console.error("ERP 계정 권한 확인 실패", adminResult.error || permissionResult.error);
+    if (access.error) {
+      console.error("ERP 계정 권한 확인 실패", access.error);
       setDriver(null);
       setChecking(false);
       return;
     }
 
-    if (adminResult.data === true || permissionResult.data) {
+    if (access.isDispatchAdmin || access.hasErpPermission) {
       setDriver(null);
       setChecking(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("dispatch_drivers")
-      .select("*")
-      .eq("auth_user_id", session.user.id)
-      .eq("active", true)
-      .maybeSingle();
+    const { driver: activeDriver, error } = await loadActiveDispatchDriver(supabase, session.user.id);
 
     if (requestId !== resolveRequestRef.current) return;
     if (error) console.error("기사 계정 확인 실패", error);
-    setDriver(!error && data ? toDriver(data) : null);
+    setDriver(activeDriver);
     setChecking(false);
   }, []);
 

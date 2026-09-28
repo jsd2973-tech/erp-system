@@ -3,6 +3,7 @@ import DispatchCombobox from "./DispatchCombobox";
 import type { DispatchAssignmentForm, DispatchCustomer, DispatchDriver, DispatchItem, DispatchLocation, DispatchOrderForm, DispatchOrderWithVehicles, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
 import { calculateEstimatedTrips, emptyDispatchOrderForm, normalizeCompanyName } from "./dispatchUtils";
+import { filterDispatchDriversForCompany, filterDispatchVehiclesForCompany } from "./dispatchModel";
 
 type DispatchRegisterProps = {
   customers: DispatchCustomer[];
@@ -102,13 +103,11 @@ export default function DispatchRegister({ customers, locations, items, vehicles
   };
 
   const vehicleOptionsForCompany = (company: string, currentId: string) => {
-    const normalizedCompany = normalizeCompanyName(company);
-    return vehicles.filter((vehicle) => (vehicle.active || vehicle.id === currentId) && (!normalizedCompany || normalizeCompanyName(vehicle.company_name) === normalizedCompany));
+    return filterDispatchVehiclesForCompany(vehicles, company, currentId);
   };
 
   const driverOptionsForCompany = (company: string, currentId: string) => {
-    const normalizedCompany = normalizeCompanyName(company);
-    return drivers.filter((driver) => (driver.active || driver.id === currentId) && (!normalizedCompany || normalizeCompanyName(driver.company_name) === normalizedCompany));
+    return filterDispatchDriversForCompany(drivers, company, currentId);
   };
 
   const submit = async () => {

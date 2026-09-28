@@ -20,7 +20,7 @@ if promise_old in s:
     s = s.replace(promise_old, promise_new, 1)
 
 query_anchor = '      supabase.from("dispatch_order_vehicles").select("order_id,vehicle_id"),\n    ]);'
-if 'supabase.from("dispatch_trip_locations")' not in s:
+if 'supabase.from("dispatch_trip_locations")' not in s and 'loadDispatchStatusSnapshot' not in s:
     if query_anchor not in s:
         raise SystemExit('location query anchor not found')
     s = s.replace(
@@ -38,7 +38,7 @@ s = s.replace(
 )
 
 set_trips_end = '    })) as DispatchTrip[]);\n    setError("");'
-if 'setTripLocations((tripLocationResult.data || []).map' not in s:
+if 'setTripLocations((tripLocationResult.data || []).map' not in s and 'loadDispatchStatusSnapshot' not in s:
     if set_trips_end not in s:
         raise SystemExit('set trips end anchor not found')
     s = s.replace(

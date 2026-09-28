@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
-import type { DispatchDriver, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchOrderWithVehicles, DispatchTrip, DispatchTripLocation, DispatchVehicle } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
 type DispatchDetailProps = {
@@ -8,6 +8,7 @@ type DispatchDetailProps = {
   vehicles: DispatchVehicle[];
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
+  tripLocations?: DispatchTripLocation[];
   onEdit?: (order: DispatchOrderWithVehicles) => void;
   showTrips?: boolean;
 };
@@ -16,14 +17,22 @@ type DispatchTripHistoryProps = {
   vehicles: DispatchVehicle[];
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
+  tripLocations?: DispatchTripLocation[];
+};
+
+const formatTripLocationDisplay = (address?: string | null) => {
+  const value = String(address || "").trim();
+  if (!value) return "";
+  return value.replace(/\s*\(([^()]+)\)\s*$/, " · $1 인근");
 };
 
 const koreaDateTime = (value: string | null) => value ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) : "-";
 
-export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHistoryProps) {
+export function DispatchTripHistory({ vehicles, drivers, trips, tripLocations = [] }: DispatchTripHistoryProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
   const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
+  const locationByTripEvent = new Map(tripLocations.map((location) => [`${location.trip_id}:${location.event_type}`, location]));
   const sortedTrips = [...trips].sort((a, b) => a.trip_no - b.trip_no
     || (vehicleById.get(a.vehicle_id)?.vehicle_number || "").localeCompare(vehicleById.get(b.vehicle_id)?.vehicle_number || "", "ko-KR", { numeric: true, sensitivity: "base" })
     || a.created_at.localeCompare(b.created_at));
@@ -36,7 +45,7 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
         <table className="dispatch-table">
           <thead><tr><th>No</th><th>차량번호</th><th>기사</th><th>회차</th><th>상차 완료시간</th><th>하차 완료시간</th><th>실제 운송량</th><th>상태</th></tr></thead>
           <tbody>{!sortedTrips.length ? <tr><td colSpan={8} className="dispatch-empty">등록된 운행기록이 없습니다.</td></tr> : sortedTrips.map((trip, index) => <tr key={trip.id}>
-            <td className="dispatch-count-cell">{index + 1}</td><td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}</td><td>{koreaDateTime(trip.unloading_completed_at)}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
+            <td className="dispatch-count-cell">{index + 1}</td><td className="dispatch-strong">{vehicleById.get(trip.vehicle_id)?.vehicle_number || "차량 확인 필요"}</td><td>{driverById.get(trip.driver_id)?.name || "기사 확인 필요"}</td><td className="dispatch-count-cell">{trip.trip_no}회</td><td>{koreaDateTime(trip.loading_completed_at)}{locationByTripEvent.get(`${trip.id}:loading`)?.address && <small className="dispatch-trip-location">📍 {formatTripLocationDisplay(locationByTripEvent.get(`${trip.id}:loading`)?.address)}</small>}</td><td>{koreaDateTime(trip.unloading_completed_at)}{locationByTripEvent.get(`${trip.id}:unloading`)?.address && <small className="dispatch-trip-location">📍 {formatTripLocationDisplay(locationByTripEvent.get(`${trip.id}:unloading`)?.address)}</small>}</td><td className="dispatch-number-cell">{formatVolume(trip.actual_volume)}</td><td><span className={`dispatch-trip-status ${trip.status === "완료" ? "done" : trip.status === "진행중" ? "active" : "waiting"}`}>{trip.status}</span></td>
           </tr>)}</tbody>
         </table>
       </div>
@@ -54,8 +63,8 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
               <strong>{formatVolume(trip.actual_volume)}</strong>
             </div>
             <div className="dispatch-trip-mobile-times">
-              <div><span>상차 완료</span><b>{koreaDateTime(trip.loading_completed_at)}</b></div>
-              <div><span>하차 완료</span><b>{koreaDateTime(trip.unloading_completed_at)}</b></div>
+              <div><span>상차 완료</span><b>{koreaDateTime(trip.loading_completed_at)}</b>{locationByTripEvent.get(`${trip.id}:loading`)?.address && <small className="dispatch-trip-location">📍 {formatTripLocationDisplay(locationByTripEvent.get(`${trip.id}:loading`)?.address)}</small>}</div>
+              <div><span>하차 완료</span><b>{koreaDateTime(trip.unloading_completed_at)}</b>{locationByTripEvent.get(`${trip.id}:unloading`)?.address && <small className="dispatch-trip-location">📍 {formatTripLocationDisplay(locationByTripEvent.get(`${trip.id}:unloading`)?.address)}</small>}</div>
             </div>
           </article>
         ))}
@@ -64,8 +73,10 @@ export function DispatchTripHistory({ vehicles, drivers, trips }: DispatchTripHi
   );
 }
 
-export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit, showTrips = true }: DispatchDetailProps) {
+export default function DispatchDetail({ order, vehicles, drivers, trips, tripLocations = [], onEdit, showTrips = true }: DispatchDetailProps) {
   const vehicleById = new Map(vehicles.map((vehicle) => [vehicle.id, vehicle]));
+  const driverById = new Map(drivers.map((driver) => [driver.id, driver]));
+  const assignedRows = [...(order.assignments || [])].sort((left, right) => (vehicleById.get(left.vehicle_id)?.vehicle_number || "").localeCompare(vehicleById.get(right.vehicle_id)?.vehicle_number || "", "ko-KR", { numeric: true, sensitivity: "base" }));
   const assignedVehicleIds = [...order.vehicle_ids].sort((a, b) => (vehicleById.get(a)?.vehicle_number || "").localeCompare(vehicleById.get(b)?.vehicle_number || "", "ko-KR", { numeric: true, sensitivity: "base" }));
   const completedTrips = trips.filter((trip) => trip.status === "완료");
   const activeTrips = trips.filter((trip) => trip.status === "상차대기" || trip.status === "진행중");
@@ -101,12 +112,14 @@ export default function DispatchDetail({ order, vehicles, drivers, trips, onEdit
       </div>
 
       <div className="dispatch-assigned-list">
-        <span>배정 차량</span>
-        <div>{order.vehicle_ids.length ? assignedVehicleIds.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"}</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
+        <span>배정 차량·기사</span>
+        <div>{assignedRows.length ? assignedRows.map((assignment) => <strong key={assignment.id}>{vehicleById.get(assignment.vehicle_id)?.vehicle_number || "차량 확인 필요"} · {driverById.get(assignment.driver_id || "")?.name || "기사 확인 필요"}</strong>) : order.vehicle_ids.length ? assignedVehicleIds.map((id) => <strong key={id}>{vehicleById.get(id)?.vehicle_number || "차량 확인 필요"} · 기사 확인 필요</strong>) : <em>배정된 차량이 없습니다.</em>}</div>
       </div>
 
+      {/* COMPANY_DISPATCH_ASSIGNMENTS_PATCH_V1 */}
+
       <div className="dispatch-detail-note"><span>메모</span><p>{order.memo || "-"}</p></div>
-      {showTrips && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={trips} />}
+      {showTrips && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={trips} tripLocations={tripLocations} />}
     </section>
   );
 }

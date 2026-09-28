@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DispatchDriver, DispatchOrder, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
 import { dispatchToday, formatVolume } from "./dispatchUtils";
+import { captureTripLocation } from "./dispatchLocationService";
+import { loadDriverDispatchSnapshot, loadDriverHistory, saveDriverTripAction } from "./dispatchMobileService";
 import "./driverMobile.css";
+
+// COMPANY_DISPATCH_ASSIGNMENTS_PATCH_V1
 
 type DriverTab = "today" | "input" | "history";
 
@@ -10,12 +14,6 @@ type DriverMobileAppProps = {
   supabase: SupabaseClient;
   driver: DispatchDriver;
   onLogout: () => void;
-};
-
-const nextDate = (date: string) => {
-  const value = new Date(`${date}T12:00:00+09:00`);
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 };
 
 const koreaDate = (value: string | null) => value
@@ -26,37 +24,6 @@ const koreaTime = (value: string | null) => value
   ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value))
   : "-";
 
-const normalizeTrip = (row: Record<string, unknown>): DispatchTrip => ({
-  id: String(row.id),
-  dispatch_order_id: String(row.dispatch_order_id),
-  vehicle_id: String(row.vehicle_id),
-  driver_id: String(row.driver_id),
-  trip_no: Number(row.trip_no || 0),
-  actual_volume: Number(row.actual_volume || 0),
-  status: row.status as DispatchTrip["status"],
-  loading_completed_at: row.loading_completed_at ? String(row.loading_completed_at) : null,
-  unloading_completed_at: row.unloading_completed_at ? String(row.unloading_completed_at) : null,
-  created_at: String(row.created_at || ""),
-  updated_at: row.updated_at ? String(row.updated_at) : undefined,
-});
-
-const normalizeOrder = (row: Record<string, unknown>): DispatchOrder => ({
-  id: String(row.id),
-  dispatch_date: String(row.dispatch_date || ""),
-  vendor_id: row.vendor_id ? String(row.vendor_id) : null,
-  vendor_name: String(row.vendor_name || ""),
-  loading_location: String(row.loading_location || ""),
-  unloading_location: String(row.unloading_location || ""),
-  item_id: row.item_id ? String(row.item_id) : null,
-  item_name: String(row.item_name || ""),
-  total_volume: Number(row.total_volume || 0),
-  volume_per_trip: Number(row.volume_per_trip || 0),
-  estimated_trip_count: Number(row.estimated_trip_count || 0),
-  status: row.status as DispatchOrder["status"],
-  memo: String(row.memo || ""),
-  created_at: row.created_at ? String(row.created_at) : undefined,
-});
-
 export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMobileAppProps) {
   const [tab, setTab] = useState<DriverTab>("today");
   const [todayOrders, setTodayOrders] = useState<DispatchOrder[]>([]);
@@ -64,6 +31,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const [allTodayTrips, setAllTodayTrips] = useState<DispatchTrip[]>([]);
   const [historyTrips, setHistoryTrips] = useState<DispatchTrip[]>([]);
   const [ordersById, setOrdersById] = useState<Map<string, DispatchOrder>>(new Map());
+  const [orderVehicleIds, setOrderVehicleIds] = useState<Map<string, string[]>>(new Map());
   const [vehicle, setVehicle] = useState<DispatchVehicle | null>(null);
   const [vehiclesById, setVehiclesById] = useState<Map<string, DispatchVehicle>>(new Map());
   const [selectedOrderId, setSelectedOrderId] = useState("");
@@ -72,107 +40,107 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [locationPermissionOpen, setLocationPermissionOpen] = useState(false);
+  const [locationPermissionBusy, setLocationPermissionBusy] = useState(false);
+  const [locationPermissionMessage, setLocationPermissionMessage] = useState("");
 
   const loadOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError("");
-    const vehicleId = driver.assigned_vehicle_id;
-    if (!vehicleId) {
-      setVehicle(null);
-      setTodayOrders([]);
-      setTodayTrips([]);
-      setAllTodayTrips([]);
-      setLoading(false);
-      return;
+    try {
+      const snapshot = await loadDriverDispatchSnapshot(supabase, driver);
+      setVehicle(snapshot.vehicles[0] || null);
+      setVehiclesById((current) => new Map([...current, ...snapshot.vehicles.map((item) => [item.id, item] as const)]));
+      setOrderVehicleIds(snapshot.orderVehicleIds);
+      setTodayOrders(snapshot.todayOrders);
+      setTodayTrips(snapshot.todayTrips);
+      setAllTodayTrips(snapshot.allTodayTrips);
+      setOrdersById((current) => new Map([...current, ...snapshot.todayOrders.map((order) => [order.id, order] as const)]));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "배차 정보를 불러오지 못했습니다.");
     }
-
-    const [vehicleResult, assignmentResult, tripResult, activeTripResult] = await Promise.all([
-      supabase.from("dispatch_vehicles").select("*").eq("id", vehicleId).maybeSingle(),
-      supabase.from("dispatch_order_vehicles").select("order_id").eq("vehicle_id", vehicleId),
-      supabase.from("dispatch_trips").select("*").eq("driver_id", driver.id).gte("created_at", `${dispatchToday()}T00:00:00+09:00`).lt("created_at", `${nextDate(dispatchToday())}T00:00:00+09:00`).order("created_at", { ascending: false }),
-      supabase.from("dispatch_trips").select("*").eq("driver_id", driver.id).in("status", ["상차대기", "진행중"]).order("created_at", { ascending: false }),
-    ]);
-    const loadError = vehicleResult.error || assignmentResult.error || tripResult.error || activeTripResult.error;
-    if (loadError) {
-      setError(`배차 정보를 불러오지 못했습니다. (${loadError.message})`);
-      setLoading(false);
-      return;
-    }
-
-    const orderIds = (assignmentResult.data || []).map((row) => String(row.order_id));
-    const orderResult = orderIds.length
-      ? await supabase.from("dispatch_orders").select("*").in("id", orderIds).eq("dispatch_date", dispatchToday()).neq("status", "취소").order("created_at", { ascending: true })
-      : { data: [], error: null };
-    if (orderResult.error) {
-      setError(`오늘 배차를 불러오지 못했습니다. (${orderResult.error.message})`);
-      setLoading(false);
-      return;
-    }
-
-    const todayOrders = (orderResult.data || []).map((row) => normalizeOrder(row));
-    const carryOverTrips = (activeTripResult.data || []).map((row) => normalizeTrip(row));
-    const carryOverOrderIds = [...new Set(carryOverTrips.map((trip) => trip.dispatch_order_id).filter((id) => !todayOrders.some((order) => order.id === id)))];
-    const carryOverOrderResult = carryOverOrderIds.length
-      ? await supabase.from("dispatch_orders").select("*").in("id", carryOverOrderIds).neq("status", "취소")
-      : { data: [], error: null };
-    if (carryOverOrderResult.error) {
-      setError(`미완료 운행의 배차를 불러오지 못했습니다. (${carryOverOrderResult.error.message})`);
-      setLoading(false);
-      return;
-    }
-    const nextOrders = [...todayOrders, ...(carryOverOrderResult.data || []).map((row) => normalizeOrder(row))];
-    const relevantOrderIds = nextOrders.map((order) => order.id);
-    const allTripResult = relevantOrderIds.length
-      ? await supabase.from("dispatch_trips").select("*").in("dispatch_order_id", relevantOrderIds).order("created_at", { ascending: false })
-      : { data: [], error: null };
-    if (allTripResult.error) {
-      setError(`전체 운행 진행상황을 불러오지 못했습니다. (${allTripResult.error.message})`);
-      setLoading(false);
-      return;
-    }
-
-    const nextVehicle = vehicleResult.data ? { ...vehicleResult.data, id: String(vehicleResult.data.id), vehicle_number: String(vehicleResult.data.vehicle_number || ""), active: vehicleResult.data.active !== false, memo: String(vehicleResult.data.memo || "") } as DispatchVehicle : null;
-    setVehicle(nextVehicle);
-    if (nextVehicle) setVehiclesById((current) => new Map(current).set(nextVehicle.id, nextVehicle));
-    setTodayOrders(nextOrders);
-    const todayDriverTrips = (tripResult.data || []).map((row) => normalizeTrip(row));
-    const relevantDriverTrips = [...todayDriverTrips];
-    carryOverTrips.forEach((trip) => { if (!relevantDriverTrips.some((item) => item.id === trip.id)) relevantDriverTrips.push(trip); });
-    setTodayTrips(relevantDriverTrips);
-    setAllTodayTrips((allTripResult.data || []).map((row) => normalizeTrip(row)));
-    setOrdersById((current) => new Map([...current, ...nextOrders.map((order) => [order.id, order] as const)]));
     setLoading(false);
   }, [driver.assigned_vehicle_id, driver.id, supabase]);
 
   const loadHistory = useCallback(async () => {
     setLoading(true);
     setError("");
-    const tripResult = await supabase.from("dispatch_trips").select("*").eq("driver_id", driver.id).gte("created_at", `${historyDate}T00:00:00+09:00`).lt("created_at", `${nextDate(historyDate)}T00:00:00+09:00`).order("created_at", { ascending: false });
-    if (tripResult.error) {
-      setError(`운행기록을 불러오지 못했습니다. (${tripResult.error.message})`);
-      setLoading(false);
-      return;
+    try {
+      const snapshot = await loadDriverHistory(supabase, driver.id, historyDate);
+      setHistoryTrips(snapshot.trips);
+      setOrdersById((current) => new Map([...current, ...snapshot.orders.map((order) => [order.id, order] as const)]));
+      setVehiclesById((current) => new Map([...current, ...snapshot.vehicles.map((item) => [item.id, item] as const)]));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "운행기록을 불러오지 못했습니다.");
     }
-    const trips = (tripResult.data || []).map((row) => normalizeTrip(row));
-    const orderIds = [...new Set(trips.map((trip) => trip.dispatch_order_id))];
-    const vehicleIds = [...new Set(trips.map((trip) => trip.vehicle_id))];
-    const [orderResult, vehicleResult] = await Promise.all([
-      orderIds.length ? supabase.from("dispatch_orders").select("*").in("id", orderIds) : Promise.resolve({ data: [], error: null }),
-      vehicleIds.length ? supabase.from("dispatch_vehicles").select("*").in("id", vehicleIds) : Promise.resolve({ data: [], error: null }),
-    ]);
-    if (orderResult.error || vehicleResult.error) {
-      setError(`운행 상세를 불러오지 못했습니다. (${(orderResult.error || vehicleResult.error)?.message})`);
-      setLoading(false);
-      return;
-    }
-    const historyOrders = (orderResult.data || []).map((row) => normalizeOrder(row));
-    setHistoryTrips(trips);
-    setOrdersById((current) => new Map([...current, ...historyOrders.map((order) => [order.id, order] as const)]));
-    setVehiclesById((current) => new Map([...current, ...(vehicleResult.data || []).map((row) => [String(row.id), { ...row, id: String(row.id), vehicle_number: String(row.vehicle_number || ""), active: row.active !== false, memo: String(row.memo || "") } as DispatchVehicle] as const)]));
     setLoading(false);
   }, [driver.id, historyDate, supabase]);
 
   useEffect(() => { void loadOrders(); }, [loadOrders]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const permissionKey = "tm_driver_location_permission_granted_v1";
+    const checkLocationPermission = async () => {
+      if (!("geolocation" in navigator)) {
+        if (!cancelled) {
+          setLocationPermissionMessage("이 휴대폰에서는 위치 확인을 지원하지 않습니다.");
+          setLocationPermissionOpen(true);
+        }
+        return;
+      }
+      try {
+        if ("permissions" in navigator && navigator.permissions?.query) {
+          const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+          if (cancelled) return;
+          if (status.state === "granted") {
+            localStorage.setItem(permissionKey, "1");
+            setLocationPermissionOpen(false);
+            return;
+          }
+          setLocationPermissionOpen(true);
+          if (status.state === "denied") {
+            setLocationPermissionMessage("위치 권한이 차단되어 있습니다. 브라우저 사이트 설정에서 위치 권한을 허용해 주세요.");
+          }
+          return;
+        }
+      } catch {
+        // Some mobile browsers do not expose the Permissions API. Fall back to the saved successful grant.
+      }
+      if (!cancelled) setLocationPermissionOpen(localStorage.getItem(permissionKey) !== "1");
+    };
+    void checkLocationPermission();
+    return () => { cancelled = true; };
+  }, []);
+
+  const requestInitialLocationPermission = () => {
+    const permissionKey = "tm_driver_location_permission_granted_v1";
+    if (!("geolocation" in navigator)) {
+      setLocationPermissionMessage("이 휴대폰에서는 위치 확인을 지원하지 않습니다.");
+      return;
+    }
+    setLocationPermissionBusy(true);
+    setLocationPermissionMessage("");
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        localStorage.setItem(permissionKey, "1");
+        setLocationPermissionBusy(false);
+        setLocationPermissionOpen(false);
+      },
+      (geoError) => {
+        setLocationPermissionBusy(false);
+        setLocationPermissionOpen(true);
+        if (geoError.code === geoError.PERMISSION_DENIED) {
+          setLocationPermissionMessage("위치 권한이 차단되었습니다. 주소창의 사이트 설정 또는 휴대폰 설정에서 이 사이트의 위치 권한을 ‘허용’으로 변경해 주세요.");
+        } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
+          setLocationPermissionMessage("휴대폰 위치 서비스를 켠 뒤 다시 눌러 주세요.");
+        } else {
+          setLocationPermissionMessage("위치 확인 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  };
   useEffect(() => { if (tab === "history") void loadHistory(); }, [loadHistory, tab]);
 
   useEffect(() => {
@@ -203,6 +171,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
 
   const isOrderCompleted = (order: DispatchOrder) => order.status === "완료";
 
+  const selectedVehicle = activeTrip ? vehiclesById.get(activeTrip.vehicle_id) || null : selectedOrder ? vehiclesById.get(orderVehicleIds.get(selectedOrder.id)?.[0] || "") || vehicle : vehicle;
   const sortedTodayOrders = [...todayOrders].sort((left, right) => Number(isOrderCompleted(left)) - Number(isOrderCompleted(right)));
 
   useEffect(() => {
@@ -210,10 +179,29 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
     else if (selectedOrder) setActualVolume(String(selectedOrder.volume_per_trip));
   }, [activeTrip?.id, selectedOrder?.id]);
 
-  const runTripAction = async (rpc: string, args: Record<string, unknown>) => {
+  const runTripAction = async (rpc: string, args: Record<string, unknown>, captureLocation = false) => {
     setSaving(true);
     setError("");
-    const { error: actionError } = await supabase.rpc(rpc, args);
+    let rpcName = rpc;
+    let rpcArgs = args;
+    if (captureLocation) {
+      try {
+        const location = await captureTripLocation();
+        rpcName = rpc === "complete_dispatch_loading" ? "complete_dispatch_loading_with_location" : "complete_dispatch_unloading_with_location";
+        rpcArgs = {
+          ...args,
+          p_latitude: location.latitude,
+          p_longitude: location.longitude,
+          p_accuracy_m: location.accuracy,
+          p_address: location.address,
+        };
+      } catch (locationError) {
+        setSaving(false);
+        setError(locationError instanceof Error ? locationError.message : "현재 위치를 확인하지 못했습니다.");
+        return;
+      }
+    }
+    const { error: actionError } = await saveDriverTripAction(supabase, rpcName, rpcArgs);
     setSaving(false);
     if (actionError) {
       setError(actionError.message);
@@ -231,8 +219,22 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
 
   return (
     <div className="driver-mobile-app">
+      {locationPermissionOpen && (
+        <div className="driver-location-permission-backdrop" role="dialog" aria-modal="true" aria-label="운행 위치 권한 설정">
+          <div className="driver-location-permission-card">
+            <div className="driver-location-permission-icon">📍</div>
+            <h2>운행 위치 권한 설정</h2>
+            <p>상차완료·하차완료 시간을 정확한 위치와 함께 기록하기 위해 위치 권한이 필요합니다.</p>
+            <p className="driver-location-permission-note">기사님 화면에는 주소나 좌표가 표시되지 않습니다.</p>
+            {locationPermissionMessage && <div className="driver-location-permission-message">{locationPermissionMessage}</div>}
+            <button type="button" onClick={requestInitialLocationPermission} disabled={locationPermissionBusy}>
+              {locationPermissionBusy ? "위치 확인 중..." : "위치 허용하기"}
+            </button>
+          </div>
+        </div>
+      )}
       <header className="driver-mobile-header">
-        <div><span>25.5T DUMP</span><h1>{driver.name} 기사님</h1><p>{vehicle?.vehicle_number || "담당 차량 미지정"}</p></div>
+        <div><span>25.5T DUMP</span><h1>{driver.name} 기사님</h1><p>{selectedVehicle?.vehicle_number || "배정 차량 확인 필요"}</p></div>
         <button type="button" onClick={onLogout}>로그아웃</button>
       </header>
 
@@ -243,8 +245,9 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
         {!loading && tab === "today" && (
           <section>
             <div className="driver-mobile-title"><div><span>{dispatchToday()}</span><h2>오늘 배차</h2></div><button type="button" onClick={() => void loadOrders()}>새로고침</button></div>
-            {!driver.assigned_vehicle_id ? <div className="driver-mobile-empty">관리자가 담당 차량을 지정해야 합니다.</div> : !todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : sortedTodayOrders.map((order) => {
+            {!todayOrders.length ? <div className="driver-mobile-empty">오늘 배정된 배차가 없습니다.</div> : sortedTodayOrders.map((order) => {
               const orderTrips = allTodayTrips.filter((trip) => trip.dispatch_order_id === order.id);
+              const orderVehicles = [...new Set([...(orderVehicleIds.get(order.id) || []), ...orderTrips.map((trip) => trip.vehicle_id)])];
               const completedTrips = orderTrips.filter((trip) => trip.status === "완료").length;
               const remainingTrips = Math.max(order.estimated_trip_count - completedTrips, 0);
               const myCompletedTrips = todayTrips.filter((trip) => trip.dispatch_order_id === order.id && trip.status === "완료" && koreaDate(trip.created_at) === dispatchToday()).length;
@@ -258,7 +261,7 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
                   <div className="remaining"><span>남은 회차</span><strong>{remainingTrips}<small>회</small></strong></div>
                 </div>
                 <p className="driver-shared-progress-note">배정된 모든 차량의 운행을 합산한 진행상황입니다. · 내 완료 {myCompletedTrips}회</p>
-                <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>차량</dt><dd>{vehicle?.vehicle_number || "-"}</dd></div></dl>
+                <dl><div><dt>상차지</dt><dd>{order.loading_location}</dd></div><div><dt>하차지</dt><dd>{order.unloading_location}</dd></div><div><dt>예정 물량</dt><dd>{formatVolume(order.total_volume)}</dd></div><div><dt>차량</dt><dd>{orderVehicles.map((id) => vehiclesById.get(id)?.vehicle_number || "차량 확인 필요").join(" · ") || "-"}</dd></div></dl>
                 {order.memo && <p className="driver-order-memo">{order.memo}</p>}
                 <button type="button" className="driver-main-action" disabled={orderCompleted && !myActiveTrip} onClick={() => { if (!orderCompleted || myActiveTrip) chooseOrder(order.id); }}>{myActiveTrip ? "미완료 운행 계속" : orderCompleted ? "운행 완료" : "운행 입력"}</button>
               </article>;
@@ -275,12 +278,12 @@ export default function DriverMobileApp({ supabase, driver, onLogout }: DriverMo
                 <div><span>전체 완료</span><strong>{selectedOrderCompleted}<small>회</small></strong></div>
                 <div className="remaining"><span>남은 회차</span><strong>{selectedOrderRemaining}<small>회</small></strong></div>
               </div>
-              <dl><div><dt>상차 → 하차</dt><dd>{selectedOrder.loading_location} → {selectedOrder.unloading_location}</dd></div><div><dt>차량 / 기사</dt><dd>{vehicle?.vehicle_number || "-"} / {driver.name}</dd></div><div><dt>기본 운송량</dt><dd>{formatVolume(selectedOrder.volume_per_trip)}</dd></div></dl>
+              <dl><div><dt>상차 → 하차</dt><dd>{selectedOrder.loading_location} → {selectedOrder.unloading_location}</dd></div><div><dt>차량 / 기사</dt><dd>{selectedVehicle?.vehicle_number || "-"} / {driver.name}</dd></div><div><dt>기본 운송량</dt><dd>{formatVolume(selectedOrder.volume_per_trip)}</dd></div></dl>
               {activeTrip ? <>
                 <div className="driver-trip-number">제 {activeTrip.trip_no}회 · {activeTrip.status}</div>
                 <div className="driver-trip-times"><span>상차 {koreaTime(activeTrip.loading_completed_at)}</span><span>하차 {koreaTime(activeTrip.unloading_completed_at)}</span></div>
-                {activeTrip.status === "상차대기" && <button type="button" className="driver-big-button loading" disabled={saving} onClick={() => void runTripAction("complete_dispatch_loading", { p_trip_id: activeTrip.id })}>{saving ? "저장 중..." : "상차 완료"}</button>}
-                {activeTrip.status === "진행중" && <><label className="driver-volume-input"><span>실제 운송량(루베)</span><input inputMode="decimal" value={actualVolume} onChange={(event) => setActualVolume(event.target.value)} /></label><button type="button" className="driver-big-button unloading" disabled={saving || !(Number(actualVolume) > 0)} onClick={() => void runTripAction("complete_dispatch_unloading", { p_trip_id: activeTrip.id, p_actual_volume: Number(actualVolume) })}>{saving ? "저장 중..." : "하차 완료"}</button></>}
+                {activeTrip.status === "상차대기" && <button type="button" className="driver-big-button loading" disabled={saving} onClick={() => void runTripAction("complete_dispatch_loading", { p_trip_id: activeTrip.id }, true)}>{saving ? "저장 중..." : "상차 완료"}</button>}
+                {activeTrip.status === "진행중" && <><label className="driver-volume-input"><span>실제 운송량(루베)</span><input inputMode="decimal" value={actualVolume} onChange={(event) => setActualVolume(event.target.value)} /></label><button type="button" className="driver-big-button unloading" disabled={saving || !(Number(actualVolume) > 0)} onClick={() => void runTripAction("complete_dispatch_unloading", { p_trip_id: activeTrip.id, p_actual_volume: Number(actualVolume) }, true)}>{saving ? "저장 중..." : "하차 완료"}</button></>}
               </> : <>
                 {latestCompletedTrip && <div className="driver-complete-notice">{latestCompletedTrip.trip_no}회 운행을 완료했습니다.</div>}
                 <button type="button" className="driver-big-button start" disabled={saving || selectedOrder.status === "완료" || selectedOrder.status === "취소"} onClick={() => void runTripAction("start_dispatch_trip", { p_order_id: selectedOrder.id })}>{saving ? "시작 중..." : latestCompletedTrip ? "다음 운행 시작" : "운행 시작"}</button>

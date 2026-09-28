@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef } from "react";
 import DispatchDetail, { DispatchTripHistory } from "./DispatchDetail";
-import type { DispatchDriver, DispatchFilters, DispatchOrderWithVehicles, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchFilters, DispatchOrderWithVehicles, DispatchTrip, DispatchTripLocation, DispatchVehicle } from "./dispatchTypes";
 import { DISPATCH_STATUSES } from "./dispatchTypes";
 import { dispatchStatusClass, formatVolume } from "./dispatchUtils";
 
@@ -10,6 +10,7 @@ type DispatchListProps = {
   vehicles: DispatchVehicle[];
   drivers: DispatchDriver[];
   trips: DispatchTrip[];
+  tripLocations?: DispatchTripLocation[];
   onEdit: (order: DispatchOrderWithVehicles) => void;
   canEdit?: boolean;
   onDelete?: (order: DispatchOrderWithVehicles) => Promise<boolean>;
@@ -21,7 +22,7 @@ type DispatchListProps = {
 
 const emptyFilters: DispatchFilters = { from: "", to: "", vendor: "", item: "", status: "" };
 
-export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, onEdit, canEdit = true, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
+export default function DispatchList({ orders, deletedOrders = [], vehicles, drivers, trips, tripLocations = [], onEdit, canEdit = true, onDelete, onRestore, onPermanentDelete, deletingOrderId = "", compact = false }: DispatchListProps) {
   const [filters, setFilters] = useState<DispatchFilters>(emptyFilters);
   const [selectedId, setSelectedId] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -143,18 +144,18 @@ export default function DispatchList({ orders, deletedOrders = [], vehicles, dri
 
   const mobileDetail = <dialog ref={detailDialog} className="dispatch-mobile-detail-dialog" aria-label="배차 상세정보" onClose={() => setMobileDetailOpen(false)}>
     <header className="dispatch-mobile-detail-header"><button type="button" autoFocus onClick={closeDetail}>← 목록으로</button><strong>배차 상세</strong></header>
-    {mobileDetailOpen && selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? ((order) => { closeDetail(); onEdit(order); }) : undefined} />}
+    {mobileDetailOpen && selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} tripLocations={tripLocations} onEdit={canEdit ? ((order) => { closeDetail(); onEdit(order); }) : undefined} />}
   </dialog>;
 
-  if (compact) return <div className="dispatch-compact-list">{listPanel}{mobileDetail}<div className="dispatch-desktop-detail">{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} />}</div></div>;
+  if (compact) return <div className="dispatch-compact-list">{listPanel}{mobileDetail}<div className="dispatch-desktop-detail">{selectedOrder && <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} tripLocations={tripLocations} onEdit={canEdit ? onEdit : undefined} />}</div></div>;
 
   return (
     <div className="dispatch-list-workspace dispatch-list-workspace-stacked">
       {showTrash ? trashPanel : listPanel}
       {mobileDetail}
       <div className="dispatch-desktop-detail">
-      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} onEdit={canEdit ? onEdit : undefined} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
-      {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} />}
+      {!showTrash && (selectedOrder ? <DispatchDetail order={selectedOrder} vehicles={vehicles} drivers={drivers} trips={selectedTrips} tripLocations={tripLocations} onEdit={canEdit ? onEdit : undefined} showTrips={false} /> : <div className="dispatch-detail-empty"><strong>배차 상세정보</strong><p>배차를 선택하면 상세정보가 표시됩니다.</p></div>)}
+      {!showTrash && selectedOrder && <DispatchTripHistory vehicles={vehicles} drivers={drivers} trips={selectedTrips} tripLocations={tripLocations} />}
       </div>
     </div>
   );
