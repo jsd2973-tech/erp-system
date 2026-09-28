@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import type { DispatchDriver, DispatchTrip, DispatchTripLocation, DispatchVehicle } from "./dispatchTypes";
 import { dispatchToday, formatVolume } from "./dispatchUtils";
-import { canCorrectDispatchTrips, correctDispatchTripEvent, loadDispatchStatusSnapshot, loadDispatchTripCorrectionHistory } from "./dispatchStatusService";
+import { canCorrectDispatchTrips, correctDispatchTripEvent, loadDispatchTripCorrectionHistory } from "./dispatchCorrectionService";
+import { loadDispatchStatusSnapshot } from "./dispatchStatusService";
 import {
   buildDailyDriverSummaries,
   buildDailyVehicleSummaries,
