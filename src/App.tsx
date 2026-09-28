@@ -18,6 +18,7 @@ import {
   toPurchase,
 } from "./features/purchase/purchaseModel";
 import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
+import { createPurchaseService } from "./features/purchase/purchaseService";
 import type {
   BulkTransferRow,
   MaintenancePurchaseLink,
@@ -35,6 +36,8 @@ import {
   normalizePurchasePriceText,
   type PurchasePriceHistory,
 } from "./features/purchase/purchasePriceHistory";
+
+const purchaseService = createPurchaseService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -2119,10 +2122,10 @@ export default function App() {
       fetchAllRows("warehouse_groups", "code", 1000),
       fetchAllRows("warehouses", "code", 1000),
       fetchAllRows("items", "code", 1000),
-      fetchAllRows("purchases", "date", 1000, false),
+      purchaseService.fetchPurchases(),
       fetchAllRows("maints", "date", 1000, false),
       fetchAllRows("card_uses", "date", 1000, false),
-      fetchAllRows("maintenance_purchase_links", "created_at", 1000, false),
+      purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
 
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error) {
@@ -2456,7 +2459,7 @@ export default function App() {
     const excelRows = await readExcelRows(file);
     if (!excelRows.length) return alert("엑셀에서 구매내역을 찾지 못했습니다.");
 
-    const existingPurchaseRes = await fetchAllRows("purchases", "date", 1000);
+    const existingPurchaseRes = await purchaseService.fetchPurchases(true);
     if (existingPurchaseRes.error) return alert(`기존 구매내역 불러오기 실패: ${existingPurchaseRes.error.message}`);
     const existingPurchases = ((existingPurchaseRes.data || []) as any[]).map(toPurchase);
 
@@ -2578,7 +2581,7 @@ export default function App() {
       if (groupError) return alert(`창고 저장 실패: ${groupError.message}`);
     }
 
-    const purchaseError = await upsertInChunks("purchases", purchaseRows.map(fromPurchase));
+    const purchaseError = await purchaseService.upsertPurchasesInChunks(purchaseRows);
     if (purchaseError) return alert(`구매내역 업로드 실패: ${purchaseError.message}`);
 
     await addActivityLog({
@@ -2722,7 +2725,7 @@ export default function App() {
           return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
         }
       }
-      const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
+      const { error } = await purchaseService.savePurchaseRecord(payload);
       if (error) return alert(`구매 저장 실패: ${error.message}`);
       setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
       await addActivityLog({
@@ -3473,10 +3476,7 @@ export default function App() {
     const nextUrls = mergeUrls(purchase.image_urls || (purchase.image_url ? [purchase.image_url] : []), photo.image_urls || []);
     const payload = { ...purchase, image_urls: nextUrls, image_url: nextUrls[0] || "" };
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
-      .eq("id", purchase.id);
+    const { error } = await purchaseService.updatePurchaseImages(purchase.id, nextUrls);
 
     if (error) return alert(`기존 구매내역 사진 연결 실패: ${error.message}`);
 
@@ -3513,10 +3513,7 @@ export default function App() {
     const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
     const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
-      .eq("id", target.id);
+    const { error } = await purchaseService.updatePurchaseImages(target.id, nextUrls);
 
     if (error) return alert(`구매내역 사진 연결 실패: ${error.message}`);
 
@@ -3900,10 +3897,7 @@ export default function App() {
     setPurchaseTaxInvoiceSavingId(purchase.id);
 
     try {
-      const { error } = await supabase
-        .from("purchases")
-        .update({ tax_invoice_received: received })
-        .eq("id", purchase.id);
+      const { error } = await purchaseService.updatePurchaseTaxInvoice(purchase.id, received);
 
       if (error) return alert(`세금계산서 상태 저장 실패: ${error.message}`);
 
@@ -3939,10 +3933,7 @@ export default function App() {
     setPurchasePaymentSavingId(purchase.id);
 
     try {
-      const { error } = await supabase
-        .from("purchases")
-        .update({ payment_status: nextStatus, paid_date: paidDate })
-        .eq("id", purchase.id);
+      const { error } = await purchaseService.updatePurchasePayment(purchase.id, nextStatus, paidDate);
 
       if (error) return alert(`지급상태 저장 실패: ${error.message}`);
 
@@ -4539,10 +4530,7 @@ export default function App() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ payment_status: "paid", paid_date: paymentDate })
-      .in("id", purchaseIds);
+    const { error } = await purchaseService.updatePurchasesPayment(purchaseIds, paymentDate);
 
     if (error) return alert(`지급완료 처리 실패: ${error.message}`);
 
@@ -5308,10 +5296,7 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = purchases.find((p) => p.id === id);
     if (!target) return alert("삭제할 구매내역을 찾지 못했습니다.");
-    const { data: linkedRows, error: linkedRowsError } = await supabase
-      .from("maintenance_purchase_links")
-      .select("id, maintenance_id, maintenance_row_id, used_qty")
-      .eq("purchase_id", id);
+    const { data: linkedRows, error: linkedRowsError } = await purchaseService.fetchPurchaseLinkReferences(id);
     if (linkedRowsError) return alert(`구매 연결정보 확인 실패: ${linkedRowsError.message}`);
     if ((linkedRows || []).length) {
       return alert(`이 구매내역은 정비 ${(linkedRows || []).length}건에 연결된 품목이 있어 삭제할 수 없습니다. 먼저 정비에서 연결을 해제하세요.`);
@@ -5328,7 +5313,7 @@ const purchasePriceHistoryMap = useMemo(
     });
     if (!ok) return;
 
-    const { error } = await supabase.from("purchases").delete().eq("id", id);
+    const { error } = await purchaseService.deletePurchaseRecord(id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
     await addActivityLog({ module: "구매", action: "휴지통 이동", target_id: id, target_title: target.vendor || "", detail: getPurchaseItemSummary(target) });
