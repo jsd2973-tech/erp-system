@@ -5978,7 +5978,7 @@ const purchasePriceHistoryMap = useMemo(
 
           {canShowAny(["card_use", "card_list", "card_stats"]) && (
             <div className={`menu-group ${openMenuGroup === "card" ? "expanded" : ""}`}>
-              <button type="button" aria-expanded={openMenuGroup === "card"} onClick={() => setOpenMenuGroup((current) => current === "card" ? null : "card")}><CreditCard size={17} /> 카드</button>
+              <button type="button" data-testid="nav-group-card" aria-expanded={openMenuGroup === "card"} onClick={() => setOpenMenuGroup((current) => current === "card" ? null : "card")}><CreditCard size={17} /> 카드</button>
               <div className="sub">
                 {menuButton("card_use", "카드사용")}
                 {menuButton("card_list", "카드조회")}
