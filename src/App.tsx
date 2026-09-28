@@ -8,6 +8,25 @@ import FuelManagement from "./features/fuel/FuelManagement";
 import type { ReceiptOcrResult } from "./features/card/receiptOcr";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
 import {
+  cleanAccountNumber,
+  fromPurchase,
+  getPurchaseItemSummary,
+  isPurchasePaid,
+  maintenancePurchaseLinkIdentity,
+  maintenancePurchaseLinkKey,
+  toMaintenancePurchaseLink,
+  toPurchase,
+} from "./features/purchase/purchaseModel";
+import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
+import type {
+  BulkTransferRow,
+  MaintenancePurchaseLink,
+  Purchase,
+  PurchasePaymentStatus,
+  PurchaseRow,
+  PurchaseSearch,
+} from "./features/purchase/purchaseTypes";
+import {
   buildPurchasePriceHistory,
   comparePurchaseUnitPrice,
   getPurchasePriceHistoryKey,
@@ -15,37 +34,16 @@ import {
   getPurchaseVendorPriceStat,
   normalizePurchasePriceText,
   type PurchasePriceHistory,
-} from "./purchasePriceHistory";
+} from "./features/purchase/purchasePriceHistory";
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
-type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type PurchasePaymentStatus = "unpaid" | "paid";
-type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; taxInvoiceReceived?: boolean; paymentStatus?: PurchasePaymentStatus; paidDate?: string; image_urls?: string[]; image_url?: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
   image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
-type MaintenancePurchaseLink = {
-  id: string;
-  maintenance_id: string;
-  maintenance_row_id: string;
-  purchase_id: string;
-  purchase_row_id: string;
-  item_name: string;
-  spec: string;
-  used_qty: number;
-  unit_price_snapshot: number;
-  purchase_date_snapshot: string;
-  vendor_snapshot: string;
-  maintenance_date_snapshot: string;
-  maintenance_equipment_snapshot: string;
-  maintenance_title_snapshot: string;
-  created_by?: string;
-  created_at?: string;
-};
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string;
   image_urls?: string[]; created_at?: string };
@@ -74,20 +72,6 @@ type VendorAccount = {
   customer_display_name?: string;
   account_number?: string;
   memo?: string;
-};
-
-type BulkTransferRow = {
-  id: string;
-  vendor: string;
-  amount: number;
-  purchaseIds: string[];
-  bank_code: string;
-  bank_name: string;
-  account_name: string;
-  customer_display_name: string;
-  account_number: string;
-  memo: string;
-  matched: boolean;
 };
 
 type ReceiptPhoto = {
@@ -128,71 +112,10 @@ type MaintenancePhoto = {
 
 
 
-const toPurchase = (p: any): Purchase => ({
-  id: p.id,
-  date: p.date || "",
-  vendor: p.vendor || "",
-  warehouse: p.warehouse || "",
-  rows: p.rows || [],
-  supplyTotal: Number(p.supplytotal ?? p.supplyTotal ?? 0),
-  vatTotal: Number(p.vattotal ?? p.vatTotal ?? 0),
-  total: Number(p.total || 0),
-  itemSummary: p.itemsummary ?? p.itemSummary ?? "",
-  taxInvoiceReceived: Boolean(p.tax_invoice_received ?? p.taxInvoiceReceived ?? false),
-  paymentStatus: p.payment_status === "paid" || p.paymentStatus === "paid" ? "paid" : "unpaid",
-  paidDate: p.paid_date ?? p.paidDate ?? "",
-  image_url: p.image_url || "",
-  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
-});
-
-const fromPurchase = (p: Purchase) => ({
-  id: p.id,
-  date: p.date,
-  vendor: p.vendor,
-  warehouse: p.warehouse,
-  rows: p.rows,
-  supplytotal: p.supplyTotal,
-  vattotal: p.vatTotal,
-  total: p.total,
-  itemsummary: p.itemSummary,
-  tax_invoice_received: Boolean(p.taxInvoiceReceived),
-  payment_status: p.paymentStatus === "paid" ? "paid" : "unpaid",
-  paid_date: p.paymentStatus === "paid" ? p.paidDate || null : null,
-  image_url: (p.image_urls || [])[0] || p.image_url || "",
-  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
-});
-
-const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
-
-const toMaintenancePurchaseLink = (row: any): MaintenancePurchaseLink => ({
-  id: String(row?.id || ""),
-  maintenance_id: String(row?.maintenance_id || ""),
-  maintenance_row_id: String(row?.maintenance_row_id || ""),
-  purchase_id: String(row?.purchase_id || ""),
-  purchase_row_id: String(row?.purchase_row_id || ""),
-  item_name: String(row?.item_name || ""),
-  spec: String(row?.spec || ""),
-  used_qty: Number(row?.used_qty || 0),
-  unit_price_snapshot: Number(row?.unit_price_snapshot || 0),
-  purchase_date_snapshot: String(row?.purchase_date_snapshot || ""),
-  vendor_snapshot: String(row?.vendor_snapshot || ""),
-  maintenance_date_snapshot: String(row?.maintenance_date_snapshot || ""),
-  maintenance_equipment_snapshot: String(row?.maintenance_equipment_snapshot || ""),
-  maintenance_title_snapshot: String(row?.maintenance_title_snapshot || ""),
-  created_by: row?.created_by ? String(row.created_by) : undefined,
-  created_at: row?.created_at ? String(row.created_at) : undefined,
-});
-
 const numericValue = (value: unknown) => {
   const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);
   return Number.isFinite(parsed) ? parsed : 0;
 };
-
-const maintenancePurchaseLinkKey = (link: Pick<MaintenancePurchaseLink, "maintenance_row_id" | "purchase_id" | "purchase_row_id">) =>
-  `${link.maintenance_row_id}\u001f${link.purchase_id}\u001f${link.purchase_row_id}`;
-
-const maintenancePurchaseLinkIdentity = (link: MaintenancePurchaseLink) =>
-  link.id || maintenancePurchaseLinkKey(link);
 
 const KEY = {
   vendors: "erp_vendors_v2",
@@ -319,19 +242,6 @@ function MiniSparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">) => {
-  const itemNames = (purchase.rows || [])
-    .map((row) => String(row.item || "").trim())
-    .filter(Boolean);
-
-  if (!itemNames.length) return purchase.itemSummary || "-";
-
-  const firstItem = itemNames[0];
-  const extraCount = itemNames.length - 1;
-
-  return extraCount > 0 ? `${firstItem} 외 ${extraCount}건` : firstItem;
-};
-
 
 
 const parseExcelLikeDate = (value: any) => {
@@ -388,8 +298,6 @@ const bankCodeByName = (name: string) => {
   if (raw.includes("카카오")) return "090";
   return "";
 };
-
-const cleanAccountNumber = (value: string) => String(value || "").replace(/[^0-9]/g, "");
 
 const pick = (obj: Record<string, any>, keys: string[]) => {
   const found = Object.keys(obj).find((k) => keys.some((x) => k.includes(x)));
@@ -1459,7 +1367,7 @@ export default function App() {
   const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
-  const [purchaseSearch, setPurchaseSearch] = useState<{ from: string; to: string; vendor: string; warehouse: string; item: string; taxInvoice: string; paymentStatus?: string }>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
+  const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
   const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
@@ -2039,104 +1947,8 @@ export default function App() {
       if (!ok) return;
     }
 
-    const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
-    const dataRows = rows.map((row) => [
-      String(row.bank_code || ""),
-      cleanAccountNumber(row.account_number),
-      Number(row.amount || 0),
-      row.customer_display_name || row.account_name || row.vendor,
-      "(주)태명산업개발",
-      row.memo,
-      "",
-      "",
-      "",
-    ]);
-
-    const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
-
-    worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 24 },
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 24 },
-      { wch: 34 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 24 },
-    ];
-
-    worksheet["!rows"] = [
-      { hpt: 22 },
-      ...dataRows.map(() => ({ hpt: 22 })),
-    ];
-
-    worksheet["!autofilter"] = { ref: `A1:I${dataRows.length + 1}` };
-
-    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:I1");
-
-    const border = {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    };
-
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        const cell = worksheet[addr] || { v: "", t: "s" };
-        worksheet[addr] = cell;
-
-        const isHeader = r === 0;
-
-        cell.s = {
-          fill: {
-            patternType: "solid",
-            fgColor: { rgb: isHeader ? "B8CCE4" : "D9D9D9" },
-          },
-          font: {
-            name: "Arial",
-            sz: 12,
-            bold: false,
-            color: { rgb: "000000" },
-          },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: false,
-          },
-          border,
-        };
-
-        if (c === 2 && r > 0) {
-          cell.t = "n";
-          cell.z = "#,##0";
-        }
-
-        if ((c === 0 || c === 1) && r > 0) {
-          cell.t = "s";
-          cell.z = "@";
-          cell.v = String(cell.v || "");
-        }
-
-        if (c === 1 && r > 0) {
-          cell.t = "s";
-          cell.z = "@";
-        }
-      }
-    }
-
-    const workbook = XLSX.utils.book_new();
-    workbook.Props = {
-      Title: `${transferMonth || getTodayKey().slice(0, 7)} 대량이체`,
-      Subject: "태명산업개발 대량이체",
-      Author: "태명산업개발",
-      CreatedDate: new Date(),
-    };
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
-    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xlsx`, { bookType: "xlsx", cellStyles: true });
+    const workbook = buildBulkTransferWorkbook(rows, transferMonth, getTodayKey());
+    XLSX.writeFile(workbook, getBulkTransferFileName(transferMonth, getTodayKey()), { bookType: "xlsx", cellStyles: true });
   };
 
   const openBulkTransferDownloadPopup = () => {
