@@ -1,4 +1,4 @@
-import type { Maint, MaintItem, MaintenanceSearch } from "./maintenanceTypes";
+import type { Maint, MaintItem, MaintenanceForm, MaintenanceSearch } from "./maintenanceTypes";
 
 export type MaintenanceTotals = {
   validItems: MaintItem[];
@@ -6,6 +6,24 @@ export type MaintenanceTotals = {
   vatTotal: number;
   total: number;
 };
+
+export type MaintenanceSuggestedItem = {
+  item: string;
+  spec: string;
+  qty: number;
+  price: number;
+  count: number;
+  lastDate: string;
+};
+
+export type MaintenanceItemSuggestion = {
+  item: string;
+  spec?: string;
+  qty?: number | string;
+  price?: number | string;
+};
+
+export type MaintenanceCatalogItem = { name: string; spec?: string; price?: number };
 
 export type MaintenanceItemField = keyof MaintItem;
 
@@ -151,4 +169,132 @@ export const buildMaintenanceNumberMap = (maints: Maint[]): Map<string, string> 
   });
 
   return map;
+};
+
+export const buildMaintenanceSuggestedItems = (
+  maints: Maint[],
+  warehouseKey: string,
+  editingId: string,
+): MaintenanceSuggestedItem[] => {
+  if (!warehouseKey) return [];
+
+  const rows = new Map<string, MaintenanceSuggestedItem>();
+  maints.forEach((record) => {
+    if (editingId && record.id === editingId) return;
+    const recordWarehouseKey = String(record.warehouse || "").trim().toLowerCase().replace(/\s+/g, "");
+    if (recordWarehouseKey !== warehouseKey) return;
+
+    (record.items || []).forEach((row) => {
+      const itemName = String(row.item || "").trim();
+      if (!itemName) return;
+
+      const previous = rows.get(itemName) || {
+        item: itemName,
+        spec: String(row.spec || ""),
+        qty: Number(row.qty || 1) || 1,
+        price: Number(row.price || 0),
+        count: 0,
+        lastDate: "",
+      };
+
+      previous.count += 1;
+      if (String(record.date || "") >= String(previous.lastDate || "")) {
+        previous.spec = String(row.spec || previous.spec || "");
+        previous.qty = Number(row.qty || previous.qty || 1) || 1;
+        previous.price = Number(row.price || previous.price || 0);
+        previous.lastDate = String(record.date || "");
+      }
+      rows.set(itemName, previous);
+    });
+  });
+
+  return Array.from(rows.values()).sort((a, b) =>
+    b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || ""))
+  );
+};
+
+export const filterMaintenanceTemplateRecords = (
+  maints: Maint[],
+  search: string,
+  editingId: string,
+): Maint[] => {
+  const keyword = search.trim().toLowerCase();
+  return [...maints]
+    .filter((record) => !editingId || record.id !== editingId)
+    .filter((record) => {
+      if (!keyword) return true;
+      const target = [
+        record.date,
+        record.warehouse,
+        record.manager,
+        record.title,
+        record.detail,
+        ...(record.items || []).map((item) => `${item.item || ""} ${item.spec || ""}`),
+      ].join(" ").toLowerCase();
+      return target.includes(keyword);
+    })
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 50);
+};
+
+export const buildMaintenanceEditData = (record: Maint, createId: () => string) => {
+  const form: MaintenanceForm = {
+    date: record.date || "",
+    warehouse: record.warehouse || "",
+    manager: record.manager || "",
+    title: record.title || "",
+    detail: record.detail || "",
+    cost: String(record.cost || ""),
+    image_urls: record.image_urls || (record.image_url ? [record.image_url] : []),
+  };
+  const sourceItems = record.items && record.items.length
+    ? record.items
+    : [createEmptyMaintItem(createId())];
+  const items = sourceItems.map((row) => ({
+    ...createEmptyMaintItem(createId()),
+    ...row,
+    id: String(row.id || createId()),
+  }));
+  return { form, items };
+};
+
+export const createMaintenanceItemFromSuggestion = (
+  source: MaintenanceItemSuggestion,
+  master: MaintenanceCatalogItem | undefined,
+  createId: () => string,
+): MaintItem => {
+  const item = String(source.item || "").trim();
+  const qty = Number(source.qty || 1) || 1;
+  const price = Number(source.price || master?.price || 0);
+  const supply = qty * price;
+  const vat = Math.round(supply * 0.1);
+  return {
+    id: createId(),
+    item,
+    spec: String(source.spec || master?.spec || ""),
+    qty,
+    price,
+    supply,
+    vat,
+    total: supply + vat,
+  };
+};
+
+export const buildMaintenanceTemplateData = (
+  record: Maint,
+  createId: () => string,
+) => {
+  const copiedItems = (record.items || [])
+    .filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total)
+    .map((row) => {
+      const qty = Number(row.qty || 0);
+      const price = Number(row.price || 0);
+      const supply = Number(row.supply || qty * price || 0);
+      const vat = Number(row.vat || Math.round(supply * 0.1) || 0);
+      const total = Number(row.total || supply + vat || 0);
+      return { ...row, id: createId(), qty: row.qty || "", price: row.price || "", supply, vat, total };
+    });
+  const items = copiedItems.length ? copiedItems : [createEmptyMaintItem(createId())];
+  const total = items.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  return { items, total };
 };

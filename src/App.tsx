@@ -41,9 +41,14 @@ import type {
 } from "./features/purchase/purchaseTypes";
 import type { Maint, MaintItem } from "./features/maintenance/maintenanceTypes";
 import {
+  buildMaintenanceEditData,
+  buildMaintenanceSuggestedItems,
+  buildMaintenanceTemplateData,
   calculateLinkedMaintenanceItem,
   calculateMaintenanceTotals,
   createEmptyMaintItem,
+  createMaintenanceItemFromSuggestion,
+  filterMaintenanceTemplateRecords,
   filterAndSortMaintenances,
   sumMaintenanceRowTotals,
   updateMaintenanceItem,
@@ -3960,21 +3965,12 @@ export default function App() {
   const makeMaintItemFromSuggestion = (source: Partial<MaintItem>): MaintItem => {
     const itemName = String(source.item || "").trim();
     const master = items.find((it) => it.name === itemName);
-    const qty = Number(source.qty || 1) || 1;
-    const price = Number(source.price || master?.price || 0);
-    const supply = qty * price;
-    const vat = Math.round(supply * 0.1);
-
-    return {
-      id: uid(),
+    return createMaintenanceItemFromSuggestion({
       item: itemName,
-      spec: String(source.spec || master?.spec || ""),
-      qty,
-      price,
-      supply,
-      vat,
-      total: supply + vat,
-    };
+      spec: source.spec,
+      qty: source.qty,
+      price: source.price,
+    }, master, uid);
   };
 
   const applyMaintItems = (nextItems: MaintItem[]) => {
@@ -4223,51 +4219,10 @@ const purchasePriceHistoryMap = useMemo(
   };
 
     const maintWarehouseKey = maintForm.warehouse.trim().toLowerCase().replace(/\s+/g, "");
-  const maintSuggestedItems = useMemo(() => {
-    if (!maintWarehouseKey) return [];
-
-    const rows = new Map<string, {
-      item: string;
-      spec: string;
-      qty: number;
-      price: number;
-      count: number;
-      lastDate: string;
-    }>();
-
-    maints.forEach((record) => {
-      if (editingMaintId && record.id === editingMaintId) return;
-      const recordWarehouseKey = String(record.warehouse || "").trim().toLowerCase().replace(/\s+/g, "");
-      if (recordWarehouseKey !== maintWarehouseKey) return;
-
-      (record.items || []).forEach((row) => {
-        const itemName = String(row.item || "").trim();
-        if (!itemName) return;
-
-        const prev = rows.get(itemName) || {
-          item: itemName,
-          spec: String(row.spec || ""),
-          qty: Number(row.qty || 1) || 1,
-          price: Number(row.price || 0),
-          count: 0,
-          lastDate: "",
-        };
-
-        prev.count += 1;
-        if (String(record.date || "") >= String(prev.lastDate || "")) {
-          prev.spec = String(row.spec || prev.spec || "");
-          prev.qty = Number(row.qty || prev.qty || 1) || 1;
-          prev.price = Number(row.price || prev.price || 0);
-          prev.lastDate = String(record.date || "");
-        }
-
-        rows.set(itemName, prev);
-      });
-    });
-
-    return Array.from(rows.values())
-      .sort((a, b) => b.count - a.count || String(b.lastDate || "").localeCompare(String(a.lastDate || "")));
-  }, [maints, maintWarehouseKey, editingMaintId]);
+  const maintSuggestedItems = useMemo(
+    () => buildMaintenanceSuggestedItems(maints, maintWarehouseKey, editingMaintId),
+    [maints, maintWarehouseKey, editingMaintId],
+  );
 
   const visibleMaintSuggestedItems = showAllMaintSuggestions ? maintSuggestedItems : maintSuggestedItems.slice(0, 8);
 
@@ -4276,66 +4231,24 @@ const purchasePriceHistoryMap = useMemo(
   }, [maintWarehouseKey]);
 
 
-  const maintTemplateRecords = useMemo(() => {
-    const keyword = maintTemplateSearch.trim().toLowerCase();
-
-    return [...maints]
-      .filter((record) => !editingMaintId || record.id !== editingMaintId)
-      .filter((record) => {
-        if (!keyword) return true;
-
-        const target = [
-          record.date,
-          record.warehouse,
-          record.manager,
-          record.title,
-          record.detail,
-          ...(record.items || []).map((item) => `${item.item || ""} ${item.spec || ""}`),
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return target.includes(keyword);
-      })
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-      .slice(0, 50);
-  }, [maints, maintTemplateSearch, editingMaintId]);
+  const maintTemplateRecords = useMemo(
+    () => filterMaintenanceTemplateRecords(maints, maintTemplateSearch, editingMaintId),
+    [maints, maintTemplateSearch, editingMaintId],
+  );
 
   const applyMaintTemplate = (record: Maint) => {
-    const copiedItems = (record.items || [])
-      .filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total)
-      .map((row) => {
-        const qty = Number(row.qty || 0);
-        const price = Number(row.price || 0);
-        const supply = Number(row.supply || qty * price || 0);
-        const vat = Number(row.vat || Math.round(supply * 0.1) || 0);
-        const total = Number(row.total || supply + vat || 0);
-
-        return {
-          ...row,
-          id: uid(),
-          qty: row.qty || "",
-          price: row.price || "",
-          supply,
-          vat,
-          total,
-        };
-      });
-
-    const nextItems = copiedItems.length ? copiedItems : [emptyMaintItem()];
-    const nextTotal = nextItems.reduce((sum, row) => sum + Number(row.total || 0), 0);
-
+    const next = buildMaintenanceTemplateData(record, uid);
     setMaintForm((prev) => ({
       ...prev,
       warehouse: record.warehouse || prev.warehouse,
       title: record.title || "",
       detail: record.detail || "",
-      cost: String(nextTotal),
+      cost: String(next.total),
       date: prev.date,
       manager: prev.manager,
       image_urls: prev.image_urls || [],
     }));
-    setMaintItems(nextItems);
+    setMaintItems(next.items);
     setMaintTemplateOpen(false);
     setMaintTemplateSearch("");
   };
@@ -4604,13 +4517,14 @@ const purchasePriceHistoryMap = useMemo(
     }
   };
   const editMaint = (m: Maint) => {
+    const editData = buildMaintenanceEditData(m, uid);
     setMenuTab("maint_new");
     setMaintSaveError("");
     clearMaintDraft();
     setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
-    setMaintForm({ date: m.date || "", warehouse: m.warehouse || "", manager: m.manager || "", title: m.title || "", detail: m.detail || "", cost: String(m.cost || ""), image_urls: m.image_urls || (m.image_url ? [m.image_url] : []) });
-    setMaintItems((m.items && m.items.length ? m.items : [emptyMaintItem()]).map((r: any) => ({ ...emptyMaintItem(), ...r, id: String(r.id || uid()) })));
+    setMaintForm(editData.form);
+    setMaintItems(editData.items);
     setMaintPurchaseLinksDraft(maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id));
   };
 
