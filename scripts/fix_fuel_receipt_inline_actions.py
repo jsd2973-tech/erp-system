@@ -18,10 +18,9 @@ helper_new = helper_anchor + '''
     if (!window.confirm(`${record.fuel_date} / ${record.vehicle_number} 영수증을 삭제할까요?`)) return;
     const oldPath = record.receipt_path;
     setReceiptBusy(true); setError("");
-    const { error: updateError } = await supabase.from("fuel_records").update({ receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null, updated_at: new Date().toISOString() }).eq("id", record.id);
-    if (updateError) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError.message})`); return; }
-    const { error: removeError } = await supabase.storage.from("fuel-receipts").remove([oldPath]);
-    if (receiptTarget?.id === record.id) setReceiptTarget({ ...record, receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null });
+    const { patch, updateError, removeError } = await clearFuelRecordReceipt(supabase, record.id, oldPath);
+    if (updateError || !patch) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError?.message || "알 수 없는 오류"})`); return; }
+    if (receiptTarget?.id === record.id) setReceiptTarget({ ...record, ...patch });
     setReceiptPreviewUrl("");
     setMobileReceiptPreview(null);
     setReceiptBusy(false);
@@ -32,6 +31,10 @@ if 'const replaceReceiptForRecord = (record: FuelRecord)' not in s:
     if helper_anchor not in s:
         raise SystemExit('receipt helper anchor not found')
     s = s.replace(helper_anchor, helper_new, 1)
+
+source.write_text(s)
+fuel_screens_path = Path('src/features/fuel/FuelScreens.tsx')
+s = fuel_screens_path.read_text()
 
 actions = '''<div className="fuel-inline-receipt-actions"><button type="button" disabled={receiptBusy} onClick={() => replaceReceiptForRecord(record)}><Upload size={14} /> 영수증 교체</button><button type="button" className="is-danger" disabled={receiptBusy} onClick={() => void deleteReceiptForRecord(record)}><Trash2 size={14} /> 영수증 삭제</button></div>'''
 
@@ -51,7 +54,7 @@ if s.count('fuel-inline-receipt-shell') < 4:
         raise SystemExit(f'PC inline receipt anchors not found: {count}')
     s = s.replace(pc_old, pc_new, 2)
 
-source.write_text(s)
+fuel_screens_path.write_text(s)
 
 css_path = Path('src/features/fuel/fuelManagement.css')
 css = css_path.read_text()

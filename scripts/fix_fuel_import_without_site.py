@@ -1,64 +1,20 @@
 from pathlib import Path
 
+fuel_import = Path("src/features/fuel/fuelImport.ts").read_text()
+if "resolveFuelImportSite" not in fuel_import:
+    raise SystemExit("fuel import mapping helper is missing from fuelImport.ts")
+
 p = Path('src/features/fuel/FuelManagement.tsx')
 s = p.read_text()
-
-replacements = [
-    (
-        'return candidateText.includes("차량번호") && candidateText.includes("합계금액") && candidateText.includes("현장명");',
-        'return candidateText.includes("차량번호") && candidateText.includes("합계금액") && (candidateText.includes("현장명") || candidateText.includes("제품명"));',
-    ),
-    (
-        'return normalized.includes("현장명") && normalized.includes("차량번호") && normalized.includes("일자");',
-        'return normalized.includes("차량번호") && normalized.includes("일자") && normalized.some((header) => header.includes("제품명"));',
-    ),
-    (
-        'if (headerIndex < 0) throw new Error("현장명·차량번호·일자 헤더를 찾지 못했습니다.");',
-        'if (headerIndex < 0) throw new Error("제품명·차량번호·일자 헤더를 찾지 못했습니다.");',
-    ),
-    (
-        'if ([columns.site, columns.product, columns.vehicle, columns.date, columns.quantity, columns.total].some((value) => value < 0)) {',
-        'if ([columns.product, columns.vehicle, columns.date, columns.quantity, columns.total].some((value) => value < 0)) {',
-    ),
-    (
-        '  let lastSite = "";\n  let lastProduct = "";',
-        '  const hasSiteColumn = columns.site >= 0;\n  let lastSite = hasSiteColumn ? "" : "미지정";\n  let lastProduct = "";',
-    ),
-    (
-        '      memo: "",\n    });',
-        '      memo: hasSiteColumn ? "" : "원본 명세서에 현장명 없음",\n    });',
-    ),
-    (
-        'const normalizeHeader = (value: unknown) => text(value).replace(/\\s/g, "").replace(/[()（）]/g, "").toLowerCase();\n',
-        'const normalizeHeader = (value: unknown) => text(value).replace(/\\s/g, "").replace(/[()（）]/g, "").toLowerCase();\nconst FACTORY_VEHICLE_SUFFIXES = new Set(["1166", "1184", "1237", "4761", "5907", "6086", "9366"]);\nconst ASSEMBLY_VEHICLE_SUFFIXES = new Set(["4676", "6148", "7151", "7844", "8288", "8408"]);\nconst inferFuelSite = (vehicle: string) => {\n  const digits = String(vehicle || "").replace(/\\D/g, "");\n  const suffix = digits.slice(-4);\n  if (FACTORY_VEHICLE_SUFFIXES.has(suffix)) return "공장";\n  if (ASSEMBLY_VEHICLE_SUFFIXES.has(suffix)) return "국회";\n  return "";\n};\n',
-    ),
-    (
-        '    const site = text(valueAt(columns.site)) || lastSite;\n    const product = text(valueAt(columns.product)) || lastProduct;\n    const vehicle = text(valueAt(columns.vehicle)) || lastVehicle;\n    if (text(valueAt(columns.site))) lastSite = site;\n    if (text(valueAt(columns.product))) lastProduct = product;\n    if (text(valueAt(columns.vehicle))) lastVehicle = vehicle;\n\n    const fuelDate = parseDate(valueAt(columns.date), year, month);\n    if (!fuelDate || !vehicle) return;\n',
-        '    const sourceSite = text(valueAt(columns.site)) || lastSite;\n    const product = text(valueAt(columns.product)) || lastProduct;\n    const vehicle = text(valueAt(columns.vehicle)) || lastVehicle;\n    if (text(valueAt(columns.site))) lastSite = sourceSite;\n    if (text(valueAt(columns.product))) lastProduct = product;\n    if (text(valueAt(columns.vehicle))) lastVehicle = vehicle;\n\n    const fuelDate = parseDate(valueAt(columns.date), year, month);\n    if (!fuelDate || !vehicle) return;\n    const autoSite = hasSiteColumn ? "" : inferFuelSite(vehicle);\n    const site = sourceSite && sourceSite !== "미지정" ? sourceSite : autoSite || sourceSite || "미지정";\n',
-    ),
-    (
-        '    const rawFingerprint = [stationName, fuelDate, site, product, vehicle, usageCount, quantity, unitPrice, supply, vat, total].join("|");',
-        '    const fingerprintSite = hasSiteColumn ? site : "미지정";\n    const rawFingerprint = [stationName, fuelDate, fingerprintSite, product, vehicle, usageCount, quantity, unitPrice, supply, vat, total].join("|");',
-    ),
-    (
-        '      memo: hasSiteColumn ? "" : "원본 명세서에 현장명 없음",',
-        '      memo: hasSiteColumn ? "" : autoSite ? "원본 명세서에 현장명 없음 · 차량번호로 현장 자동지정" : "원본 명세서에 현장명 없음",',
-    ),
-]
-
-for old, new in replacements:
-    if new in s:
-        continue
-    if old not in s:
-        raise SystemExit(f'fuel import patch anchor not found: {old[:60]}')
-    s = s.replace(old, new, 1)
+fuel_screens_path = Path('src/features/fuel/FuelScreens.tsx')
+fuel_screens = fuel_screens_path.read_text()
 
 receipt_replacements = [
     (
 '''  const viewReceipt = async () => {
     if (!receiptTarget?.receipt_path) return;
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
@@ -74,7 +30,7 @@ receipt_replacements = [
     receiptWindow.document.title = "영수증 불러오는 중";
     receiptWindow.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">영수증을 불러오는 중입니다...</p>';
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) {
       receiptWindow.close();
@@ -105,21 +61,29 @@ receipt_replacements = [
     ),
 ]
 
-for old, new in receipt_replacements:
+for old, new in receipt_replacements[:1]:
     if new in s:
         continue
     if old not in s:
         raise SystemExit(f'fuel receipt patch anchor not found: {old[:80]}')
     s = s.replace(old, new, 1 if 'button type="button" onClick={() => setReceiptTarget' not in old else s.count(old))
 
-mobile_old = '<div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div>'
-mobile_new = '<div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span><span>영수증 <strong className={record.receipt_path ? "fuel-receipt-mobile-attached" : ""}>{record.receipt_path ? "첨부됨" : "미첨부"}</strong></span></div>'
-if mobile_new not in s:
-    if s.count(mobile_old) < 2:
+for old, new in receipt_replacements[1:]:
+    if new in fuel_screens:
+        continue
+    if old not in fuel_screens:
+        raise SystemExit(f'fuel receipt screen patch anchor not found: {old[:80]}')
+    fuel_screens = fuel_screens.replace(old, new, 1 if 'button type="button" onClick={() => setReceiptTarget' not in old else fuel_screens.count(old))
+
+mobile_old = '<div><span>수량 <strong>{formatFuelNumber(record.quantity)} L</strong></span><span>단가 <strong>{formatFuelMoney(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{formatFuelMoney(record.total_amount)}원</strong></span></div>'
+mobile_new = '<div><span>수량 <strong>{formatFuelNumber(record.quantity)} L</strong></span><span>단가 <strong>{formatFuelMoney(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{formatFuelMoney(record.total_amount)}원</strong></span><span>영수증 <strong className={record.receipt_path ? "fuel-receipt-mobile-attached" : ""}>{record.receipt_path ? "첨부됨" : "미첨부"}</strong></span></div>'
+if mobile_new not in fuel_screens:
+    if fuel_screens.count(mobile_old) < 2:
         raise SystemExit('fuel receipt mobile summary anchors not found')
-    s = s.replace(mobile_old, mobile_new, 2)
+    fuel_screens = fuel_screens.replace(mobile_old, mobile_new, 2)
 
 p.write_text(s)
+fuel_screens_path.write_text(fuel_screens)
 
 css_path = Path('src/features/fuel/fuelManagement.css')
 css = css_path.read_text()
