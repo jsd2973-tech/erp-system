@@ -1,37 +1,40 @@
 import MobileEditor from "./MobileEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../supabaseClient";
-import type { DispatchDriver, DispatchTrip, DispatchVehicle } from "./dispatchTypes";
+import type { DispatchDriver, DispatchTrip, DispatchTripLocation, DispatchVehicle } from "./dispatchTypes";
 import { dispatchToday, formatVolume } from "./dispatchUtils";
+import { canCorrectDispatchTrips, correctDispatchTripEvent, loadDispatchStatusSnapshot, loadDispatchTripCorrectionHistory } from "./dispatchStatusService";
+import {
+  buildDailyDriverSummaries,
+  buildDailyVehicleSummaries,
+  buildDispatchExceptions,
+  buildDriverStatusRows,
+  correctionDateTime,
+  correctionDescriptions,
+  correctionLabels,
+  correctionTypeForTrip,
+  groupDriverTripsByOrder,
+  indexDispatchOrdersByVehicle,
+  indexDispatchTrips,
+  summarizeLiveDispatchStatus,
+  type CorrectionHistoryItem,
+  type CorrectionType,
+  type DispatchStatusOrder,
+} from "./dispatchModel";
 import "./driverStatusDashboard.css";
 
+// COMPANY_DISPATCH_ASSIGNMENTS_PATCH_V1
+
 type Props = { drivers: DispatchDriver[]; vehicles: DispatchVehicle[] };
-type TodayOrder = { id: string; vendor_name: string; item_name: string; loading_location: string; unloading_location: string; status: string; vehicle_ids: string[] };
-type DriverState = "운행중" | "상차대기" | "대기" | "운행 완료" | "미사용";
-
-type DriverRow = {
-  driver: DispatchDriver;
-  mine: DispatchTrip[];
-  completed: DispatchTrip[];
-  state: DriverState;
-  currentOrder: TodayOrder | null;
-  lastText: string;
-};
-
-const nextDate = (date: string) => {
-  const value = new Date(`${date}T12:00:00+09:00`);
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-};
+type TodayOrder = DispatchStatusOrder;
 
 const koreaTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value))
   : "-";
 
-const stateRank: Record<DriverState, number> = { "운행중": 0, "상차대기": 1, "대기": 2, "운행 완료": 3, "미사용": 4 };
-
 export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
   const [trips, setTrips] = useState<DispatchTrip[]>([]);
+  const [tripLocations, setTripLocations] = useState<DispatchTripLocation[]>([]);
   const [orders, setOrders] = useState<TodayOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,51 +42,32 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [dailySummaryTab, setDailySummaryTab] = useState<"기사" | "차량">("기사");
+  const [canCorrectTrips, setCanCorrectTrips] = useState(false);
+  const [correctionTarget, setCorrectionTarget] = useState<{ trip: DispatchTrip; type: CorrectionType } | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionBusy, setCorrectionBusy] = useState(false);
+  const [correctionNotice, setCorrectionNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [historyTripId, setHistoryTripId] = useState("");
+  const [correctionHistory, setCorrectionHistory] = useState<CorrectionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const vehicleById = useMemo(() => new Map(vehicles.map((v) => [v.id, v])), [vehicles]);
   const orderById = useMemo(() => new Map(orders.map((order) => [order.id, order])), [orders]);
+  const locationByTripEvent = useMemo(() => new Map(tripLocations.map((location) => [`${location.trip_id}:${location.event_type}`, location])), [tripLocations]);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    const today = dispatchToday();
-    const tomorrow = nextDate(today);
-    const [tripResult, orderResult, assignmentResult] = await Promise.all([
-      supabase.from("dispatch_trips").select("*").gte("created_at", `${today}T00:00:00+09:00`).lt("created_at", `${tomorrow}T00:00:00+09:00`).order("created_at", { ascending: false }),
-      supabase.from("dispatch_orders").select("id,vendor_name,item_name,loading_location,unloading_location,status").eq("dispatch_date", today).neq("status", "취소"),
-      supabase.from("dispatch_order_vehicles").select("order_id,vehicle_id"),
-    ]);
-    const loadError = tripResult.error || orderResult.error || assignmentResult.error;
-    if (loadError) {
-      setError(`운행현황을 불러오지 못했습니다. (${loadError.message})`);
-      setLoading(false);
-      return;
+    try {
+      const snapshot = await loadDispatchStatusSnapshot(supabase, dispatchToday());
+      setOrders(snapshot.orders);
+      setTrips(snapshot.trips);
+      setTripLocations(snapshot.tripLocations);
+      setError("");
+      setUpdatedAt(new Date());
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "운행현황을 불러오지 못했습니다.");
     }
-
-    const assignments = assignmentResult.data || [];
-    setOrders((orderResult.data || []).map((row) => ({
-      id: String(row.id),
-      vendor_name: String(row.vendor_name || ""),
-      item_name: String(row.item_name || ""),
-      loading_location: String(row.loading_location || ""),
-      unloading_location: String(row.unloading_location || ""),
-      status: String(row.status || ""),
-      vehicle_ids: assignments.filter((a) => String(a.order_id) === String(row.id)).map((a) => String(a.vehicle_id)),
-    })));
-    setTrips((tripResult.data || []).map((row) => ({
-      ...row,
-      id: String(row.id),
-      dispatch_order_id: String(row.dispatch_order_id),
-      vehicle_id: String(row.vehicle_id),
-      driver_id: String(row.driver_id),
-      trip_no: Number(row.trip_no || 0),
-      actual_volume: Number(row.actual_volume || 0),
-      status: row.status,
-      loading_completed_at: row.loading_completed_at ? String(row.loading_completed_at) : null,
-      unloading_completed_at: row.unloading_completed_at ? String(row.unloading_completed_at) : null,
-      created_at: String(row.created_at || ""),
-    })) as DispatchTrip[]);
-    setError("");
-    setUpdatedAt(new Date());
     setLoading(false);
   }, []);
 
@@ -101,71 +85,101 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
     };
   }, [load]);
 
-  const rows = useMemo<DriverRow[]>(() => drivers.map((driver) => {
-    const mine = trips.filter((trip) => trip.driver_id === driver.id);
-    const completed = mine.filter((trip) => trip.status === "완료");
-    const active = mine.find((trip) => trip.status === "상차대기" || trip.status === "진행중") || null;
-    const assigned = driver.assigned_vehicle_id ? orders.filter((order) => order.vehicle_ids.includes(driver.assigned_vehicle_id!)) : [];
-    const currentOrder = active
-      ? orders.find((order) => order.id === active.dispatch_order_id) || null
-      : assigned.find((order) => order.status !== "완료") || assigned[0] || null;
-    const allDone = assigned.length > 0 && assigned.every((order) => order.status === "완료");
-
-    let state: DriverState = "대기";
-    if (!driver.active) state = "미사용";
-    else if (active?.status === "진행중") state = "운행중";
-    else if (active?.status === "상차대기") state = "상차대기";
-    else if (allDone) state = "운행 완료";
-
-    const last = mine[0] || null;
-    const lastAt = last?.unloading_completed_at || last?.loading_completed_at || last?.created_at;
-    const lastText = !last
-      ? "오늘 활동 없음"
-      : last.status === "완료"
-        ? `${koreaTime(lastAt)} 하차완료`
-        : last.status === "진행중"
-          ? `${koreaTime(lastAt)} 상차완료`
-          : `${koreaTime(lastAt)} 운행시작`;
-
-    return { driver, mine, completed, state, currentOrder, lastText };
-  }).sort((a, b) => stateRank[a.state] - stateRank[b.state] || a.driver.name.localeCompare(b.driver.name, "ko-KR")), [drivers, orders, trips]);
-
   useEffect(() => {
-    if (!rows.length) {
-      setSelectedDriverId("");
-      return;
-    }
-    if (!selectedDriverId || !rows.some((row) => row.driver.id === selectedDriverId)) {
-      setSelectedDriverId(rows[0].driver.id);
-    }
-  }, [rows, selectedDriverId]);
+    let active = true;
+    void canCorrectDispatchTrips(supabase).then((canCorrect) => {
+      if (active) setCanCorrectTrips(canCorrect);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const rows = useMemo(() => buildDriverStatusRows(drivers, orders, trips), [drivers, orders, trips]);
 
   const selectedRow = rows.find((row) => row.driver.id === selectedDriverId) || rows[0] || null;
 
-  const groupedTrips = useMemo(() => {
-    if (!selectedRow) return [];
-    const groupMap = new Map<string, DispatchTrip[]>();
-    selectedRow.mine.forEach((trip) => {
-      const list = groupMap.get(trip.dispatch_order_id) || [];
-      list.push(trip);
-      groupMap.set(trip.dispatch_order_id, list);
-    });
+  const openCorrection = (trip: DispatchTrip) => {
+    const type = correctionTypeForTrip(trip);
+    if (!type) return;
+    setCorrectionNotice(null);
+    setCorrectionReason("");
+    setCorrectionTarget({ trip, type });
+  };
 
-    return [...groupMap.entries()].map(([orderId, groupTrips]) => ({
-      orderId,
-      order: orderById.get(orderId) || null,
-      trips: [...groupTrips].sort((a, b) => a.trip_no - b.trip_no || new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-      firstAt: Math.min(...groupTrips.map((trip) => new Date(trip.created_at).getTime() || Number.MAX_SAFE_INTEGER)),
-    })).sort((a, b) => a.firstAt - b.firstAt);
-  }, [selectedRow, orderById]);
+  const closeCorrection = () => {
+    if (!correctionBusy) setCorrectionTarget(null);
+  };
 
-  const summary = useMemo(() => ({
-    total: drivers.filter((d) => d.active).length,
-    running: rows.filter((r) => r.state === "운행중" || r.state === "상차대기").length,
-    waiting: rows.filter((r) => r.state === "대기").length,
-    trips: trips.filter((t) => t.status === "완료").length,
-    volume: trips.filter((t) => t.status === "완료").reduce((sum, t) => sum + (Number.isFinite(t.actual_volume) ? t.actual_volume : 0), 0),
-  }), [drivers, rows, trips]);
+  const executeCorrection = async () => {
+    if (!correctionTarget || correctionBusy) return;
+    setCorrectionBusy(true);
+    setCorrectionNotice(null);
+    const { error: correctionError } = await correctDispatchTripEvent(supabase, correctionTarget.trip.id, correctionTarget.type, correctionReason.trim() || null);
+    setCorrectionBusy(false);
+    if (correctionError) {
+      setCorrectionNotice({ tone: "error", text: correctionError.message || "정정할 수 없습니다. 현재 상태를 다시 확인해 주세요." });
+      return;
+    }
+    setCorrectionTarget(null);
+    setHistoryTripId("");
+    setCorrectionHistory([]);
+    setCorrectionNotice({ tone: "success", text: `${correctionLabels[correctionTarget.type]} 정정이 완료되었습니다.` });
+    await load();
+  };
+
+  const toggleCorrectionHistory = async (tripId: string) => {
+    if (historyTripId === tripId) {
+      setHistoryTripId("");
+      setCorrectionHistory([]);
+      return;
+    }
+    setHistoryTripId(tripId);
+    setCorrectionHistory([]);
+    setHistoryLoading(true);
+    try {
+      setCorrectionHistory(await loadDispatchTripCorrectionHistory(supabase, tripId));
+    } catch (historyError) {
+      setHistoryTripId("");
+      setCorrectionNotice({ tone: "error", text: `정정 이력을 불러오지 못했습니다. (${historyError instanceof Error ? historyError.message : "조회 오류"})` });
+      return;
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const tripIndexes = useMemo(() => indexDispatchTrips(trips), [trips]);
+  const ordersByVehicle = useMemo(() => indexDispatchOrdersByVehicle(orders), [orders]);
+
+  const exceptionItems = useMemo(() => buildDispatchExceptions({
+    drivers,
+    orders,
+    trips,
+    now: updatedAt?.getTime() || 0,
+    tripIndexes,
+    vehicleById,
+  }), [drivers, orders, trips, updatedAt, tripIndexes, vehicleById]);
+
+  const dailyDriverSummaries = useMemo(() => buildDailyDriverSummaries({
+    drivers,
+    orders,
+    trips,
+    tripIndexes,
+    ordersByVehicle,
+    vehicleById,
+  }), [drivers, orders, ordersByVehicle, trips, tripIndexes, vehicleById]);
+
+  const dailyVehicleSummaries = useMemo(() => buildDailyVehicleSummaries({
+    drivers,
+    vehicles,
+    tripIndexes,
+    ordersByVehicle,
+  }), [drivers, ordersByVehicle, tripIndexes, vehicles]);
+
+  const dailySummaries = dailySummaryTab === "기사" ? dailyDriverSummaries : dailyVehicleSummaries;
+  const groupedTrips = useMemo(() => selectedRow
+    ? groupDriverTripsByOrder(selectedRow.mine, orderById)
+    : [], [selectedRow, orderById]);
+
+  const summary = useMemo(() => summarizeLiveDispatchStatus(drivers, rows, trips), [drivers, rows, trips]);
 
   const selectedVolume = selectedRow?.completed.reduce((sum, trip) => sum + (Number.isFinite(trip.actual_volume) ? trip.actual_volume : 0), 0) || 0;
 
@@ -189,6 +203,51 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
 
     <div className="driver-status-live"><i />실시간 자동 갱신 · 10초{updatedAt ? ` · ${koreaTime(updatedAt.toISOString())} 기준` : ""}</div>
     {error && <div className="driver-status-error">{error}</div>}
+    {correctionNotice && <div className={`driver-correction-notice ${correctionNotice.tone}`} role="status">{correctionNotice.text}</div>}
+
+    {correctionTarget && <div className="driver-correction-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCorrection(); }}>
+      <div className="driver-correction-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-correction-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="driver-correction-dialog-head">
+          <div><span>TRIP CORRECTION</span><h3 id="driver-correction-title">{correctionLabels[correctionTarget.type]}</h3></div>
+          <button type="button" onClick={closeCorrection} disabled={correctionBusy} aria-label="정정 창 닫기">×</button>
+        </div>
+        <p className="driver-correction-target">{correctionTarget.trip.trip_no}회차 · {correctionTarget.trip.status}</p>
+        <p className="driver-correction-description">{correctionDescriptions[correctionTarget.type]}</p>
+        <label className="driver-correction-reason"><span>정정 사유 <small>(선택)</small></span><input value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} maxLength={500} placeholder="오입력, 현장 확인 후 정정 등" /></label>
+        <div className="driver-correction-dialog-actions"><button type="button" onClick={closeCorrection} disabled={correctionBusy}>취소</button><button type="button" className="confirm" onClick={() => void executeCorrection()} disabled={correctionBusy}>{correctionBusy ? "정정 중..." : "정정 실행"}</button></div>
+      </div>
+    </div>}
+
+
+    <section className="driver-exception-panel" aria-label="예외 운행 확인">
+      <div className="driver-exception-head">
+        <div><span>EXCEPTION CHECK</span><h3>예외 운행 확인</h3><p>미출발·상차 후 경과·예정 회차 초과를 빠르게 확인합니다.</p></div>
+        <strong className={exceptionItems.length ? "has-exception" : "normal"}>{exceptionItems.length ? exceptionItems.length + "건 확인" : "정상"}</strong>
+      </div>
+      {!exceptionItems.length ? <div className="driver-exception-empty">현재 확인된 예외 운행이 없습니다.</div> : <div className="driver-exception-list">
+        {exceptionItems.map((item) => <article key={item.key} className={"driver-exception-item tone-" + item.tone}>
+          <div className="driver-exception-item-head"><span>{item.kind}</span><strong>{item.subject}</strong></div>
+          <b>{item.orderText}</b><small>{item.detail}</small>
+        </article>)}
+      </div>}
+      <small className="driver-exception-note">상차 후 경과는 운영 기준이 없는 상태에서 자동 지연 판정 없이 경과시간만 표시합니다.</small>
+    </section>
+
+    <section className="driver-daily-summary" aria-label="오늘 기사 차량 요약">
+      <div className="driver-daily-head">
+        <div><span>DAILY SUMMARY</span><h3>오늘 운행 요약</h3><p>완료 trip의 회차·actual_volume과 오늘 운행 시간 기준입니다.</p></div>
+        <div className="driver-daily-tabs" role="tablist" aria-label="오늘 요약 기준">
+          {(["기사", "차량"] as const).map((tab) => <button key={tab} type="button" role="tab" aria-selected={dailySummaryTab === tab} className={dailySummaryTab === tab ? "active" : ""} onClick={() => setDailySummaryTab(tab)}>{tab}</button>)}
+        </div>
+      </div>
+      {!dailySummaries.length ? <div className="driver-daily-empty">오늘 운행 기록이 없습니다.</div> : <div className="driver-daily-list">
+        {dailySummaries.map((summaryItem) => <article key={summaryItem.id} className="driver-daily-card">
+          <div className="driver-daily-card-head"><div><strong>{summaryItem.title}</strong><small>{summaryItem.secondary}</small></div><b>{summaryItem.completedCount}회 완료</b></div>
+          <div className="driver-daily-volume">{formatVolume(summaryItem.completedVolume)}</div>
+          <div className="driver-daily-times"><span>첫 운행 <b>{koreaTime(summaryItem.firstStartedAt)}</b></span><span>마지막 {summaryItem.lastActivityLabel || "활동"} <b>{koreaTime(summaryItem.lastActivityAt)}</b></span></div>
+        </article>)}
+      </div>}
+    </section>
 
     <div className="driver-status-workspace">
       <aside className="driver-master-panel">
@@ -198,10 +257,15 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
         </div>
         <div className="driver-master-list">
           {rows.map((row) => {
-            const vehicleNumber = row.driver.assigned_vehicle_id
-              ? vehicleById.get(row.driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요"
+            const vehicleNumber = row.vehicleIds.length
+              ? row.vehicleIds.map((id) => vehicleById.get(id)?.vehicle_number || "차량 확인 필요").join(" · ")
               : "차량 미지정";
             const isSelected = selectedRow?.driver.id === row.driver.id;
+            const dispatchText = row.currentOrder
+              ? `${row.currentOrder.vendor_name} · ${row.currentOrder.item_name}`
+              : row.state === "운행 완료"
+                ? `오늘 ${row.completed.length}회 완료 · ${formatVolume(row.completedVolume)}`
+                : "현재 배차 없음";
             return <button
               key={row.driver.id}
               type="button"
@@ -209,13 +273,18 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
               onClick={() => { setSelectedDriverId(row.driver.id); setDetailOpen(true); }}
             >
               <span className={`driver-master-state state-${row.state.replace(/\s/g, "-")}`}><i /></span>
-              <span className="driver-master-identity">
-                <strong>{row.driver.name}</strong>
-                <small>{vehicleNumber}</small>
-              </span>
-              <span className="driver-master-summary">
-                <b>{row.state}</b>
-                <small>{row.completed.length}회</small>
+              <span className="driver-master-content">
+                <span className="driver-master-name-line">
+                  <strong>{row.driver.name}</strong>
+                  <b className={`driver-master-status state-${row.state.replace(/\s/g, "-")}`}>{row.state}</b>
+                </span>
+                <small className="driver-master-vehicle">{vehicleNumber}</small>
+                <small className="driver-master-dispatch">{dispatchText}</small>
+                <span className="driver-master-progress">
+                  <b>{row.currentRoundText}</b>
+                  <small>{row.progress ? `잔여 ${row.remainingText}` : row.state === "운행 완료" ? "오늘 운행 완료" : "-"}</small>
+                </span>
+                <small className="driver-master-activity">마지막 {row.lastText}</small>
               </span>
             </button>;
           })}
@@ -233,7 +302,7 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
                   <h3>{selectedRow.driver.name}</h3>
                   <span className={`driver-state state-${selectedRow.state.replace(/\s/g, "-")}`}><i />{selectedRow.state}</span>
                 </div>
-                <p>{selectedRow.driver.assigned_vehicle_id ? vehicleById.get(selectedRow.driver.assigned_vehicle_id)?.vehicle_number || "차량 확인 필요" : "차량 미지정"}</p>
+                <p>{selectedRow.vehicleIds.length ? selectedRow.vehicleIds.map((id) => vehicleById.get(id)?.vehicle_number || "차량 확인 필요").join(" · ") : "차량 미지정"}</p>
               </div>
             </div>
             <div className="driver-detail-last"><span>마지막 활동</span><strong>{selectedRow.lastText}</strong></div>
@@ -243,6 +312,10 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
             <span>현재 배차</span>
             <strong>{selectedRow.currentOrder ? `${selectedRow.currentOrder.vendor_name} · ${selectedRow.currentOrder.item_name}` : "현재 배차 없음"}</strong>
             {selectedRow.currentOrder && <em>{selectedRow.currentOrder.loading_location || "상차지 미지정"} <b>→</b> {selectedRow.currentOrder.unloading_location || "하차지 미지정"}</em>}
+            {(selectedRow.currentOrder || selectedRow.state === "운행 완료") && <div className="driver-detail-current-meta">
+              <strong>{selectedRow.currentRoundText}</strong>
+              <span>{selectedRow.progress ? `잔여 ${selectedRow.remainingText}` : `${selectedRow.completed.length}회 완료 · ${formatVolume(selectedRow.completedVolume)}`}</span>
+            </div>}
           </div>
 
           <div className="driver-detail-stats">
@@ -272,14 +345,23 @@ export default function DriverStatusDashboard({ drivers, vehicles }: Props) {
                     const start = koreaTime(trip.created_at);
                     const loadingTime = koreaTime(trip.loading_completed_at);
                     const unloading = koreaTime(trip.unloading_completed_at);
+                    const correctionType = correctionTypeForTrip(trip);
                     return <div key={trip.id} className="driver-trip-row">
                       <div className="driver-trip-no"><strong>{trip.trip_no}회차</strong><span className={`trip-status trip-${trip.status}`}>{trip.status}</span></div>
                       <div className="driver-trip-info">
                         <span>시작 <b>{start}</b></span>
-                        <span>상차 <b>{loadingTime}</b></span>
-                        <span>하차 <b>{unloading}</b></span>
+                        <span className="driver-trip-event">상차 <b>{loadingTime}</b>{locationByTripEvent.get(`${trip.id}:loading`)?.address && <small>📍 {locationByTripEvent.get(`${trip.id}:loading`)?.address}</small>}</span>
+                        <span className="driver-trip-event">하차 <b>{unloading}</b>{locationByTripEvent.get(`${trip.id}:unloading`)?.address && <small>📍 {locationByTripEvent.get(`${trip.id}:unloading`)?.address}</small>}</span>
                       </div>
                       <div className="driver-trip-volume">{trip.status === "완료" ? formatVolume(trip.actual_volume) : "-"}</div>
+                      {canCorrectTrips && <div className="driver-trip-actions">
+                        {correctionType && <button type="button" onClick={() => openCorrection(trip)} title={correctionLabels[correctionType]}>정정</button>}
+                        <button type="button" onClick={() => void toggleCorrectionHistory(trip.id)}>{historyTripId === trip.id ? "이력 닫기" : "정정 이력"}</button>
+                      </div>}
+                      {canCorrectTrips && historyTripId === trip.id && <div className="driver-correction-history">
+                        <div className="driver-correction-history-head"><strong>정정 이력</strong><span>{correctionHistory.length}건</span></div>
+                        {historyLoading ? <p>이력을 불러오는 중...</p> : !correctionHistory.length ? <p>정정 이력이 없습니다.</p> : <ul>{correctionHistory.map((item) => <li key={item.id}><div><strong>{item.action}</strong><span>{correctionDateTime(item.corrected_at)}</span></div><small>수정자: {item.corrected_by_email || "관리자"}{item.reason ? ` · 사유: ${item.reason}` : ""}</small></li>)}</ul>}
+                      </div>}
                     </div>;
                   })}
                 </div>

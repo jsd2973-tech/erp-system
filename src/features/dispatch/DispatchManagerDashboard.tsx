@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DispatchView } from "./dispatchTypes";
 import { dispatchToday, formatVolume } from "./dispatchUtils";
+import { loadDispatchManagerOrders, loadDispatchManagerTrips, type DispatchManagerOrder, type DispatchManagerTrip } from "./dispatchManagerService";
 import "./dispatchManagerDashboard.css";
 
 type Props = {
@@ -9,81 +10,29 @@ type Props = {
   onNavigate: (view: DispatchView) => void;
 };
 
-type OrderRow = {
-  id: string;
-  vendor_name: string;
-  item_name: string;
-  total_volume: number;
-  estimated_trip_count: number;
-  status: string;
-};
-
-type TripRow = {
-  id: string;
-  dispatch_order_id: string;
-  vehicle_id: string;
-  actual_volume: number;
-  status: string;
-};
-
 export default function DispatchManagerDashboard({ supabase, onNavigate }: Props) {
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [trips, setTrips] = useState<TripRow[]>([]);
+  const [orders, setOrders] = useState<DispatchManagerOrder[]>([]);
+  const [trips, setTrips] = useState<DispatchManagerTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const today = dispatchToday();
-    const orderResult = await supabase
-      .from("dispatch_orders")
-      .select("id,vendor_name,item_name,total_volume,estimated_trip_count,status")
-      .eq("dispatch_date", today)
-      .neq("status", "취소")
-      .order("created_at", { ascending: true });
-
-    if (orderResult.error) {
-      setError(`오늘 배차를 불러오지 못했습니다. (${orderResult.error.message})`);
-      setLoading(false);
-      return;
+    try {
+      const nextOrders = await loadDispatchManagerOrders(supabase);
+      setOrders(nextOrders);
+      const orderIds = nextOrders.map((row) => row.id);
+      if (!orderIds.length) {
+        setTrips([]);
+        setLoading(false);
+        return;
+      }
+      setTrips(await loadDispatchManagerTrips(supabase, orderIds));
+      setError("");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "오늘 배차를 불러오지 못했습니다.");
     }
-
-    const nextOrders = (orderResult.data || []).map((row) => ({
-      id: String(row.id),
-      vendor_name: String(row.vendor_name || ""),
-      item_name: String(row.item_name || ""),
-      total_volume: Number(row.total_volume || 0),
-      estimated_trip_count: Number(row.estimated_trip_count || 0),
-      status: String(row.status || ""),
-    }));
-    setOrders(nextOrders);
-
-    const orderIds = nextOrders.map((row) => row.id);
-    if (!orderIds.length) {
-      setTrips([]);
-      setLoading(false);
-      return;
-    }
-
-    const tripResult = await supabase
-      .from("dispatch_trips")
-      .select("id,dispatch_order_id,vehicle_id,actual_volume,status")
-      .in("dispatch_order_id", orderIds);
-
-    if (tripResult.error) {
-      setError(`오늘 운행을 불러오지 못했습니다. (${tripResult.error.message})`);
-      setLoading(false);
-      return;
-    }
-
-    setTrips((tripResult.data || []).map((row) => ({
-      id: String(row.id),
-      dispatch_order_id: String(row.dispatch_order_id),
-      vehicle_id: String(row.vehicle_id),
-      actual_volume: Number(row.actual_volume || 0),
-      status: String(row.status || ""),
-    })));
     setLoading(false);
   }, [supabase]);
 

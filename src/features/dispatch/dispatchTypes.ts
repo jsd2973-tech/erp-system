@@ -47,6 +47,7 @@ export type DispatchLocation = {
 export type DispatchVehicle = {
   id: string;
   vehicle_number: string;
+  company_name: string;
   active: boolean;
   memo: string;
   created_at?: string;
@@ -57,6 +58,7 @@ export type DispatchDriver = {
   id: string;
   name: string;
   phone: string;
+  company_name: string;
   assigned_vehicle_id: string | null;
   auth_user_id: string | null;
   active: boolean;
@@ -105,11 +107,19 @@ export type DispatchOrderVehicle = {
   id: string;
   order_id: string;
   vehicle_id: string;
+  driver_id: string | null;
   created_at?: string;
 };
 
 export type DispatchOrderWithVehicles = DispatchOrder & {
   vehicle_ids: string[];
+  assignments: DispatchOrderVehicle[];
+};
+
+export type DispatchAssignmentForm = {
+  company_name: string;
+  vehicle_id: string;
+  driver_id: string;
 };
 
 export type DispatchOrderForm = {
@@ -130,7 +140,10 @@ export type DispatchOrderForm = {
   status: DispatchStatus;
   memo: string;
   vehicle_ids: string[];
+  assignments: DispatchAssignmentForm[];
 };
+
+// COMPANY_DISPATCH_ASSIGNMENTS_PATCH_V1
 
 export type DispatchFilters = {
   from: string;
@@ -138,4 +151,16 @@ export type DispatchFilters = {
   vendor: string;
   item: string;
   status: "" | DispatchStatus;
+};
+
+
+export type DispatchTripLocation = {
+  id: string;
+  trip_id: string;
+  event_type: "loading" | "unloading";
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  address: string | null;
+  captured_at: string;
 };

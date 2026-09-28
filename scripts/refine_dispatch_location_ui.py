@@ -4,7 +4,7 @@ import re
 # Refine the reverse-geocoded address stored when a driver completes loading/unloading.
 # Keep country/postcode out, prefer Korean administrative order, and append a useful
 # nearby place name only when it adds information.
-path = Path('src/features/dispatch/DriverMobileApp.tsx')
+path = Path('src/features/dispatch/dispatchLocationService.ts')
 s = path.read_text()
 pattern = re.compile(r'''const formatReverseAddress = \(data: Record<string, unknown>\) => \{.*?\n\};''', re.S)
 replacement = '''const formatReverseAddress = (data: Record<string, unknown>) => {
