@@ -20,7 +20,7 @@ if 'import { Camera } from "lucide-react";' not in s:
         raise SystemExit("fuel OCR icon import anchor not found")
     s = s.replace(lucide_import, lucide_import + 'import { Camera } from "lucide-react";\n', 1)
 
-statement_import = 'import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";\n'
+statement_import = 'import { buildFuelStatementWorkbook, type FuelStatementParty } from "./fuelStatementExport";\n'
 fuel_ocr_type_import = 'import type { FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
 fuel_ocr_named_import = 'import { reconcileFuelReceiptOcr, type FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
 if fuel_ocr_named_import not in s:
@@ -31,7 +31,7 @@ if fuel_ocr_named_import not in s:
             raise SystemExit("fuel OCR type import anchor not found")
         s = s.replace(statement_import, statement_import + fuel_ocr_named_import, 1)
 
-helper_anchor = 'const text = (value: unknown)'
+helper_anchor = 'const emptyManual = () => ({'
 helper_block = r'''const isFuelReceiptImage = (file: File) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || "");
 const isFuelReceiptPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
 const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
@@ -309,7 +309,7 @@ save_block = r'''  const saveManual = async () => {
       setError("일자, 차량/장비번호, 수량, 단가를 확인해 주세요.");
       return;
     }
-    const calculatedSupply = Math.round(quantity * unitPrice);
+    const calculatedSupply = calculateFuelAmounts(quantity, unitPrice).supply;
     const supply = manual.supply_amount.trim() ? Math.round(asNumber(manual.supply_amount)) : calculatedSupply;
     const vat = manual.vat_amount.trim() ? Math.round(asNumber(manual.vat_amount)) : Math.round(supply * 0.1);
     const total = manual.total_amount.trim() ? Math.round(asNumber(manual.total_amount)) : supply + vat;

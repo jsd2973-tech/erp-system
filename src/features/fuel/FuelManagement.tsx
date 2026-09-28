@@ -1,226 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx-js-style";
 import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
-import { buildFuelStatementWorkbook, type FuelStatementParty, type FuelStatementRecord } from "./fuelStatementExport";
+import { buildFuelStatementWorkbook, type FuelStatementParty } from "./fuelStatementExport";
+import {
+  asFuelNumber as asNumber,
+  buildFuelVehicleProfiles,
+  calculateFuelAmounts,
+  calculateFuelTotals,
+  compareFuelNames as natural,
+  currentFuelMonth as currentMonth,
+  filterFuelDetailRecords,
+  filterFuelRecords,
+  formatFuelMoney as money,
+  formatFuelNumber as number,
+  fuelMonthBounds as monthBounds,
+  getManagedFuelOptions,
+  normalizeFuelMasterOptions,
+  normalizeFuelRecord,
+  summarizeFuelDetailRecords,
+  summarizeFuelRecords,
+  todayKey,
+} from "./fuelModel";
+import { parseFuelFile } from "./fuelImport";
+import type {
+  FuelDetailTarget,
+  FuelManagementProps as Props,
+  FuelMasterCategory,
+  FuelMasterOption,
+  FuelRecord,
+  FuelViewMode as ViewMode,
+  ParsedFuelRow,
+} from "./fuelTypes";
 import "./fuelManagement.css";
 import "./fuelTableAlignment.css";
 import "./fuelQuickSelect.css";
 
-type FuelRecord = FuelStatementRecord & {
-  source_file?: string | null;
-  source_fingerprint?: string | null;
-  receipt_path?: string | null;
-  receipt_name?: string | null;
-  receipt_mime_type?: string | null;
-  receipt_uploaded_at?: string | null;
-  created_at?: string;
-};
-
-type ParsedFuelRow = Omit<FuelRecord, "id" | "created_at">;
-type SummaryRow = { name: string; count: number; quantity: number; total: number };
-type FuelMasterCategory = "vehicle" | "station" | "product" | "site";
-type FuelMasterOption = { id: string; category: FuelMasterCategory; name: string; is_active: boolean; updated_at?: string };
-type ViewMode = "records" | "vehicle" | "site" | "station" | "basics";
-
-type Props = {
-  supabase: SupabaseClient;
-  vendors?: FuelStatementParty[];
-};
-
 const EMPTY_STATEMENT_PARTIES: FuelStatementParty[] = [];
-
-const todayKey = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-const currentMonth = () => todayKey().slice(0, 7);
-const number = (value: number) => Number(value || 0).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
-const money = (value: number) => Math.round(Number(value || 0)).toLocaleString("ko-KR");
-const natural = (a: string, b: string) => a.localeCompare(b, "ko-KR", { numeric: true, sensitivity: "base" });
-const asNumber = (value: unknown) => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value ?? "").replace(/,/g, "").replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-const text = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
-const normalizeHeader = (value: unknown) => text(value).replace(/\s/g, "").replace(/[()（）]/g, "").toLowerCase();
-const fingerprint = (raw: string) => {
-  let hash = 2166136261;
-  for (let i = 0; i < raw.length; i += 1) {
-    hash ^= raw.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return `fuel-${(hash >>> 0).toString(16).padStart(8, "0")}`;
-};
-
-const monthBounds = (month: string) => {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const end = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-  return { from: `${month}-01`, to: `${month}-${String(end).padStart(2, "0")}` };
-};
-
-const parseDate = (value: unknown, fallbackYear: number, fallbackMonth: number) => {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-  }
-  if (typeof value === "number" && value > 20000) {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
-  }
-  const raw = text(value);
-  if (!raw) return "";
-  let match = raw.match(/(20\d{2})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/);
-  if (match) return `${match[1]}-${String(Number(match[2])).padStart(2, "0")}-${String(Number(match[3])).padStart(2, "0")}`;
-  match = raw.match(/^(\d{1,2})[.\-/](\d{1,2})$/);
-  if (match) return `${fallbackYear}-${String(Number(match[1]) || fallbackMonth).padStart(2, "0")}-${String(Number(match[2])).padStart(2, "0")}`;
-  return "";
-};
-
-const htmlTableToGrid = (table: HTMLTableElement) => {
-  const grid: string[][] = [];
-  const rowSpans: Array<{ value: string; left: number } | undefined> = [];
-  Array.from(table.rows).forEach((tr) => {
-    const row: string[] = [];
-    let col = 0;
-    const consumeSpans = () => {
-      while (rowSpans[col]?.left) {
-        const span = rowSpans[col]!;
-        row[col] = span.value;
-        span.left -= 1;
-        if (span.left <= 0) rowSpans[col] = undefined;
-        col += 1;
-      }
-    };
-    consumeSpans();
-    Array.from(tr.cells).forEach((cell) => {
-      consumeSpans();
-      const value = text(cell.textContent);
-      const colSpan = Math.max(cell.colSpan || 1, 1);
-      const rowSpan = Math.max(cell.rowSpan || 1, 1);
-      for (let offset = 0; offset < colSpan; offset += 1) {
-        row[col + offset] = value;
-        if (rowSpan > 1) rowSpans[col + offset] = { value, left: rowSpan - 1 };
-      }
-      col += colSpan;
-      consumeSpans();
-    });
-    while (rowSpans[col]?.left) {
-      const span = rowSpans[col]!;
-      row[col] = span.value;
-      span.left -= 1;
-      if (span.left <= 0) rowSpans[col] = undefined;
-      col += 1;
-    }
-    grid.push(row);
-  });
-  return grid;
-};
-
-async function readFuelGrid(file: File) {
-  const buffer = await file.arrayBuffer();
-  const decoded = new TextDecoder("utf-8").decode(buffer.slice(0, Math.min(buffer.byteLength, 4096))).replace(/^\uFEFF/, "").trimStart().toLowerCase();
-  if (decoded.startsWith("<!doctype") || decoded.startsWith("<html") || decoded.includes("<table")) {
-    const html = await file.text();
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    const tables = Array.from(doc.querySelectorAll("table"));
-    const table = tables.find((candidate) => {
-      const candidateText = candidate.textContent || "";
-      return candidateText.includes("차량번호") && candidateText.includes("합계금액") && (candidateText.includes("현장명") || candidateText.includes("제품명"));
-    });
-    if (!table) throw new Error("거래내역 표를 찾지 못했습니다.");
-    return { rows: htmlTableToGrid(table as HTMLTableElement), sourceText: doc.body.textContent || "" };
-  }
-
-  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
-  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, defval: "", raw: false });
-  return { rows, sourceText: rows.flat().map(text).join(" ") };
-}
-
-async function parseFuelFile(file: File, fallbackMonth: string): Promise<ParsedFuelRow[]> {
-  const { rows, sourceText } = await readFuelGrid(file);
-  const headerIndex = rows.findIndex((row) => {
-    const normalized = row.map(normalizeHeader);
-    return normalized.includes("차량번호") && normalized.includes("일자") && normalized.some((header) => header.includes("제품명"));
-  });
-  if (headerIndex < 0) throw new Error("제품명·차량번호·일자 헤더를 찾지 못했습니다.");
-
-  const headers = rows[headerIndex].map(normalizeHeader);
-  const findColumn = (...needles: string[]) => headers.findIndex((header) => needles.some((needle) => header.includes(needle)));
-  const columns = {
-    site: findColumn("현장명"),
-    product: findColumn("제품명/규격", "제품명"),
-    vehicle: findColumn("차량번호"),
-    date: findColumn("일자"),
-    count: findColumn("횟수"),
-    quantity: findColumn("수량"),
-    lineAmount: headers.findIndex((header) => header.includes("단가원/대") || header === "단가원/대"),
-    unitPrice: headers.findIndex((header) => header.includes("단가원/단위") || header === "단가원/단위"),
-    supply: findColumn("공급가액"),
-    vat: findColumn("부가세"),
-    total: findColumn("합계금액"),
-  };
-  if ([columns.product, columns.vehicle, columns.date, columns.quantity, columns.total].some((value) => value < 0)) {
-    throw new Error("필수 열을 모두 찾지 못했습니다.");
-  }
-
-  const filenameMatch = file.name.match(/(20\d{2})년\s*(\d{1,2})월/);
-  const periodMatch = sourceText.match(/(20\d{2})[.\-/년]\s*(\d{1,2})[.\-/월]/);
-  const [fallbackYearText, fallbackMonthText] = fallbackMonth.split("-");
-  const year = Number(filenameMatch?.[1] || periodMatch?.[1] || fallbackYearText);
-  const month = Number(filenameMatch?.[2] || periodMatch?.[2] || fallbackMonthText);
-  const stationName = sourceText.includes("남세종농협주유소")
-    ? "남세종농협주유소"
-    : text(file.name.replace(/_?20\d{2}년.*$/i, "").replace(/\.[^.]+$/, "")) || "주유소";
-
-  const hasSiteColumn = columns.site >= 0;
-  let lastSite = hasSiteColumn ? "" : "미지정";
-  let lastProduct = "";
-  let lastVehicle = "";
-  const parsed: ParsedFuelRow[] = [];
-
-  rows.slice(headerIndex + 1).forEach((row) => {
-    const valueAt = (index: number) => index >= 0 ? row[index] : "";
-    const site = text(valueAt(columns.site)) || lastSite;
-    const product = text(valueAt(columns.product)) || lastProduct;
-    const vehicle = text(valueAt(columns.vehicle)) || lastVehicle;
-    if (text(valueAt(columns.site))) lastSite = site;
-    if (text(valueAt(columns.product))) lastProduct = product;
-    if (text(valueAt(columns.vehicle))) lastVehicle = vehicle;
-
-    const fuelDate = parseDate(valueAt(columns.date), year, month);
-    if (!fuelDate || !vehicle) return;
-
-    const quantity = asNumber(valueAt(columns.quantity));
-    const unitPrice = asNumber(valueAt(columns.unitPrice));
-    const supply = asNumber(valueAt(columns.supply));
-    const vat = asNumber(valueAt(columns.vat));
-    const total = asNumber(valueAt(columns.total));
-    if (!quantity && !total) return;
-
-    const usageCount = Math.max(Math.round(asNumber(valueAt(columns.count))) || 1, 1);
-    const lineAmount = asNumber(valueAt(columns.lineAmount)) || supply;
-    const rawFingerprint = [stationName, fuelDate, site, product, vehicle, usageCount, quantity, unitPrice, supply, vat, total].join("|");
-    parsed.push({
-      fuel_date: fuelDate,
-      site_name: site || "미지정",
-      product_name: product || "경유",
-      vehicle_number: vehicle,
-      usage_count: usageCount,
-      quantity,
-      line_amount: lineAmount,
-      unit_price: unitPrice,
-      supply_amount: supply,
-      vat_amount: vat,
-      total_amount: total,
-      station_name: stationName,
-      source_file: file.name,
-      source_fingerprint: fingerprint(rawFingerprint),
-      memo: hasSiteColumn ? "" : "원본 명세서에 현장명 없음",
-    });
-  });
-
-  if (!parsed.length) throw new Error("가져올 주유내역이 없습니다.");
-  return parsed;
-}
 
 const emptyManual = () => ({
   fuel_date: todayKey(), site_name: "공장", product_name: "경유", vehicle_number: "", quantity: "", unit_price: "", station_name: "남세종농협주유소", memo: "",
@@ -240,7 +55,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const [product, setProduct] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [view, setView] = useState<ViewMode>("records");
-  const [detailTarget, setDetailTarget] = useState<{ type: "vehicle" | "site" | "station"; name: string } | null>(null);
+  const [detailTarget, setDetailTarget] = useState<FuelDetailTarget | null>(null);
   const [preview, setPreview] = useState<ParsedFuelRow[]>([]);
   const [previewFile, setPreviewFile] = useState("");
   const [importing, setImporting] = useState(false);
@@ -271,22 +86,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       setError(`유류내역을 불러오지 못했습니다. (${loadError.message})`);
       setRecords([]);
     } else {
-      setRecords((data || []).map((row) => ({
-        ...row,
-        id: String(row.id),
-        fuel_date: String(row.fuel_date || ""),
-        site_name: String(row.site_name || ""),
-        product_name: String(row.product_name || ""),
-        vehicle_number: String(row.vehicle_number || ""),
-        usage_count: Number(row.usage_count || 0),
-        quantity: Number(row.quantity || 0),
-        line_amount: Number(row.line_amount || 0),
-        unit_price: Number(row.unit_price || 0),
-        supply_amount: Number(row.supply_amount || 0),
-        vat_amount: Number(row.vat_amount || 0),
-        total_amount: Number(row.total_amount || 0),
-        station_name: String(row.station_name || ""),
-      })) as FuelRecord[]);
+      setRecords((data || []).map(normalizeFuelRecord));
     }
     setLoading(false);
   };
@@ -298,7 +98,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       setError(`유류 기초등록을 불러오지 못했습니다. (${masterError.message})`);
       return;
     }
-    const rows=(data || []).map((row)=>({ id:String(row.id), category:String(row.category) as FuelMasterCategory, name:String(row.name || ""), is_active:Boolean(row.is_active), updated_at:row.updated_at ? String(row.updated_at) : undefined }));
+    const rows = normalizeFuelMasterOptions(data || []);
     setMasterOptions(rows);
     setMasterDrafts(Object.fromEntries(rows.map((row)=>[row.id,row.name])));
   };
@@ -316,63 +116,18 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
 
   const sites = useMemo(() => [...new Set(records.map((record) => record.site_name).filter(Boolean))].sort(natural), [records]);
   const products = useMemo(() => [...new Set(records.map((record) => record.product_name).filter(Boolean))].sort(natural), [records]);
-  const filtered = useMemo(() => records.filter((record) =>
-    (!site || record.site_name === site)
-    && (!product || record.product_name === product)
-    && (!vehicleSearch.trim() || record.vehicle_number.toLowerCase().includes(vehicleSearch.trim().toLowerCase()))
-  ).sort((a, b) => b.fuel_date.localeCompare(a.fuel_date) || natural(a.vehicle_number, b.vehicle_number) || a.product_name.localeCompare(b.product_name, "ko-KR")), [records, site, product, vehicleSearch]);
-
-  const totals = useMemo(() => ({
-    count: filtered.reduce((sum, record) => sum + Math.max(record.usage_count || 1, 1), 0),
-    quantity: filtered.reduce((sum, record) => sum + record.quantity, 0),
-    diesel: filtered.filter((record) => record.product_name.includes("경유")).reduce((sum, record) => sum + record.quantity, 0),
-    urea: filtered.filter((record) => record.product_name.includes("요소")).reduce((sum, record) => sum + record.quantity, 0),
-    total: filtered.reduce((sum, record) => sum + record.total_amount, 0),
-  }), [filtered]);
-
-  const summarize = (key: "vehicle_number" | "site_name" | "station_name") => {
-    const map = new Map<string, SummaryRow>();
-    filtered.forEach((record) => {
-      const name = record[key] || "미지정";
-      const current = map.get(name) || { name, count: 0, quantity: 0, total: 0 };
-      current.count += Math.max(record.usage_count || 1, 1);
-      current.quantity += record.quantity;
-      current.total += record.total_amount;
-      map.set(name, current);
-    });
-    return [...map.values()].sort((a, b) => b.total - a.total || natural(a.name, b.name));
-  };
-  const vehicleSummary = useMemo(() => summarize("vehicle_number"), [filtered]);
-  const siteSummary = useMemo(() => summarize("site_name"), [filtered]);
-  const stationSummary = useMemo(() => summarize("station_name"), [filtered]);
-  const detailRows = useMemo(() => {
-    if (!detailTarget) return [];
-    return filtered.filter((record) => detailTarget.type === "vehicle" ? record.vehicle_number === detailTarget.name : detailTarget.type === "site" ? record.site_name === detailTarget.name : record.station_name === detailTarget.name)
-      .sort((a, b) => b.fuel_date.localeCompare(a.fuel_date) || natural(a.vehicle_number, b.vehicle_number) || a.product_name.localeCompare(b.product_name, "ko-KR"));
-  }, [detailTarget, filtered]);
-  const detailTotals = useMemo(() => ({
-    count: detailRows.reduce((sum, row) => sum + Math.max(row.usage_count || 1, 1), 0),
-    quantity: detailRows.reduce((sum, row) => sum + row.quantity, 0),
-    total: detailRows.reduce((sum, row) => sum + row.total_amount, 0),
-  }), [detailRows]);
-
-  const vehicleProfiles = useMemo(() => {
-    const map = new Map<string, FuelRecord>();
-    referenceRecords.forEach((record) => {
-      const key = String(record.vehicle_number || "").trim();
-      if (key && !map.has(key)) map.set(key, record);
-    });
-    return [...map.entries()].sort((a, b) => natural(a[0], b[0]));
-  }, [referenceRecords]);
-  const managedOptions = (category: FuelMasterCategory, fallback: string[]) => {
-    const rows=masterOptions.filter((row)=>row.category===category);
-    const inactive=new Set(rows.filter((row)=>!row.is_active).map((row)=>row.name));
-    return [...new Set([...rows.filter((row)=>row.is_active).map((row)=>row.name), ...fallback.filter((name)=>!inactive.has(name))])].filter(Boolean).sort(natural);
-  };
-  const vehicleOptions = useMemo(() => managedOptions("vehicle", vehicleProfiles.map(([vehicle])=>vehicle)), [masterOptions, vehicleProfiles]);
-  const allSites = useMemo(() => managedOptions("site", referenceRecords.map((record)=>String(record.site_name || ""))), [masterOptions, referenceRecords]);
-  const allProducts = useMemo(() => managedOptions("product", referenceRecords.map((record)=>String(record.product_name || ""))), [masterOptions, referenceRecords]);
-  const allStations = useMemo(() => managedOptions("station", ["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record)=>String(record.station_name || ""))]), [masterOptions, referenceRecords]);
+  const filtered = useMemo(() => filterFuelRecords(records, { site, product, vehicleSearch }), [records, site, product, vehicleSearch]);
+  const totals = useMemo(() => calculateFuelTotals(filtered), [filtered]);
+  const vehicleSummary = useMemo(() => summarizeFuelRecords(filtered, "vehicle_number"), [filtered]);
+  const siteSummary = useMemo(() => summarizeFuelRecords(filtered, "site_name"), [filtered]);
+  const stationSummary = useMemo(() => summarizeFuelRecords(filtered, "station_name"), [filtered]);
+  const detailRows = useMemo(() => filterFuelDetailRecords(filtered, detailTarget), [detailTarget, filtered]);
+  const detailTotals = useMemo(() => summarizeFuelDetailRecords(detailRows), [detailRows]);
+  const vehicleProfiles = useMemo(() => buildFuelVehicleProfiles(referenceRecords), [referenceRecords]);
+  const vehicleOptions = useMemo(() => getManagedFuelOptions("vehicle", masterOptions, vehicleProfiles.map(([vehicle]) => vehicle)), [masterOptions, vehicleProfiles]);
+  const allSites = useMemo(() => getManagedFuelOptions("site", masterOptions, referenceRecords.map((record) => String(record.site_name || ""))), [masterOptions, referenceRecords]);
+  const allProducts = useMemo(() => getManagedFuelOptions("product", masterOptions, referenceRecords.map((record) => String(record.product_name || ""))), [masterOptions, referenceRecords]);
+  const allStations = useMemo(() => getManagedFuelOptions("station", masterOptions, ["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record) => String(record.station_name || ""))]), [masterOptions, referenceRecords]);
 
   const applyVehicleProfile = (vehicle: string) => {
     const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
@@ -516,8 +271,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       setError("일자, 차량/장비번호, 수량, 단가를 확인해 주세요.");
       return;
     }
-    const supply = Math.round(quantity * unitPrice);
-    const vat = Math.round(supply * 0.1);
+    const { supply, vat, total } = calculateFuelAmounts(quantity, unitPrice);
     const payload = {
       fuel_date: manual.fuel_date,
       site_name: manual.site_name.trim() || "미지정",
@@ -529,7 +283,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       unit_price: unitPrice,
       supply_amount: supply,
       vat_amount: vat,
-      total_amount: supply + vat,
+      total_amount: total,
       station_name: manual.station_name.trim() || "직접입력",
       source_file: null,
       source_fingerprint: `manual-${crypto.randomUUID()}`,
