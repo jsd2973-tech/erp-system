@@ -8,44 +8,49 @@ import FuelManagement from "./features/fuel/FuelManagement";
 import type { ReceiptOcrResult } from "./features/card/receiptOcr";
 import { isSupabaseTestMode, supabase } from "./supabaseClient";
 import {
+  cleanAccountNumber,
+  fromPurchase,
+  getPurchaseItemSummary,
+  isPurchasePaid,
+  maintenancePurchaseLinkIdentity,
+  maintenancePurchaseLinkKey,
+  numericValue,
+  toMaintenancePurchaseLink,
+  toPurchase,
+} from "./features/purchase/purchaseModel";
+import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
+import { createPurchaseService } from "./features/purchase/purchaseService";
+import { PurchaseEntryView, PurchasePriceHistoryModal } from "./features/purchase/PurchaseEntry";
+import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
+import PurchaseMaintenanceModals from "./features/purchase/PurchaseMaintenanceModals";
+import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
+import { buildPurchaseMaintenanceCopyRows } from "./features/purchase/purchaseMaintenanceModel";
+import type {
+  BulkTransferRow,
+  MaintenancePurchaseLink,
+  Purchase,
+  PurchasePaymentStatus,
+  PurchaseRow,
+  PurchaseSearch,
+} from "./features/purchase/purchaseTypes";
+import {
   buildPurchasePriceHistory,
-  comparePurchaseUnitPrice,
   getPurchasePriceHistoryKey,
   getPurchaseEffectiveUnitPrice,
-  getPurchaseVendorPriceStat,
   normalizePurchasePriceText,
   type PurchasePriceHistory,
-} from "./purchasePriceHistory";
+} from "./features/purchase/purchasePriceHistory";
+
+const purchaseService = createPurchaseService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
 type Warehouse = { id: string; code: string; group: string; name: string };
 type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
-type PurchaseRow = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
-type PurchasePaymentStatus = "unpaid" | "paid";
-type Purchase = { id: string; date: string; vendor: string; warehouse: string; rows: PurchaseRow[]; supplyTotal: number; vatTotal: number; total: number; itemSummary: string; taxInvoiceReceived?: boolean; paymentStatus?: PurchasePaymentStatus; paidDate?: string; image_urls?: string[]; image_url?: string };
 type MaintItem = { id: string; item: string; spec: string; qty: string | number; price: string | number; supply: number; vat: number; total: number };
 type Maint = { id: string; date: string; warehouse: string; manager: string; title: string; detail: string; cost: number | string;
   image_url?: string;
   image_urls?: string[]; items?: MaintItem[]; supplyTotal?: number; vatTotal?: number; total?: number };
-type MaintenancePurchaseLink = {
-  id: string;
-  maintenance_id: string;
-  maintenance_row_id: string;
-  purchase_id: string;
-  purchase_row_id: string;
-  item_name: string;
-  spec: string;
-  used_qty: number;
-  unit_price_snapshot: number;
-  purchase_date_snapshot: string;
-  vendor_snapshot: string;
-  maintenance_date_snapshot: string;
-  maintenance_equipment_snapshot: string;
-  maintenance_title_snapshot: string;
-  created_by?: string;
-  created_at?: string;
-};
 type CardUse = { id: string; date: string; user_name: string; place: string; amount: number | string; memo?: string;
   image_url?: string;
   image_urls?: string[]; created_at?: string };
@@ -74,20 +79,6 @@ type VendorAccount = {
   customer_display_name?: string;
   account_number?: string;
   memo?: string;
-};
-
-type BulkTransferRow = {
-  id: string;
-  vendor: string;
-  amount: number;
-  purchaseIds: string[];
-  bank_code: string;
-  bank_name: string;
-  account_name: string;
-  customer_display_name: string;
-  account_number: string;
-  memo: string;
-  matched: boolean;
 };
 
 type ReceiptPhoto = {
@@ -127,72 +118,6 @@ type MaintenancePhoto = {
 };
 
 
-
-const toPurchase = (p: any): Purchase => ({
-  id: p.id,
-  date: p.date || "",
-  vendor: p.vendor || "",
-  warehouse: p.warehouse || "",
-  rows: p.rows || [],
-  supplyTotal: Number(p.supplytotal ?? p.supplyTotal ?? 0),
-  vatTotal: Number(p.vattotal ?? p.vatTotal ?? 0),
-  total: Number(p.total || 0),
-  itemSummary: p.itemsummary ?? p.itemSummary ?? "",
-  taxInvoiceReceived: Boolean(p.tax_invoice_received ?? p.taxInvoiceReceived ?? false),
-  paymentStatus: p.payment_status === "paid" || p.paymentStatus === "paid" ? "paid" : "unpaid",
-  paidDate: p.paid_date ?? p.paidDate ?? "",
-  image_url: p.image_url || "",
-  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
-});
-
-const fromPurchase = (p: Purchase) => ({
-  id: p.id,
-  date: p.date,
-  vendor: p.vendor,
-  warehouse: p.warehouse,
-  rows: p.rows,
-  supplytotal: p.supplyTotal,
-  vattotal: p.vatTotal,
-  total: p.total,
-  itemsummary: p.itemSummary,
-  tax_invoice_received: Boolean(p.taxInvoiceReceived),
-  payment_status: p.paymentStatus === "paid" ? "paid" : "unpaid",
-  paid_date: p.paymentStatus === "paid" ? p.paidDate || null : null,
-  image_url: (p.image_urls || [])[0] || p.image_url || "",
-  image_urls: p.image_urls || (p.image_url ? [p.image_url] : []),
-});
-
-const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
-
-const toMaintenancePurchaseLink = (row: any): MaintenancePurchaseLink => ({
-  id: String(row?.id || ""),
-  maintenance_id: String(row?.maintenance_id || ""),
-  maintenance_row_id: String(row?.maintenance_row_id || ""),
-  purchase_id: String(row?.purchase_id || ""),
-  purchase_row_id: String(row?.purchase_row_id || ""),
-  item_name: String(row?.item_name || ""),
-  spec: String(row?.spec || ""),
-  used_qty: Number(row?.used_qty || 0),
-  unit_price_snapshot: Number(row?.unit_price_snapshot || 0),
-  purchase_date_snapshot: String(row?.purchase_date_snapshot || ""),
-  vendor_snapshot: String(row?.vendor_snapshot || ""),
-  maintenance_date_snapshot: String(row?.maintenance_date_snapshot || ""),
-  maintenance_equipment_snapshot: String(row?.maintenance_equipment_snapshot || ""),
-  maintenance_title_snapshot: String(row?.maintenance_title_snapshot || ""),
-  created_by: row?.created_by ? String(row.created_by) : undefined,
-  created_at: row?.created_at ? String(row.created_at) : undefined,
-});
-
-const numericValue = (value: unknown) => {
-  const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const maintenancePurchaseLinkKey = (link: Pick<MaintenancePurchaseLink, "maintenance_row_id" | "purchase_id" | "purchase_row_id">) =>
-  `${link.maintenance_row_id}\u001f${link.purchase_id}\u001f${link.purchase_row_id}`;
-
-const maintenancePurchaseLinkIdentity = (link: MaintenancePurchaseLink) =>
-  link.id || maintenancePurchaseLinkKey(link);
 
 const KEY = {
   vendors: "erp_vendors_v2",
@@ -319,19 +244,6 @@ function MiniSparkline({ values, color }: { values: number[]; color: string }) {
   );
 }
 
-const getPurchaseItemSummary = (purchase: Pick<Purchase, "itemSummary" | "rows">) => {
-  const itemNames = (purchase.rows || [])
-    .map((row) => String(row.item || "").trim())
-    .filter(Boolean);
-
-  if (!itemNames.length) return purchase.itemSummary || "-";
-
-  const firstItem = itemNames[0];
-  const extraCount = itemNames.length - 1;
-
-  return extraCount > 0 ? `${firstItem} 외 ${extraCount}건` : firstItem;
-};
-
 
 
 const parseExcelLikeDate = (value: any) => {
@@ -388,8 +300,6 @@ const bankCodeByName = (name: string) => {
   if (raw.includes("카카오")) return "090";
   return "";
 };
-
-const cleanAccountNumber = (value: string) => String(value || "").replace(/[^0-9]/g, "");
 
 const pick = (obj: Record<string, any>, keys: string[]) => {
   const found = Object.keys(obj).find((k) => keys.some((x) => k.includes(x)));
@@ -1459,7 +1369,7 @@ export default function App() {
   const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
-  const [purchaseSearch, setPurchaseSearch] = useState<{ from: string; to: string; vendor: string; warehouse: string; item: string; taxInvoice: string; paymentStatus?: string }>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
+  const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
   const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
@@ -1555,28 +1465,21 @@ export default function App() {
   const [maintTemplateSearch, setMaintTemplateSearch] = useState("");
   const [maintenancePurchaseLinks, setMaintenancePurchaseLinks] = useState<MaintenancePurchaseLink[]>([]);
   const [maintPurchaseLinksDraft, setMaintPurchaseLinksDraft] = useState<MaintenancePurchaseLink[]>([]);
-  const [maintenancePurchaseLinkModal, setMaintenancePurchaseLinkModal] = useState<{
-    open: boolean;
-    maintenanceRowId: string;
-    search: string;
-    selectedPurchaseId: string;
-    selectedPurchaseRowId: string;
-    usedQty: string;
-    editingLinkId: string;
-  }>({
-    open: false,
-    maintenanceRowId: "",
-    search: "",
-    selectedPurchaseId: "",
-    selectedPurchaseRowId: "",
-    usedQty: "",
-    editingLinkId: "",
+  const purchaseMaintenanceUi = usePurchaseMaintenanceUi({
+    purchases,
+    maintenancePurchaseLinks,
+    draftLinks: maintPurchaseLinksDraft,
+    editingMaintenanceId: editingMaintId,
+    maintenanceRows: maintItems,
+    warehouse: maintForm.warehouse,
   });
-  const [maintenancePurchaseCopyModal, setMaintenancePurchaseCopyModal] = useState({
-    open: false,
-    search: "",
-    selectedRowKeys: [] as string[],
-  });
+  const {
+    linkModal: maintenancePurchaseLinkModal,
+    copyModal: maintenancePurchaseCopyModal,
+    activeLinkRow: activeMaintenanceLinkRow,
+    linkCandidates: maintenancePurchaseLinkCandidates,
+    copyCandidates: maintenancePurchaseCopyCandidates,
+  } = purchaseMaintenanceUi;
   const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const [cardForm, setCardForm] = useState({ date: getTodayKey(), user_name: "", place: "", amount: "", memo: "", image_url: "", image_urls: [] as string[] });
@@ -2039,104 +1942,8 @@ export default function App() {
       if (!ok) return;
     }
 
-    const header = ["*입금은행", "*입금계좌", "*입금액", "고객관리성명", "입금통장표시내용", "출금통장표시내용", "입금인코드", "비고", "업체사용key"];
-    const dataRows = rows.map((row) => [
-      String(row.bank_code || ""),
-      cleanAccountNumber(row.account_number),
-      Number(row.amount || 0),
-      row.customer_display_name || row.account_name || row.vendor,
-      "(주)태명산업개발",
-      row.memo,
-      "",
-      "",
-      "",
-    ]);
-
-    const worksheet = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
-
-    worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 24 },
-      { wch: 15 },
-      { wch: 30 },
-      { wch: 24 },
-      { wch: 34 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 24 },
-    ];
-
-    worksheet["!rows"] = [
-      { hpt: 22 },
-      ...dataRows.map(() => ({ hpt: 22 })),
-    ];
-
-    worksheet["!autofilter"] = { ref: `A1:I${dataRows.length + 1}` };
-
-    const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:I1");
-
-    const border = {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    };
-
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        const cell = worksheet[addr] || { v: "", t: "s" };
-        worksheet[addr] = cell;
-
-        const isHeader = r === 0;
-
-        cell.s = {
-          fill: {
-            patternType: "solid",
-            fgColor: { rgb: isHeader ? "B8CCE4" : "D9D9D9" },
-          },
-          font: {
-            name: "Arial",
-            sz: 12,
-            bold: false,
-            color: { rgb: "000000" },
-          },
-          alignment: {
-            horizontal: "center",
-            vertical: "center",
-            wrapText: false,
-          },
-          border,
-        };
-
-        if (c === 2 && r > 0) {
-          cell.t = "n";
-          cell.z = "#,##0";
-        }
-
-        if ((c === 0 || c === 1) && r > 0) {
-          cell.t = "s";
-          cell.z = "@";
-          cell.v = String(cell.v || "");
-        }
-
-        if (c === 1 && r > 0) {
-          cell.t = "s";
-          cell.z = "@";
-        }
-      }
-    }
-
-    const workbook = XLSX.utils.book_new();
-    workbook.Props = {
-      Title: `${transferMonth || getTodayKey().slice(0, 7)} 대량이체`,
-      Subject: "태명산업개발 대량이체",
-      Author: "태명산업개발",
-      CreatedDate: new Date(),
-    };
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "대량이체 미입금분");
-    XLSX.writeFile(workbook, `${transferMonth || getTodayKey().slice(0, 7)}_대량이체.xlsx`, { bookType: "xlsx", cellStyles: true });
+    const workbook = buildBulkTransferWorkbook(rows, transferMonth, getTodayKey());
+    XLSX.writeFile(workbook, getBulkTransferFileName(transferMonth, getTodayKey()), { bookType: "xlsx", cellStyles: true });
   };
 
   const openBulkTransferDownloadPopup = () => {
@@ -2307,10 +2114,10 @@ export default function App() {
       fetchAllRows("warehouse_groups", "code", 1000),
       fetchAllRows("warehouses", "code", 1000),
       fetchAllRows("items", "code", 1000),
-      fetchAllRows("purchases", "date", 1000, false),
+      purchaseService.fetchPurchases(),
       fetchAllRows("maints", "date", 1000, false),
       fetchAllRows("card_uses", "date", 1000, false),
-      fetchAllRows("maintenance_purchase_links", "created_at", 1000, false),
+      purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
 
     if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error) {
@@ -2644,7 +2451,7 @@ export default function App() {
     const excelRows = await readExcelRows(file);
     if (!excelRows.length) return alert("엑셀에서 구매내역을 찾지 못했습니다.");
 
-    const existingPurchaseRes = await fetchAllRows("purchases", "date", 1000);
+    const existingPurchaseRes = await purchaseService.fetchPurchases(true);
     if (existingPurchaseRes.error) return alert(`기존 구매내역 불러오기 실패: ${existingPurchaseRes.error.message}`);
     const existingPurchases = ((existingPurchaseRes.data || []) as any[]).map(toPurchase);
 
@@ -2766,7 +2573,7 @@ export default function App() {
       if (groupError) return alert(`창고 저장 실패: ${groupError.message}`);
     }
 
-    const purchaseError = await upsertInChunks("purchases", purchaseRows.map(fromPurchase));
+    const purchaseError = await purchaseService.upsertPurchasesInChunks(purchaseRows);
     if (purchaseError) return alert(`구매내역 업로드 실패: ${purchaseError.message}`);
 
     await addActivityLog({
@@ -2910,7 +2717,7 @@ export default function App() {
           return alert("정비에 연결된 구매 품목의 품목명은 변경할 수 없습니다. 규격은 변경할 수 있습니다.");
         }
       }
-      const { error } = await supabase.from("purchases").upsert(fromPurchase(payload));
+      const { error } = await purchaseService.savePurchaseRecord(payload);
       if (error) return alert(`구매 저장 실패: ${error.message}`);
       setPurchases((prev) => (editingPurchaseId ? prev.map((p) => (p.id === editingPurchaseId ? payload : p)) : [payload, ...prev]));
       await addActivityLog({
@@ -3661,10 +3468,7 @@ export default function App() {
     const nextUrls = mergeUrls(purchase.image_urls || (purchase.image_url ? [purchase.image_url] : []), photo.image_urls || []);
     const payload = { ...purchase, image_urls: nextUrls, image_url: nextUrls[0] || "" };
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
-      .eq("id", purchase.id);
+    const { error } = await purchaseService.updatePurchaseImages(purchase.id, nextUrls);
 
     if (error) return alert(`기존 구매내역 사진 연결 실패: ${error.message}`);
 
@@ -3701,10 +3505,7 @@ export default function App() {
     const nextUrls = mergeUrls(target.image_urls || (target.image_url ? [target.image_url] : []), photo.image_urls || []);
     const payload = { ...target, image_urls: nextUrls, image_url: nextUrls[0] || "" };
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ image_urls: nextUrls, image_url: nextUrls[0] || "" })
-      .eq("id", target.id);
+    const { error } = await purchaseService.updatePurchaseImages(target.id, nextUrls);
 
     if (error) return alert(`구매내역 사진 연결 실패: ${error.message}`);
 
@@ -4088,10 +3889,7 @@ export default function App() {
     setPurchaseTaxInvoiceSavingId(purchase.id);
 
     try {
-      const { error } = await supabase
-        .from("purchases")
-        .update({ tax_invoice_received: received })
-        .eq("id", purchase.id);
+      const { error } = await purchaseService.updatePurchaseTaxInvoice(purchase.id, received);
 
       if (error) return alert(`세금계산서 상태 저장 실패: ${error.message}`);
 
@@ -4127,10 +3925,7 @@ export default function App() {
     setPurchasePaymentSavingId(purchase.id);
 
     try {
-      const { error } = await supabase
-        .from("purchases")
-        .update({ payment_status: nextStatus, paid_date: paidDate })
-        .eq("id", purchase.id);
+      const { error } = await purchaseService.updatePurchasePayment(purchase.id, nextStatus, paidDate);
 
       if (error) return alert(`지급상태 저장 실패: ${error.message}`);
 
@@ -4592,72 +4387,9 @@ export default function App() {
     applyMaintItems([...current, ...nextSuggested]);
   };
 
-  const maintenancePurchaseCopyCandidates = useMemo(() => {
-    if (!maintenancePurchaseCopyModal.open) return [];
-
-    const warehouseKey = normalizePurchasePriceText(maintForm.warehouse);
-    if (!warehouseKey) return [];
-
-    const search = maintenancePurchaseCopyModal.search.trim().toLocaleLowerCase("ko-KR");
-    const committedLinks = maintenancePurchaseLinks.filter((link) => {
-      if (!editingMaintId) return true;
-      return link.maintenance_id !== editingMaintId;
-    });
-    const consumed = new Map<string, number>();
-    [...committedLinks, ...maintPurchaseLinksDraft].forEach((link) => {
-      const key = `${link.purchase_id}\u001f${link.purchase_row_id}`;
-      consumed.set(key, (consumed.get(key) || 0) + numericValue(link.used_qty));
-    });
-    const currentDraftPurchaseKeys = new Set(
-      maintPurchaseLinksDraft.map((link) => `${link.purchase_id}\u001f${link.purchase_row_id}`)
-    );
-
-    return purchases.flatMap((purchase) => {
-      if (normalizePurchasePriceText(purchase.warehouse) !== warehouseKey) return [];
-
-      return (purchase.rows || []).flatMap((row) => {
-        const purchaseRowId = String(row.id || "").trim();
-        const itemName = String(row.item || "").trim();
-        const rowKey = `${purchase.id}\u001f${purchaseRowId}`;
-        if (!purchaseRowId || !itemName || currentDraftPurchaseKeys.has(rowKey)) return [];
-
-        const purchaseQty = numericValue(row.qty);
-        const usedQty = consumed.get(rowKey) || 0;
-        const remainingQty = purchaseQty - usedQty;
-        if (remainingQty <= 0) return [];
-
-        const searchable = [purchase.date, purchase.vendor, purchase.warehouse, row.item, row.spec]
-          .join(" ")
-          .toLocaleLowerCase("ko-KR");
-        if (search && !searchable.includes(search)) return [];
-
-        return [{ purchase, row, rowKey, usedQty, remainingQty }];
-      });
-    })
-      .sort((a, b) => {
-        const dateCompare = String(b.purchase.date || "").localeCompare(String(a.purchase.date || ""));
-        if (dateCompare !== 0) return dateCompare;
-        return String(a.row.item || "").localeCompare(String(b.row.item || ""), "ko-KR");
-      })
-      .slice(0, 120);
-  }, [editingMaintId, maintForm.warehouse, maintenancePurchaseCopyModal.open, maintenancePurchaseCopyModal.search, maintenancePurchaseLinks, maintPurchaseLinksDraft, purchases]);
-
   const openMaintenancePurchaseCopyModal = () => {
     if (!String(maintForm.warehouse || "").trim()) return alert("먼저 정비 창고를 선택하세요.");
-    setMaintenancePurchaseCopyModal({ open: true, search: "", selectedRowKeys: [] });
-  };
-
-  const closeMaintenancePurchaseCopyModal = () => {
-    setMaintenancePurchaseCopyModal({ open: false, search: "", selectedRowKeys: [] });
-  };
-
-  const toggleMaintenancePurchaseCopyCandidate = (rowKey: string) => {
-    setMaintenancePurchaseCopyModal((previous) => ({
-      ...previous,
-      selectedRowKeys: previous.selectedRowKeys.includes(rowKey)
-        ? previous.selectedRowKeys.filter((key) => key !== rowKey)
-        : [...previous.selectedRowKeys, rowKey],
-    }));
+    purchaseMaintenanceUi.openCopyModal();
   };
 
   const copySelectedPurchaseItemsToMaintenance = () => {
@@ -4667,43 +4399,19 @@ export default function App() {
     if (!selectedCandidates.length) return alert("정비에 넣을 구매품목을 선택하세요.");
 
     const currentItems = maintItems.filter((row) => row.item || row.spec || row.qty || row.price || row.supply || row.vat || row.total);
-    const copiedItems = selectedCandidates.map((candidate) => {
-      const qty = candidate.remainingQty;
-      const price = getPurchaseEffectiveUnitPrice(candidate.row).price;
-      const supply = qty * price;
-      const vat = Math.round(supply * 0.1);
-      return {
-        id: uid(),
-        item: String(candidate.row.item || "").trim(),
-        spec: String(candidate.row.spec || ""),
-        qty,
-        price,
-        supply,
-        vat,
-        total: supply + vat,
-      } satisfies MaintItem;
+    const copied = buildPurchaseMaintenanceCopyRows({
+      candidates: selectedCandidates,
+      maintenanceId: editingMaintId || "",
+      maintenanceDate: maintForm.date || getTodayKey(),
+      warehouse: maintForm.warehouse || "",
+      title: maintForm.title || "",
+      createId: uid,
     });
-    const copiedLinks: MaintenancePurchaseLink[] = selectedCandidates.map((candidate, index) => ({
-      id: "",
-      maintenance_id: editingMaintId || "",
-      maintenance_row_id: copiedItems[index].id,
-      purchase_id: candidate.purchase.id,
-      purchase_row_id: String(candidate.row.id),
-      item_name: copiedItems[index].item,
-      spec: String(candidate.row.spec || ""),
-      used_qty: copiedItems[index].qty as number,
-      unit_price_snapshot: copiedItems[index].price as number,
-      purchase_date_snapshot: candidate.purchase.date || "",
-      vendor_snapshot: candidate.purchase.vendor || "",
-      maintenance_date_snapshot: maintForm.date || getTodayKey(),
-      maintenance_equipment_snapshot: maintForm.warehouse || "",
-      maintenance_title_snapshot: maintForm.title || "",
-    }));
-    const nextItems = [...currentItems, ...copiedItems];
+    const nextItems = [...currentItems, ...copied.rows];
 
     applyMaintItems(nextItems);
-    setMaintPurchaseLinksDraft((previous) => [...previous, ...copiedLinks]);
-    closeMaintenancePurchaseCopyModal();
+    setMaintPurchaseLinksDraft((previous) => [...previous, ...copied.links]);
+    purchaseMaintenanceUi.closeCopyModal();
     showToast(`${selectedCandidates.length}개 구매품목을 정비품목으로 추가했습니다.`);
   };
 
@@ -4727,10 +4435,7 @@ export default function App() {
     );
     if (!confirmed) return;
 
-    const { error } = await supabase
-      .from("purchases")
-      .update({ payment_status: "paid", paid_date: paymentDate })
-      .in("id", purchaseIds);
+    const { error } = await purchaseService.updatePurchasesPayment(purchaseIds, paymentDate);
 
     if (error) return alert(`지급완료 처리 실패: ${error.message}`);
 
@@ -4826,112 +4531,13 @@ const purchasePriceHistoryMap = useMemo(
     return purchasePriceHistoryMap.get(getPurchasePriceHistoryKey(row.item, row.spec));
   };
 
-  const activeMaintenanceLinkRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
-  const maintenancePurchaseLinkCandidates = useMemo(() => {
-    if (!maintenancePurchaseLinkModal.open || !activeMaintenanceLinkRow) return [];
-
-    const targetItemKey = normalizePurchasePriceText(activeMaintenanceLinkRow.item);
-    const targetSpecKey = normalizePurchasePriceText(activeMaintenanceLinkRow.spec);
-    const hasTargetItem = Boolean(targetItemKey);
-    const hasTargetSpec = Boolean(targetSpecKey);
-    const search = maintenancePurchaseLinkModal.search.trim().toLocaleLowerCase("ko-KR");
-    const editingLinkId = maintenancePurchaseLinkModal.editingLinkId;
-    const isEditingLink = (link: MaintenancePurchaseLink) => maintenancePurchaseLinkIdentity(link) === editingLinkId;
-    const committedLinks = maintenancePurchaseLinks.filter((link) => {
-      if (!editingMaintId) return true;
-      return link.maintenance_id !== editingMaintId;
-    });
-    const draftLinks = maintPurchaseLinksDraft.filter((link) => !isEditingLink(link));
-    const consumed = new Map<string, number>();
-
-    [...committedLinks, ...draftLinks].forEach((link) => {
-      const key = `${link.purchase_id}\u001f${link.purchase_row_id}`;
-      consumed.set(key, (consumed.get(key) || 0) + numericValue(link.used_qty));
-    });
-
-    const allCandidates = purchases.flatMap((purchase) =>
-      (purchase.rows || []).flatMap((row) => {
-        const purchaseRowId = String(row.id || "").trim();
-        const purchaseItemName = String(row.item || "").trim();
-        if (!purchaseRowId || !purchaseItemName) return [];
-
-        const rowKey = `${purchase.id}\u001f${purchaseRowId}`;
-        const purchaseQty = numericValue(row.qty);
-        const usedQty = consumed.get(rowKey) || 0;
-        const remainingQty = purchaseQty - usedQty;
-        const sameItem = hasTargetItem && normalizePurchasePriceText(row.item) === targetItemKey;
-        const sameSpec = hasTargetSpec && normalizePurchasePriceText(row.spec) === targetSpecKey;
-        const searchable = [
-          purchase.date,
-          purchase.vendor,
-          purchase.warehouse,
-          row.item,
-          row.spec,
-        ].join(" ").toLocaleLowerCase("ko-KR");
-
-        if (search ? !searchable.includes(search) : (hasTargetItem && !sameItem)) return [];
-        if (remainingQty <= 0 && !editingLinkId) return [];
-
-        return [{
-          purchase,
-          row,
-          rowKey,
-          sameItem,
-          sameSpec,
-          usedQty,
-          remainingQty: Math.max(0, remainingQty),
-        }];
-      })
-    );
-
-    return allCandidates
-      .sort((a, b) => {
-        if (a.sameItem !== b.sameItem) return a.sameItem ? -1 : 1;
-        if (a.sameSpec !== b.sameSpec) return a.sameSpec ? -1 : 1;
-        if ((a.remainingQty > 0) !== (b.remainingQty > 0)) return a.remainingQty > 0 ? -1 : 1;
-        const dateCompare = String(b.purchase.date || "").localeCompare(String(a.purchase.date || ""));
-        if (dateCompare !== 0) return dateCompare;
-        return String(b.purchase.id || "").localeCompare(String(a.purchase.id || ""));
-      })
-      .slice(0, 80);
-  }, [activeMaintenanceLinkRow, editingMaintId, maintenancePurchaseLinkModal.editingLinkId, maintenancePurchaseLinkModal.open, maintenancePurchaseLinkModal.search, maintenancePurchaseLinks, maintPurchaseLinksDraft, purchases]);
-
   const openMaintPurchaseLinkModal = (row: MaintItem, link?: MaintenancePurchaseLink) => {
-    const rowQty = numericValue(row.qty);
-    if (rowQty <= 0) return alert("구매품목을 연결하려면 정비 수량을 먼저 입력하세요.");
-    setMaintenancePurchaseLinkModal({
-      open: true,
-      maintenanceRowId: row.id,
-      search: "",
-      selectedPurchaseId: link?.purchase_id || "",
-      selectedPurchaseRowId: link?.purchase_row_id || "",
-      usedQty: link ? String(link.used_qty) : String(rowQty),
-      editingLinkId: link ? maintenancePurchaseLinkIdentity(link) : "",
-    });
+    if (!purchaseMaintenanceUi.openLinkModal(row, link)) {
+      return alert("구매품목을 연결하려면 정비 수량을 먼저 입력하세요.");
+    }
   };
 
-  const closeMaintPurchaseLinkModal = () => {
-    setMaintenancePurchaseLinkModal({
-      open: false,
-      maintenanceRowId: "",
-      search: "",
-      selectedPurchaseId: "",
-      selectedPurchaseRowId: "",
-      usedQty: "",
-      editingLinkId: "",
-    });
-  };
-
-  const selectMaintPurchaseCandidate = (candidate: (typeof maintenancePurchaseLinkCandidates)[number]) => {
-    const rowQty = numericValue(activeMaintenanceLinkRow?.qty);
-    const suggestedQty = Math.min(rowQty, candidate.remainingQty);
-    setMaintenancePurchaseLinkModal((prev) => ({
-      ...prev,
-      selectedPurchaseId: candidate.purchase.id,
-      selectedPurchaseRowId: String(candidate.row.id),
-      usedQty: String(suggestedQty || rowQty || ""),
-    }));
-  };
+  const closeMaintPurchaseLinkModal = purchaseMaintenanceUi.closeLinkModal;
 
   const applyMaintPurchaseLink = () => {
     const targetRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
@@ -5496,10 +5102,7 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = purchases.find((p) => p.id === id);
     if (!target) return alert("삭제할 구매내역을 찾지 못했습니다.");
-    const { data: linkedRows, error: linkedRowsError } = await supabase
-      .from("maintenance_purchase_links")
-      .select("id, maintenance_id, maintenance_row_id, used_qty")
-      .eq("purchase_id", id);
+    const { data: linkedRows, error: linkedRowsError } = await purchaseService.fetchPurchaseLinkReferences(id);
     if (linkedRowsError) return alert(`구매 연결정보 확인 실패: ${linkedRowsError.message}`);
     if ((linkedRows || []).length) {
       return alert(`이 구매내역은 정비 ${(linkedRows || []).length}건에 연결된 품목이 있어 삭제할 수 없습니다. 먼저 정비에서 연결을 해제하세요.`);
@@ -5516,7 +5119,7 @@ const purchasePriceHistoryMap = useMemo(
     });
     if (!ok) return;
 
-    const { error } = await supabase.from("purchases").delete().eq("id", id);
+    const { error } = await purchaseService.deletePurchaseRecord(id);
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
     await addActivityLog({ module: "구매", action: "휴지통 이동", target_id: id, target_title: target.vendor || "", detail: getPurchaseItemSummary(target) });
@@ -6490,6 +6093,25 @@ const purchasePriceHistoryMap = useMemo(
       </>
     );
   }
+
+  const purchaseScreensUi: PurchaseScreensUi = {
+    Field,
+    DateInput,
+    SearchSelect,
+    AttachmentGroup,
+    ScrollTable,
+    money,
+    AttachmentSummaryButton,
+    AttachmentViewerModal,
+    downloadExcel,
+    downloadPdf,
+    todayText,
+    withTotalRow,
+    getTodayKey,
+    formatInputDate,
+    koreaNow,
+    toDateKey,
+  };
 
   return (
     <div>
@@ -8151,196 +7773,44 @@ const purchasePriceHistoryMap = useMemo(
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
 
-        {(menuTab === "new" || purchaseEntryPopupOpen) && (
-          <section className={`card purchase-entry-card ${purchaseEntryPopupOpen ? "purchase-entry-popup-card" : ""}`}>
-            <div className="purchase-entry-popup-head">
-              <h2>{editingPurchaseId ? "구매 수정" : "구매 입력"}</h2>
-              {purchaseEntryPopupOpen && <button onClick={() => setPurchaseEntryPopupOpen(false)}>닫기</button>}
-            </div>
-            <div className="grid3">
-              <Field label="일자" required>
-                <DateInput
-                  value={purchaseHeader.date || getTodayKey()}
-                  onChange={(value) => setPurchaseHeader({ ...purchaseHeader, date: value })}
-                  placeholder="20260501 또는 260501"
-                  ariaLabel="구매일자 선택"
-                />
-              </Field>
-              <SearchSelect testId="purchase-vendor" label="거래처" required value={purchaseHeader.vendor} options={vendorOptions} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, vendor: v })} placeholder="거래처명 일부 입력" />
-              <SearchSelect testId="purchase-warehouse" label="창고" required value={purchaseHeader.warehouse} options={warehouseNames} onChange={(v) => setPurchaseHeader({ ...purchaseHeader, warehouse: v })} placeholder="창고명 일부 입력" />
-            </div>
-            <div className="table-wrap entry-desktop-table">
-              <table>
-                <colgroup>
-                  <col style={{ width: "42%" }} />
-                  <col style={{ width: "10%" }} />
-                  <col style={{ width: "7%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "9%" }} />
-                  <col style={{ width: "9%" }} />
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "7%" }} />
-                </colgroup>
-                <thead><tr><th>품목 <span className="required-mark">*</span></th><th>규격</th><th>수량 <span className="required-mark">*</span></th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>관리</th></tr></thead>
-                <tbody>{rows.map((r, i) => {
-                  const priceHistory = getPurchasePriceHistoryForRow(r);
-                  return <tr key={r.id}><td>
-  <div className="purchase-item-editor">
-    <SearchSelect
-      testId={`purchase-item-search-${i}`}
-      value={r.item}
-      options={itemOptions}
-      onChange={(v) => updateRow(i, "item", v)}
-      onSelect={(option) => updateRow(i, "item", option.name || option.value, option)}
-      placeholder="품목 검색"
-      variant="item"
-    />
-    <input
-      value={r.item}
-      onChange={(e) => updateRow(i, "item", e.target.value)}
-      placeholder="품목명 직접수정"
-      title="이번 구매입력에서만 품목명을 수정합니다. 품목등록 원본은 바뀌지 않습니다."
-    />
-    <button
-      type="button"
-      onClick={() => openNewItemModal(i)}
-    >
-      + 신규
-    </button>
-  </div>
-  <PurchasePriceHistorySummary
-    history={priceHistory}
-    currentPrice={Number(r.price || 0)}
-    selectedVendor={purchaseHeader.vendor}
-    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
-  />
-</td><td><input data-testid={`purchase-spec-${i}`} value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} /></td><td><input data-testid={`purchase-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} /></td><td><input data-testid={`purchase-price-${i}`} className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} /></td><td><input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} /></td><td className="right bold">{money(r.total)}</td><td><button className="icon" title="행 삭제" aria-label="행 삭제" onClick={() => removePurchaseRow(i)}><Trash2 size={16} /></button></td></tr>;
-                })}</tbody>
-              </table>
-            </div>
-            <div className="mobile-entry-item-list" aria-label="구매 품목 입력">
-              {rows.map((r, i) => {
-                const priceHistory = getPurchasePriceHistoryForRow(r);
-                return (
-                <div className="mobile-entry-item-card" key={`mobile-purchase-${r.id}`}>
-                  <div className="mobile-entry-item-head">
-                    <div><span>구매 품목</span><b>{i + 1}</b></div>
-                    <button type="button" className="mobile-entry-delete" onClick={() => removePurchaseRow(i)} aria-label={`${i + 1}번 구매 품목 삭제`}><Trash2 size={16} /> 삭제</button>
-                  </div>
+        <PurchaseEntryView
+          model={{
+            menuTab,
+            purchaseEntryPopupOpen,
+            setPurchaseEntryPopupOpen,
+            editingPurchaseId,
+            purchaseHeader,
+            setPurchaseHeader,
+            todayKey: getTodayKey(),
+            vendorOptions,
+            warehouseNames,
+            itemOptions,
+            rows,
+            setRows,
+            getPurchasePriceHistoryForRow,
+            setPurchasePriceHistoryModal,
+            updateRow,
+            openNewItemModal,
+            removePurchaseRow,
+            emptyRow,
+            purchaseUploading,
+            setPurchaseUploading,
+            uploadPurchaseFiles,
+            purchaseSupplyTotal,
+            purchaseVatTotal,
+            purchaseTotal,
+            purchaseSaving,
+            savePurchase,
+            resetPurchaseForm,
+          }}
+          ui={{ Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money }}
+        />
 
-                  <SearchSelect
-                    testId={`purchase-mobile-item-search-${i}`}
-                    label="품목"
-                    required
-                    value={r.item}
-                    options={itemOptions}
-                    onChange={(value) => updateRow(i, "item", value)}
-                    onSelect={(option) => updateRow(i, "item", option.name || option.value, option)}
-                    placeholder="품목명 검색"
-                    variant="item"
-                  />
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} ui={purchaseScreensUi} />}
 
-                  <Field label="품목명 직접수정">
-                    <div className="mobile-entry-inline-row">
-                      <input value={r.item} onChange={(e) => updateRow(i, "item", e.target.value)} placeholder="이번 구매에서 사용할 품목명" />
-                      <button type="button" onClick={() => openNewItemModal(i)}><Plus size={16} /> 신규</button>
-                    </div>
-                  </Field>
+        {menuTab === "status" && <PurchaseStatus purchases={purchases} ui={purchaseScreensUi} />}
 
-                  <PurchasePriceHistorySummary
-                    history={priceHistory}
-                    currentPrice={Number(r.price || 0)}
-                    selectedVendor={purchaseHeader.vendor}
-                    onOpen={() => { if (priceHistory) setPurchasePriceHistoryModal(priceHistory); }}
-                  />
-
-                  <Field label="규격">
-                    <input data-testid={`purchase-mobile-spec-${i}`} value={r.spec} onChange={(e) => updateRow(i, "spec", e.target.value)} placeholder="규격 입력" />
-                  </Field>
-
-                  <div className="mobile-entry-grid">
-                    <Field label="수량" required>
-                      <input data-testid={`purchase-mobile-qty-${i}`} className="right" inputMode="decimal" value={r.qty} onChange={(e) => updateRow(i, "qty", e.target.value)} placeholder="0" />
-                    </Field>
-                    <Field label="단가">
-                      <input data-testid={`purchase-mobile-price-${i}`} className="right" inputMode="decimal" value={r.price} onChange={(e) => updateRow(i, "price", e.target.value)} placeholder="0" />
-                    </Field>
-                    <Field label="공급가액">
-                      <input className="right" inputMode="decimal" value={r.supply} onChange={(e) => updateRow(i, "supply", e.target.value)} placeholder="0" />
-                    </Field>
-                    <Field label="부가세액">
-                      <input className="right" inputMode="decimal" value={r.vat} onChange={(e) => updateRow(i, "vat", e.target.value)} placeholder="0" />
-                    </Field>
-                  </div>
-
-                  <div className="mobile-entry-total"><span>품목 합계</span><b>{money(r.total)}원</b></div>
-                </div>
-                );
-              })}
-            </div>
-            <div className="purchase-entry-footer">
-              <div className="purchase-entry-support">
-                <button className="purchase-add-item-button" onClick={() => setRows([...rows, emptyRow()])}><Plus size={16} /> 품목 추가</button>
-                <div className="purchase-upload-panel">
-                  <strong>구매 첨부파일</strong>
-                  <p>사진 20MB · PDF 30MB · 음성 50MB 이하, 한 번에 최대 20개입니다.</p>
-                  <label className={`upload${purchaseUploading ? " upload-busy" : ""}`} aria-disabled={purchaseUploading}>
-                    <Upload size={16} /> {purchaseUploading ? "첨부 업로드 중..." : "첨부파일 선택"}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf,audio/*,.mp3,.m4a,.wav,.webm"
-                      multiple
-                      disabled={purchaseUploading}
-                      onChange={async (e) => {
-                        const input = e.currentTarget;
-                        const files = e.target.files;
-                        if (!files?.length) return;
-                        setPurchaseUploading(true);
-                        try {
-                          const urls = await uploadPurchaseFiles(files);
-                          setPurchaseHeader((prev) => ({
-                            ...prev,
-                            image_urls: [...(prev.image_urls || []), ...urls],
-                          }));
-                        } finally {
-                          input.value = "";
-                          setPurchaseUploading(false);
-                        }
-                      }}
-                    />
-                  </label>
-                  <div className="receipt-preview">
-                    {(purchaseHeader.image_urls || []).length ? (
-                      <AttachmentGroup
-                        urls={purchaseHeader.image_urls || []}
-                        onRemove={(removeIndex) => setPurchaseHeader((prev) => ({
-                          ...prev,
-                          image_urls: (prev.image_urls || []).filter((_, idx) => idx !== removeIndex),
-                        }))}
-                      />
-                    ) : (
-                      <span>첨부파일 없음</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="totals purchase-entry-summary">
-                <span>결제금액 요약</span>
-                <div>공급가액 합계 <b>{money(purchaseSupplyTotal)}원</b></div>
-                <div>부가세액 합계 <b>{money(purchaseVatTotal)}원</b></div>
-                <div className="big"><em>총합</em><strong>{money(purchaseTotal)}원</strong></div>
-              </div>
-            </div>
-            <div className="actions right-actions entry-actions"><button data-testid="purchase-save" className="primary" disabled={purchaseSaving || purchaseUploading} onClick={savePurchase}><Save size={16} /> {purchaseUploading ? "업로드 중..." : purchaseSaving ? "저장 중..." : editingPurchaseId ? "수정 저장" : "저장"}</button><button disabled={purchaseSaving || purchaseUploading} onClick={resetPurchaseForm}><RotateCcw size={16} /> 초기화</button></div>
-            <p className="draft-help-text">작성 중인 구매입력 내용은 자동 임시저장됩니다. 새로고침하거나 메뉴를 이동해도 다시 구매입력에 들어오면 복원됩니다.</p>
-          </section>
-        )}
-
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} />}
-
-        {menuTab === "status" && <PurchaseStatus purchases={purchases} />}
-
-        {purchasePriceHistoryModal && <PurchasePriceHistoryModal history={purchasePriceHistoryModal} onClose={() => setPurchasePriceHistoryModal(null)} />}
+        {purchasePriceHistoryModal && <PurchasePriceHistoryModal ui={{ ScrollTable, money }} history={purchasePriceHistoryModal} onClose={() => setPurchasePriceHistoryModal(null)} />}
 
 
         {menuTab === "card_use" && (
@@ -9045,141 +8515,29 @@ const purchasePriceHistoryMap = useMemo(
           </div>
         )}
 
-        {maintenancePurchaseCopyModal.open && (
-          <div className="modal-backdrop" onClick={closeMaintenancePurchaseCopyModal}>
-            <div className="modal-box wide-modal maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="between">
-                <div>
-                  <h2>구매내역에서 정비품목 추가</h2>
-                  <p className="muted">날짜와 관계없이 현재 정비 창고의 구매품목을 선택해 품목·규격·수량·단가를 한 번에 넣습니다.</p>
-                </div>
-                <button type="button" onClick={closeMaintenancePurchaseCopyModal}>닫기</button>
-              </div>
-
-              <div className="maintenance-purchase-link-target">
-                <strong>{maintForm.warehouse || "창고 미선택"}</strong>
-                <span>정비일자 {maintForm.date || getTodayKey()} · 남은 구매수량이 있는 품목만 표시</span>
-              </div>
-
-              <input
-                value={maintenancePurchaseCopyModal.search}
-                onChange={(event) => setMaintenancePurchaseCopyModal((previous) => ({ ...previous, search: event.target.value }))}
-                placeholder="거래처 / 구매일 / 품목 / 규격 검색"
-              />
-
-              <ScrollTable>
-                <table className="maintenance-purchase-link-table">
-                  <thead>
-                    <tr><th>선택</th><th>구매일</th><th>거래처</th><th>품목·규격</th><th>구매수량</th><th>단가</th><th>사용/남음</th></tr>
-                  </thead>
-                  <tbody>
-                    {!maintenancePurchaseCopyCandidates.length ? (
-                      <tr><td colSpan={7} className="empty">현재 창고에서 추가할 수 있는 구매품목이 없습니다.</td></tr>
-                    ) : maintenancePurchaseCopyCandidates.map((candidate) => {
-                      const selected = maintenancePurchaseCopyModal.selectedRowKeys.includes(candidate.rowKey);
-                      const unitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
-                      return (
-                        <tr key={candidate.rowKey} className={selected ? "selected" : ""}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => toggleMaintenancePurchaseCopyCandidate(candidate.rowKey)}
-                              aria-label={`${candidate.row.item || "구매품목"} 선택`}
-                            />
-                          </td>
-                          <td>{candidate.purchase.date || "-"}</td>
-                          <td>{candidate.purchase.vendor || "거래처 미입력"}</td>
-                          <td><b>{candidate.row.item || "-"}</b><small>{candidate.row.spec || "규격 없음"}</small></td>
-                          <td className="right">{candidate.row.qty || 0}</td>
-                          <td className="right">{money(unitPrice)}원</td>
-                          <td className="right">{money(candidate.usedQty)} / {money(candidate.remainingQty)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </ScrollTable>
-
-              <div className="actions right-actions">
-                <button type="button" onClick={closeMaintenancePurchaseCopyModal}>취소</button>
-                <button type="button" className="primary" onClick={copySelectedPurchaseItemsToMaintenance}>
-                  선택한 {maintenancePurchaseCopyModal.selectedRowKeys.length}개 추가
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {maintenancePurchaseLinkModal.open && (
-          <div className="modal-backdrop" onClick={closeMaintPurchaseLinkModal}>
-            <div className="modal-box wide-modal maintenance-purchase-link-modal" data-testid="maintenance-purchase-link-modal" onClick={(event) => event.stopPropagation()}>
-              <div className="between">
-                <div>
-                  <h2>구매품목 연결</h2>
-                  <p className="muted">품목명이 있으면 같은 구매이력을 우선 표시합니다. 품목이 비어 있으면 전체 구매이력에서 직접 선택할 수 있습니다.</p>
-                </div>
-                <button type="button" onClick={closeMaintPurchaseLinkModal}>닫기</button>
-              </div>
-
-              <div className="maintenance-purchase-link-target">
-                <strong>{activeMaintenanceLinkRow?.item || "품목 미입력"}</strong>
-                <span>{activeMaintenanceLinkRow?.spec || "규격 미입력"} · 정비 사용수량 {activeMaintenanceLinkRow?.qty || 0}</span>
-              </div>
-
-              <input
-                value={maintenancePurchaseLinkModal.search}
-                onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, search: event.target.value }))}
-                placeholder={activeMaintenanceLinkRow?.item?.trim() ? "거래처 / 날짜 / 품목 / 규격 검색 (비우면 동일 품목만)" : "거래처 / 날짜 / 품목 / 규격 검색 (비우면 전체 구매품목)"}
-              />
-
-              <ScrollTable>
-                <table className="maintenance-purchase-link-table">
-                  <thead>
-                    <tr><th>구매일</th><th>거래처</th><th>품목·규격</th><th>구매수량</th><th>단가</th><th>사용/남음</th><th>선택</th></tr>
-                  </thead>
-                  <tbody>
-                    {!maintenancePurchaseLinkCandidates.length ? (
-                      <tr><td colSpan={7} className="empty">연결 가능한 구매품목이 없습니다. 검색어를 바꾸거나 구매수량을 확인하세요.</td></tr>
-                    ) : maintenancePurchaseLinkCandidates.map((candidate) => {
-                      const selected = maintenancePurchaseLinkModal.selectedPurchaseId === candidate.purchase.id && maintenancePurchaseLinkModal.selectedPurchaseRowId === String(candidate.row.id);
-                      const unitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
-                      return (
-                        <tr key={candidate.rowKey} data-testid="maintenance-purchase-candidate" className={selected ? "selected" : ""}>
-                          <td>{candidate.purchase.date || "-"}</td>
-                          <td>{candidate.purchase.vendor || "거래처 미입력"}</td>
-                          <td><b>{candidate.row.item || "-"}</b><small>{candidate.row.spec || "규격 없음"}</small></td>
-                          <td className="right">{candidate.row.qty || 0}</td>
-                          <td className="right">{money(unitPrice)}원</td>
-                          <td className="right">{money(candidate.usedQty)} / {money(candidate.remainingQty)}</td>
-                          <td><button type="button" className={selected ? "primary" : ""} onClick={() => selectMaintPurchaseCandidate(candidate)}>{selected ? "선택됨" : "선택"}</button></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </ScrollTable>
-
-              <div className="maintenance-purchase-link-quantity">
-                <Field label="이번 정비 사용수량" required>
-                  <input
-                    data-testid="maintenance-link-used-qty"
-                    inputMode="decimal"
-                    value={maintenancePurchaseLinkModal.usedQty}
-                    onChange={(event) => setMaintenancePurchaseLinkModal((previous) => ({ ...previous, usedQty: event.target.value }))}
-                    placeholder="0"
-                  />
-                </Field>
-                <span>구매단가를 정비 단가에 자동 반영하고 공급가액·부가세·합계를 다시 계산합니다.</span>
-              </div>
-
-              <div className="actions right-actions">
-                <button type="button" onClick={closeMaintPurchaseLinkModal}>취소</button>
-                <button type="button" data-testid="maintenance-link-apply" className="primary" onClick={applyMaintPurchaseLink}>{maintenancePurchaseLinkModal.editingLinkId ? "연결 수정" : "구매품목 연결"}</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <PurchaseMaintenanceModals
+          copy={{
+            state: maintenancePurchaseCopyModal,
+            warehouse: maintForm.warehouse,
+            maintenanceDate: maintForm.date || getTodayKey(),
+            candidates: maintenancePurchaseCopyCandidates,
+            onClose: purchaseMaintenanceUi.closeCopyModal,
+            onSearchChange: purchaseMaintenanceUi.setCopySearch,
+            onToggleCandidate: purchaseMaintenanceUi.toggleCopyCandidate,
+            onConfirm: copySelectedPurchaseItemsToMaintenance,
+          }}
+          link={{
+            state: maintenancePurchaseLinkModal,
+            targetRow: activeMaintenanceLinkRow,
+            candidates: maintenancePurchaseLinkCandidates,
+            onClose: closeMaintPurchaseLinkModal,
+            onSearchChange: purchaseMaintenanceUi.setLinkSearch,
+            onSelectCandidate: purchaseMaintenanceUi.selectLinkCandidate,
+            onUsedQtyChange: purchaseMaintenanceUi.setUsedQty,
+            onConfirm: applyMaintPurchaseLink,
+          }}
+          formatMoney={money}
+        />
 
         {photoLinkModal.mode && (
           <div className="photo-link-modal-backdrop" onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>
@@ -9450,772 +8808,6 @@ function Field({ label, children, required = false, className = "" }: { label: s
 function ScrollTable({ children }: { children: any }) {
   return <div className="scroll-table">{children}</div>;
 }
-
-const signedMoney = (value: number) => `${value > 0 ? "+" : ""}${money(value)}원`;
-const signedPercent = (value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
-
-function PurchasePriceHistorySummary({
-  history,
-  currentPrice,
-  selectedVendor,
-  onOpen,
-}: {
-  history?: PurchasePriceHistory;
-  currentPrice: number;
-  selectedVendor: string;
-  onOpen: () => void;
-}) {
-  if (!history?.latest) return null;
-
-  const latest = history.latest;
-  const previous = history.previous;
-  const currentComparison = comparePurchaseUnitPrice(currentPrice, latest.price);
-  const vendorStat = getPurchaseVendorPriceStat(history, selectedVendor);
-  const historyDeltaTone = history.deltaAmount === null || history.deltaAmount === 0
-    ? "neutral"
-    : history.deltaAmount > 0 ? "up" : "down";
-  const currentDeltaTone = !currentComparison || currentComparison.deltaAmount === 0
-    ? "neutral"
-    : currentComparison.deltaAmount > 0 ? "up" : "down";
-
-  return (
-    <div className="purchase-price-history-summary">
-      <div className="purchase-price-history-head">
-        <strong>최근 구매정보</strong>
-        <button type="button" onClick={onOpen}>최근 이력 {history.entries.length}건</button>
-      </div>
-      <div className="purchase-price-history-grid">
-        <div><span>최근단가</span><b>{money(latest.price)}원</b><small>{latest.date || "일자 미입력"} · {latest.vendor || "거래처 미입력"}</small></div>
-        <div><span>직전단가</span><b>{previous ? `${money(previous.price)}원` : "-"}</b><small>{previous ? `${previous.date || "일자 미입력"} · ${previous.vendor || "거래처 미입력"}` : "이전 구매 없음"}</small></div>
-        <div className={`purchase-price-change ${historyDeltaTone}`}>
-          <span>전회 대비</span>
-          <b>{history.deltaAmount === null ? "-" : signedMoney(history.deltaAmount)}</b>
-          <small>{history.deltaPercent === null ? "비교할 이전 단가 없음" : signedPercent(history.deltaPercent)}</small>
-        </div>
-      </div>
-      {vendorStat && normalizePurchasePriceText(vendorStat.vendor) !== normalizePurchasePriceText(latest.vendor) && (
-        <div className="purchase-price-vendor-hint">
-          현재 거래처 최근단가 <b>{money(vendorStat.latest.price)}원</b>
-          <span>{vendorStat.latest.date || "일자 미입력"} · {vendorStat.vendor}</span>
-        </div>
-      )}
-      {currentComparison && (
-        <div className={`purchase-price-current-comparison ${currentDeltaTone}${Math.abs(currentComparison.deltaPercent) >= 10 ? " strong" : ""}`}>
-          현재 입력단가 {money(currentComparison.current)}원
-          <b>{currentComparison.deltaAmount === 0 ? "최근단가와 동일" : `${signedMoney(currentComparison.deltaAmount)} (${signedPercent(currentComparison.deltaPercent)})`}</b>
-          {Math.abs(currentComparison.deltaPercent) >= 10 && <small>최근 구매가 대비 10% 이상 차이</small>}
-        </div>
-      )}
-      {latest.priceDerivedFromSupply && <small className="purchase-price-derived-note">단가가 없는 과거 행은 공급가액 ÷ 수량으로 계산했습니다.</small>}
-    </div>
-  );
-}
-
-function PurchasePriceHistoryModal({ history, onClose }: { history: PurchasePriceHistory; onClose: () => void }) {
-  const recentRows = history.entries.slice(0, 10);
-
-  return (
-    <div className="purchase-price-history-modal-backdrop" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
-      <div className="purchase-price-history-modal" role="dialog" aria-modal="true" aria-label="품목 단가이력">
-        <div className="purchase-price-history-modal-head">
-          <div>
-            <span>구매 단가이력</span>
-            <h2>{history.item || "품목"}</h2>
-            {history.spec && <p>규격: {history.spec}</p>}
-          </div>
-          <button type="button" onClick={onClose} aria-label="단가이력 닫기"><X size={18} /> 닫기</button>
-        </div>
-
-        <div className="purchase-price-history-kpis">
-          <div><span>최근단가</span><b>{history.latest ? `${money(history.latest.price)}원` : "-"}</b></div>
-          <div><span>직전단가</span><b>{history.previous ? `${money(history.previous.price)}원` : "-"}</b></div>
-          <div><span>수량 가중평균</span><b>{history.weightedAvgPrice === null ? "-" : `${money(history.weightedAvgPrice)}원`}</b></div>
-          <div><span>최저 · 최고</span><b>{money(history.minPrice)}원 · {money(history.maxPrice)}원</b></div>
-        </div>
-
-        <section className="purchase-price-history-modal-section">
-          <div className="purchase-price-history-section-head">
-            <div><h3>최근 구매이력</h3><small>최신순 최대 10건</small></div>
-          </div>
-          <ScrollTable>
-            <table>
-              <thead><tr><th>구매일</th><th>거래처</th><th>수량</th><th>단가</th><th>공급가액</th><th>합계</th></tr></thead>
-              <tbody>{recentRows.map((entry) => (
-                <tr key={`${entry.purchaseId}-${entry.id}`}>
-                  <td>{entry.date || "-"}</td>
-                  <td>{entry.vendor || "거래처 미입력"}</td>
-                  <td className="right">{money(entry.qty)}</td>
-                  <td className="right">{money(entry.price)}원{entry.priceDerivedFromSupply && <small className="purchase-price-derived-mark">*</small>}</td>
-                  <td className="right">{money(entry.supply)}원</td>
-                  <td className="right bold">{money(entry.total)}원</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </ScrollTable>
-        </section>
-
-        <section className="purchase-price-history-modal-section">
-          <div className="purchase-price-history-section-head">
-            <div><h3>거래처별 최근단가</h3><small>최근단가가 낮은 거래처부터 표시</small></div>
-          </div>
-          <ScrollTable>
-            <table>
-              <thead><tr><th>거래처</th><th>최근구매일</th><th>최근단가</th><th>최근  평균단가</th><th>구매횟수</th></tr></thead>
-              <tbody>{history.vendorStats.map((stat) => (
-                <tr key={stat.vendorKey}>
-                  <td>{stat.vendor}</td>
-                  <td>{stat.latest.date || "-"}</td>
-                  <td className="right bold">{money(stat.latest.price)}원</td>
-                  <td className="right">{money(stat.weightedAvgPrice)}원</td>
-                  <td className="right">{money(stat.count)}회</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </ScrollTable>
-        </section>
-        <p className="purchase-price-history-note">* 단가가 없는 과거 구매행은 공급가액 ÷ 수량으로 보완 계산했습니다.</p>
-      </div>
-    </div>
-  );
-}
-
-function PurchaseList({ purchases, maintenancePurchaseLinks = [], search, setSearch, editPurchase, deletePurchase, isAdmin, canUpdateTaxInvoice, taxInvoiceSavingId, onUpdateTaxInvoice, paymentSavingId, onUpdatePayment, onLinkPhoto, onQuickPurchase, onImportPurchaseExcel }: any) {
-  const [detailPurchase, setDetailPurchase] = useState<Purchase | null>(null);
-  const [attachmentViewer, setAttachmentViewer] = useState<{ title: string; urls: string[] } | null>(null);
-  const [purchasePage, setPurchasePage] = useState(1);
-  const purchaseImportInputRef = useRef<HTMLInputElement | null>(null);
-  const purchasePageSize = 20;
-  const purchaseTotalPages = Math.max(1, Math.ceil((purchases || []).length / purchasePageSize));
-  const purchaseSafePage = Math.min(Math.max(purchasePage, 1), purchaseTotalPages);
-  const purchaseStartIndex = (purchaseSafePage - 1) * purchasePageSize;
-  const pagedPurchases = (purchases || []).slice(purchaseStartIndex, purchaseStartIndex + purchasePageSize);
-  const purchaseEndIndex = purchases.length ? Math.min(purchaseStartIndex + pagedPurchases.length, purchases.length) : 0;
-  const liveDetailPurchase = detailPurchase
-    ? (purchases || []).find((purchase: Purchase) => purchase.id === detailPurchase.id) || detailPurchase
-    : null;
-
-  useEffect(() => {
-    setPurchasePage(1);
-  }, [search.from, search.to, search.vendor, search.warehouse, search.item, search.taxInvoice, search.paymentStatus]);
-
-  useEffect(() => {
-    if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
-  }, [purchasePage, purchaseTotalPages]);
-
-  const setPurchasePeriod = (from: string, to: string) => {
-    setSearch({ ...search, from, to });
-  };
-  const setThisWeekPeriod = () => {
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-    const day = now.getDay();
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + mondayOffset);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    setPurchasePeriod(toDateKey(monday), toDateKey(sunday));
-  };
-  const setThisMonthPeriod = () => {
-    const now = koreaNow();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setPurchasePeriod(toDateKey(first), toDateKey(last));
-  };
-  const setLastMonthPeriod = () => {
-    const now = koreaNow();
-    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const last = new Date(now.getFullYear(), now.getMonth(), 0);
-    setPurchasePeriod(toDateKey(first), toDateKey(last));
-  };
-  const setThisYearPeriod = () => {
-    const now = koreaNow();
-    setPurchasePeriod(`${now.getFullYear()}-01-01`, `${now.getFullYear()}-12-31`);
-  };
-
-  const openPurchaseDetail = (purchase: Purchase) => {
-    setDetailPurchase(purchase);
-  };
-
-  const renderPurchasePages = () => {
-    if (purchaseTotalPages <= 1) return null;
-
-    const pages = Array.from({ length: purchaseTotalPages }, (_, i) => i + 1).filter((page) => {
-      return page === 1 || page === purchaseTotalPages || Math.abs(page - purchaseSafePage) <= 2;
-    });
-
-    return (
-      <div className="purchase-pagination">
-        <button disabled={purchaseSafePage <= 1} onClick={() => setPurchasePage((page) => Math.max(1, page - 1))}>이전</button>
-        {pages.map((page, index) => {
-          const prevPage = pages[index - 1];
-          return (
-            <span key={page} className="purchase-page-group">
-              {prevPage && page - prevPage > 1 && <span className="purchase-page-ellipsis">...</span>}
-              <button className={page === purchaseSafePage ? "active" : ""} onClick={() => setPurchasePage(page)}>{page}</button>
-            </span>
-          );
-        })}
-        <button disabled={purchaseSafePage >= purchaseTotalPages} onClick={() => setPurchasePage((page) => Math.min(purchaseTotalPages, page + 1))}>다음</button>
-      </div>
-    );
-  };
-
-  const renderPaymentStatusCheck = (purchase: Purchase) => {
-    const paid = isPurchasePaid(purchase);
-    return (
-      <label className={`payment-status-check${paid ? " checked" : ""}`}>
-        <input
-          type="checkbox"
-          data-testid={`purchase-payment-toggle-${purchase.id}`}
-          checked={paid}
-          disabled={!isAdmin || Boolean(paymentSavingId)}
-          onChange={(event) => onUpdatePayment(purchase, event.target.checked ? "paid" : "unpaid")}
-        />
-        <em>{paymentSavingId === purchase.id ? "저장 중" : paid ? "지급완료" : "미지급"}</em>
-      </label>
-    );
-  };
-
-  return <>
-    <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
-    <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
-  purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
-  { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
-))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "" })}>전체</button></div><div className="grid5 purchase-filter-grid"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /><select aria-label="세금계산서 수취 여부" value={search.taxInvoice || ""} onChange={(e) => setSearch({ ...search, taxInvoice: e.target.value })}><option value="">세금계산서 전체</option><option value="received">받음</option><option value="unreceived">미수취</option></select></div>
-      <div className="purchase-payment-filter-row"><label>지급상태 <select aria-label="지급상태" value={search.paymentStatus || ""} onChange={(e) => setSearch({ ...search, paymentStatus: e.target.value })}><option value="">전체</option><option value="unpaid">미지급</option><option value="paid">지급완료</option></select></label></div>
-      <div className="purchase-page-summary">검색결과 {money(purchases.length)}건 · {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
-      <div className="mobile-purchase-cards">
-  {!pagedPurchases.length ? (
-    <div className="empty">저장된 구매내역 없음</div>
-  ) : pagedPurchases.map((p: Purchase, pageIndex: number) => {
-    const index = purchaseStartIndex + pageIndex;
-    const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
-    const seq = sameDateBeforeCount + 1;
-    return (
-      <div className="mobile-purchase-card" key={`mobile-${p.id}`}>
-        <div className="mobile-purchase-card-head">
-          <strong>{p.vendor || "거래처 미입력"}</strong>
-          <span>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</span>
-        </div>
-        <div className="mobile-purchase-card-row"><span>품목</span><b><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></b></div>
-        <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
-        <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
-        <div className="mobile-purchase-card-row"><span>지급상태</span><b>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</b></div>
-        <div className="mobile-purchase-card-row"><span>세금계산서</span><b><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></b></div>
-        <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
-        {isAdmin && (
-          <div className="mobile-purchase-card-actions">
-            <button onClick={() => onLinkPhoto(p)}>사진연결</button>
-            <button onClick={() => editPurchase(p)}>수정</button>
-            <button onClick={() => deletePurchase(p.id)}>삭제</button>
-          </div>
-        )}
-      </div>
-    );
-  })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>지급상태</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={9} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase, pageIndex: number) => {
-  const index = purchaseStartIndex + pageIndex;
-  const sameDateBeforeCount = purchases.slice(0, index).filter((x: Purchase) => x.date === p.date).length;
-  const seq = sameDateBeforeCount + 1;
-  return <tr key={p.id}><td>{`${p.date || ""}-${String(seq).padStart(2, "0")}`}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
-    {liveDetailPurchase && (
-      <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
-        <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="purchase-detail-modal-head">
-            <div>
-              <h2>상세 품목</h2>
-              <p>{liveDetailPurchase.vendor || "거래처 미입력"} · {liveDetailPurchase.date || "날짜 없음"}</p>
-            </div>
-            <button onClick={() => setDetailPurchase(null)}>닫기</button>
-          </div>
-          <ScrollTable>
-            <table className="purchase-detail-table">
-              <thead>
-                <tr><th>품목</th><th>규격</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세액</th><th>합계</th><th>정비사용</th></tr>
-              </thead>
-              <tbody>
-                {(liveDetailPurchase.rows || []).map((row: PurchaseRow) => (
-                  <tr key={row.id}>
-                    <td>{row.item || "-"}</td>
-                    <td>{row.spec || "-"}</td>
-                    <td className="right">{money(row.qty)}</td>
-                    <td className="right">{money(row.price)}</td>
-                    <td className="right">{money(row.supply)}</td>
-                    <td className="right">{money(row.vat)}</td>
-                    <td className="right">{money(row.total)}</td>
-                    <td>
-                      {(() => {
-                        const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.purchase_id === liveDetailPurchase.id && link.purchase_row_id === row.id);
-                        const usedQty = links.reduce((sum: number, link: MaintenancePurchaseLink) => sum + numericValue(link.used_qty), 0);
-                        const remainingQty = Math.max(0, numericValue(row.qty) - usedQty);
-                        return (
-                          <div className="purchase-maintenance-usage-cell">
-                            {links.length
-                              ? links.map((link: MaintenancePurchaseLink) => <span key={maintenancePurchaseLinkIdentity(link)}>{link.maintenance_date_snapshot || "-"} · {link.maintenance_title_snapshot || link.maintenance_equipment_snapshot || "정비"} · {link.used_qty} 사용</span>)
-                              : <span>사용처 없음</span>}
-                            <small>구매 {money(row.qty)} · 정비사용 {money(usedQty)} · 미연결 {money(remainingQty)}</small>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ScrollTable>
-          <div className="purchase-detail-total">
-            <span>공급가액 {money(liveDetailPurchase.supplyTotal)}원</span>
-            <span>부가세 {money(liveDetailPurchase.vatTotal)}원</span>
-            <b>합계 {money(liveDetailPurchase.total)}원</b>
-          </div>
-          <div className="purchase-maintenance-summary">
-            <h3>정비 사용내역</h3>
-            {(() => {
-              const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.purchase_id === liveDetailPurchase.id);
-              return links.length ? links.map((link: MaintenancePurchaseLink) => (
-                <div key={maintenancePurchaseLinkIdentity(link)}>
-                  <strong>{link.item_name || "품목"}</strong>
-                  <span>{link.maintenance_date_snapshot || "-"} · {link.maintenance_equipment_snapshot || "대상 미입력"} · {link.maintenance_title_snapshot || "정비"}</span>
-                  <b>{link.used_qty} 사용 · {money(link.used_qty * link.unit_price_snapshot)}원</b>
-                </div>
-              )) : <p className="muted">연결된 정비 사용내역이 없습니다.</p>;
-            })()}
-          </div>
-          <div className="purchase-payment-detail">
-            <div>
-              <span>지급상태</span>
-              <strong className={`purchase-payment-badge ${isPurchasePaid(liveDetailPurchase) ? "paid" : "unpaid"}`}>{isPurchasePaid(liveDetailPurchase) ? "지급완료" : "미지급"}</strong>
-              {isPurchasePaid(liveDetailPurchase) && liveDetailPurchase.paidDate ? <small>{liveDetailPurchase.paidDate}</small> : null}
-            </div>
-            {isAdmin && (
-              <button
-                className={isPurchasePaid(liveDetailPurchase) ? "danger" : "primary"}
-                disabled={paymentSavingId === liveDetailPurchase.id}
-                onClick={() => onUpdatePayment(liveDetailPurchase, isPurchasePaid(liveDetailPurchase) ? "unpaid" : "paid")}
-              >
-                {paymentSavingId === liveDetailPurchase.id ? "저장 중..." : isPurchasePaid(liveDetailPurchase) ? "지급완료 취소" : "지급완료 처리"}
-              </button>
-            )}
-          </div>
-          <div className="purchase-detail-attachment-box">
-            <h3>첨부파일</h3>
-            <AttachmentGroup urls={liveDetailPurchase.image_urls || (liveDetailPurchase.image_url ? [liveDetailPurchase.image_url] : [])} />
-          </div>
-        </div>
-      </div>
-    )}
-  </>;
-}
-
-function PurchaseStatus({ purchases }: { purchases: Purchase[] }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [vendor, setVendor] = useState("");
-  const [item, setItem] = useState("");
-  const [priceHistoryModal, setPriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
-  const [mobileItemAnalysisOpen, setMobileItemAnalysisOpen] = useState(false);
-  const [mobileMonthlyOpen, setMobileMonthlyOpen] = useState(false);
-  const [mobileVendorOpen, setMobileVendorOpen] = useState(false);
-  const [mobilePurchaseDetailOpen, setMobilePurchaseDetailOpen] = useState(false);
-
-  const hasItemAnalysisFilter = Boolean(from || to || vendor || item);
-  useEffect(() => {
-    setMobileItemAnalysisOpen(hasItemAnalysisFilter);
-    setMobilePurchaseDetailOpen(hasItemAnalysisFilter);
-  }, [hasItemAnalysisFilter]);
-
-  const allPriceHistoryMap = useMemo(() => buildPurchasePriceHistory(purchases), [purchases]);
-
-  const filtered = useMemo(() => {
-    return purchases.filter((p) => {
-      const d = p.date || "";
-      const okFrom = !from || d >= from;
-      const okTo = !to || d <= to;
-      const okVendor = !vendor || p.vendor.includes(vendor);
-      const okItem = !item || p.rows.some((r) => r.item.includes(item));
-      return okFrom && okTo && okVendor && okItem;
-    });
-  }, [purchases, from, to, vendor, item]);
-
-  const summary = useMemo(() => {
-    const totalSupply = filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0);
-    const totalVat = filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0);
-    const total = filtered.reduce((sum, p) => sum + Number(p.total || 0), 0);
-    const rowCount = filtered.reduce((sum, p) => sum + (p.rows?.length || 0), 0);
-    return { totalSupply, totalVat, total, rowCount };
-  }, [filtered]);
-
-  const monthRangeText = (month: string) => {
-    if (!/^\d{4}-\d{2}$/.test(month)) return "-";
-    const [year, monthNumber] = month.split("-").map(Number);
-    const lastDay = new Date(year, monthNumber, 0).getDate();
-    return `${month}-01 ~ ${month}-${String(lastDay).padStart(2, "0")}`;
-  };
-
-  const monthly = useMemo(() => {
-    const vendorKeyword = vendor.trim();
-    const itemKeyword = item.trim();
-
-    const base = purchases.filter((p) => {
-      const okVendor = !vendorKeyword || String(p.vendor || "").includes(vendorKeyword);
-      const okItem = !itemKeyword || (p.rows || []).some((r) => String(r.item || "").includes(itemKeyword));
-      return okVendor && okItem;
-    });
-
-    const selectedMonths = new Set<string>();
-
-    if (from || to) {
-      base.forEach((p) => {
-        const date = String(p.date || "");
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-        const month = date.slice(0, 7);
-        const monthStart = `${month}-01`;
-        const [year, monthNumber] = month.split("-").map(Number);
-        const monthEnd = `${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}`;
-        const overlapsFrom = !from || monthEnd >= from;
-        const overlapsTo = !to || monthStart <= to;
-        if (overlapsFrom && overlapsTo) selectedMonths.add(month);
-      });
-    }
-
-    const map = new Map<string, { month: string; period: string; count: number; rowCount: number; supply: number; vat: number; total: number }>();
-
-    base.forEach((p) => {
-      const date = String(p.date || "");
-      const month = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(0, 7) : "미지정";
-
-      if ((from || to) && month !== "미지정" && !selectedMonths.has(month)) return;
-
-      const cur = map.get(month) || {
-        month,
-        period: monthRangeText(month),
-        count: 0,
-        rowCount: 0,
-        supply: 0,
-        vat: 0,
-        total: 0,
-      };
-
-      cur.count += 1;
-      cur.rowCount += (p.rows || []).length;
-      cur.supply += Number(p.supplyTotal || 0);
-      cur.vat += Number(p.vatTotal || 0);
-      cur.total += Number(p.total || 0);
-      map.set(month, cur);
-    });
-
-    return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
-  }, [purchases, from, to, vendor, item]);
-
-  const byVendor = useMemo(() => {
-    const map = new Map<string, { vendor: string; count: number; total: number }>();
-    filtered.forEach((p) => {
-      const name = p.vendor || "미지정";
-      const cur = map.get(name) || { vendor: name, count: 0, total: 0 };
-      cur.count += 1;
-      cur.total += Number(p.total || 0);
-      map.set(name, cur);
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filtered]);
-
-  const itemAnalysis = useMemo(() => {
-    type ItemAnalysisBucket = {
-      key: string;
-      item: string;
-      spec: string;
-      count: number;
-      quantity: number;
-      supply: number;
-      total: number;
-      priceValues: number[];
-      weightedPriceTotal: number;
-      weightedQuantity: number;
-      latestInPeriod: { date: string; vendor: string; sortKey: string } | null;
-      vendorTotals: Map<string, { vendor: string; total: number }>;
-    };
-
-    const map = new Map<string, ItemAnalysisBucket>();
-    const itemKeyword = item.trim();
-
-    filtered.forEach((purchase) => {
-      (purchase.rows || []).forEach((row) => {
-        const rowItem = String(row.item || "").trim();
-        const rowSpec = String(row.spec || "").trim();
-        if (!rowItem || (itemKeyword && !rowItem.includes(itemKeyword))) return;
-
-        const key = getPurchasePriceHistoryKey(rowItem, rowSpec);
-        const qty = Number(row.qty || 0);
-        const supply = Number(row.supply || 0);
-        const total = Number(row.total || 0);
-        const effectivePrice = getPurchaseEffectiveUnitPrice(row);
-        const bucket = map.get(key) || {
-          key,
-          item: rowItem,
-          spec: rowSpec,
-          count: 0,
-          quantity: 0,
-          supply: 0,
-          total: 0,
-          priceValues: [],
-          weightedPriceTotal: 0,
-          weightedQuantity: 0,
-          latestInPeriod: null,
-          vendorTotals: new Map<string, { vendor: string; total: number }>(),
-        };
-
-        bucket.count += 1;
-        bucket.quantity += Number.isFinite(qty) ? qty : 0;
-        bucket.supply += Number.isFinite(supply) ? supply : 0;
-        bucket.total += Number.isFinite(total) ? total : 0;
-        if (effectivePrice.price > 0) {
-          bucket.priceValues.push(effectivePrice.price);
-          if (qty > 0) {
-            bucket.weightedPriceTotal += effectivePrice.price * qty;
-            bucket.weightedQuantity += qty;
-          }
-        }
-
-        const candidateSortKey = `${purchase.date || ""}|${purchase.id || ""}`;
-        if (!bucket.latestInPeriod || candidateSortKey > bucket.latestInPeriod.sortKey) {
-          bucket.latestInPeriod = { date: purchase.date || "", vendor: purchase.vendor || "", sortKey: candidateSortKey };
-        }
-
-        const vendorKey = String(purchase.vendor || "거래처 미입력").trim() || "거래처 미입력";
-        const vendorValue = (Number.isFinite(supply) && supply > 0)
-          ? supply
-          : Math.max(0, effectivePrice.price * Math.max(0, qty));
-        const currentVendor = bucket.vendorTotals.get(vendorKey) || { vendor: vendorKey, total: 0 };
-        currentVendor.total += vendorValue;
-        bucket.vendorTotals.set(vendorKey, currentVendor);
-        map.set(key, bucket);
-      });
-    });
-
-    return Array.from(map.values())
-      .map((bucket) => {
-        const history = allPriceHistoryMap.get(bucket.key);
-        const majorVendor = Array.from(bucket.vendorTotals.values()).sort((a, b) => b.total - a.total)[0];
-        return {
-          ...bucket,
-          history,
-          weightedAvgPrice: bucket.weightedQuantity > 0 ? bucket.weightedPriceTotal / bucket.weightedQuantity : null,
-          minPrice: bucket.priceValues.length ? Math.min(...bucket.priceValues) : null,
-          maxPrice: bucket.priceValues.length ? Math.max(...bucket.priceValues) : null,
-          recentPrice: history?.latest?.price ?? null,
-          previousPrice: history?.previous?.price ?? null,
-          historyDeltaAmount: history?.deltaAmount ?? null,
-          historyDeltaPercent: history?.deltaPercent ?? null,
-          recentDate: history?.latest?.date || bucket.latestInPeriod?.date || "",
-          recentVendor: history?.latest?.vendor || bucket.latestInPeriod?.vendor || "거래처 미입력",
-          majorVendor: majorVendor?.vendor || "거래처 미입력",
-        };
-      })
-      .sort((a, b) => {
-        const dateCompare = String(b.recentDate || "").localeCompare(String(a.recentDate || ""));
-        if (dateCompare !== 0) return dateCompare;
-        return b.supply - a.supply;
-      });
-  }, [filtered, allPriceHistoryMap, item]);
-
-  return (
-    <section className="card">
-      <div className="between"><h2>구매현황</h2><button onClick={() => downloadExcel(`구매현황_${todayText()}`, withTotalRow(
-  filtered.flatMap((p) => (p.rows || []).map((r) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 품목: r.item, 규격: r.spec, 수량: r.qty, 단가: r.price, 공급가액: r.supply, 부가세액: r.vat, 합계: r.total }))),
-  {
-    일자: "총합계",
-    수량: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.qty || 0), 0), 0),
-    단가: filtered.reduce((sum, p) => sum + (p.rows || []).reduce((s, r) => s + Number(r.price || 0), 0), 0),
-    공급가액: filtered.reduce((sum, p) => sum + Number(p.supplyTotal || 0), 0),
-    부가세액: filtered.reduce((sum, p) => sum + Number(p.vatTotal || 0), 0),
-    합계: filtered.reduce((sum, p) => sum + Number(p.total || 0), 0)
-  }
-))}>엑셀 다운로드</button></div>
-      <div className="grid5">
-        <Field label="시작일"><DateInput value={from} onChange={setFrom} /></Field>
-        <Field label="종료일"><DateInput value={to} onChange={setTo} /></Field>
-        <Field label="거래처"><input placeholder="거래처 일부 검색" value={vendor} onChange={(e) => setVendor(e.target.value)} /></Field>
-        <Field label="품목"><input placeholder="품목 일부 검색" value={item} onChange={(e) => setItem(e.target.value)} /></Field>
-        <Field label="초기화"><button onClick={() => { setFrom(""); setTo(""); setVendor(""); setItem(""); }}>검색 초기화</button></Field>
-      </div>
-
-      <div className="status-cards">
-        <div><span>구매건수</span><b>{filtered.length}건</b></div>
-        <div><span>품목행수</span><b>{summary.rowCount}건</b></div>
-        <div><span>공급가액</span><b>{money(summary.totalSupply)}원</b></div>
-        <div><span>부가세액</span><b>{money(summary.totalVat)}원</b></div>
-        <div><span>총합계</span><b>{money(summary.total)}원</b></div>
-      </div>
-
-      <div className="between purchase-status-section-head">
-        <div>
-          <h3>월별 구매현황</h3>
-          <p className="muted">월별 집계는 선택한 기간이 월 중간이어도 해당 월 1일~말일 전체 기준으로 계산됩니다.</p>
-        </div>
-
-        <div className="purchase-status-section-actions">
-          <button type="button" className="purchase-status-mobile-toggle" onClick={() => setMobileMonthlyOpen((open) => !open)} aria-expanded={mobileMonthlyOpen}>
-            {mobileMonthlyOpen ? "접기" : "펼치기"}
-          </button>
-        <button onClick={() => downloadExcel(`월별구매현황_${todayText()}`, withTotalRow(
-          monthly.map((m) => ({
-            월: m.month,
-            집계기간: m.period,
-            구매건수: m.count,
-            품목행수: m.rowCount,
-            공급가액: m.supply,
-            부가세액: m.vat,
-            합계: m.total,
-          })),
-          {
-            월: "총합계",
-            집계기간: "-",
-            구매건수: monthly.reduce((sum, m) => sum + m.count, 0),
-            품목행수: monthly.reduce((sum, m) => sum + m.rowCount, 0),
-            공급가액: monthly.reduce((sum, m) => sum + m.supply, 0),
-            부가세액: monthly.reduce((sum, m) => sum + m.vat, 0),
-            합계: monthly.reduce((sum, m) => sum + m.total, 0),
-          }
-        ))}>월별 엑셀</button>
-
-        </div>
-      </div>
-      <div className={`purchase-status-collapsible-body${mobileMonthlyOpen ? " open" : ""}`}>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>월</th><th>집계기간</th><th>구매건수</th><th>품목행수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-          <tbody>{!monthly.length ? <tr><td colSpan={7} className="empty">조회된 월별 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td className="bold">{m.month}</td><td>{m.period}</td><td className="right">{money(m.count)}</td><td className="right">{money(m.rowCount)}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
-        </table>
-      </ScrollTable>
-      </div>
-
-      <div className="between purchase-status-section-head">
-        <h3>거래처별 구매현황</h3>
-        <button type="button" className="purchase-status-mobile-toggle" onClick={() => setMobileVendorOpen((open) => !open)} aria-expanded={mobileVendorOpen}>
-          {mobileVendorOpen ? "접기" : "펼치기"}
-        </button>
-      </div>
-      <div className={`purchase-status-collapsible-body${mobileVendorOpen ? " open" : ""}`}>
-      <ScrollTable>
-        <table>
-          <thead><tr><th>거래처</th><th>구매건수</th><th>합계</th></tr></thead>
-          <tbody>{!byVendor.length ? <tr><td colSpan={3} className="empty">조회된 거래처 없음</td></tr> : byVendor.map((v) => <tr key={v.vendor}><td>{v.vendor}</td><td>{v.count}</td><td className="right bold">{money(v.total)}</td></tr>)}</tbody>
-        </table>
-      </ScrollTable>
-      </div>
-
-      <div className="between purchase-status-section-head purchase-price-analysis-head">
-        <div>
-          <h3>품목별 단가분석</h3>
-          <p className="muted">구매횟수·수량·최저/최고/가중평균은 선택기간 기준, 최근·직전단가는 전체 구매이력 기준입니다.</p>
-        </div>
-        <button onClick={() => downloadExcel(`품목별단가분석_${todayText()}`, withTotalRow(
-          itemAnalysis.map((analysis) => ({
-            품목: analysis.item,
-            규격: analysis.spec,
-            구매횟수: analysis.count,
-            총수량: analysis.quantity,
-            최근단가: analysis.recentPrice ?? "",
-            직전단가: analysis.previousPrice ?? "",
-            전회대비: analysis.historyDeltaAmount ?? "",
-            최저단가: analysis.minPrice ?? "",
-            최고단가: analysis.maxPrice ?? "",
-            가중평균단가: analysis.weightedAvgPrice ?? "",
-            최근구매일: analysis.recentDate,
-            주요거래처: analysis.majorVendor,
-          })),
-          { 품목: "총합계", 구매횟수: itemAnalysis.reduce((sum, analysis) => sum + analysis.count, 0), 총수량: itemAnalysis.reduce((sum, analysis) => sum + analysis.quantity, 0) }
-        ))}>품목별 엑셀</button>
-      </div>
-      <div className="purchase-price-analysis-desktop">
-        <ScrollTable>
-          <table>
-            <thead><tr><th>품목</th><th>규격</th><th>구매횟수</th><th>총수량</th><th>최근단가</th><th>직전단가</th><th>전회대비</th><th>최저단가</th><th>최고단가</th><th>가중평균</th><th>최근구매일</th><th>주요거래처</th></tr></thead>
-            <tbody>{!itemAnalysis.length ? <tr><td colSpan={12} className="empty">조회된 품목 단가이력 없음</td></tr> : itemAnalysis.map((analysis) => (
-              <tr key={analysis.key}>
-                <td><button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>{analysis.item}</button></td>
-                <td>{analysis.spec || "-"}</td>
-                <td className="right">{money(analysis.count)}</td>
-                <td className="right">{money(analysis.quantity)}</td>
-                <td className="right bold">{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</td>
-                <td className="right">{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</td>
-                <td className={`right purchase-price-analysis-delta${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
-                  {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
-                </td>
-                <td className="right">{analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`}</td>
-                <td className="right">{analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</td>
-                <td className="right">{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</td>
-                <td>{analysis.recentDate || "-"}</td>
-                <td>{analysis.majorVendor}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </ScrollTable>
-      </div>
-      <div className="purchase-price-analysis-mobile">
-        <div className="purchase-price-analysis-mobile-toggle">
-          <div>
-            <strong>품목별 단가분석</strong>
-            <span>{hasItemAnalysisFilter ? `${itemAnalysis.length}개 품목` : "기간·거래처·품목을 선택하면 자동으로 펼쳐집니다."}</span>
-          </div>
-          <button type="button" onClick={() => setMobileItemAnalysisOpen((open) => !open)} aria-expanded={mobileItemAnalysisOpen}>
-            {mobileItemAnalysisOpen ? "접기" : "분석 보기"}
-          </button>
-        </div>
-        {mobileItemAnalysisOpen && (
-          <div className="purchase-price-analysis-mobile-list">
-        {!itemAnalysis.length ? <div className="empty">조회된 품목 단가이력 없음</div> : itemAnalysis.map((analysis) => (
-          <article className="purchase-price-analysis-card" key={`mobile-${analysis.key}`}>
-            <div className="purchase-price-analysis-card-head">
-              <div><strong>{analysis.item}</strong>{analysis.spec && <span>{analysis.spec}</span>}</div>
-              <small>{analysis.count}회 구매</small>
-            </div>
-            <div className="purchase-price-analysis-card-grid">
-              <div><span>최근단가</span><b>{analysis.recentPrice === null ? "-" : `${money(analysis.recentPrice)}원`}</b></div>
-              <div><span>직전단가</span><b>{analysis.previousPrice === null ? "-" : `${money(analysis.previousPrice)}원`}</b></div>
-              <div><span>가중평균</span><b>{analysis.weightedAvgPrice === null ? "-" : `${money(analysis.weightedAvgPrice)}원`}</b></div>
-              <div><span>최근구매</span><b>{analysis.recentDate || "-"}</b></div>
-            </div>
-            <div className={`purchase-price-analysis-card-change${analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount > 0 ? " up" : analysis.historyDeltaAmount !== null && analysis.historyDeltaAmount < 0 ? " down" : ""}`}>
-              전회 대비 {analysis.historyDeltaAmount === null ? "-" : `${signedMoney(analysis.historyDeltaAmount)}${analysis.historyDeltaPercent === null ? "" : ` (${signedPercent(analysis.historyDeltaPercent)})`}`}
-            </div>
-            <div className="purchase-price-analysis-card-meta">주요거래처 {analysis.majorVendor} · 최저 {analysis.minPrice === null ? "-" : `${money(analysis.minPrice)}원`} · 최고 {analysis.maxPrice === null ? "-" : `${money(analysis.maxPrice)}원`}</div>
-            <button type="button" className="purchase-price-history-link" onClick={() => { if (analysis.history) setPriceHistoryModal(analysis.history); }}>최근 구매이력·거래처 비교</button>
-          </article>
-        ))}
-          </div>
-        )}
-      </div>
-
-      <div className="purchase-status-detail-section">
-        <div className="between purchase-status-section-head purchase-status-detail-head">
-          <h3>상세 구매내역 <span className="purchase-status-detail-count">({filtered.length}건)</span></h3>
-          <button
-            type="button"
-            className="purchase-status-mobile-toggle"
-            onClick={() => setMobilePurchaseDetailOpen((open) => !open)}
-            aria-expanded={mobilePurchaseDetailOpen}
-          >
-            {mobilePurchaseDetailOpen ? "접기" : "내역 보기"}
-          </button>
-        </div>
-        <div className={`purchase-status-collapsible-body${mobilePurchaseDetailOpen ? " open" : ""}`}>
-        <ScrollTable>
-          <table>
-            <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
-            <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
-          </table>
-        </ScrollTable>
-
-        </div>
-      </div>
-      {priceHistoryModal && <PurchasePriceHistoryModal history={priceHistoryModal} onClose={() => setPriceHistoryModal(null)} />}
-    </section>
-  );
-}
-
 
 function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSchedule, updateStatus }: any) {
   const [from, setFrom] = useState(getTodayKey());
