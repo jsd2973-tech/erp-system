@@ -50,6 +50,7 @@ import {
 } from "./features/maintenance/maintenanceModel";
 import { validateLinkedPurchaseRowsForEdit } from "./features/maintenance/maintenancePurchaseModel";
 import { createMaintenanceService } from "./features/maintenance/maintenanceService";
+import { createMaintenancePurchaseLinkService } from "./features/maintenance/maintenancePurchaseLinkService";
 import {
   buildPurchasePriceHistory,
   getPurchasePriceHistoryKey,
@@ -61,6 +62,7 @@ import {
 const purchaseService = createPurchaseService(supabase);
 const cardService = createCardService(supabase);
 const maintenanceService = createMaintenanceService(supabase);
+const maintenancePurchaseLinkService = createMaintenancePurchaseLinkService(supabase);
 
 type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
 type Group = { id: string; code: string; name: string };
@@ -4418,107 +4420,41 @@ const purchasePriceHistoryMap = useMemo(
 
   const syncMaintenancePurchaseLinks = async (maintenanceId: string, nextLinks: MaintenancePurchaseLink[]) => {
     const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
-    const validLinkRows = nextLinks.map((link) => {
-      const row: Record<string, any> = {
-        maintenance_id: maintenanceId,
-        maintenance_row_id: link.maintenance_row_id,
-        purchase_id: link.purchase_id,
-        purchase_row_id: link.purchase_row_id,
-        item_name: link.item_name,
-        spec: link.spec,
-        used_qty: numericValue(link.used_qty),
-        unit_price_snapshot: numericValue(link.unit_price_snapshot),
-        purchase_date_snapshot: link.purchase_date_snapshot,
-        vendor_snapshot: link.vendor_snapshot,
-        maintenance_date_snapshot: link.maintenance_date_snapshot,
-        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-        maintenance_title_snapshot: link.maintenance_title_snapshot,
-      };
-      if (link.id) row.id = link.id;
-      if (link.created_by) row.created_by = link.created_by;
-      if (link.created_at) row.created_at = link.created_at;
-      return row;
-    });
-
-    const { error: deleteError } = await supabase
-      .from("maintenance_purchase_links")
-      .delete()
-      .eq("maintenance_id", maintenanceId);
-    if (deleteError) {
-      alert(`정비 구매연결을 갱신하지 못했습니다: ${deleteError.message}`);
+    const syncResult = await maintenancePurchaseLinkService.replaceForMaintenance(maintenanceId, nextLinks, previousLinks);
+    if (syncResult.error) {
+      const message = syncResult.stage === "delete"
+        ? "정비 구매연결을 갱신하지 못했습니다: " + syncResult.error.message
+        : "정비 구매연결 저장에 실패했습니다: " + syncResult.error.message;
+      alert(message);
       return false;
-    }
-
-    let savedLinks: MaintenancePurchaseLink[] = [];
-    if (validLinkRows.length) {
-      const { data, error: insertError } = await supabase
-        .from("maintenance_purchase_links")
-        .insert(validLinkRows)
-        .select("*");
-
-      if (insertError) {
-        if (previousLinks.length) {
-          const rollbackRows = previousLinks.map((link) => ({
-            id: link.id,
-            maintenance_id: link.maintenance_id,
-            maintenance_row_id: link.maintenance_row_id,
-            purchase_id: link.purchase_id,
-            purchase_row_id: link.purchase_row_id,
-            item_name: link.item_name,
-            spec: link.spec,
-            used_qty: link.used_qty,
-            unit_price_snapshot: link.unit_price_snapshot,
-            purchase_date_snapshot: link.purchase_date_snapshot,
-            vendor_snapshot: link.vendor_snapshot,
-            maintenance_date_snapshot: link.maintenance_date_snapshot,
-            maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-            maintenance_title_snapshot: link.maintenance_title_snapshot,
-            created_by: link.created_by,
-            created_at: link.created_at,
-          }));
-          await supabase.from("maintenance_purchase_links").insert(rollbackRows);
-        }
-        alert(`정비 구매연결 저장에 실패했습니다: ${insertError.message}`);
-        return false;
-      }
-
-      savedLinks = ((data || validLinkRows) as any[]).map(toMaintenancePurchaseLink);
     }
 
     setMaintenancePurchaseLinks((previous) => [
       ...previous.filter((link) => link.maintenance_id !== maintenanceId),
-      ...savedLinks,
+      ...syncResult.savedLinks,
     ]);
 
-    const previousSignature = previousLinks
-      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
-      .sort()
-      .join("|");
-    const nextSignature = savedLinks
-      .map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`)
-      .sort()
-      .join("|");
-    if (previousSignature !== nextSignature) {
-      const previousKeys = new Set(previousLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const nextKeys = new Set(savedLinks.map((link) => `${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const added = savedLinks.filter((link) => !previousKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      const removed = previousLinks.filter((link) => !nextKeys.has(`${maintenancePurchaseLinkKey(link)}:${link.used_qty}`));
-      if (added.length) {
+    if (syncResult.changed) {
+      if (syncResult.added.length) {
         await addActivityLog({
           module: "정비",
           action: "구매품목 연결",
           target_id: maintenanceId,
-          target_title: added.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
-          detail: added.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+          target_title: syncResult.added.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: syncResult.added.map((link) =>
+            (link.vendor_snapshot || "거래처 미입력") + " · " + (link.item_name || "품목") + " · " + link.used_qty + " 사용"
+          ).join(" / "),
         });
       }
-      if (removed.length) {
+      if (syncResult.removed.length) {
         await addActivityLog({
           module: "정비",
           action: "구매품목 연결 해제",
           target_id: maintenanceId,
-          target_title: removed.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
-          detail: removed.map((link) => `${link.vendor_snapshot || "거래처 미입력"} · ${link.item_name || "품목"} · ${link.used_qty} 사용`).join(" / "),
+          target_title: syncResult.removed.map((link) => link.item_name).filter(Boolean).join(", ") || "구매품목",
+          detail: syncResult.removed.map((link) =>
+            (link.vendor_snapshot || "거래처 미입력") + " · " + (link.item_name || "품목") + " · " + link.used_qty + " 사용"
+          ).join(" / "),
         });
       }
     }
@@ -4816,10 +4752,7 @@ const purchasePriceHistoryMap = useMemo(
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = maints.find((item) => item.id === id);
     if (!target) return alert("삭제할 정비내역을 찾지 못했습니다.");
-    const { data: linkedRows, error: linkedRowsError } = await supabase
-      .from("maintenance_purchase_links")
-      .select("*")
-      .eq("maintenance_id", id);
+    const { data: linkedRows, error: linkedRowsError } = await maintenancePurchaseLinkService.fetchForMaintenance(id);
     if (linkedRowsError) return alert(`정비 구매연결 확인 실패: ${linkedRowsError.message}`);
     if (!confirm("정비내역을 휴지통으로 이동할까요?")) return;
 
@@ -4837,17 +4770,14 @@ const purchasePriceHistoryMap = useMemo(
     if (!ok) return;
 
     if ((linkedRows || []).length) {
-      const { error: linkDeleteError } = await supabase
-        .from("maintenance_purchase_links")
-        .delete()
-        .eq("maintenance_id", id);
+      const { error: linkDeleteError } = await maintenancePurchaseLinkService.deleteForMaintenance(id);
       if (linkDeleteError) return alert(`정비 구매연결 삭제 실패: ${linkDeleteError.message}`);
     }
 
     const { error } = await maintenanceService.deleteMaintenance(id);
     if (error) {
       if ((linkedRows || []).length) {
-        await supabase.from("maintenance_purchase_links").insert(linkedRows);
+        await maintenancePurchaseLinkService.restoreRawLinks(linkedRows || []);
       }
       return alert(`정비 삭제 실패: ${error.message}`);
     }
@@ -5142,27 +5072,9 @@ const purchasePriceHistoryMap = useMemo(
     if (restoreError) return alert(`복구 실패: ${restoreError.message}`);
 
     if (record.source_table === "maints" && maintenanceLinks.length) {
-      const restoreRows = maintenanceLinks.map((link) => ({
-        id: link.id,
-        maintenance_id: record.record_id,
-        maintenance_row_id: link.maintenance_row_id,
-        purchase_id: link.purchase_id,
-        purchase_row_id: link.purchase_row_id,
-        item_name: link.item_name,
-        spec: link.spec,
-        used_qty: link.used_qty,
-        unit_price_snapshot: link.unit_price_snapshot,
-        purchase_date_snapshot: link.purchase_date_snapshot,
-        vendor_snapshot: link.vendor_snapshot,
-        maintenance_date_snapshot: link.maintenance_date_snapshot,
-        maintenance_equipment_snapshot: link.maintenance_equipment_snapshot,
-        maintenance_title_snapshot: link.maintenance_title_snapshot,
-        created_by: link.created_by,
-        created_at: link.created_at,
-      }));
-      const { error: linkRestoreError } = await supabase.from("maintenance_purchase_links").insert(restoreRows);
+      const { error: linkRestoreError } = await maintenancePurchaseLinkService.restoreMaintenanceLinks(record.record_id, maintenanceLinks);
       if (linkRestoreError) {
-        await supabase.from(record.source_table).delete().eq("id", record.record_id);
+        await maintenanceService.deleteMaintenance(record.record_id);
         return alert(`정비는 복구되었지만 구매연결 복구에 실패했습니다: ${linkRestoreError.message}`);
       }
     }
