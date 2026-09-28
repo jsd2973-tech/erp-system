@@ -18,6 +18,7 @@ import {
   isBidNoticeNew,
   toBidDateInput,
 } from "./features/bidding/biddingModel";
+import { loadBidNotices as fetchBidNotices } from "./features/bidding/biddingService";
 import type {
   BidDiagnostics,
   BidLoadState,
@@ -8668,39 +8669,16 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
       if (!bidFilters.from || !bidFilters.to || Number.isNaN(rangeDays)) throw new Error("조회 시작일과 종료일을 선택해 주세요.");
       if (rangeDays < 1) throw new Error("시작일은 종료일보다 늦을 수 없습니다.");
       if (rangeDays > 90) throw new Error("조회기간은 최대 90일까지 선택할 수 있습니다.");
-      const params = new URLSearchParams({
-        include: keywords.include.join(","),
-        exclude: keywords.exclude.join(","),
-        from: bidFilters.from,
-        to: bidFilters.to,
-      });
-      const targets = ["g2b", "lh"] as const;
-      const results = await Promise.allSettled(targets.map(async (target) => {
-        const response = await fetch(`/api/${target}?${params.toString()}`);
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(`${target === "lh" ? "LH" : "나라장터"}: ${payload?.error || `공고 조회 실패 (${response.status})`}`);
-        return { target, payload };
-      }));
-      const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-      if (!successful.length) {
-        const sourceStatus = Object.fromEntries(targets.map((target) => [target, { status: "failed" as const, failedCalls: 1 }]));
+
+      const result = await fetchBidNotices(bidFilters, keywords);
+      if (result.loadState === "failed") {
         setBidNotices([]);
-        setBidDiagnostics({
-          receivedCount: 0,
-          matchedCount: 0,
-          failedCalls: results.length,
-          failedPages: 0,
-          truncated: false,
-          partial: true,
-          sourceStatus,
-        });
+        setBidDiagnostics(result.diagnostics);
         setBidLoadState("failed");
-        setBidError("나라장터와 LH 공고를 불러오지 못했습니다. 잠시 후 다시 새로고침해 주세요.");
+        setBidError(result.error);
         return;
       }
-      const merged = successful
-        .flatMap(({ payload }) => Array.isArray(payload?.notices) ? payload.notices : [])
-        .sort((a, b) => String(b.noticeDate || "").localeCompare(String(a.noticeDate || "")));
+
       let seenIds: string[] = [];
       let hasSeenHistory = false;
       try {
@@ -8716,7 +8694,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
         // 손상된 신규공고 기록은 이번 조회를 막지 않습니다.
       }
       const seenIdSet = new Set(seenIds);
-      const withBadges: BidNotice[] = merged.map((notice: BidNotice) => ({
+      const withBadges: BidNotice[] = result.notices.map((notice) => ({
         ...notice,
         isNew: isBidNoticeNew(notice.id, seenIdSet, hasSeenHistory),
         deadlineBadge: getBidDeadlineBadge(notice.deadline, notice.status),
@@ -8729,40 +8707,9 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
       }
       setBidNotices(withBadges);
       setBidFetchedAt(new Date().toISOString());
-      const sourceStatus = Object.fromEntries(targets.map((target) => {
-        const result = successful.find((item) => item.target === target);
-        if (!result) return [target, { status: "failed" as const, failedCalls: 1 }];
-        const diagnostics = result.payload?.diagnostics || {};
-        const source = result.payload?.sourceStatus?.[target] || {};
-        const sourceState = source.status === "failed"
-          ? "failed" as const
-          : source.status === "partial" || diagnostics.partial || diagnostics.truncated || result.payload?.partial || result.payload?.truncated
-            ? "partial" as const
-            : "normal" as const;
-        return [target, {
-          status: sourceState,
-          failedCalls: Number(source.failedCalls ?? diagnostics.failedCalls ?? result.payload?.failedCalls ?? 0),
-          failedPages: Number(source.failedPages ?? diagnostics.failedPages ?? 0),
-          truncated: Boolean(source.truncated ?? diagnostics.truncated ?? result.payload?.truncated),
-        }];
-      }));
-      const failedCalls = results.filter((result) => result.status === "rejected").length
-        + successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.failedCalls ?? result.payload?.failedCalls ?? 0), 0);
-      const failedPages = successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.failedPages || 0), 0);
-      const truncated = successful.some((result) => Boolean(result.payload?.diagnostics?.truncated ?? result.payload?.truncated));
-      const partial = results.some((result) => result.status === "rejected")
-        || successful.some((result) => Boolean(result.payload?.diagnostics?.partial ?? result.payload?.partial ?? result.payload?.truncated));
-      setBidDiagnostics({
-        receivedCount: successful.reduce((count, result) => count + Number(result.payload?.diagnostics?.receivedCount || 0), 0),
-        matchedCount: withBadges.length,
-        failedCalls,
-        failedPages,
-        truncated,
-        partial,
-        sourceStatus,
-      });
-      setBidLoadState(partial ? "partial" : "normal");
-      if (partial) setBidError("일부 공고 조회가 완료되지 않았습니다. 새로고침 후 다시 확인해 주세요.");
+      setBidDiagnostics({ ...result.diagnostics, matchedCount: withBadges.length });
+      setBidLoadState(result.loadState);
+      if (result.error) setBidError(result.error);
     } catch (error) {
       setBidNotices([]);
       setBidDiagnostics(null);
