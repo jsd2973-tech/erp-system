@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
-import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";
+import { Download, Eye, Fuel, Plus, RefreshCcw, Settings2, Trash2, Upload } from "lucide-react";
 import { buildFuelStatementWorkbook, type FuelStatementParty } from "./fuelStatementExport";
 import {
-  asFuelNumber as asNumber,
   buildFuelVehicleProfiles,
-  calculateFuelAmounts,
   calculateFuelTotals,
   compareFuelNames as natural,
   currentFuelMonth as currentMonth,
@@ -15,13 +13,32 @@ import {
   formatFuelNumber as number,
   fuelMonthBounds as monthBounds,
   getManagedFuelOptions,
-  normalizeFuelMasterOptions,
-  normalizeFuelRecord,
   summarizeFuelDetailRecords,
   summarizeFuelRecords,
   todayKey,
 } from "./fuelModel";
 import { parseFuelFile } from "./fuelImport";
+import { FuelImportPreview } from "./FuelImportPreview";
+import FuelEntry from "./FuelEntry";
+import { FuelFilters, FuelKpis, FuelRecordEditForm, FuelRecordList, FuelSummaryView, FuelTabs } from "./FuelScreens";
+import {
+  addFuelMasterOption,
+  deleteFuelRecord,
+  getFuelMasterOptions,
+  getFuelRecords,
+  getFuelReferenceRecords,
+  getFuelStatementParties,
+  importFuelRows,
+  renameFuelMasterOption,
+  setFuelMasterOptionActive,
+  updateFuelRecord,
+} from "./fuelService";
+import {
+  clearFuelRecordReceipt,
+  getFuelReceiptSignedUrl,
+  removeFuelReceiptObject,
+  uploadFuelRecordReceipt,
+} from "./fuelReceiptService";
 import type {
   FuelDetailTarget,
   FuelManagementProps as Props,
@@ -36,10 +53,6 @@ import "./fuelTableAlignment.css";
 import "./fuelQuickSelect.css";
 
 const EMPTY_STATEMENT_PARTIES: FuelStatementParty[] = [];
-
-const emptyManual = () => ({
-  fuel_date: todayKey(), site_name: "공장", product_name: "경유", vehicle_number: "", quantity: "", unit_price: "", station_name: "남세종농협주유소", memo: "",
-});
 
 export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PARTIES }: Props) {
   const [month, setMonth] = useState(currentMonth);
@@ -60,10 +73,6 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const [previewFile, setPreviewFile] = useState("");
   const [importing, setImporting] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [manual, setManual] = useState(emptyManual);
-  const [quickVehicle, setQuickVehicle] = useState("");
-  const [quickVehicleBackup, setQuickVehicleBackup] = useState<Pick<ReturnType<typeof emptyManual>, "vehicle_number" | "site_name" | "product_name" | "unit_price" | "station_name"> | null>(null);
-  const [saving, setSaving] = useState(false);
   const [editingRecord, setEditingRecord] = useState<FuelRecord | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<FuelRecord | null>(null);
@@ -74,42 +83,32 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const load = async () => {
     setLoading(true);
     setError("");
-    const bounds = monthBounds(month);
-    const { data, error: loadError } = await supabase
-      .from("fuel_records")
-      .select("*")
-      .gte("fuel_date", bounds.from)
-      .lte("fuel_date", bounds.to)
-      .order("fuel_date", { ascending: false })
-      .order("vehicle_number", { ascending: true });
+    const { data, error: loadError } = await getFuelRecords(supabase, month);
     if (loadError) {
       setError(`유류내역을 불러오지 못했습니다. (${loadError.message})`);
       setRecords([]);
     } else {
-      setRecords((data || []).map(normalizeFuelRecord));
+      setRecords(data || []);
     }
     setLoading(false);
   };
 
   useEffect(() => { void load(); }, [month]);
   const loadMasters = async () => {
-    const { data, error: masterError } = await supabase.from("fuel_master_options").select("id,category,name,is_active,updated_at").order("category").order("name");
+    const { data, error: masterError } = await getFuelMasterOptions(supabase);
     if (masterError) {
       setError(`유류 기초등록을 불러오지 못했습니다. (${masterError.message})`);
       return;
     }
-    const rows = normalizeFuelMasterOptions(data || []);
+    const rows = data;
     setMasterOptions(rows);
     setMasterDrafts(Object.fromEntries(rows.map((row)=>[row.id,row.name])));
   };
   useEffect(() => { void loadMasters(); }, []);
   useEffect(() => {
     const loadReferences = async () => {
-      const { data } = await supabase.from("fuel_records")
-        .select("fuel_date,site_name,product_name,vehicle_number,unit_price,station_name,quantity,total_amount,usage_count,line_amount,supply_amount,vat_amount,id")
-        .order("fuel_date", { ascending: false })
-        .limit(2000);
-      if (data) setReferenceRecords(data as FuelRecord[]);
+      const { data } = await getFuelReferenceRecords(supabase);
+      if (data) setReferenceRecords(data);
     };
     void loadReferences();
   }, [supabase]);
@@ -129,29 +128,11 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const allProducts = useMemo(() => getManagedFuelOptions("product", masterOptions, referenceRecords.map((record) => String(record.product_name || ""))), [masterOptions, referenceRecords]);
   const allStations = useMemo(() => getManagedFuelOptions("station", masterOptions, ["남세종농협주유소", "믿음주유소", ...referenceRecords.map((record) => String(record.station_name || ""))]), [masterOptions, referenceRecords]);
 
-  const applyVehicleProfile = (vehicle: string) => {
-    const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
-    setManual((current) => ({ ...current, vehicle_number: vehicle, site_name: profile?.site_name || current.site_name, product_name: profile?.product_name || current.product_name, unit_price: profile?.unit_price ? String(profile.unit_price) : current.unit_price, station_name: profile?.station_name || current.station_name }));
-  };
-  const selectQuickVehicle = (vehicle: string) => {
-    setManual((current) => {
-      setQuickVehicleBackup({ vehicle_number: current.vehicle_number, site_name: current.site_name, product_name: current.product_name, unit_price: current.unit_price, station_name: current.station_name });
-      const profile = vehicleProfiles.find(([name]) => name === vehicle)?.[1];
-      return { ...current, vehicle_number: vehicle, site_name: profile?.site_name || current.site_name, product_name: profile?.product_name || current.product_name, unit_price: profile?.unit_price ? String(profile.unit_price) : current.unit_price, station_name: profile?.station_name || current.station_name };
-    });
-    setQuickVehicle(vehicle);
-  };
-  const cancelQuickVehicle = () => {
-    if (quickVehicleBackup) setManual((current) => ({ ...current, ...quickVehicleBackup }));
-    setQuickVehicle("");
-    setQuickVehicleBackup(null);
-  };
-
   const addMasterOption = async (category: FuelMasterCategory) => {
     const name=masterInputs[category].trim();
     if (!name) return;
     setMasterSaving(`add-${category}`); setError("");
-    const { error: addError }=await supabase.from("fuel_master_options").insert({ category, name, is_active:true });
+    const { error: addError } = await addFuelMasterOption(supabase, category, name);
     setMasterSaving("");
     if (addError) { setError(addError.code === "23505" ? "이미 등록된 항목입니다." : `기초항목을 추가하지 못했습니다. (${addError.message})`); return; }
     setMasterInputs((current)=>({ ...current, [category]:"" }));
@@ -161,14 +142,14 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     const name=(masterDrafts[row.id] ?? row.name).trim();
     if (!name) return;
     setMasterSaving(row.id); setError("");
-    const { error: saveError }=await supabase.from("fuel_master_options").update({ name, updated_at:new Date().toISOString() }).eq("id",row.id);
+    const { error: saveError } = await renameFuelMasterOption(supabase, row, name);
     setMasterSaving("");
     if (saveError) { setError(saveError.code === "23505" ? "같은 분류에 이미 등록된 이름입니다." : `기초항목을 수정하지 못했습니다. (${saveError.message})`); return; }
     await loadMasters();
   };
   const toggleMasterOption = async (row: FuelMasterOption) => {
     setMasterSaving(row.id); setError("");
-    const { error: toggleError }=await supabase.from("fuel_master_options").update({ is_active:!row.is_active, updated_at:new Date().toISOString() }).eq("id",row.id);
+    const { error: toggleError } = await setFuelMasterOptionActive(supabase, row, !row.is_active);
     setMasterSaving("");
     if (toggleError) { setError(`사용 상태를 바꾸지 못했습니다. (${toggleError.message})`); return; }
     await loadMasters();
@@ -217,15 +198,12 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       product ? `유종: ${product}` : "전체 유종",
       vehicleSearch.trim() ? `차량/장비: ${vehicleSearch.trim()}` : "전체 차량/장비",
     ].join(" · ");
-    const { data: freshVendors } = await supabase
-      .from("vendors")
-      .select("code,name,owner,phone,mobile,address,address_detail")
-      .order("code");
+    const { data: freshVendors } = await getFuelStatementParties(supabase);
     const workbook = buildFuelStatementWorkbook(filtered, {
       month,
       issueDate: todayKey(),
       filterSummary,
-      parties: (freshVendors?.length ? freshVendors : vendors) as FuelStatementParty[],
+      parties: freshVendors?.length ? freshVendors : vendors,
     });
     XLSX.writeFile(workbook, `유류거래명세서_${month}.xlsx`);
   };
@@ -251,7 +229,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     setImporting(true);
     setError("");
     const payload = preview.map((row) => ({ ...row, source_file: previewFile || row.source_file }));
-    const { error: importError } = await supabase.from("fuel_records").upsert(payload, { onConflict: "source_fingerprint", ignoreDuplicates: true });
+    const { error: importError } = await importFuelRows(supabase, payload);
     setImporting(false);
     if (importError) {
       setError(`파일 등록에 실패했습니다. (${importError.message})`);
@@ -261,46 +239,6 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     setPreview([]);
     setPreviewFile("");
     if (importedMonth && importedMonth !== month) setMonth(importedMonth);
-    else await load();
-  };
-
-  const saveManual = async () => {
-    const quantity = asNumber(manual.quantity);
-    const unitPrice = asNumber(manual.unit_price);
-    if (!manual.fuel_date || !manual.vehicle_number.trim() || quantity <= 0 || unitPrice <= 0) {
-      setError("일자, 차량/장비번호, 수량, 단가를 확인해 주세요.");
-      return;
-    }
-    const { supply, vat, total } = calculateFuelAmounts(quantity, unitPrice);
-    const payload = {
-      fuel_date: manual.fuel_date,
-      site_name: manual.site_name.trim() || "미지정",
-      product_name: manual.product_name.trim() || "경유",
-      vehicle_number: manual.vehicle_number.trim(),
-      usage_count: 1,
-      quantity,
-      line_amount: supply,
-      unit_price: unitPrice,
-      supply_amount: supply,
-      vat_amount: vat,
-      total_amount: total,
-      station_name: manual.station_name.trim() || "직접입력",
-      source_file: null,
-      source_fingerprint: `manual-${crypto.randomUUID()}`,
-      memo: manual.memo.trim(),
-    };
-    setSaving(true);
-    const { error: saveError } = await supabase.from("fuel_records").insert(payload);
-    setSaving(false);
-    if (saveError) {
-      setError(`유류내역 저장에 실패했습니다. (${saveError.message})`);
-      return;
-    }
-    setManual(emptyManual());
-    setQuickVehicle("");
-    setQuickVehicleBackup(null);
-    setManualOpen(false);
-    if (payload.fuel_date.slice(0, 7) !== month) setMonth(payload.fuel_date.slice(0, 7));
     else await load();
   };
 
@@ -317,7 +255,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       memo: String(editingRecord.memo || "").trim(),
       updated_at: new Date().toISOString(),
     };
-    const { error: updateError } = await supabase.from("fuel_records").update(payload).eq("id", editingRecord.id);
+    const { error: updateError } = await updateFuelRecord(supabase, editingRecord.id, payload);
     setEditSaving(false);
     if (updateError) { setError(`유류내역을 수정하지 못했습니다. (${updateError.message})`); return; }
     setEditingRecord(null);
@@ -326,9 +264,9 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
 
   const removeRecord = async (record: FuelRecord) => {
     if (!window.confirm(`${record.fuel_date} / ${record.vehicle_number} / ${record.product_name} ${number(record.quantity)}L 내역을 삭제할까요?`)) return;
-    const { error: deleteError } = await supabase.from("fuel_records").delete().eq("id", record.id);
+    const { error: deleteError } = await deleteFuelRecord(supabase, record.id);
     if (deleteError) return setError(`삭제하지 못했습니다. (${deleteError.message})`);
-    if (record.receipt_path) await supabase.storage.from("fuel-receipts").remove([record.receipt_path]);
+    if (record.receipt_path) await removeFuelReceiptObject(supabase, record.receipt_path);
     if (receiptTarget?.id === record.id) setReceiptTarget(null);
     await load();
   };
@@ -344,24 +282,12 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       return;
     }
     setReceiptBusy(true); setError("");
-    const extension = (file.name.split(".").pop() || (file.type === "application/pdf" ? "pdf" : "jpg")).replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "bin";
-    const nextPath = `fuel/${receiptTarget.id}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const previousPath = receiptTarget.receipt_path || "";
-    const { error: uploadError } = await supabase.storage.from("fuel-receipts").upload(nextPath, file, { upsert: false, contentType: file.type || undefined });
-    if (uploadError) {
+    const { patch, error: uploadError } = await uploadFuelRecordReceipt(supabase, receiptTarget, file);
+    if (uploadError || !patch) {
       setReceiptBusy(false);
-      setError(`영수증 업로드에 실패했습니다. (${uploadError.message})`);
+      setError(uploadError || "영수증 정보를 저장하지 못했습니다.");
       return;
     }
-    const patch = { receipt_path: nextPath, receipt_name: file.name, receipt_mime_type: file.type || null, receipt_uploaded_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    const { error: updateError } = await supabase.from("fuel_records").update(patch).eq("id", receiptTarget.id);
-    if (updateError) {
-      await supabase.storage.from("fuel-receipts").remove([nextPath]);
-      setReceiptBusy(false);
-      setError(`영수증 정보를 저장하지 못했습니다. (${updateError.message})`);
-      return;
-    }
-    if (previousPath && previousPath !== nextPath) await supabase.storage.from("fuel-receipts").remove([previousPath]);
     setReceiptTarget({ ...receiptTarget, ...patch });
     if (receiptInput.current) receiptInput.current.value = "";
     setReceiptBusy(false);
@@ -371,7 +297,7 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const viewReceipt = async () => {
     if (!receiptTarget?.receipt_path) return;
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
@@ -382,16 +308,13 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     if (!window.confirm(`${receiptTarget.fuel_date} / ${receiptTarget.vehicle_number} 영수증을 삭제할까요?`)) return;
     const oldPath = receiptTarget.receipt_path;
     setReceiptBusy(true); setError("");
-    const { error: updateError } = await supabase.from("fuel_records").update({ receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null, updated_at: new Date().toISOString() }).eq("id", receiptTarget.id);
-    if (updateError) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError.message})`); return; }
-    const { error: removeError } = await supabase.storage.from("fuel-receipts").remove([oldPath]);
-    setReceiptTarget({ ...receiptTarget, receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null });
+    const { patch, updateError, removeError } = await clearFuelRecordReceipt(supabase, receiptTarget.id, oldPath);
+    if (updateError || !patch) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError?.message || "알 수 없는 오류"})`); return; }
+    setReceiptTarget({ ...receiptTarget, ...patch });
     setReceiptBusy(false);
     if (removeError) setError(`영수증 정보는 삭제됐지만 파일 정리에 실패했습니다. (${removeError.message})`);
     await load();
   };
-
-  const previewTotals = useMemo(() => ({ quantity: preview.reduce((sum, row) => sum + row.quantity, 0), total: preview.reduce((sum, row) => sum + row.total_amount, 0) }), [preview]);
 
   return <section className="fuel-management">
     <header className="fuel-head">
@@ -410,44 +333,42 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
 
     {error && <div className="fuel-error">{error}</div>}
 
-    {preview.length > 0 && <section className="fuel-import-preview">
-      <div className="fuel-preview-title"><div><FileSpreadsheet size={20} /><span><strong>{previewFile}</strong><small>{preview.length}건을 찾았습니다.</small></span></div><button type="button" onClick={() => { setPreview([]); setPreviewFile(""); }}>취소</button></div>
-      <div className="fuel-preview-kpis"><span>수량 <b>{number(previewTotals.quantity)} L</b></span><span>합계 <b>{money(previewTotals.total)}원</b></span></div>
-      <div className="fuel-preview-list">{preview.slice(0, 8).map((row, index) => <div key={`${row.source_fingerprint}-${index}`}><span>{row.fuel_date}</span><strong>{row.vehicle_number}</strong><span>{row.product_name}</span><span>{number(row.quantity)}L</span><b>{money(row.total_amount)}원</b></div>)}</div>
-      {preview.length > 8 && <p>외 {preview.length - 8}건</p>}
-      <button className="fuel-primary" type="button" disabled={importing} onClick={() => void importPreview()}>{importing ? "등록 중..." : `${preview.length}건 등록`}</button>
-    </section>}
+    {preview.length > 0 && <FuelImportPreview
+      rows={preview}
+      fileName={previewFile}
+      importing={importing}
+      onCancel={() => { setPreview([]); setPreviewFile(""); }}
+      onImport={() => void importPreview()}
+    />}
 
-    {manualOpen && <section className="fuel-manual-panel">
-      <div className="fuel-section-title"><div><h3>유류 직접 입력</h3><p>수량 × 단가로 공급가액·부가세·합계금액을 자동 계산합니다.</p></div></div>
-      <div className="fuel-manual-grid">
-        <label><span>일자 *</span><input type="date" value={manual.fuel_date} onChange={(event) => setManual({ ...manual, fuel_date: event.target.value })} /></label>
-        <label><span>현장</span><input list="fuel-site-options" value={manual.site_name} onChange={(event) => setManual({ ...manual, site_name: event.target.value })} placeholder="공장" /><datalist id="fuel-site-options">{allSites.map((name) => <option key={name} value={name} />)}</datalist></label>
-        <label><span>유종</span><input list="fuel-product-options" value={manual.product_name} onChange={(event) => setManual({ ...manual, product_name: event.target.value })} placeholder="경유" /><datalist id="fuel-product-options">{allProducts.map((name) => <option key={name} value={name} />)}</datalist></label>
-        <label className="fuel-vehicle-entry"><span>차량/장비번호 *</span><input list="fuel-vehicle-options" value={manual.vehicle_number} onChange={(event) => { const value=event.target.value; if (quickVehicle) { setQuickVehicle(""); setQuickVehicleBackup(null); } setManual({ ...manual, vehicle_number:value }); if (vehicleOptions.includes(value)) applyVehicleProfile(value); }} onBlur={() => { if (vehicleOptions.includes(manual.vehicle_number)) applyVehicleProfile(manual.vehicle_number); }} placeholder="번호 입력 또는 선택" /><datalist id="fuel-vehicle-options">{vehicleOptions.map((name) => <option key={name} value={name} />)}</datalist></label>
-        <label><span>수량(L) *</span><input inputMode="decimal" value={manual.quantity} onChange={(event) => setManual({ ...manual, quantity: event.target.value })} placeholder="270" /></label>
-        <label><span>단가(원/L) *</span><input inputMode="decimal" value={manual.unit_price} onChange={(event) => setManual({ ...manual, unit_price: event.target.value })} placeholder="1820" /></label>
-        <label><span>주유처</span><input list="fuel-station-options" value={manual.station_name} onChange={(event) => setManual({ ...manual, station_name: event.target.value })} /><datalist id="fuel-station-options">{allStations.map((name) => <option key={name} value={name} />)}</datalist></label>
-        <label><span>메모</span><input value={manual.memo} onChange={(event) => setManual({ ...manual, memo: event.target.value })} placeholder="필요 시 입력" /></label>
-      </div>
-      {vehicleOptions.length > 0 && !quickVehicle && <div className="fuel-quick-vehicles"><span>차량·장비 빠른 선택</span><div>{vehicleOptions.filter((name) => !manual.vehicle_number.trim() || name.toLowerCase().includes(manual.vehicle_number.trim().toLowerCase())).slice(0,18).map((name)=><button type="button" key={name} onClick={() => selectQuickVehicle(name)}>{name}</button>)}</div><small>기존 명세서 기준으로 번호를 누르면 최근 현장·유종·단가·주유처를 자동 입력합니다.</small></div>}
-      {quickVehicle && <div className="fuel-quick-selected"><div><span>빠른 선택 적용</span><strong>{quickVehicle}</strong><small>최근 현장·유종·단가·주유처가 입력되었습니다.</small></div><button type="button" onClick={cancelQuickVehicle}>선택 취소</button></div>}
-      <div className="fuel-manual-total"><span>예상 합계</span><strong>{manual.quantity && manual.unit_price ? `${money(Math.round(asNumber(manual.quantity) * asNumber(manual.unit_price) * 1.1))}원` : "-"}</strong></div>
-      <div className="fuel-form-actions"><button type="button" onClick={() => { setManual(emptyManual()); setQuickVehicle(""); setQuickVehicleBackup(null); setManualOpen(false); }}>입력 닫기</button><button type="button" className="fuel-primary" disabled={saving} onClick={() => void saveManual()}>{saving ? "저장 중..." : "저장"}</button></div>
-    </section>}
+    <FuelEntry
+      supabase={supabase}
+      open={manualOpen}
+      referenceRecords={referenceRecords}
+      allSites={allSites}
+      allProducts={allProducts}
+      allStations={allStations}
+      vehicleOptions={vehicleOptions}
+      onClose={() => setManualOpen(false)}
+      onError={setError}
+      onSaved={async (savedMonth) => {
+        setManualOpen(false);
+        if (savedMonth !== month) setMonth(savedMonth);
+        else await load();
+      }}
+    />
 
-    {editingRecord && <section className="fuel-edit-panel">
-      <div className="fuel-section-title"><div><h3>주유내역 수정</h3><p>현장·유종·차량/장비번호·주유처를 수정할 수 있습니다.</p></div></div>
-      <div className="fuel-manual-grid">
-        <label><span>일자 *</span><input type="date" value={editingRecord.fuel_date} onChange={(event)=>setEditingRecord({ ...editingRecord, fuel_date:event.target.value })}/></label>
-        <label><span>현장</span><input list="fuel-edit-site-options" value={editingRecord.site_name} onChange={(event)=>setEditingRecord({ ...editingRecord, site_name:event.target.value })}/><datalist id="fuel-edit-site-options">{allSites.map((name)=><option key={name} value={name}/>)}</datalist></label>
-        <label><span>유종</span><input list="fuel-edit-product-options" value={editingRecord.product_name} onChange={(event)=>setEditingRecord({ ...editingRecord, product_name:event.target.value })}/><datalist id="fuel-edit-product-options">{allProducts.map((name)=><option key={name} value={name}/>)}</datalist></label>
-        <label><span>차량/장비번호 *</span><input list="fuel-edit-vehicle-options" value={editingRecord.vehicle_number} onChange={(event)=>setEditingRecord({ ...editingRecord, vehicle_number:event.target.value })}/><datalist id="fuel-edit-vehicle-options">{vehicleOptions.map((name)=><option key={name} value={name}/>)}</datalist></label>
-        <label><span>주유처</span><input list="fuel-edit-station-options" value={editingRecord.station_name} onChange={(event)=>setEditingRecord({ ...editingRecord, station_name:event.target.value })}/><datalist id="fuel-edit-station-options">{allStations.map((name)=><option key={name} value={name}/>)}</datalist></label>
-        <label><span>메모</span><input value={editingRecord.memo || ""} onChange={(event)=>setEditingRecord({ ...editingRecord, memo:event.target.value })}/></label>
-      </div>
-      <div className="fuel-form-actions"><button type="button" onClick={()=>setEditingRecord(null)}>취소</button><button type="button" className="fuel-primary" disabled={editSaving} onClick={()=>void saveEditedRecord()}>{editSaving ? "저장 중..." : "수정 저장"}</button></div>
-    </section>}
+    {editingRecord && <FuelRecordEditForm
+      record={editingRecord}
+      allSites={allSites}
+      allProducts={allProducts}
+      allStations={allStations}
+      vehicleOptions={vehicleOptions}
+      saving={editSaving}
+      onChange={setEditingRecord}
+      onCancel={() => setEditingRecord(null)}
+      onSave={() => void saveEditedRecord()}
+    />}
 
     {receiptTarget && <section className="fuel-edit-panel">
       <div className="fuel-section-title"><div><h3>영수증 첨부</h3><p>{receiptTarget.fuel_date} · {receiptTarget.vehicle_number} · {money(receiptTarget.total_amount)}원</p></div></div>
@@ -462,27 +383,20 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     </section>}
 
     {view !== "basics" && <>
-      <div className="fuel-toolbar">
-        <label><span>조회월</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
-        <label><span>현장</span><select value={site} onChange={(event) => setSite(event.target.value)}><option value="">전체 현장</option>{sites.map((name) => <option key={name}>{name}</option>)}</select></label>
-        <label><span>유종</span><select value={product} onChange={(event) => setProduct(event.target.value)}><option value="">전체 유종</option>{products.map((name) => <option key={name}>{name}</option>)}</select></label>
-        <label className="fuel-search"><span>차량/장비</span><div><Search size={15} /><input value={vehicleSearch} onChange={(event) => setVehicleSearch(event.target.value)} placeholder="차량번호 검색" /></div></label>
-      </div>
-
-      <div className="fuel-kpis">
-        <article><span>총 유류비</span><strong>{money(totals.total)}<small>원</small></strong></article>
-        <article><span>전체 수량</span><strong>{number(totals.quantity)}<small>L</small></strong></article>
-        <article><span>경유</span><strong>{number(totals.diesel)}<small>L</small></strong></article>
-        <article><span>요소수</span><strong>{number(totals.urea)}<small>L</small></strong></article>
-        <article><span>주유 횟수</span><strong>{number(totals.count)}<small>회</small></strong></article>
-      </div>
-
-      <nav className="fuel-tabs" aria-label="유류관리 보기">
-        <button type="button" aria-pressed={view === "records"} onClick={() => { setView("records"); setDetailTarget(null); }}>주유내역</button>
-        <button type="button" aria-pressed={view === "vehicle"} onClick={() => { setView("vehicle"); setDetailTarget(null); }}>차량·장비별</button>
-        <button type="button" aria-pressed={view === "site"} onClick={() => { setView("site"); setDetailTarget(null); }}>현장별</button>
-        <button type="button" aria-pressed={view === "station"} onClick={() => { setView("station"); setDetailTarget(null); }}>주유소별</button>
-      </nav>
+      <FuelFilters
+        month={month}
+        site={site}
+        sites={sites}
+        product={product}
+        products={products}
+        vehicleSearch={vehicleSearch}
+        onMonthChange={setMonth}
+        onSiteChange={setSite}
+        onProductChange={setProduct}
+        onVehicleSearchChange={setVehicleSearch}
+      />
+      <FuelKpis totals={totals} />
+      <FuelTabs view={view} onChange={(nextView) => { setView(nextView); setDetailTarget(null); }} />
     </>}
 
     {view === "basics" ? <section className="fuel-master-grid">
@@ -491,31 +405,29 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
         <div className="fuel-master-add"><input value={masterInputs[group.category]} onChange={(event)=>setMasterInputs((current)=>({ ...current, [group.category]:event.target.value }))} onKeyDown={(event)=>{ if(event.key==="Enter") void addMasterOption(group.category); }} placeholder={group.placeholder}/><button type="button" disabled={masterSaving===`add-${group.category}`} onClick={()=>void addMasterOption(group.category)}>추가</button></div>
         <div className="fuel-master-list">{masterOptions.filter((row)=>row.category===group.category).sort((a,b)=>Number(b.is_active)-Number(a.is_active)||natural(a.name,b.name)).map((row)=><div className={row.is_active ? "" : "is-inactive"} key={row.id}><input value={masterDrafts[row.id] ?? row.name} onChange={(event)=>setMasterDrafts((current)=>({ ...current, [row.id]:event.target.value }))}/><button type="button" disabled={masterSaving===row.id || (masterDrafts[row.id] ?? row.name).trim()===row.name} onClick={()=>void saveMasterOption(row)}>저장</button><button type="button" className="fuel-master-toggle" disabled={masterSaving===row.id} onClick={()=>void toggleMasterOption(row)}>{row.is_active ? "미사용" : "사용"}</button></div>)}</div>
       </article>)}
-    </section> : loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <>
-      <div className="fuel-table-wrap">
-        <table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>공급가액</th><th>부가세</th><th>합계금액</th><th>주유처</th><th></th></tr></thead><tbody>
-          {!filtered.length ? <tr><td colSpan={12} className="fuel-empty-cell">조건에 맞는 유류내역이 없습니다.</td></tr> : filtered.map((record) => <tr key={record.id}>
-            <td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number">{money(record.supply_amount)}</td><td className="fuel-number">{money(record.vat_amount)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td><td><div className="fuel-row-actions"><button className="fuel-icon-button" type="button" title={record.receipt_path ? "영수증 보기/교체" : "영수증 첨부"} onClick={() => setReceiptTarget({ ...record })}><Paperclip size={15} /></button><button className="fuel-icon-button" type="button" title="수정" onClick={() => setEditingRecord({ ...record })}><Pencil size={15} /></button><button className="fuel-icon-button" type="button" title="삭제" onClick={() => void removeRecord(record)}><Trash2 size={15} /></button></div></td>
-          </tr>)}
-        </tbody></table>
-      </div>
-      <div className="fuel-mobile-list">{!filtered.length ? <div className="fuel-empty">조건에 맞는 유류내역이 없습니다.</div> : filtered.map((record) => <article key={record.id}>
-        <header><div><strong>{record.vehicle_number}</strong><span>{record.site_name} · {record.product_name}</span></div><b>{record.fuel_date}</b></header>
-        <div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div>
-        <footer><span>{record.station_name}</span><div className="fuel-mobile-actions"><button type="button" onClick={() => setReceiptTarget({ ...record })}><Paperclip size={14} /> {record.receipt_path ? "영수증" : "첨부"}</button><button type="button" onClick={() => setEditingRecord({ ...record })}><Pencil size={14} /> 수정</button><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></div></footer>
-      </article>)}</div>
-    </> : <>
-      <div className="fuel-summary-list">
-        {(view === "vehicle" ? vehicleSummary : view === "site" ? siteSummary : stationSummary).length ? (view === "vehicle" ? vehicleSummary : view === "site" ? siteSummary : stationSummary).map((row, index) => <article key={row.name} className="fuel-summary-clickable" role="button" tabIndex={0} onClick={() => setDetailTarget({ type: view === "vehicle" ? "vehicle" : view === "site" ? "site" : "station", name: row.name })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setDetailTarget({ type: view === "vehicle" ? "vehicle" : view === "site" ? "site" : "station", name: row.name }); }}>
-          <span className="fuel-rank">{index + 1}</span><div><strong>{row.name}</strong><small>{number(row.quantity)} L · {row.count}회</small></div><b>{money(row.total)}원</b>
-        </article>) : <div className="fuel-empty">집계할 내역이 없습니다.</div>}
-      </div>
-      {detailTarget && <section className="fuel-drilldown">
-        <header><div><span>{detailTarget.type === "vehicle" ? "차량·장비 상세" : detailTarget.type === "site" ? "현장 상세" : "주유소 상세"}</span><h3>{detailTarget.name}</h3></div><button type="button" onClick={() => setDetailTarget(null)}>닫기</button></header>
-        <div className="fuel-drilldown-kpis"><span>주유 <b>{detailTotals.count}회</b></span><span>수량 <b>{number(detailTotals.quantity)} L</b></span><span>합계 <b>{money(detailTotals.total)}원</b></span></div>
-        <div className="fuel-table-wrap"><table className="fuel-table"><thead><tr><th>일자</th><th>현장</th><th>유종</th><th>차량/장비번호</th><th>횟수</th><th>수량</th><th>단가</th><th>합계금액</th><th>주유처</th><th>영수증</th></tr></thead><tbody>{detailRows.map((record) => <tr key={record.id}><td>{record.fuel_date}</td><td>{record.site_name}</td><td>{record.product_name}</td><td className="fuel-strong">{record.vehicle_number}</td><td>{record.usage_count}회</td><td className="fuel-number">{number(record.quantity)} L</td><td className="fuel-number">{money(record.unit_price)}</td><td className="fuel-number fuel-total">{money(record.total_amount)}</td><td>{record.station_name}</td><td><button className="fuel-icon-button" type="button" title={record.receipt_path ? "영수증 보기/교체" : "영수증 첨부"} onClick={() => setReceiptTarget({ ...record })}><Paperclip size={15} /></button></td></tr>)}</tbody></table></div>
-        <div className="fuel-mobile-list">{detailRows.map((record) => <article key={record.id}><header><div><strong>{record.vehicle_number}</strong><span>{record.site_name} · {record.product_name}</span></div><b>{record.fuel_date}</b></header><div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div><footer><span>{record.station_name}</span><div className="fuel-mobile-actions"><button type="button" onClick={() => setReceiptTarget({ ...record })}><Paperclip size={14} /> {record.receipt_path ? "영수증" : "첨부"}</button></div></footer></article>)}</div>
-      </section>}
-    </>}
+    </section> : loading ? <div className="fuel-empty">유류내역을 불러오는 중...</div> : view === "records" ? <FuelRecordList
+      filtered={filtered}
+      receiptBusy={receiptBusy}
+      mobileReceiptPreview={mobileReceiptPreview}
+      onEdit={setEditingRecord}
+      onDelete={removeRecord}
+      onToggleReceipt={toggleMobileReceipt}
+      onReplaceReceiptForRecord={replaceReceiptForRecord}
+      onDeleteReceiptForRecord={deleteReceiptForRecord}
+    /> : <FuelSummaryView
+      view={view}
+      vehicleSummary={vehicleSummary}
+      siteSummary={siteSummary}
+      stationSummary={stationSummary}
+      detailTarget={detailTarget}
+      detailRows={detailRows}
+      detailTotals={detailTotals}
+      onDetailTarget={setDetailTarget}
+      receiptBusy={receiptBusy}
+      mobileReceiptPreview={mobileReceiptPreview}
+      onToggleReceipt={toggleMobileReceipt}
+      onReplaceReceiptForRecord={replaceReceiptForRecord}
+      onDeleteReceiptForRecord={deleteReceiptForRecord}
+    />}
   </section>;
 }

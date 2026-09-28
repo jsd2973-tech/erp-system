@@ -1,6 +1,6 @@
 from pathlib import Path
 
-source = Path('src/features/fuel/FuelManagement.tsx')
+source = Path('src/features/fuel/FuelScreens.tsx')
 s = source.read_text()
 
 
@@ -13,8 +13,8 @@ def replace_once(old: str, new: str, label: str):
     s = s.replace(old, new, 1)
 
 replace_once(
-    'import { useEffect, useMemo, useRef, useState } from "react";',
-    'import { Fragment, useEffect, useMemo, useRef, useState } from "react";',
+    'import type { FuelDetailTarget, FuelRecord, FuelViewMode, SummaryRow } from "./fuelTypes";',
+    'import { Fragment } from "react";\nimport type { FuelDetailTarget, FuelRecord, FuelViewMode, SummaryRow } from "./fuelTypes";',
     'Fragment import',
 )
 
@@ -37,8 +37,8 @@ replace_once(
     'main desktop row fragment start',
 )
 
-main_row_end = '''          </tr>)}
-        </tbody>'''
+main_row_end = '''        </tr>)}
+      </tbody>'''
 main_preview = '''          </tr>{mobileReceiptPreview?.id === record.id && <tr className="fuel-desktop-receipt-row"><td colSpan={13}><div className="fuel-desktop-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div></td></tr>}</Fragment>)}
         </tbody>'''
 replace_once(main_row_end, main_preview, 'main desktop inline receipt')

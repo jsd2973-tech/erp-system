@@ -6,13 +6,15 @@ if "resolveFuelImportSite" not in fuel_import:
 
 p = Path('src/features/fuel/FuelManagement.tsx')
 s = p.read_text()
+fuel_screens_path = Path('src/features/fuel/FuelScreens.tsx')
+fuel_screens = fuel_screens_path.read_text()
 
 receipt_replacements = [
     (
 '''  const viewReceipt = async () => {
     if (!receiptTarget?.receipt_path) return;
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
@@ -28,7 +30,7 @@ receipt_replacements = [
     receiptWindow.document.title = "영수증 불러오는 중";
     receiptWindow.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">영수증을 불러오는 중입니다...</p>';
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) {
       receiptWindow.close();
@@ -59,21 +61,29 @@ receipt_replacements = [
     ),
 ]
 
-for old, new in receipt_replacements:
+for old, new in receipt_replacements[:1]:
     if new in s:
         continue
     if old not in s:
         raise SystemExit(f'fuel receipt patch anchor not found: {old[:80]}')
     s = s.replace(old, new, 1 if 'button type="button" onClick={() => setReceiptTarget' not in old else s.count(old))
 
-mobile_old = '<div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span></div>'
-mobile_new = '<div><span>수량 <strong>{number(record.quantity)} L</strong></span><span>단가 <strong>{money(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{money(record.total_amount)}원</strong></span><span>영수증 <strong className={record.receipt_path ? "fuel-receipt-mobile-attached" : ""}>{record.receipt_path ? "첨부됨" : "미첨부"}</strong></span></div>'
-if mobile_new not in s:
-    if s.count(mobile_old) < 2:
+for old, new in receipt_replacements[1:]:
+    if new in fuel_screens:
+        continue
+    if old not in fuel_screens:
+        raise SystemExit(f'fuel receipt screen patch anchor not found: {old[:80]}')
+    fuel_screens = fuel_screens.replace(old, new, 1 if 'button type="button" onClick={() => setReceiptTarget' not in old else fuel_screens.count(old))
+
+mobile_old = '<div><span>수량 <strong>{formatFuelNumber(record.quantity)} L</strong></span><span>단가 <strong>{formatFuelMoney(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{formatFuelMoney(record.total_amount)}원</strong></span></div>'
+mobile_new = '<div><span>수량 <strong>{formatFuelNumber(record.quantity)} L</strong></span><span>단가 <strong>{formatFuelMoney(record.unit_price)}원</strong></span><span>횟수 <strong>{record.usage_count}회</strong></span><span>합계 <strong>{formatFuelMoney(record.total_amount)}원</strong></span><span>영수증 <strong className={record.receipt_path ? "fuel-receipt-mobile-attached" : ""}>{record.receipt_path ? "첨부됨" : "미첨부"}</strong></span></div>'
+if mobile_new not in fuel_screens:
+    if fuel_screens.count(mobile_old) < 2:
         raise SystemExit('fuel receipt mobile summary anchors not found')
-    s = s.replace(mobile_old, mobile_new, 2)
+    fuel_screens = fuel_screens.replace(mobile_old, mobile_new, 2)
 
 p.write_text(s)
+fuel_screens_path.write_text(fuel_screens)
 
 css_path = Path('src/features/fuel/fuelManagement.css')
 css = css_path.read_text()

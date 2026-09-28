@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-source = Path("src/features/fuel/FuelManagement.tsx")
+source = Path("src/features/fuel/FuelEntry.tsx")
 s = source.read_text()
 
 
@@ -14,80 +14,40 @@ def add_before(anchor: str, addition: str, label: str):
     s = s.replace(anchor, addition + anchor, 1)
 
 
-lucide_import = 'import { Download, Eye, FileSpreadsheet, Fuel, Paperclip, Pencil, Plus, RefreshCcw, Search, Settings2, Trash2, Upload } from "lucide-react";\n'
-if 'import { Camera } from "lucide-react";' not in s:
-    if lucide_import not in s:
-        raise SystemExit("fuel OCR icon import anchor not found")
-    s = s.replace(lucide_import, lucide_import + 'import { Camera } from "lucide-react";\n', 1)
+if 'import { Camera, Upload } from "lucide-react";' not in s:
+    raise SystemExit("fuel OCR icon import anchor not found")
 
-statement_import = 'import { buildFuelStatementWorkbook, type FuelStatementParty } from "./fuelStatementExport";\n'
 fuel_ocr_type_import = 'import type { FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
-fuel_ocr_named_import = 'import { reconcileFuelReceiptOcr, type FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
+fuel_ocr_named_import = 'import type { FuelReceiptOcrResult } from "./fuelReceiptOcr";\n'
 if fuel_ocr_named_import not in s:
     if fuel_ocr_type_import in s:
         s = s.replace(fuel_ocr_type_import, fuel_ocr_named_import, 1)
     else:
-        if statement_import not in s:
+        fuel_record_import = 'import type { FuelRecord } from "./fuelTypes";\n'
+        if fuel_record_import not in s:
             raise SystemExit("fuel OCR type import anchor not found")
-        s = s.replace(statement_import, statement_import + fuel_ocr_named_import, 1)
-
-helper_anchor = 'const emptyManual = () => ({'
-helper_block = r'''const isFuelReceiptImage = (file: File) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || "");
-const isFuelReceiptPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
-const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("이미지를 읽지 못했습니다."));
-  reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
-  reader.readAsDataURL(file);
-});
-const compressFuelReceiptImage = (file: File): Promise<File> => new Promise((resolve) => {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const image = new Image();
-    image.onload = () => {
-      const maxSize = 1800;
-      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return resolve(file);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (!blob) return resolve(file);
-        resolve(new File([blob], "fuel-receipt-" + Date.now() + ".jpg", { type: "image/jpeg" }));
-      }, "image/jpeg", 0.8);
-    };
-    image.onerror = () => resolve(file);
-    image.src = String(reader.result || "");
-  };
-  reader.onerror = () => resolve(file);
-  reader.readAsDataURL(file);
-});
-const fuelReceiptExtension = (file: File) => {
-  const fromName = String(file.name || "").split(".").pop()?.toLowerCase() || "";
-  if (fromName && /^[a-z0-9]+$/.test(fromName) && fromName.length <= 8) return fromName;
-  if (file.type === "application/pdf") return "pdf";
-  if (file.type.startsWith("image/")) return "jpg";
-  return "bin";
-};
+        s = s.replace(fuel_record_import, fuel_record_import + fuel_ocr_named_import, 1)
+fuel_ocr_helper_import = '''import {
+  applyFuelReceiptOcrResult as mergeFuelReceiptOcrResult,
+  compressFuelReceiptImage,
+  createFuelOcrTouchedFields,
+  fileToFuelDataUrl,
+  isFuelReceiptImage,
+  isFuelReceiptPdf,
+  requestFuelReceiptOcr,
+  type FuelOcrField,
+} from "./fuelOcr";
 '''
-add_before(helper_anchor, helper_block, "fuel OCR helper")
+if fuel_ocr_helper_import.strip() not in s:
+    if fuel_ocr_named_import not in s:
+        raise SystemExit("fuel OCR helper import anchor not found")
+    s = s.replace(fuel_ocr_named_import, fuel_ocr_named_import + fuel_ocr_helper_import, 1)
 
-manual_anchor = 'export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PARTIES }: Props) {'
+manual_anchor = 'export default function FuelEntry('
 manual_block = r'''const emptyManualWithOcrFields = () => ({ ...emptyManual(), supply_amount: "", vat_amount: "", total_amount: "" });
-type ManualOcrField = "fuel_date" | "product_name" | "quantity" | "unit_price" | "supply_amount" | "vat_amount" | "total_amount" | "station_name";
+type ManualOcrField = FuelOcrField;
 type ManualReceipt = { file: File; previewUrl: string; name: string; mime: string };
-const newManualOcrTouched = (): Record<ManualOcrField, boolean> => ({
-  fuel_date: false,
-  product_name: false,
-  quantity: false,
-  unit_price: false,
-  supply_amount: false,
-  vat_amount: false,
-  total_amount: false,
-  station_name: false,
-});
+const newManualOcrTouched = createFuelOcrTouchedFields;
 
 '''
 add_before(manual_anchor, manual_block, "fuel OCR manual type")
@@ -96,7 +56,7 @@ manual_state = '  const [manual, setManual] = useState(emptyManual);'
 if manual_state in s:
     s = s.replace(manual_state, '  const [manual, setManual] = useState(emptyManualWithOcrFields);\n  const [manualReceipt, setManualReceipt] = useState<ManualReceipt | null>(null);\n  const [manualReceiptBusy, setManualReceiptBusy] = useState(false);\n  const [manualOcrState, setManualOcrState] = useState<"idle" | "analyzing" | "success" | "error">("idle");\n  const [manualOcrMessage, setManualOcrMessage] = useState("");', 1)
 
-receipt_ref_anchor = '  const receiptInput = useRef<HTMLInputElement>(null);\n'
+receipt_ref_anchor = '  const [saving, setSaving] = useState(false);\n'
 receipt_ref_block = '''  const manualCameraInput = useRef<HTMLInputElement>(null);
   const manualReceiptInput = useRef<HTMLInputElement>(null);
   const manualReceiptPreviewUrl = useRef("");
@@ -129,82 +89,16 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
   };
 
   const resetManualEntry = () => {
-    setManual(emptyManualWithOcrFields());
-    setQuickVehicle("");
-    setQuickVehicleBackup(null);
+    resetEntryFields();
     manualOcrTouched.current = newManualOcrTouched();
     clearManualReceipt();
   };
 
-  const fuelOcrFieldLabels = (result: FuelReceiptOcrResult) => [
-    result.fuelDate ? "주유일자" : "",
-    result.stationName ? "주유처" : "",
-    result.productName ? "유종" : "",
-    result.quantity != null ? "주유량" : "",
-    result.unitPrice != null ? "단가" : "",
-    result.supplyAmount != null ? "공급가액" : "",
-    result.vatAmount != null ? "부가세" : "",
-    result.totalAmount != null ? "합계금액" : "",
-  ].filter(Boolean);
-
   const applyFuelOcrResult = (result: FuelReceiptOcrResult) => {
-    const resultProduct = String(result.productName || manual.product_name || "").trim();
-    const contextUnitPrices = [
-      Number(manual.unit_price || 0),
-      ...referenceRecords
-        .filter((record) => !resultProduct || !record.product_name || record.product_name === resultProduct)
-        .map((record) => Number(record.unit_price || 0)),
-    ];
-    const normalizedResult = reconcileFuelReceiptOcr(result, contextUnitPrices);
-    const detectedLabels = fuelOcrFieldLabels(normalizedResult);
-    const hasAmountContext = result.totalAmount != null || result.supplyAmount != null;
-    const rejectedLabels = [
-      (result.quantity != null || hasAmountContext) && normalizedResult.quantity == null ? "주유량" : "",
-      (result.unitPrice != null || hasAmountContext) && normalizedResult.unitPrice == null ? "단가" : "",
-    ].filter(Boolean);
-    const manualOcrFieldByLabel: Record<string, ManualOcrField> = {
-      주유일자: "fuel_date",
-      주유처: "station_name",
-      유종: "product_name",
-      주유량: "quantity",
-      단가: "unit_price",
-      공급가액: "supply_amount",
-      부가세: "vat_amount",
-      합계금액: "total_amount",
-    };
-    const appliedLabels = detectedLabels.filter((label) => !manualOcrTouched.current[manualOcrFieldByLabel[label]]);
-    setManual((current) => ({
-      ...current,
-      ...(result.fuelDate && !manualOcrTouched.current.fuel_date ? { fuel_date: result.fuelDate } : {}),
-      ...(result.stationName && !manualOcrTouched.current.station_name ? { station_name: result.stationName } : {}),
-      ...(result.productName && !manualOcrTouched.current.product_name ? { product_name: result.productName } : {}),
-      ...(normalizedResult.quantity != null && !manualOcrTouched.current.quantity ? { quantity: String(normalizedResult.quantity) } : {}),
-      ...(normalizedResult.unitPrice != null && !manualOcrTouched.current.unit_price ? { unit_price: String(normalizedResult.unitPrice) } : {}),
-      ...(normalizedResult.supplyAmount != null && !manualOcrTouched.current.supply_amount ? { supply_amount: String(normalizedResult.supplyAmount) } : {}),
-      ...(normalizedResult.vatAmount != null && !manualOcrTouched.current.vat_amount ? { vat_amount: String(normalizedResult.vatAmount) } : {}),
-      ...(normalizedResult.totalAmount != null && !manualOcrTouched.current.total_amount ? { total_amount: String(normalizedResult.totalAmount) } : {}),
-    }));
-
-    if (!detectedLabels.length) {
-      setManualOcrState("error");
-      setManualOcrMessage("영수증에서 유류 항목을 확인하지 못했습니다. 차량·현장 선택값은 유지했습니다. 직접 입력해 주세요.");
-      return;
-    }
-    setManualOcrState("success");
-    if (rejectedLabels.length) {
-      setManualOcrMessage("영수증에서 " + detectedLabels.join("·") + "을(를) 자동 입력했습니다. " + rejectedLabels.join("·") + "은(는) 인쇄값과 금액 관계가 맞지 않아 자동 입력하지 않았습니다. 직접 확인 후 저장해 주세요.");
-      return;
-    }
-    if (!appliedLabels.length) {
-      setManualOcrMessage("영수증 분석 완료. 기존에 직접 입력한 값은 유지했습니다. 차량·현장 선택값도 유지했습니다. 확인 후 저장해 주세요.");
-      return;
-    }
-    const missingLabels = detectedLabels.filter((label) => !appliedLabels.includes(label));
-    setManualOcrMessage(
-      missingLabels.length
-        ? "영수증에서 " + appliedLabels.join("·") + "을(를) 자동 입력했습니다. " + missingLabels.join("·") + "은(는) 기존 입력값을 유지했습니다. 차량·현장 선택값은 유지했습니다. 확인 후 저장해 주세요."
-        : "영수증에서 주유일자·주유처·유종·주유량·단가·공급가액·부가세·합계금액을 자동 입력했습니다. 차량·현장 선택값은 유지했습니다. 확인 후 저장해 주세요.",
-    );
+    const merged = mergeFuelReceiptOcrResult(result, manual, manualOcrTouched.current, referenceRecords);
+    setManual((current) => ({ ...current, ...merged.patch }));
+    setManualOcrState(merged.state);
+    setManualOcrMessage(merged.message);
   };
 
   const analyzeFuelReceipt = async (file: File) => {
@@ -213,18 +107,9 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) throw new Error("로그인 세션을 확인하지 못했습니다.");
 
-    const dataUrl = await fileToDataUrl(file);
-    const response = await fetch("/api/receipt-ocr", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer " + data.session.access_token,
-      },
-      body: JSON.stringify({ dataUrl, mode: "fuel" }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(String(body?.error || "영수증 OCR 분석에 실패했습니다."));
-    applyFuelOcrResult(body as FuelReceiptOcrResult);
+    const dataUrl = await fileToFuelDataUrl(file);
+    const result = await requestFuelReceiptOcr(data.session.access_token, dataUrl);
+    applyFuelOcrResult(result);
   };
 
   const handleManualReceiptChange = async (event: { currentTarget: HTMLInputElement }) => {
@@ -235,17 +120,17 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
     const image = isFuelReceiptImage(file);
     const pdf = isFuelReceiptPdf(file);
     if (!image && !pdf) {
-      setError("영수증은 사진 또는 PDF 파일만 올릴 수 있습니다.");
+      onError("영수증은 사진 또는 PDF 파일만 올릴 수 있습니다.");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setError("영수증 파일은 10MB 이하만 올릴 수 있습니다.");
+      onError("영수증 파일은 10MB 이하만 올릴 수 있습니다.");
       return;
     }
 
     manualReceiptBusyRef.current = true;
     setManualReceiptBusy(true);
-    setError("");
+    onError("");
     if (manualReceiptPreviewUrl.current) URL.revokeObjectURL(manualReceiptPreviewUrl.current);
     const previewUrl = URL.createObjectURL(file);
     manualReceiptPreviewUrl.current = previewUrl;
@@ -269,50 +154,29 @@ handlers_block = r'''  const updateManualField = (field: keyof ReturnType<typeof
 add_before(handlers_anchor, handlers_block, "fuel OCR handlers")
 
 upload_anchor = '  const saveManual = async () => {'
-upload_block = r'''  const uploadReceiptForNewRecord = async (recordId: string, file: File): Promise<string | null> => {
-    const extension = fuelReceiptExtension(file);
-    const nextPath = "fuel/" + recordId + "/" + Date.now() + "-" + crypto.randomUUID() + "." + extension;
-    const { error: uploadError } = await supabase.storage.from("fuel-receipts").upload(nextPath, file, {
-      upsert: false,
-      contentType: file.type || (isFuelReceiptPdf(file) ? "application/pdf" : "image/jpeg"),
-    });
-    if (uploadError) return "영수증 업로드에 실패했습니다. (" + uploadError.message + ")";
-
-    const patch = {
-      receipt_path: nextPath,
-      receipt_name: file.name || "영수증",
-      receipt_mime_type: file.type || (isFuelReceiptPdf(file) ? "application/pdf" : "image/jpeg"),
-      receipt_uploaded_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const { error: updateError } = await supabase.from("fuel_records").update(patch).eq("id", recordId);
-    if (updateError) {
-      await supabase.storage.from("fuel-receipts").remove([nextPath]);
-      return "영수증 정보를 저장하지 못했습니다. (" + updateError.message + ")";
-    }
-    return null;
-  };
+upload_block = r'''  const uploadReceiptForNewRecord = (recordId: string, file: File): Promise<string | null> =>
+    uploadFuelReceiptForNewRecord(supabase, recordId, file);
 
 '''
 add_before(upload_anchor, upload_block, "fuel OCR upload")
 
 save_start = '  const saveManual = async () => {'
-save_end = '\n  const saveEditedRecord = async () => {'
+save_end = '\n\n  return open ? <section className="fuel-manual-panel">'
 save_start_index = s.find(save_start)
 save_end_index = s.find(save_end, save_start_index)
 if save_start_index < 0 or save_end_index < 0:
     raise SystemExit("fuel OCR saveManual block not found")
 save_block = r'''  const saveManual = async () => {
-    const quantity = asNumber(manual.quantity);
-    const unitPrice = asNumber(manual.unit_price);
+    const quantity = asFuelNumber(manual.quantity);
+    const unitPrice = asFuelNumber(manual.unit_price);
     if (!manual.fuel_date || !manual.vehicle_number.trim() || quantity <= 0 || unitPrice <= 0) {
-      setError("일자, 차량/장비번호, 수량, 단가를 확인해 주세요.");
+      onError("일자, 차량/장비번호, 수량, 단가를 확인해 주세요.");
       return;
     }
     const calculatedSupply = calculateFuelAmounts(quantity, unitPrice).supply;
-    const supply = manual.supply_amount.trim() ? Math.round(asNumber(manual.supply_amount)) : calculatedSupply;
-    const vat = manual.vat_amount.trim() ? Math.round(asNumber(manual.vat_amount)) : Math.round(supply * 0.1);
-    const total = manual.total_amount.trim() ? Math.round(asNumber(manual.total_amount)) : supply + vat;
+    const supply = manual.supply_amount.trim() ? Math.round(asFuelNumber(manual.supply_amount)) : calculatedSupply;
+    const vat = manual.vat_amount.trim() ? Math.round(asFuelNumber(manual.vat_amount)) : Math.round(supply * 0.1);
+    const total = manual.total_amount.trim() ? Math.round(asFuelNumber(manual.total_amount)) : supply + vat;
     const recordId = crypto.randomUUID();
     const payload = {
       id: recordId,
@@ -333,30 +197,29 @@ save_block = r'''  const saveManual = async () => {
       memo: manual.memo.trim(),
     };
     setSaving(true);
-    const { error: saveError } = await supabase.from("fuel_records").insert(payload);
+    const { error: saveError } = await insertFuelRecord(supabase, payload);
     if (saveError) {
       setSaving(false);
-      setError("유류내역 저장에 실패했습니다. (" + saveError.message + ")");
+      onError("유류내역 저장에 실패했습니다. (" + saveError.message + ")");
       return;
     }
     const receiptError = manualReceipt?.file ? await uploadReceiptForNewRecord(recordId, manualReceipt.file) : null;
     setSaving(false);
     resetManualEntry();
-    setManualOpen(false);
-    if (payload.fuel_date.slice(0, 7) !== month) setMonth(payload.fuel_date.slice(0, 7));
-    else await load();
-    if (receiptError) setError("유류내역은 저장됐지만 " + receiptError + " 목록에서 다시 첨부해 주세요.");
+    onClose();
+    await onSaved(payload.fuel_date.slice(0, 7));
+    if (receiptError) onError("유류내역은 저장됐지만 " + receiptError + " 목록에서 다시 첨부해 주세요.");
   };
 '''
 s = s[:save_start_index] + save_block + s[save_end_index:]
 
-manual_jsx_start = '    {manualOpen && <section className="fuel-manual-panel">'
-manual_jsx_end = '\n\n    {editingRecord && <section className="fuel-edit-panel">'
+manual_jsx_start = '  return open ? <section className="fuel-manual-panel">'
+manual_jsx_end = '\n  </section> : null;'
 manual_jsx_start_index = s.find(manual_jsx_start)
 manual_jsx_end_index = s.find(manual_jsx_end, manual_jsx_start_index)
 if manual_jsx_start_index < 0 or manual_jsx_end_index < 0:
     raise SystemExit("fuel OCR manual JSX block not found")
-manual_jsx = r'''    {manualOpen && <section className="fuel-manual-panel">
+manual_jsx = r'''  return open ? <section className="fuel-manual-panel">
       <div className="fuel-section-title"><div><h3>유류 직접 입력</h3><p>차량을 먼저 선택한 뒤 영수증 사진을 첨부하면 유류 항목을 자동 입력합니다. 확인·수정 후 저장하세요.</p></div></div>
       <div className="fuel-manual-grid">
         <label><span>주유일자 *</span><input type="date" value={manual.fuel_date} onChange={(event) => updateManualField("fuel_date", event.target.value)} /></label>
@@ -389,9 +252,8 @@ manual_jsx = r'''    {manualOpen && <section className="fuel-manual-panel">
         {manualOcrMessage && <div className={"fuel-ocr-status is-" + manualOcrState} role="status">{manualOcrState === "analyzing" && <span className="fuel-ocr-spinner" aria-hidden="true" />}{manualOcrMessage}</div>}
       </div>
 
-      <div className="fuel-manual-total"><span>예상 합계</span><strong>{manual.total_amount.trim() ? money(asNumber(manual.total_amount)) + "원" : manual.quantity && manual.unit_price ? money(Math.round(asNumber(manual.quantity) * asNumber(manual.unit_price) * 1.1)) + "원" : "-"}</strong></div>
-      <div className="fuel-form-actions"><button type="button" onClick={() => { resetManualEntry(); setManualOpen(false); }}>입력 닫기</button><button type="button" className="fuel-primary" disabled={saving || manualReceiptBusy} onClick={() => void saveManual()}>{saving ? "저장 중..." : "확인 후 저장"}</button></div>
-    </section>}'''
+      <div className="fuel-manual-total"><span>예상 합계</span><strong>{manual.total_amount.trim() ? formatFuelMoney(asFuelNumber(manual.total_amount)) + "원" : manual.quantity && manual.unit_price ? formatFuelMoney(Math.round(asFuelNumber(manual.quantity) * asFuelNumber(manual.unit_price) * 1.1)) + "원" : "-"}</strong></div>
+      <div className="fuel-form-actions"><button type="button" onClick={() => { resetManualEntry(); onClose(); }}>입력 닫기</button><button type="button" className="fuel-primary" disabled={saving || manualReceiptBusy} onClick={() => void saveManual()}>{saving ? "저장 중..." : "확인 후 저장"}</button></div>'''
 s = s[:manual_jsx_start_index] + manual_jsx + s[manual_jsx_end_index:]
 
 source.write_text(s)

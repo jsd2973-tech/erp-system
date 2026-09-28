@@ -29,7 +29,7 @@ popup_view = '''  const viewReceipt = async () => {
     receiptWindow.document.title = "영수증 불러오는 중";
     receiptWindow.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">영수증을 불러오는 중입니다...</p>';
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) {
       receiptWindow.close();
@@ -42,7 +42,7 @@ popup_view = '''  const viewReceipt = async () => {
 inline_view = '''  const viewReceipt = async () => {
     if (!receiptTarget?.receipt_path) return;
     setReceiptBusy(true); setError(""); setReceiptPreviewUrl("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(receiptTarget.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
     setReceiptPreviewUrl(data.signedUrl);
@@ -59,7 +59,7 @@ inline_view = '''  const viewReceipt = async () => {
       return;
     }
     setReceiptBusy(true); setError("");
-    const { data, error: signedError } = await supabase.storage.from("fuel-receipts").createSignedUrl(record.receipt_path, 300);
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, record.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
     setMobileReceiptPreview({ id: record.id, url: data.signedUrl, mime: record.receipt_mime_type || "", name: record.receipt_name || "영수증" });
@@ -73,8 +73,8 @@ replace_once(
 )
 
 replace_once(
-    '    setReceiptTarget({ ...receiptTarget, receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null });\n    setReceiptBusy(false);',
-    '    setReceiptTarget({ ...receiptTarget, receipt_path: null, receipt_name: null, receipt_mime_type: null, receipt_uploaded_at: null });\n    setReceiptPreviewUrl("");\n    setMobileReceiptPreview(null);\n    setReceiptBusy(false);',
+    '    setReceiptTarget({ ...receiptTarget, ...patch });\n    setReceiptBusy(false);',
+    '    setReceiptTarget({ ...receiptTarget, ...patch });\n    setReceiptPreviewUrl("");\n    setMobileReceiptPreview(null);\n    setReceiptBusy(false);',
     'delete preview reset',
 )
 
@@ -90,6 +90,10 @@ replace_once(
     'receipt preview panel',
 )
 
+source.write_text(s)
+fuel_screens_path = Path('src/features/fuel/FuelScreens.tsx')
+s = fuel_screens_path.read_text()
+
 mobile_button_old = '<button type="button" onClick={() => setReceiptTarget({ ...record })}><Paperclip size={14} /> {record.receipt_path ? "영수증 보기" : "영수증 첨부"}</button>'
 mobile_button_new = '<button type="button" disabled={receiptBusy} onClick={() => void toggleMobileReceipt(record)}><Paperclip size={14} /> {record.receipt_path ? (mobileReceiptPreview?.id === record.id ? "영수증 닫기" : "영수증 보기") : "영수증 첨부"}</button>'
 if mobile_button_new not in s:
@@ -97,7 +101,7 @@ if mobile_button_new not in s:
         raise SystemExit('mobile receipt buttons not found')
     s = s.replace(mobile_button_old, mobile_button_new, 2)
 
-main_footer_old = '''        <footer><span>{record.station_name}</span><div className="fuel-mobile-actions">{MOBILE_BUTTON}<button type="button" onClick={() => setEditingRecord({ ...record })}><Pencil size={14} /> 수정</button><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></div></footer>'''.replace('{MOBILE_BUTTON}', mobile_button_new)
+main_footer_old = '''      <footer><span>{record.station_name}</span><div className="fuel-mobile-actions">{MOBILE_BUTTON}<button type="button" onClick={() => setEditingRecord({ ...record })}><Pencil size={14} /> 수정</button><button type="button" onClick={() => void removeRecord(record)}><Trash2 size={14} /> 삭제</button></div></footer>'''.replace('{MOBILE_BUTTON}', mobile_button_new)
 main_footer_new = main_footer_old + '''\n        {mobileReceiptPreview?.id === record.id && <div className="fuel-mobile-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div>}'''
 replace_once(main_footer_old, main_footer_new, 'main mobile inline receipt')
 
@@ -105,7 +109,7 @@ detail_footer_old = '''<footer><span>{record.station_name}</span><div className=
 detail_footer_new = detail_footer_old + '''{mobileReceiptPreview?.id === record.id && <div className="fuel-mobile-receipt-inline">{mobileReceiptPreview.mime === "application/pdf" || /\\.pdf$/i.test(mobileReceiptPreview.name) ? <iframe src={mobileReceiptPreview.url} title="영수증 PDF 미리보기" /> : <img src={mobileReceiptPreview.url} alt={mobileReceiptPreview.name} />}</div>}'''
 replace_once(detail_footer_old, detail_footer_new, 'detail mobile inline receipt')
 
-source.write_text(s)
+fuel_screens_path.write_text(s)
 
 css_path = Path('src/features/fuel/fuelManagement.css')
 css = css_path.read_text()
