@@ -3,6 +3,7 @@ export type BidSourceFilter = "all" | "g2b" | "lh";
 export type BidLoadState = "idle" | "normal" | "partial" | "failed";
 export type BidKeywordKind = "include" | "exclude";
 export type BidApiTarget = "g2b" | "lh";
+export type BidUserRole = "admin" | "office" | "field" | "dispatch_manager";
 
 export type BidNotice = {
   id: string;
