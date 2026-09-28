@@ -5,6 +5,26 @@ import { Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factor
 import DispatchPage from "./features/dispatch/DispatchPage";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
+import {
+  BID_FOLLOW_TODAY_KEY,
+  BID_REGION_LABELS,
+  BID_SEEN_NOTICE_KEY,
+  filterBidNotices,
+  formatBidAmount,
+  formatBidDate,
+  getBidDeadlineBadge,
+  getBidLoadLabel,
+  getBidQuickRange,
+  isBidNoticeNew,
+  toBidDateInput,
+} from "./features/bidding/biddingModel";
+import type {
+  BidDiagnostics,
+  BidLoadState,
+  BidNotice,
+  BidRegionFilter,
+  BidSourceFilter,
+} from "./features/bidding/biddingTypes";
 import type { CardUse } from "./features/card/cardTypes";
 import { normalizeCardUse } from "./features/card/cardModel";
 import { createCardService } from "./features/card/cardService";
@@ -8559,91 +8579,8 @@ function Home({
 
 
 
-type BidRegionFilter = "local" | "all" | "daejeon" | "sejong" | "chungnam";
-type BidLoadState = "idle" | "normal" | "partial" | "failed";
-type BidNotice = {
-  id: string;
-  source: string;
-  businessType: string;
-  bidNo: string;
-  title: string;
-  agency: string;
-  regionText?: string;
-  matchedBy?: string[];
-  noticeDate: string;
-  deadline: string;
-  amount: number;
-  url: string;
-  status?: "진행중" | "마감";
-  isNew?: boolean;
-  deadlineBadge?: string;
-};
-type BidSourceStatus = {
-  status: "normal" | "partial" | "failed";
-  failedCalls?: number;
-  failedPages?: number;
-  truncated?: boolean;
-};
-type BidDiagnostics = {
-  receivedCount: number;
-  matchedCount: number;
-  failedCalls: number;
-  failedPages: number;
-  truncated: boolean;
-  partial: boolean;
-  sourceStatus: Record<string, BidSourceStatus>;
-};
-
-const BID_REGION_LABELS: Record<BidRegionFilter, string> = {
-  local: "우리 지역",
-  all: "전체 지역",
-  daejeon: "대전",
-  sejong: "세종",
-  chungnam: "충남",
-};
-
-const BID_REGION_KEYWORDS: Record<Exclude<BidRegionFilter, "local" | "all">, string[]> = {
-  daejeon: ["대전", "대전광역시"],
-  sejong: ["세종", "세종특별자치시"],
-  chungnam: [
-    "충남", "충청남도", "천안", "공주", "보령", "아산", "서산", "논산", "계룡", "당진",
-    "금산", "부여", "서천", "청양", "홍성", "예산", "태안",
-  ],
-};
-
-const BID_FOLLOW_TODAY_KEY = "erp_bid_follow_today_v1";
-const BID_SEEN_NOTICE_KEY = "erp_bid_seen_notice_ids_v1";
-
-const toBidDateInput = (date: Date) => {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-};
-
-const getBidQuickRange = (days: number) => {
-  const toKey = toBidDateInput(new Date());
-  const to = new Date(`${toKey}T00:00:00+09:00`);
-  const from = new Date(to.getTime() - Math.max(0, days - 1) * 86400000);
-  return { from: toBidDateInput(from), to: toKey };
-};
-
-const getBidDeadlineBadge = (deadline: string, status?: string) => {
-  if (status === "마감" || !deadline) return "";
-  const timestamp = new Date(deadline.trim().replace(/\//g, "-").replace(" ", "T")).getTime();
-  if (!Number.isFinite(timestamp)) return "";
-  const remainingDays = Math.ceil((timestamp - Date.now()) / 86400000);
-  if (remainingDays <= 0) return "오늘 마감";
-  if (remainingDays <= 2) return `D-${remainingDays}`;
-  return "";
-};
-
 function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
-  const [source, setSource] = useState<"all" | "g2b" | "lh">("all");
+  const [source, setSource] = useState<BidSourceFilter>("all");
   const [search, setSearch] = useState("");
   const [includeInput, setIncludeInput] = useState("");
   const [excludeInput, setExcludeInput] = useState("");
@@ -8781,7 +8718,7 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
       const seenIdSet = new Set(seenIds);
       const withBadges: BidNotice[] = merged.map((notice: BidNotice) => ({
         ...notice,
-        isNew: hasSeenHistory && !seenIdSet.has(notice.id),
+        isNew: isBidNoticeNew(notice.id, seenIdSet, hasSeenHistory),
         deadlineBadge: getBidDeadlineBadge(notice.deadline, notice.status),
       }));
       try {
@@ -8885,31 +8822,8 @@ function BidNoticePage({ currentRole }: { currentRole: UserRole }) {
     setBidFilters((current) => ({ ...current, [key]: value }));
   };
 
-  const matchesBidRegion = (notice: { agency: string; regionText?: string }) => {
-    if (bidFilters.region === "all") return true;
-    // 실제 참가제한·납품·구역 관련 필드를 우선 사용합니다.
-    // 해당 필드를 내려주지 않는 공고는 발주기관명으로 지역을 보완해
-    // 지역 공고가 화면에서 전부 사라지지 않도록 합니다.
-    const regionText = String(notice.regionText || "").trim().toLowerCase();
-    const text = regionText || String(notice.agency || "").trim().toLowerCase();
-    const matches = (region: "daejeon" | "sejong" | "chungnam") =>
-      BID_REGION_KEYWORDS[region].some((keyword) => text.includes(keyword.toLowerCase()));
-    return bidFilters.region === "local"
-      ? matches("daejeon") || matches("sejong") || matches("chungnam")
-      : matches(bidFilters.region);
-  };
-
-  const visibleBidNotices = bidNotices.filter((notice) => {
-    if (source === "g2b" && notice.source !== "나라장터") return false;
-    if (source === "lh" && notice.source !== "LH") return false;
-    if (!matchesBidRegion(notice)) return false;
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) return true;
-    return `${notice.title} ${notice.agency} ${notice.bidNo}`.toLowerCase().includes(keyword);
-  });
-  const formatBidAmount = (amount: number) => amount > 0 ? `${amount.toLocaleString("ko-KR")}원` : "금액 미공개";
-  const formatBidDate = (value: string) => value ? value.slice(0, 16) : "미정";
-  const bidLoadLabel = bidLoadState === "failed" ? "조회실패" : bidLoadState === "partial" ? "일부조회" : bidLoadState === "normal" ? "연동 정상" : "조회 준비";
+  const visibleBidNotices = filterBidNotices(bidNotices, source, bidFilters.region, search);
+  const bidLoadLabel = getBidLoadLabel(bidLoadState);
   const bidSourceLabels: Record<string, string> = { g2b: "나라장터", lh: "LH" };
 
   return (
