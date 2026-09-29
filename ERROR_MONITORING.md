@@ -116,13 +116,21 @@ is deferred; bundled filename/line/column and the release commit are retained.
 `tests/error-monitoring.test.mjs` covers no-DSN/development/invalid-DSN behavior,
 idempotent init, exception/message capture, context reset, SDK failure isolation,
 all sensitive data categories including free text and unknown fields, transport
-attachment/non-error blocking, and the real Sentry boundary's fallback/reload path.
+attachment/non-error blocking, the real Sentry boundary's fallback/reload path,
+and the actual SDK's event/attachment/deduplication pipeline with a mock transport
+(no remote Sentry requests).
 
 Required checks remain `npm ci`, `npm run build`, the existing CI build-clean
 guard, `npm run test:unit`, `npm run test:e2e:typecheck`, full browser E2E and
 `git diff --check`. Browser tests use the existing dedicated test Supabase project
 and GitHub secrets. Production DB data/schema, migrations, OCR, GPS and ERP
 business logic are unchanged.
+
+The initial CI dispatch run passed every workflow assertion but reached the
+45-second test deadline during fixture cleanup (verified from its trace).
+`dispatch-driver-flow.spec.ts` grants 30 additional seconds only on entering
+`finally`, preserving the workflow/action/assertion deadlines, all checks,
+cleanup operations, and zero retries. No tests are skipped or removed.
 
 References: [React ErrorBoundary](https://docs.sentry.io/platforms/javascript/guides/react/features/error-boundary/),
 [SDK options and data collection](https://docs.sentry.io/platforms/javascript/guides/react/configuration/options/),

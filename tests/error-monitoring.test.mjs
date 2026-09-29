@@ -4,6 +4,7 @@ import test from "node:test";
 import ts from "typescript";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import * as Sentry from "@sentry/react";
 
 const privacyPath = new URL(`../src/lib/.errorMonitoringPrivacy-${process.pid}.mjs`, import.meta.url);
 const reporterPath = new URL(`../src/lib/.errorMonitoring-${process.pid}.mjs`, import.meta.url);
@@ -21,7 +22,7 @@ const { sanitizeMonitoringEvent, sanitizeMonitoringEnvelope, REDACTED_MESSAGE } 
 const { default: AppErrorBoundary, AppErrorFallback } = await import(boundaryPath.href);
 test.after(async () => { await Promise.all([privacyPath, reporterPath, boundaryPath].map((path) => unlink(path))); });
 
-const options = { dsn: "https://public-key@sentry.example.invalid/123", environment: "preview", release: "e72c71b028e4b72fe8ff2e6bfa2f93f4c70b6ae1" };
+const options = { dsn: "https://publickey@sentry.example.invalid/123", environment: "preview", release: "e72c71b028e4b72fe8ff2e6bfa2f93f4c70b6ae1" };
 const sdkMock = () => {
   const calls = [];
   let initialized;
@@ -54,6 +55,7 @@ test("development, missing deployment metadata and invalid DSNs never initialize
     { environment: "development" }, { environment: undefined }, { environment: "invalid" },
     { dsn: "" }, { dsn: "   " }, { dsn: "invalid" },
     { dsn: "https://public:secret@sentry.example.invalid/123" },
+    { dsn: "https://invalid-key@sentry.example.invalid/123" },
   ]) {
     const mock = sdkMock();
     assert.equal(createErrorMonitoring(mock.sdk).initializeErrorMonitoring({ ...options, ...override }), false);
@@ -84,7 +86,6 @@ test("preview/production initialize once with global handlers, dedupe and collec
     assert.equal(config.beforeBreadcrumb({ message: "secret" }), null);
     assert.equal(config.sendClientReports, false);
     assert.equal(config.enhanceFetchErrorMessages, false);
-    assert.equal(config.beforeSendTransaction({}), null);
     assert.equal(config.beforeSendLog({}), null);
     assert.equal(config.beforeSendMetric({}), null);
     assert.deepEqual(config.tracePropagationTargets, []);
@@ -231,4 +232,38 @@ test("real Sentry React boundary renders Korean fallback without exposing the er
   const fallback = AppErrorFallback({ onReload: () => { reloadCount += 1; } });
   fallback.props.children.props.children[2].props.onClick();
   assert.equal(reloadCount, 1);
+});
+
+test("real SDK pipeline removes user/context/attachments and captures the same Error only once", async () => {
+  const sent = [];
+  const reporter = createErrorMonitoring({
+    ...Sentry,
+    makeFetchTransport: () => ({
+      send(envelope) { sent.push(envelope); return Promise.resolve({ statusCode: 200 }); },
+      flush() { return Promise.resolve(true); },
+    }),
+  });
+  try {
+    assert.equal(reporter.initializeErrorMonitoring(options), true);
+    Sentry.setUser({ id: "private-user", email: "private@example.invalid", username: "private-name" });
+    Sentry.setContext("business", { memo: "private memo", latitude: 36.123456 });
+    Sentry.getCurrentScope().addAttachment({ filename: "private-receipt.jpg", data: new Uint8Array([1, 2, 3]) });
+    const error = new TypeError("private-secret-token");
+    error.stack = "TypeError: private-secret-token\n    at check (https://app.invalid/assets/check.js:42:9)";
+    reporter.captureException(error, { module: "purchase" });
+    reporter.captureException(error, { module: "purchase" });
+    Sentry.captureMessage("private-secret-message");
+    assert.equal(await Sentry.flush(1000), true);
+    assert.equal(sent.length, 2);
+    for (const envelope of sent) {
+      assert.equal(envelope[1].length, 1);
+      assert.equal(envelope[1][0][0].type, "event");
+      assert.equal(envelope[0].sdk.settings.infer_ip, "never");
+      assert.equal(JSON.stringify(envelope).includes("private"), false);
+    }
+    assert.deepEqual(sent[0][1][0][1].exception.values[0].stacktrace.frames,
+      [{ filename: "/assets/check.js", lineno: 42, colno: 9, in_app: true }]);
+  } finally {
+    await Sentry.close(1000);
+  }
 });

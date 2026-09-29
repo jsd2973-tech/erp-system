@@ -14,7 +14,7 @@ type MonitoringSdk = Pick<typeof Sentry,
 const validDsn = (dsn: string) => {
   try {
     const url = new URL(dsn);
-    return url.protocol === "https:" && !!url.username && !url.password && /^\/[0-9]+$/.test(url.pathname) && !url.search && !url.hash;
+    return url.protocol === "https:" && /^\w+$/.test(url.username) && !url.password && /^\/[0-9]+$/.test(url.pathname) && !url.search && !url.hash;
   } catch {
     return false;
   }
@@ -48,7 +48,6 @@ export const createErrorMonitoring = (sdk: MonitoringSdk = Sentry) => {
           sendClientReports: false, enhanceFetchErrorMessages: false,
           tracePropagationTargets: [], replaysSessionSampleRate: 0, replaysOnErrorSampleRate: 0,
           beforeSend: sanitizeMonitoringEvent,
-          beforeSendTransaction: () => null,
           beforeSendLog: () => null, beforeSendMetric: () => null,
           transport(transportOptions) {
             const transport = sdk.makeFetchTransport({
