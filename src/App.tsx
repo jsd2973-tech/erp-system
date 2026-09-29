@@ -17,6 +17,7 @@ import { isSupabaseTestMode, supabase } from "./supabaseClient";
 import {
   cleanAccountNumber,
   fromPurchase,
+  filterPurchases,
   getPurchaseItemSummary,
   isPurchasePaid,
   maintenancePurchaseLinkIdentity,
@@ -3476,22 +3477,7 @@ export default function App() {
     }
   };
 
-  const filteredPurchases = purchases
-    .filter(
-      (p) =>
-        (!purchaseSearch.from || (p.date || "") >= purchaseSearch.from) &&
-        (!purchaseSearch.to || (p.date || "") <= purchaseSearch.to) &&
-        (!purchaseSearch.vendor || p.vendor.includes(purchaseSearch.vendor)) &&
-        (!purchaseSearch.warehouse || p.warehouse.includes(purchaseSearch.warehouse)) &&
-        (!purchaseSearch.item || p.rows.some((r) => r.item.includes(purchaseSearch.item))) &&
-        (!purchaseSearch.taxInvoice || (purchaseSearch.taxInvoice === "received" ? Boolean(p.taxInvoiceReceived) : !p.taxInvoiceReceived)) &&
-        (!purchaseSearch.paymentStatus || (purchaseSearch.paymentStatus === "paid" ? isPurchasePaid(p) : !isPurchasePaid(p)))
-    )
-    .sort((a, b) => {
-      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
-      if (dateCompare !== 0) return dateCompare;
-      return String(b.id || "").localeCompare(String(a.id || ""));
-    });
+  const filteredPurchases = filterPurchases(purchases, purchaseSearch);
 
   const updateMaintItem = (index: number, key: keyof MaintItem, value: any, selectedItem?: Partial<Item>) => {
     let found: Partial<Item> | undefined;
