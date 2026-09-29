@@ -1,13 +1,253 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×mûÙ:-jZ.¶›­–)Ş³Vg&öÒF†Æ–"–×÷'BF€¦–×÷'B&P  ¥$ôõBÒF‚…õöf–ÆUõò’ç&W6öÇfR‚’ç&VçG5³Ğ¤õD‚Ò$ôõBò'7&2"ò$çG7‚ ¦ÒõD‚ç&VE÷FW‡B†Væ6öF–æsÒ'WFbÓ‚" ¤Ô$´U"Ò"ò¢ÓÓÓÓÒ&6–2Ö7FW"FF¢6ÆVâÆ–÷WBÓÓÓÓÒ¢ò ¦–bÔ$´U"–â ¢&–çB‚.«‹ËH¹;ºÒ«;^ØkR¹INÉéÉÛ‚ØÊË™«ÉÛNºû‚ÊÉª¹	ÉkBÉèÈ«^¸¸¸ºBâ"¢&—6R7—7FVÔW†—Bƒ  ¦FVb&WÆ6Uööæ6R‡6÷W&6S¢7G"ÂöÆC¢7G"ÂæWs¢7G"ÂÆ&VÃ¢7G"’Óâ7G# ¢6÷VçBÒ6÷W&6Ræ6÷VçB†öÆB¢–b6÷VçBÒ ¢&—6R'VçF–ÖTW'&÷"†b'¶Æ&VÇÒÉ[^ËºNº[ÂÊ	^Ù™^Ùè‚«	ÂËîÊxº«¾ÙhÈ«^¸¸¸ºC¢¶6÷VçGŞ«	Â"¢&WGW&â6÷W&6Rç&WÆ6R†öÆBÂæWrÂ  ¦FVb&WÆ6UöÖVçUö&Æö6²‡6÷W&6S¢7G"ÂF#¢7G"ÂæW‡E÷F#¢7G"Â&WÆ6VÖVçC¢7G"’Óâ7G# ¢GFW&âÒ&Ræ6ö×–ÆR€¢&brÇ·¶ÖVçUF"ÓÓÒ'·&RæW66R‡F"—Ò"bbÂ…Æââ£õÆâÂ•Ç×ÒƒõÆæW‡CåÆåÆâÇ·¶ÖVçUF"ÓÓÒ'·&RæW66R†æW‡E÷F"—Ò"bbÂ‚’rÀ¢&Rå2À¢¢ÖF6†W2ÒÆ—7B‡GFW&âæf–æF—FW"‡6÷W&6R’¢–bÆVâ†ÖF6†W2’Ò ¢&—6R'VçF–ÖTW'&÷"†b'·F'ÒÙ™Nº›B»‰NºŞÉØBÊ	^Ù™^Ùè‚«	ÂËîÊxº«¾ÙhÈ«^¸¸¸ºC¢¶ÆVâ†ÖF6†W2—Ş«	Â"¢&WGW&âGFW&âç7V"†ÆÖ&FÖF6ƒ¢&WÆ6VÖVçB²ÖF6‚æw&÷W‚&æW‡B"’Â6÷W&6RÂ6÷VçCÓ  ¦–bvg&öÒ"âöfVGW&W2öÖ7FW"ÖFFôÖ7FW$FF67&VVç2"r–â ¢†öÖU÷7F'BÒ"""&WGW&â€¢Ç6V7F–öâ6Æ74æÖSÒ&6&B#à¢ÆF—b6Æ74æÖSÒ&&WGvVVâ#à¢Æƒ#îÈ9ŞÈ+¹ÛÎÉÛ‚«ZÎÈK¸øCÂöƒ#â"" ¢†öÖU÷7F'E÷&WÆ6VÖVçBÒ"""&WGW&â€¢Ç6V7F–öâ6Æ74æÖSÒ&6&B&6–2ÖÖ7FW"×vR&6–2ÖÆ–÷WB×vR#à¢Æ†VFW"6Æ74æÖSÒ&&6–2×vRÖ†VFW"&6–2ÖÆ–÷WBÖ†VFW"#à¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VF–ær#à¢Ç7â6Æ74æÖSÒ&&6–2ÖW–V'&÷r#äÔ5DU"DDÂ÷7ãà¢Æƒ#îÈ9ŞÈ+¹ÛÎÉÛ‚«ZÎÈK¸øCÂöƒ#à¢ÇîÈ9ŞÈ+¹ÛÎÉÛ»8BÊ	^»˜BÉÛNº
-^ÉØBÙ™^ÉÛÙY«:ØNºjÒÉˆÉzŞÉØB«HºjÎÙZ¸¸¸ºBãÂ÷à¢ÂöF—câ"" ¢–b†öÖU÷7F'B–â ¢Ò&WÆ6Uööæ6R†Â†öÖU÷7F'BÂ†öÖU÷7F'E÷&WÆ6VÖVçBÂ.È9ŞÈ+¹ÛÎÉÛ‚È¹ÎÉéØ9Î«{‚"¢VÆ–b&&6–2ÖÆ–÷WB×vR"æ÷B–â ¢&—6R'VçF–ÖTW'&÷"‚.«‹ËH¹;ºÒfVGW&RÊÉª’Ù¸BÈ9ŞÈ+¹ÛÎÉÛ‚È¹ÎÉéØ9Î«{º[ÂËîÊxº«¾ÙhÈ«^¸¸¸ºBâ" ¢†öÖUöVæBÒ"""—Ğ¢ÂöF—cà ¢¶VF—DÆ–÷WBbb‚"" ¢†öÖUöVæE÷&WÆ6VÖVçBÒ"""—Ğ¢Âö†VFW#à ¢¶VF—DÆ–÷WBbb‚"" ¢–b†öÖUöVæB–â ¢Ò&WÆ6Uööæ6R†Â†öÖUöVæBÂ†öÖUöVæE÷&WÆ6VÖVçBÂ.È9ŞÈ+¹ÛÎÉÛ‚Ê(^º8ÂØ9Î«{‚"¢VÆ–b&&6–2ÖÆ–÷WBÖ†VFW""æ÷B–â ¢&—6R'VçF–ÖTW'&÷"‚.«‹ËH¹;ºÒfVGW&RÊÉª’Ù¸BÈ9ŞÈ+¹ÛÎÉÛ‚Ê(^º8ÂØ9Î«{º[ÂËîÊxº«¾ÙhÈ«^¸¸¸ºBâ" ¢67&öÆÅ÷F&ÆUööÆBÒ""&gVæ7F–öâ67&öÆÅF&ÆR‡²6†–ÆG&VâÓ¢²6†–ÆG&Vã¢ç’Ò’°¢&WGW&âÆF—b6Æ74æÖSÒ'67&öÆÂ×F&ÆR#ç¶6†–ÆG&VçÓÂöF—cã°§Ò"" ¢67&öÆÅ÷F&ÆUöæWrÒ""&gVæ7F–öâ67&öÆÅF&ÆR‡²6†–ÆG&VâÂ6Æ74æÖRÒ""Ó¢²6†–ÆG&Vã¢ç“²6Æ74æÖSó¢7G&–ærÒ’°¢&WGW&âÆF—b6Æ74æÖS×²"""²6‡"ƒ“b’²""'67&öÆÂ×F&ÆRG¶6Æ74æÖWÒ"""²6‡"ƒ“b’²"""çG&–Ò‚—Óç¶6†–ÆG&VçÓÂöF—cã°§Ò"" ¢–b67&öÆÅ÷F&ÆUööÆB–â ¢Ò&WÆ6Uööæ6R†Â67&öÆÅ÷F&ÆUööÆBÂ67&öÆÅ÷F&ÆUöæWrÂ.«;^ØkRØXÎÉÛN»‰BË»NØúÎ¸HÎØ«‚"¢VÆ–bvgVæ7F–öâ67&öÆÅF&ÆR‡²6†–ÆG&VâÂ6Æ74æÖRÒ""Òræ÷B–â ¢&—6R'VçF–ÖTW'&÷"‚.«‹ËH¹;ºÒfVGW&RÊÉª’Ù¸B«;^ØkRØXÎÉÛN»‰BË»NØúÎ¸HÎØ«º[ÂËîÊxº«¾ÙhÈ«^¸¸¸ºBâ" ¢õD‚çw&—FU÷FW‡B†ÂVæ6öF–æsÒ'WFbÓ‚"¢&–çB‚.«‹ËH¹;ºÒÙ™Nº›NÉØfVGW&^ÉyÈIÂ«HºjÎÙY«:È9ŞÈ+¹ÛÎÉÛŒ+~«;^ØkRØXÎÉÛN»‰BØÊË™º[ÂÉÊÊxÙhÈ«^¸¸¸ºBâ"¢&—6R7—7FVÔW†—Bƒ  §6V7F–öç2Ò""""¶ÖVçUF"ÓÓÒ&6&E÷7FG2"bbÄ6&EW6U7FG26&EW6W3×¶6&EW6W7ÒóçĞ ¢¶ÖVçUF"ÓÓÒ'fVæF÷'2"bb€¢Ç6V7F–öâ6Æ74æÖSÒ&6&B&6–2ÖÖ7FW"×vR&6–2×fVæF÷'2×vR#à¢Æ†VFW"6Æ74æÖSÒ&&6–2×vRÖ†VFW"#à¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VF–ær#à¢Ç7â6Æ74æÖSÒ&&6–2ÖW–V'&÷r#äÔ5DU"DDÂ÷7ãà¢Æƒ#î«¹éË)¹;ºÓÂöƒ#à¢Çî«¹éË)‚«‹»;Ê	^»;Nº[Â¹;ºŞÙY«:«HºjÎÙZ¸¸¸ºBãÂ÷à¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VFW"Ö7F–öç2#à¢Ç7â6Æ74æÖSÒ&&6–2Ö6÷VçBÖ&FvR#ç·fVæF÷$–×÷'DÖW76vRÇÂG·fVæF÷'2æÆVæwF‡Ş«	Â«¹éË)†ÓÂ÷7ãà¢ÆÆ&VÂ6Æ74æÖSÒ'WÆöB&6–2×WÆöBÖ'WGFöâ#ãÅWÆöB6—¦S×³gÒóâ«¹éË)‚ÉyÈXÉx^ºÎ¹9ÃÆ–çWBG—SÒ&f–ÆR"66WCÒ"ç†Ç7‚Âç†Ç2Âæ77b"öä6†ævS×²†R’ÓâRçF&vWBæf–ÆW3òå³Òbb–×÷'EfVæF÷'2†RçF&vWBæf–ÆW5³Ò—ÒóãÂöÆ&VÃà¢ÂöF—cà¢Âö†VFW#à ¢Ç6V7F–öâ6Æ74æÖSÒ&&6–2ÖVçG'’×æVÂ#à¢ÆF—b6Æ74æÖSÒ&&6–2×æVÂÖ†VF–ær#à¢ÆF—cà¢Æƒ3ç¶VF—F–æufVæF÷$–Bò.«¹éË)‚Ê	^»;BÈ‰Ê	R"¢.«¹éË)‚Ê	^»;BÉè^º
-R'ÓÂöƒ3à¢ÇîËÙN¹9ÎÉ˜È8Ù‹º[ÂÉè^º
-^ÙYÂ¹*BÙXNÉ©NÙYÂËiN«Ê	^»;Nº[ÂÙZ«¹‚ÊÉê^ÙYÈKÉ©BãÂ÷à¢ÂöF—cà¢¶VF—F–æufVæF÷$–BbbÇ7â6Æ74æÖSÒ&&6–2ÖVF—BÖ&FvR#îÈ‰Ê	RÊIÂ÷7ãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&w&–CR&6–2Öf÷&ÒÖw&–BfVæF÷"×&Vv—7FW"Öw&–B#à¢Äf–VÆBÆ&VÃÒ.«¹éË)ËÙN¹9Â#ãÆ–çWBfÇVS×·fVæF÷$f÷&Òæ6öFWÒöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂ6öFS¢RçF&vWBçfÇVRÒ—ÒÆ6V†öÆFW#Ò.«¹éË)ËÙN¹9ÂÊxÊ	Éè^º
-R"óãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.È8Ù‹‚#ãÆ–çWBfÇVS×·fVæF÷$f÷&ÒææÖWÒöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂæÖS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.¸ÈÙÎÉé#ãÆ–çWBfÇVS×·fVæF÷$f÷&Òæ÷væW'Òöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂ÷væW#¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.ÊNÙ™N»(Ù‹‚#ãÆ–çWBfÇVS×·fVæF÷$f÷&Òç†öæWÒöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂ†öæS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.ºª»	NÉÛÂ#ãÆ–çWBfÇVS×·fVæF÷$f÷&ÒæÖö&–ÆWÒöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂÖö&–ÆS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.«‹»;Ê;ÎÈhÂ#ãÆF—b6Æ74æÖSÒ'fVæF÷"ÖFG&W72Ö–çWB#ãÆ–çWBfÇVS×·fVæF÷$f÷&ÒæFG&W77Òöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂFG&W73¢RçF&vWBçfÇVRÒ—ÒÆ6V†öÆFW#Ò.Ê;ÎÈhÂ«(È8ÉØB¸ˆÎ¹úÂÉè^º
-^ÙYÈKÉ©B"óãÆ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×¶÷VåfVæF÷$FG&W756V&6‡ÓîÊ;ÎÈhÂ«(È8“Âö'WGFöããÂöF—cãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.È8ÈKÊ;ÎÈhÂ#ãÆ–çWB&Vc×·fVæF÷$FG&W74FWF–Å&VgÒfÇVS×·fVæF÷$f÷&ÒæFG&W75öFWF–ÇÒöä6†ævS×²†R’Óâ6WEfVæF÷$f÷&Ò‡²ââçfVæF÷$f÷&ÒÂFG&W75öFWF–Ã¢RçF&vWBçfÇVRÒ—ÒÆ6V†öÆFW#Ò.«NºËÎº¨RÂË‹RÂÙ‹È‰‚¹;"óãÂôf–VÆCà¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&7F–öç2&–v‡BÖ7F–öç2&6–2Öf÷&ÒÖ7F–öç2#à¢¶—4FÖ–âbbÆ'WGFöâF—6&ÆVC×¶—4W†–Æ–'•6f–ær‚'fVæF÷""—Òöä6Æ–6³×¶6ÆV%fVæF÷'7ÓîÊNË+NÈ*ŞÊ	ÃÂö'WGFöãçĞ¢¶—4FÖ–âbbÆ'WGFöâ6Æ74æÖSÒ'&–Ö'’"F—6&ÆVC×¶—4W†–Æ–'•6f–ær‚'fVæF÷""—Òöä6Æ–6³×²‚’Óâ'VäW†–Æ–'•6fR‚'fVæF÷""Â6fUfVæF÷"—Óç¶—4W†–Æ–'•6f–ær‚'fVæF÷""’ò.ÊÉêRÊIâââ"¢VF—F–æufVæF÷$–Bò.È‰Ê	RÊÉêR"¢.ÊÉêR'ÓÂö'WGFöãçĞ¢ÂöF—cà¢Â÷6V7F–öãà ¢ÆF—b6Æ74æÖSÒ&&6–2ÖÆ—7BÖ†VF–ær#à¢ÆF—cãÆƒ3î«¹éË)‚ºªºÓÂöƒ3ãÇî¹;ºŞ¹	Â«¹éË)ÉÙ‚ËÙN¹9ÎÉ˜É{¹ÛŞË)º[ÂÙ™^ÉÛÙZÈ‰‚ÉèÈ«^¸¸¸ºBãÂ÷ãÂöF—cà¢Ç7G&öæsç·fVæF÷'2æÆVæwF‡Ş«	ÃÂ÷7G&öæsà¢ÂöF—cà¢Å6–×ÆUfVæF÷%F&ÆRfVæF÷'3×·fVæF÷'7ÒFVÆWFUfVæF÷#×¶FVÆWFUfVæF÷'ÒVF—EfVæF÷#×¶VF—EfVæF÷'Ò—4FÖ–ã×¶6äVF—DFVÆWFU&V6÷&G7Òóà¢Â÷6V7F–öãà¢—Ğ ¢¶ÖVçUF"ÓÓÒ'v&V†÷W6Uöw&÷W2"bb€¢Ç6V7F–öâ6Æ74æÖSÒ&6&B&6–2ÖÖ7FW"×vR&6–2×v&V†÷W6R×vR#à¢Æ†VFW"6Æ74æÖSÒ&&6–2×vRÖ†VFW"#à¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VF–ær#à¢Ç7â6Æ74æÖSÒ&&6–2ÖW–V'&÷r#äÔ5DU"DDÂ÷7ãà¢Æƒ#îËŞ«:¹;ºÓÂöƒ#à¢ÇîËŞ«:¸È»hNºYÉ˜ÈK»hËŞ«:º[ÂÙYÂ«;>ÉyÈIÂ«HºjÎÙZ¸¸¸ºBãÂ÷à¢ÂöF—cà¢Ç7â6Æ74æÖSÒ&&6–2Ö6÷VçBÖ&FvR#î¸È»hNºY‚¶w&÷W2æÆVæwF‡Ş«	Â+rÈK»h·v&V†÷W6W2æÆVæwF‡Ş«	ÃÂ÷7ãà¢Âö†VFW#à ¢ÆF—b6Æ74æÖSÒ&&6–2×7Æ—BÖw&–B#à¢Ç6V7F–öâ6Æ74æÖSÒ&&6–2ÖVçG'’×6V7F–öâ#à¢ÆF—b6Æ74æÖSÒ&&6–2×æVÂÖ†VF–ær#à¢ÆF—cãÆƒ3î¸È»hNºY‚ËŞ«:Âöƒ3ãÇîËŞ«:ÉÙ‚È8ÉÈB»hNºYº[Â¹;ºŞÙZ¸¸¸ºBãÂ÷ãÂöF—cà¢¶VF—F–ætw&÷W–BbbÇ7â6Æ74æÖSÒ&&6–2ÖVF—BÖ&FvR#îÈ‰Ê	RÊIÂ÷7ãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2Öf÷&Ò×7F6²#à¢Äf–VÆBÆ&VÃÒ.¸È»hNºY‚ËÙN¹9Â#ãÆ–çWBfÇVS×¶w&÷Wf÷&Òæ6öFWÒ&VDöæÇ’óãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.¸È»hNºY‚ÉÛNºhB#ãÆ–çWBfÇVS×¶w&÷Wf÷&ÒææÖWÒöä6†ævS×²†R’Óâ6WDw&÷Wf÷&Ò‡²ââæw&÷Wf÷&ÒÂæÖS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢¶—4FÖ–âbbÆ'WGFöâ6Æ74æÖSÒ'&–Ö'’&6–2×6fRÖ'WGFöâ"F—6&ÆVC×¶—4W†–Æ–'•6f–ær‚&w&÷W"—Òöä6Æ–6³×²‚’Óâ'VäW†–Æ–'•6fR‚&w&÷W"Â6fTw&÷W—Óç¶—4W†–Æ–'•6f–ær‚&w&÷W"’ò.ÊÉêRÊIâââ"¢VF—F–ætw&÷W–Bò.È‰Ê	RÊÉêR"¢.¸È»hNºY‚ÊÉêR'ÓÂö'WGFöãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÆ—7BÖ†VF–ær&6–2ÖÆ—7BÖ†VF–ærÖ6ö×7B#ãÆF—cãÆƒCî¸È»hNºY‚ºªºÓÂöƒCãÇî¹;ºŞ¹	ÂÈ8ÉÈBËŞ«:Â÷ãÂöF—cãÇ7G&öæsç¶w&÷W2æÆVæwF‡Ş«	ÃÂ÷7G&öæsãÂöF—cà¢Å67&öÆÅF&ÆR6Æ74æÖSÒ&&6–2×F&ÆR×67&öÆÂ#à¢ÇF&ÆSãÇF†VCãÇG#ãÇFƒîËÙN¹9ÃÂ÷FƒãÇFƒîÉÛNºhCÂ÷FƒãÇFƒî«HºjÃÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG“à¢¶w&÷W2æÆVæwF‚òw&÷W2æÖ‚†r’ÓâÇG"¶W“×¶ræ–GÓãÇFCç¶ræ6öFWÓÂ÷FCãÇFCç¶rææÖWÓÂ÷FCãÇFCç¶—4FÖ–âòÃãÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È‰Ê	R"&–ÖÆ&VÃÒ.¸È»hNºY‚È‰Ê	R"öä6Æ–6³×²‚’ÓâVF—Dw&÷W†r—ÓãÅVæ6–Â6—¦S×³gÒóãÂö'WGFöããÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È*ŞÊ	Â"&–ÖÆ&VÃÒ.¸È»hNºY‚È*ŞÊ	Â"öä6Æ–6³×²‚’ÓâFVÆWFTw&÷W†ræ–BÂrææÖR—ÓãÅG&6ƒ"6—¦S×³gÒóãÂö'WGFöããÂóâ¢"Ò'ÓÂ÷FCãÂ÷G#â’¢ÇG#ãÇFB6öÅ7ã×³7Ò6Æ74æÖSÒ&V×G’#î¹;ºŞ¹	Â¸È»hNºY«ÉxnÈ«^¸¸¸ºBãÂ÷FCãÂ÷G#çĞ¢Â÷F&öG“ãÂ÷F&ÆSà¢Âõ67&öÆÅF&ÆSà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆRÖÆ—7B#à¢¶w&÷W2æÆVæwF‚òw&÷W2æÖ‚†r’ÓâÆ'F–6ÆR6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷r"¶W“×¶ræ–GÓãÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷rÖ6÷’#ãÇ7ãîËÙN¹9Â¶ræ6öFWÓÂ÷7ããÇ7G&öæsç¶rææÖWÓÂ÷7G&öæsãÂöF—cç¶—4FÖ–âbbÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷rÖ7F–öç2#ãÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È‰Ê	R"&–ÖÆ&VÃÒ.¸È»hNºY‚È‰Ê	R"öä6Æ–6³×²‚’ÓâVF—Dw&÷W†r—ÓãÅVæ6–Â6—¦S×³gÒóãÂö'WGFöããÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È*ŞÊ	Â"&–ÖÆ&VÃÒ.¸È»hNºY‚È*ŞÊ	Â"öä6Æ–6³×²‚’ÓâFVÆWFTw&÷W†ræ–BÂrææÖR—ÓãÅG&6ƒ"6—¦S×³gÒóãÂö'WGFöããÂöF—cçÓÂö'F–6ÆSâ’¢ÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆRÖV×G’#î¹;ºŞ¹	Â¸È»hNºY«ÉxnÈ«^¸¸¸ºBãÂöF—cçĞ¢ÂöF—cà¢Â÷6V7F–öãà ¢Ç6V7F–öâ6Æ74æÖSÒ&&6–2ÖVçG'’×6V7F–öâ#à¢ÆF—b6Æ74æÖSÒ&&6–2×æVÂÖ†VF–ær#à¢ÆF—cãÆƒ3îÈK»hËŞ«:Âöƒ3ãÇî¸È»hNºYÉyÉ{«+ÙZÈºNÊ	ÂËŞ«:º[Â¹;ºŞÙZ¸¸¸ºBãÂ÷ãÂöF—cà¢¶VF—F–æuv&V†÷W6T–BbbÇ7â6Æ74æÖSÒ&&6–2ÖVF—BÖ&FvR#îÈ‰Ê	RÊIÂ÷7ãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2Öf÷&Ò×7F6²#à¢Å6V&6…6VÆV7BÆ&VÃÒ.È8ÉÈB»hNºY‚"fÇVS×·v&V†÷W6Tf÷&Òæw&÷WÒ÷F–öç3×¶w&÷W2æÖ‚†r’ÓârææÖR—Òöä6†ævS×²‡b’Óâ6WEv&V†÷W6Tf÷&Ò‡²ââçv&V†÷W6Tf÷&ÒÂw&÷W¢bÒ—ÒÆ6V†öÆFW#Ò.ØÎ¹ÛÎÈ:BÉè^º
-R"óà¢Äf–VÆBÆ&VÃÒ.ÈK»hËÙN¹9Â#ãÆ–çWBfÇVS×·v&V†÷W6Tf÷&Òæ6öFWÒ&VDöæÇ’óãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.ÈK»hÉÛNºhB#ãÆ–çWBfÇVS×·v&V†÷W6Tf÷&ÒææÖWÒöä6†ævS×²†R’Óâ6WEv&V†÷W6Tf÷&Ò‡²ââçv&V†÷W6Tf÷&ÒÂæÖS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢¶—4FÖ–âbbÆ'WGFöâ6Æ74æÖSÒ'&–Ö'’&6–2×6fRÖ'WGFöâ"F—6&ÆVC×¶—4W†–Æ–'•6f–ær‚'v&V†÷W6R"—Òöä6Æ–6³×²‚’Óâ'VäW†–Æ–'•6fR‚'v&V†÷W6R"Â6fUv&V†÷W6R—Óç¶—4W†–Æ–'•6f–ær‚'v&V†÷W6R"’ò.ÊÉêRÊIâââ"¢VF—F–æuv&V†÷W6T–Bò.È‰Ê	RÊÉêR"¢.ÈK»hËŞ«:ÊÉêR'ÓÂö'WGFöãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÆ—7BÖ†VF–ær&6–2ÖÆ—7BÖ†VF–ærÖ6ö×7B#ãÆF—cãÆƒCîÈK»hËŞ«:ºªºÓÂöƒCãÇî¸È»hNºY»8BÈºNÊ	ÂËŞ«:Â÷ãÂöF—cãÇ7G&öæsç·v&V†÷W6W2æÆVæwF‡Ş«	ÃÂ÷7G&öæsãÂöF—cà¢Å67&öÆÅF&ÆR6Æ74æÖSÒ&&6–2×F&ÆR×67&öÆÂ#à¢ÇF&ÆSãÇF†VCãÇG#ãÇFƒîËÙN¹9ÃÂ÷FƒãÇFƒî¸È»hNºYƒÂ÷FƒãÇFƒîËŞ«:º¨SÂ÷FƒãÇFƒî«HºjÃÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG“à¢·v&V†÷W6W2æÆVæwF‚òv&V†÷W6W2æÖ‚‡r’ÓâÇG"¶W“×·ræ–GÓãÇFCç·ræ6öFWÓÂ÷FCãÇFCç·ræw&÷WÓÂ÷FCãÇFCç·rææÖWÓÂ÷FCãÇFCç¶—4FÖ–âòÃãÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È‰Ê	R"&–ÖÆ&VÃÒ.ÈK»hËŞ«:È‰Ê	R"öä6Æ–6³×²‚’ÓâVF—Ev&V†÷W6R‡r—ÓãÅVæ6–Â6—¦S×³gÒóãÂö'WGFöããÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È*ŞÊ	Â"&–ÖÆ&VÃÒ.ÈK»hËŞ«:È*ŞÊ	Â"öä6Æ–6³×²‚’ÓâFVÆWFUv&V†÷W6R‡ræ–B—ÓãÅG&6ƒ"6—¦S×³gÒóãÂö'WGFöããÂóâ¢"Ò'ÓÂ÷FCãÂ÷G#â’¢ÇG#ãÇFB6öÅ7ã×³GÒ6Æ74æÖSÒ&V×G’#î¹;ºŞ¹	ÂÈK»hËŞ«:«ÉxnÈ«^¸¸¸ºBãÂ÷FCãÂ÷G#çĞ¢Â÷F&öG“ãÂ÷F&ÆSà¢Âõ67&öÆÅF&ÆSà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆRÖÆ—7B#à¢·v&V†÷W6W2æÆVæwF‚òv&V†÷W6W2æÖ‚‡r’ÓâÆ'F–6ÆR6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷r"¶W“×·ræ–GÓãÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷rÖ6÷’#ãÇ7ãç·ræw&÷WÇÂ.¸È»hNºY‚ºûÊxÊ	R'Ò+rËÙN¹9Â·ræ6öFWÓÂ÷7ããÇ7G&öæsç·rææÖWÓÂ÷7G&öæsãÂöF—cç¶—4FÖ–âbbÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷rÖ7F–öç2#ãÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È‰Ê	R"&–ÖÆ&VÃÒ.ÈK»hËŞ«:È‰Ê	R"öä6Æ–6³×²‚’ÓâVF—Ev&V†÷W6R‡r—ÓãÅVæ6–Â6—¦S×³gÒóãÂö'WGFöããÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È*ŞÊ	Â"&–ÖÆ&VÃÒ.ÈK»hËŞ«:È*ŞÊ	Â"öä6Æ–6³×²‚’ÓâFVÆWFUv&V†÷W6R‡ræ–B—ÓãÅG&6ƒ"6—¦S×³gÒóãÂö'WGFöããÂöF—cçÓÂö'F–6ÆSâ’¢ÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆRÖV×G’#î¹;ºŞ¹	ÂÈK»hËŞ«:«ÉxnÈ«^¸¸¸ºBãÂöF—cçĞ¢ÂöF—cà¢Â÷6V7F–öãà¢ÂöF—cà¢Â÷6V7F–öãà¢—Ğ ¢¶ÖVçUF"ÓÓÒ&—FV×2"bb€¢Ç6V7F–öâ6Æ74æÖSÒ&6&B&6–2ÖÖ7FW"×vR&6–2Ö—FV×2×vR#à¢Æ†VFW"6Æ74æÖSÒ&&6–2×vRÖ†VFW"#à¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VF–ær#à¢Ç7â6Æ74æÖSÒ&&6–2ÖW–V'&÷r#äÔ5DU"DDÂ÷7ãà¢Æƒ#îÙ(ºª¹;ºÓÂöƒ#à¢Çî«ZÎºzNÉ˜Ê	^»˜NÉyÈIÂÈ*ÎÉªÙZÙ(ºªœ+~«yÎ«*œ+~¸º«º[Â«HºjÎÙZ¸¸¸ºBãÂ÷à¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2×vRÖ†VFW"Ö7F–öç2#à¢Ç7â6Æ74æÖSÒ&&6–2Ö6÷VçBÖ&FvR#ç¶—FVÔ–×÷'DÖW76vRÇÂG¶—FV×2æÆVæwF‡Ş«	ÂÙ(ºª–ÓÂ÷7ãà¢ÆÆ&VÂ6Æ74æÖSÒ'WÆöB&6–2×WÆöBÖ'WGFöâ#ãÅWÆöB6—¦S×³gÒóâÙ(ºª’ÉyÈXÉx^ºÎ¹9ÃÆ–çWBG—SÒ&f–ÆR"66WCÒ"ç†Ç7‚Âç†Ç2Âæ77b"öä6†ævS×²†R’ÓâRçF&vWBæf–ÆW3òå³Òbb–×÷'D—FV×2†RçF&vWBæf–ÆW5³Ò—ÒóãÂöÆ&VÃà¢ÂöF—cà¢Âö†VFW#à ¢Ç6V7F–öâ6Æ74æÖSÒ&&6–2ÖVçG'’×æVÂ#à¢ÆF—b6Æ74æÖSÒ&&6–2×æVÂÖ†VF–ær#à¢ÆF—cà¢Æƒ3ç¶VF—F–æt—FVÔ–Bò.Ù(ºª’Ê	^»;BÈ‰Ê	R"¢.Ù(ºª’Ê	^»;BÉè^º
-R'ÓÂöƒ3à¢ÇîÙ(ºªº¨^«;Â¸ºÉÈBÂÉè^«:¸º«º[ÂÉè^º
-^Ù[B¹;ºŞÙYÈKÉ©BãÂ÷à¢ÂöF—cà¢¶VF—F–æt—FVÔ–BbbÇ7â6Æ74æÖSÒ&&6–2ÖVF—BÖ&FvR#îÈ‰Ê	RÊIÂ÷7ãçĞ¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&w&–CR&6–2Öf÷&ÒÖw&–B—FVÒ×&Vv—7FW"Öw&–B#à¢Äf–VÆBÆ&VÃÒ.Ù(ºªËÙN¹9Â#ãÆ–çWBfÇVS×¶—FVÔf÷&Òæ6öFWÒöä6†ævS×²†R’Óâ6WD—FVÔf÷&Ò‡²ââæ—FVÔf÷&ÒÂ6öFS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.Ù(ºªº¨R#ãÆ–çWBfÇVS×¶—FVÔf÷&ÒææÖWÒöä6†ævS×²†R’Óâ6WD—FVÔf÷&Ò‡²ââæ—FVÔf÷&ÒÂæÖS¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.«yÎ«*Ê	^»;B#ãÆ–çWBfÇVS×¶—FVÔf÷&Òç7V7Òöä6†ævS×²†R’Óâ6WD—FVÔf÷&Ò‡²ââæ—FVÔf÷&ÒÂ7V3¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.¸ºÉÈB#ãÆ–çWBfÇVS×¶—FVÔf÷&ÒçVæ—GÒöä6†ævS×²†R’Óâ6WD—FVÔf÷&Ò‡²ââæ—FVÔf÷&ÒÂVæ—C¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢Äf–VÆBÆ&VÃÒ.Éè^«:¸º«#ãÆ–çWB–çWDÖöFSÒ&FV6–ÖÂ"fÇVS×¶—FVÔf÷&Òç&–6WÒöä6†ævS×²†R’Óâ6WD—FVÔf÷&Ò‡²ââæ—FVÔf÷&ÒÂ&–6S¢RçF&vWBçfÇVRÒ—ÒóãÂôf–VÆCà¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&7F–öç2&–v‡BÖ7F–öç2&6–2Öf÷&ÒÖ7F–öç2#à¢¶—4FÖ–âbbÆ'WGFöâF—6&ÆVC×¶—4W†–Æ–'•6f–ær‚&—FVÒ"—Òöä6Æ–6³×¶6ÆV$—FV×7ÓîÊNË+NÈ*ŞÊ	ÃÂö'WGFöãçĞ¢¶—4FÖ–âbbÆ'WGFöâ6Æ74æÖSÒ'&–Ö'’"F—6&ÆVC×¶—4W†–Æ–'•6f–ær‚&—FVÒ"—Òöä6Æ–6³×²‚’Óâ'VäW†–Æ–'•6fR‚&—FVÒ"Â6fT—FVÒ—Óç¶—4W†–Æ–'•6f–ær‚&—FVÒ"’ò.ÊÉêRÊIâââ"¢VF—F–æt—FVÔ–Bò.È‰Ê	RÊÉêR"¢.ÊÉêR'ÓÂö'WGFöãçĞ¢ÂöF—cà¢Â÷6V7F–öãà ¢ÆF—b6Æ74æÖSÒ&&6–2ÖÆ—7BÖ†VF–ær&6–2Ö—FV×2ÖÆ—7BÖ†VF–ær#à¢ÆF—cãÆƒ3îÙ(ºª’ºªºÓÂöƒ3ãÇîËÙN¹9Ì+~Ù(ºªº¨\+~«yÎ«*œ+~¸ºÉÈNºÂ«(È8ÙZÈ‰‚ÉèÈ«^¸¸¸ºBãÂ÷ãÂöF—cà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÆ—7BÖ6öçG&öÇ2#ãÆF—b6Æ74æÖSÒ&&6–2×6V&6‚Ö–çWB#ãÆ–çWBÆ6V†öÆFW#Ò.Ù(ºªËÙN¹9ÂòÙ(ºªº¨Rò«yÎ«*’ò¸ºÉÈB«(È8’"fÇVS×¶—FVÕ6V&6‡Òöä6†ævS×²†R’Óâ6WD—FVÕ6V&6‚†RçF&vWBçfÇVR—ÒóãÂöF—cãÇ7G&öæsç¶f–ÇFW&VD—FV×2æÆVæwF‡Ş«CÂ÷7G&öæsãÂöF—cà¢ÂöF—cà¢Å67&öÆÅF&ÆR6Æ74æÖSÒ&&6–2×F&ÆR×67&öÆÂ#à¢ÇF&ÆSãÇF†VCãÇG#ãÇFƒîÙ(ºªËÙN¹9ÃÂ÷FƒãÇFƒîÙ(ºªº¨SÂ÷FƒãÇFƒî«yÎ«*Ê	^»;CÂ÷FƒãÇFƒî¸ºÉÈCÂ÷FƒãÇFƒîÉè^«:¸º«Â÷FƒãÇFƒî«HºjÃÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG“à¢¶f–ÇFW&VD—FV×2æÆVæwF‚òf–ÇFW&VD—FV×2æÖ‚†—B’ÓâÇG"¶W“×¶—Bæ–GÓãÇFCç¶—Bæ6öFWÓÂ÷FCãÇFCç¶—BææÖWÓÂ÷FCãÇFCç¶—Bç7V2ÇÂ"Ò'ÓÂ÷FCãÇFCç¶—BçVæ—BÇÂ"Ò'ÓÂ÷FCãÇFB6Æ74æÖSÒ'&–v‡B#ç¶ÖöæW’†—Bç&–6R—ÓÂ÷FCãÇFCç¶—4FÖ–âòÃãÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È‰Ê	R"&–ÖÆ&VÃÒ.Ù(ºª’È‰Ê	R"öä6Æ–6³×²‚’ÓâVF—D—FVÒ†—B—ÓãÅVæ6–Â6—¦S×³gÒóãÂö'WGFöããÆ'WGFöâ6Æ74æÖSÒ&–6öâ"F—FÆSÒ.È*ŞÊ	Â"&–ÖÆ&VÃÒ.Ù(ºª’È*ŞÊ	Â"öä6Æ–6³×²‚’ÓâFVÆWFT—FVÒ†—Bæ–B—ÓãÅG&6ƒ"6—¦S×³gÒóãÂö'WGFöããÂóâ¢"Ò'ÓÂ÷FCãÂ÷G#â’¢ÇG#ãÇFB6öÅ7ã×³gÒ6Æ74æÖSÒ&V×G’#ç¶—FVÕ6V&6‚ò.«(È8’«+«;Î«ÉxnÈ«^¸¸¸ºBâ"¢.¹;ºŞ¹	ÂÙ(ºªÉÛBÉxnÈ«^¸¸¸ºBâ'ÓÂ÷FCãÂ÷G#çĞ¢Â÷F&öG“ãÂ÷F&ÆSà¢Âõ67&öÆÅF&ÆSà¢ÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆRÖÆ—7B#à¢¶f–ÇFW&VD—FV×2æÆVæwF‚òf–ÇFW&VD—FV×2æÖ‚†—B’ÓâÆ'F–6ÆR6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷r&6–2Ö—FVÒÖÖö&–ÆR×&÷r"¶W“×¶—Bæ–GÓãÆF—b6Æ74æÖSÒ&&6–2ÖÖö&–ÆR×&÷rÖ6÷’#ãÇ7ãç¶—Bæ6öFWÒ+r¶—BçVæ—BÇÂ.¸ºÉÈBºûÉè^º
-R'ÓÂ÷7ããÇ7G&öæsç¶—BææÖWÓÂ÷7G&öæsãÇ6ÖÆÃç¶—Bç7V2ÇÂ.«yÎ«*’ÉxnÉØÂ'Ò+r¶ÖöæW’†—Bç&–6R—ŞÉ¹Â÷6ÖÆÃãÂıûÚÚ$z{-®éÜj×ark) for mark in section_marks]
+from pathlib import Path
+import re
+
+
+ROOT = Path(__file__).resolve().parents[1]
+APP_PATH = ROOT / "src" / "App.tsx"
+app = APP_PATH.read_text(encoding="utf-8")
+
+MARKER = "/* ===== Basic Master Data: Clean Layout ===== */"
+if MARKER in app:
+    print("ê¸°ì´ˆë“±ë¡ ê³µí†µ ë””ìì¸ íŒ¨ì¹˜ê°€ ì´ë¯¸ ì ìš©ë˜ì–´ ìˆìŠµë‹ˆë‹¤.")
+    raise SystemExit(0)
+
+
+def replace_once(source: str, old: str, new: str, label: str) -> str:
+    count = source.count(old)
+    if count != 1:
+        raise RuntimeError(f"{label} ì•µì»¤ë¥¼ ì •í™•íˆ 1ê°œ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤: {count}ê°œ")
+    return source.replace(old, new, 1)
+
+
+def replace_menu_block(source: str, tab: str, next_tab: str, replacement: str) -> str:
+    pattern = re.compile(
+        rf'        \{{menuTab === "{re.escape(tab)}" && \(\n.*?\n        \)\}}(?P<next>\n\n        \{{menuTab === "{re.escape(next_tab)}" && \()',
+        re.S,
+    )
+    matches = list(pattern.finditer(source))
+    if len(matches) != 1:
+        raise RuntimeError(f"{tab} í™”ë©´ ë¸”ë¡ì„ ì •í™•íˆ 1ê°œ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤: {len(matches)}ê°œ")
+    return pattern.sub(lambda match: replacement + match.group("next"), source, count=1)
+
+
+if 'from "./features/master-data/MasterDataScreens"' in app:
+    home_start = """  return (
+    <section className="card">
+      <div className="between">
+        <h2>ìƒì‚°ë¼ì¸ êµ¬ì„±ë„</h2>"""
+    home_start_replacement = """  return (
+    <section className="card basic-master-page basic-layout-page">
+      <header className="basic-page-header basic-layout-header">
+        <div className="basic-page-heading">
+          <span className="basic-eyebrow">MASTER DATA</span>
+          <h2>ìƒì‚°ë¼ì¸ êµ¬ì„±ë„</h2>
+          <p>ìƒì‚°ë¼ì¸ë³„ ì •ë¹„ ì´ë ¥ì„ í™•ì¸í•˜ê³  í´ë¦­ ì˜ì—­ì„ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+        </div>"""
+    if home_start in app:
+        app = replace_once(app, home_start, home_start_replacement, "ìƒì‚°ë¼ì¸ ì‹œì‘ íƒœê·¸")
+    elif "basic-layout-page" not in app:
+        raise RuntimeError("ê¸°ì´ˆë“±ë¡ feature ì ìš© í›„ ìƒì‚°ë¼ì¸ ì‹œì‘ íƒœê·¸ë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.")
+
+    home_end = """        )}
+      </div>
+
+      {editLayout && ("""
+    home_end_replacement = """        )}
+      </header>
+
+      {editLayout && ("""
+    if home_end in app:
+        app = replace_once(app, home_end, home_end_replacement, "ìƒì‚°ë¼ì¸ ì¢…ë£Œ íƒœê·¸")
+    elif "basic-layout-header" not in app:
+        raise RuntimeError("ê¸°ì´ˆë“±ë¡ feature ì ìš© í›„ ìƒì‚°ë¼ì¸ ì¢…ë£Œ íƒœê·¸ë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.")
+
+    scroll_table_old = """function ScrollTable({ children }: { children: any }) {
+  return <div className="scroll-table">{children}</div>;
+}"""
+    scroll_table_new = """function ScrollTable({ children, className = "" }: { children: any; className?: string }) {
+  return <div className={""" + chr(96) + """scroll-table ${className}""" + chr(96) + """.trim()}>{children}</div>;
+}"""
+    if scroll_table_old in app:
+        app = replace_once(app, scroll_table_old, scroll_table_new, "ê³µí†µ í…Œì´ë¸” ì»´í¬ë„ŒíŠ¸")
+    elif 'function ScrollTable({ children, className = "" }' not in app:
+        raise RuntimeError("ê¸°ì´ˆë“±ë¡ feature ì ìš© í›„ ê³µí†µ í…Œì´ë¸” ì»´í¬ë„ŒíŠ¸ë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.")
+
+    APP_PATH.write_text(app, encoding="utf-8")
+    print("ê¸°ì´ˆë“±ë¡ í™”ë©´ì€ featureì—ì„œ ê´€ë¦¬í•˜ê³  ìƒì‚°ë¼ì¸Â·ê³µí†µ í…Œì´ë¸” íŒ¨ì¹˜ë¥¼ ìœ ì§€í–ˆìŠµë‹ˆë‹¤.")
+    raise SystemExit(0)
+
+
+sections = r"""        {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
+
+        {menuTab === "vendors" && (
+          <section className="card basic-master-page basic-vendors-page">
+            <header className="basic-page-header">
+              <div className="basic-page-heading">
+                <span className="basic-eyebrow">MASTER DATA</span>
+                <h2>ê±°ë˜ì²˜ë“±ë¡</h2>
+                <p>ê±°ë˜ì²˜ ê¸°ë³¸ì •ë³´ë¥¼ ë“±ë¡í•˜ê³  ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+              </div>
+              <div className="basic-page-header-actions">
+                <span className="basic-count-badge">{vendorImportMessage || `${vendors.length}ê°œ ê±°ë˜ì²˜`}</span>
+                <label className="upload basic-upload-button"><Upload size={16} /> ê±°ë˜ì²˜ ì—‘ì…€ ì—…ë¡œë“œ<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label>
+              </div>
+            </header>
+
+            <section className="basic-entry-panel">
+              <div className="basic-panel-heading">
+                <div>
+                  <h3>{editingVendorId ? "ê±°ë˜ì²˜ ì •ë³´ ìˆ˜ì •" : "ê±°ë˜ì²˜ ì •ë³´ ì…ë ¥"}</h3>
+                  <p>ì½”ë“œì™€ ìƒí˜¸ë¥¼ ì…ë ¥í•œ ë’¤ í•„ìš”í•œ ì¶”ê°€ì •ë³´ë¥¼ í•¨ê»˜ ì €ì¥í•˜ì„¸ìš”.</p>
+                </div>
+                {editingVendorId && <span className="basic-edit-badge">ìˆ˜ì • ì¤‘</span>}
+              </div>
+              <div className="grid5 basic-form-grid vendor-register-grid">
+                <Field label="ê±°ë˜ì²˜ì½”ë“œ"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} placeholder="ê±°ë˜ì²˜ì½”ë“œ ì§ì ‘ ì…ë ¥" /></Field>
+                <Field label="ìƒí˜¸"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field>
+                <Field label="ëŒ€í‘œì"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field>
+                <Field label="ì „í™”ë²ˆí˜¸"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field>
+                <Field label="ëª¨ë°”ì¼"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field>
+                <Field label="ê¸°ë³¸ì£¼ì†Œ"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="ì£¼ì†Œ ê²€ìƒ‰ì„ ëˆŒëŸ¬ ì…ë ¥í•˜ì„¸ìš”" /><button type="button" onClick={openVendorAddressSearch}>ì£¼ì†Œ ê²€ìƒ‰</button></div></Field>
+                <Field label="ìƒì„¸ì£¼ì†Œ"><input ref={vendorAddressDetailRef} value={vendorForm.address_detail} onChange={(e) => setVendorForm({ ...vendorForm, address_detail: e.target.value })} placeholder="ê±´ë¬¼ëª…, ì¸µ, í˜¸ìˆ˜ ë“±" /></Field>
+              </div>
+              <div className="actions right-actions basic-form-actions">
+                {isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>ì „ì²´ì‚­ì œ</button>}
+                {isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "ì €ì¥ ì¤‘..." : editingVendorId ? "ìˆ˜ì • ì €ì¥" : "ì €ì¥"}</button>}
+              </div>
+            </section>
+
+            <div className="basic-list-heading">
+              <div><h3>ê±°ë˜ì²˜ ëª©ë¡</h3><p>ë“±ë¡ëœ ê±°ë˜ì²˜ì˜ ì½”ë“œì™€ ì—°ë½ì²˜ë¥¼ í™•ì¸í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
+              <strong>{vendors.length}ê°œ</strong>
+            </div>
+            <SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} />
+          </section>
+        )}
+
+        {menuTab === "warehouse_groups" && (
+          <section className="card basic-master-page basic-warehouse-page">
+            <header className="basic-page-header">
+              <div className="basic-page-heading">
+                <span className="basic-eyebrow">MASTER DATA</span>
+                <h2>ì°½ê³ ë“±ë¡</h2>
+                <p>ì°½ê³  ëŒ€ë¶„ë¥˜ì™€ ì„¸ë¶€ ì°½ê³ ë¥¼ í•œ ê³³ì—ì„œ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+              </div>
+              <span className="basic-count-badge">ëŒ€ë¶„ë¥˜ {groups.length}ê°œ Â· ì„¸ë¶€ {warehouses.length}ê°œ</span>
+            </header>
+
+            <div className="basic-split-grid">
+              <section className="basic-entry-section">
+                <div className="basic-panel-heading">
+                  <div><h3>ëŒ€ë¶„ë¥˜ ì°½ê³ </h3><p>ì°½ê³ ì˜ ìƒìœ„ ë¶„ë¥˜ë¥¼ ë“±ë¡í•©ë‹ˆë‹¤.</p></div>
+                  {editingGroupId && <span className="basic-edit-badge">ìˆ˜ì • ì¤‘</span>}
+                </div>
+                <div className="basic-form-stack">
+                  <Field label="ëŒ€ë¶„ë¥˜ ì½”ë“œ"><input value={groupForm.code} readOnly /></Field>
+                  <Field label="ëŒ€ë¶„ë¥˜ ì´ë¦„"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>
+                  {isAdmin && <button className="primary basic-save-button" disabled={isAuxiliarySaving("group")} onClick={() => runAuxiliarySave("group", saveGroup)}>{isAuxiliarySaving("group") ? "ì €ì¥ ì¤‘..." : editingGroupId ? "ìˆ˜ì • ì €ì¥" : "ëŒ€ë¶„ë¥˜ ì €ì¥"}</button>}
+                </div>
+                <div className="basic-list-heading basic-list-heading-compact"><div><h4>ëŒ€ë¶„ë¥˜ ëª©ë¡</h4><p>ë“±ë¡ëœ ìƒìœ„ ì°½ê³ </p></div><strong>{groups.length}ê°œ</strong></div>
+                <ScrollTable className="basic-table-scroll">
+                  <table><thead><tr><th>ì½”ë“œ</th><th>ì´ë¦„</th><th>ê´€ë¦¬</th></tr></thead><tbody>
+                    {groups.length ? groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" title="ìˆ˜ì •" aria-label="ëŒ€ë¶„ë¥˜ ìˆ˜ì •" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="ëŒ€ë¶„ë¥˜ ì‚­ì œ" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>) : <tr><td colSpan={3} className="empty">ë“±ë¡ëœ ëŒ€ë¶„ë¥˜ê°€ ì—†ìŠµë‹ˆë‹¤.</td></tr>}
+                  </tbody></table>
+                </ScrollTable>
+                <div className="basic-mobile-list">
+                  {groups.length ? groups.map((g) => <article className="basic-mobile-row" key={g.id}><div className="basic-mobile-row-copy"><span>ì½”ë“œ {g.code}</span><strong>{g.name}</strong></div>{isAdmin && <div className="basic-mobile-row-actions"><button className="icon" title="ìˆ˜ì •" aria-label="ëŒ€ë¶„ë¥˜ ìˆ˜ì •" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="ëŒ€ë¶„ë¥˜ ì‚­ì œ" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></div>}</article>) : <div className="basic-mobile-empty">ë“±ë¡ëœ ëŒ€ë¶„ë¥˜ê°€ ì—†ìŠµë‹ˆë‹¤.</div>}
+                </div>
+              </section>
+
+              <section className="basic-entry-section">
+                <div className="basic-panel-heading">
+                  <div><h3>ì„¸ë¶€ ì°½ê³ </h3><p>ëŒ€ë¶„ë¥˜ì— ì—°ê²°í•  ì‹¤ì œ ì°½ê³ ë¥¼ ë“±ë¡í•©ë‹ˆë‹¤.</p></div>
+                  {editingWarehouseId && <span className="basic-edit-badge">ìˆ˜ì • ì¤‘</span>}
+                </div>
+                <div className="basic-form-stack">
+                  <SearchSelect label="ìƒìœ„ ë¶„ë¥˜" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="í¬ë¼ìƒ¤ ì…ë ¥" />
+                  <Field label="ì„¸ë¶€ ì½”ë“œ"><input value={warehouseForm.code} readOnly /></Field>
+                  <Field label="ì„¸ë¶€ ì´ë¦„"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>
+                  {isAdmin && <button className="primary basic-save-button" disabled={isAuxiliarySaving("warehouse")} onClick={() => runAuxiliarySave("warehouse", saveWarehouse)}>{isAuxiliarySaving("warehouse") ? "ì €ì¥ ì¤‘..." : editingWarehouseId ? "ìˆ˜ì • ì €ì¥" : "ì„¸ë¶€ ì°½ê³  ì €ì¥"}</button>}
+                </div>
+                <div className="basic-list-heading basic-list-heading-compact"><div><h4>ì„¸ë¶€ ì°½ê³  ëª©ë¡</h4><p>ëŒ€ë¶„ë¥˜ë³„ ì‹¤ì œ ì°½ê³ </p></div><strong>{warehouses.length}ê°œ</strong></div>
+                <ScrollTable className="basic-table-scroll">
+                  <table><thead><tr><th>ì½”ë“œ</th><th>ëŒ€ë¶„ë¥˜</th><th>ì°½ê³ ëª…</th><th>ê´€ë¦¬</th></tr></thead><tbody>
+                    {warehouses.length ? warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" title="ìˆ˜ì •" aria-label="ì„¸ë¶€ ì°½ê³  ìˆ˜ì •" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="ì„¸ë¶€ ì°½ê³  ì‚­ì œ" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>) : <tr><td colSpan={4} className="empty">ë“±ë¡ëœ ì„¸ë¶€ ì°½ê³ ê°€ ì—†ìŠµë‹ˆë‹¤.</td></tr>}
+                  </tbody></table>
+                </ScrollTable>
+                <div className="basic-mobile-list">
+                  {warehouses.length ? warehouses.map((w) => <article className="basic-mobile-row" key={w.id}><div className="basic-mobile-row-copy"><span>{w.group || "ëŒ€ë¶„ë¥˜ ë¯¸ì§€ì •"} Â· ì½”ë“œ {w.code}</span><strong>{w.name}</strong></div>{isAdmin && <div className="basic-mobile-row-actions"><button className="icon" title="ìˆ˜ì •" aria-label="ì„¸ë¶€ ì°½ê³  ìˆ˜ì •" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="ì„¸ë¶€ ì°½ê³  ì‚­ì œ" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></div>}</article>) : <div className="basic-mobile-empty">ë“±ë¡ëœ ì„¸ë¶€ ì°½ê³ ê°€ ì—†ìŠµë‹ˆë‹¤.</div>}
+                </div>
+              </section>
+            </div>
+          </section>
+        )}
+
+        {menuTab === "items" && (
+          <section className="card basic-master-page basic-items-page">
+            <header className="basic-page-header">
+              <div className="basic-page-heading">
+                <span className="basic-eyebrow">MASTER DATA</span>
+                <h2>í’ˆëª©ë“±ë¡</h2>
+                <p>êµ¬ë§¤ì™€ ì •ë¹„ì—ì„œ ì‚¬ìš©í•  í’ˆëª©Â·ê·œê²©Â·ë‹¨ê°€ë¥¼ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+              </div>
+              <div className="basic-page-header-actions">
+                <span className="basic-count-badge">{itemImportMessage || `${items.length}ê°œ í’ˆëª©`}</span>
+                <label className="upload basic-upload-button"><Upload size={16} /> í’ˆëª© ì—‘ì…€ ì—…ë¡œë“œ<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label>
+              </div>
+            </header>
+
+            <section className="basic-entry-panel">
+              <div className="basic-panel-heading">
+                <div>
+                  <h3>{editingItemId ? "í’ˆëª© ì •ë³´ ìˆ˜ì •" : "í’ˆëª© ì •ë³´ ì…ë ¥"}</h3>
+                  <p>í’ˆëª©ëª…ê³¼ ë‹¨ìœ„, ì…ê³ ë‹¨ê°€ë¥¼ ì…ë ¥í•´ ë“±ë¡í•˜ì„¸ìš”.</p>
+                </div>
+                {editingItemId && <span className="basic-edit-badge">ìˆ˜ì • ì¤‘</span>}
+              </div>
+              <div className="grid5 basic-form-grid item-register-grid">
+                <Field label="í’ˆëª©ì½”ë“œ"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field>
+                <Field label="í’ˆëª©ëª…"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field>
+                <Field label="ê·œê²©ì •ë³´"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field>
+                <Field label="ë‹¨ìœ„"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field>
+                <Field label="ì…ê³ ë‹¨ê°€"><input inputMode="decimal" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field>
+              </div>
+              <div className="actions right-actions basic-form-actions">
+                {isAdmin && <button disabled={isAuxiliarySaving("item")} onClick={clearItems}>ì „ì²´ì‚­ì œ</button>}
+                {isAdmin && <button className="primary" disabled={isAuxiliarySaving("item")} onClick={() => runAuxiliarySave("item", saveItem)}>{isAuxiliarySaving("item") ? "ì €ì¥ ì¤‘..." : editingItemId ? "ìˆ˜ì • ì €ì¥" : "ì €ì¥"}</button>}
+              </div>
+            </section>
+
+            <div className="basic-list-heading basic-items-list-heading">
+              <div><h3>í’ˆëª© ëª©ë¡</h3><p>ì½”ë“œÂ·í’ˆëª©ëª…Â·ê·œê²©Â·ë‹¨ìœ„ë¡œ ê²€ìƒ‰í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.</p></div>
+              <div className="basic-list-controls"><div className="basic-search-input"><input placeholder="í’ˆëª©ì½”ë“œ / í’ˆëª©ëª… / ê·œê²© / ë‹¨ìœ„ ê²€ìƒ‰" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /></div><strong>{filteredItems.length}ê±´</strong></div>
+            </div>
+            <ScrollTable className="basic-table-scroll">
+              <table><thead><tr><th>í’ˆëª©ì½”ë“œ</th><th>í’ˆëª©ëª…</th><th>ê·œê²©ì •ë³´</th><th>ë‹¨ìœ„</th><th>ì…ê³ ë‹¨ê°€</th><th>ê´€ë¦¬</th></tr></thead><tbody>
+                {filteredItems.length ? filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" title="ìˆ˜ì •" aria-label="í’ˆëª© ìˆ˜ì •" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="í’ˆëª© ì‚­ì œ" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>) : <tr><td colSpan={6} className="empty">{itemSearch ? "ê²€ìƒ‰ ê²°ê³¼ê°€ ì—†ìŠµë‹ˆë‹¤." : "ë“±ë¡ëœ í’ˆëª©ì´ ì—†ìŠµë‹ˆë‹¤."}</td></tr>}
+              </tbody></table>
+            </ScrollTable>
+            <div className="basic-mobile-list">
+              {filteredItems.length ? filteredItems.map((it) => <article className="basic-mobile-row basic-item-mobile-row" key={it.id}><div className="basic-mobile-row-copy"><span>{it.code} Â· {it.unit || "ë‹¨ìœ„ ë¯¸ì…ë ¥"}</span><strong>{it.name}</strong><small>{it.spec || "ê·œê²© ì—†ìŒ"} Â· {money(it.price)}ì›</small></div>{isAdmin && <div className="basic-mobile-row-actions"><button className="icon" title="ìˆ˜ì •" aria-label="í’ˆëª© ìˆ˜ì •" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" title="ì‚­ì œ" aria-label="í’ˆëª© ì‚­ì œ" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></div>}</article>) : <div className="basic-mobile-empty">{itemSearch ? "ê²€ìƒ‰ ê²°ê³¼ê°€ ì—†ìŠµë‹ˆë‹¤." : "ë“±ë¡ëœ í’ˆëª©ì´ ì—†ìŠµë‹ˆë‹¤."}</div>}
+            </div>
+          </section>
+        )}
+
+        {menuTab === "maint_new" && (
+          <section className="card">
+            <div className="between">
+              <h2>{editingMaintId ? "ì •ë¹„ ìˆ˜ì •" : "ì •ë¹„ ë“±ë¡"}</h2>
+              <button onClick={() => setMaintTemplateOpen((value) => !value)}>ì´ì „ ì‘ì—… ë¶ˆëŸ¬ì˜¤ê¸°</button>
+            </div>
+
+            {maintTemplateOpen && (
+"""
+section_marks = [
+    '        {menuTab === "vendors" && (',
+    '        {menuTab === "warehouse_groups" && (',
+    '        {menuTab === "items" && (',
+    '        {menuTab === "maint_new" && (',
+]
+section_positions = [sections.index(mark) for mark in section_marks]
 vendor_block = sections[section_positions[0]:section_positions[1]].strip()
 warehouse_block = sections[section_positions[1]:section_positions[2]].strip()
 item_block = sections[section_positions[2]:section_positions[3]].strip()
