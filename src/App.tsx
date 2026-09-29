@@ -21578,5 +21578,5 @@ html,body,#root{
 @media(max-width:700px){.maintenance-purchase-link-modal{width:96vw;max-height:92vh;padding:15px}.maintenance-purchase-link-quantity{display:grid;align-items:stretch}.maintenance-purchase-link-quantity .field{max-width:none;width:100%;flex:auto}.maintenance-purchase-link-quantity>span{padding:0}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{grid-template-columns:1fr;gap:3px}.purchase-maintenance-summary b,.maintenance-purchase-summary b{white-space:normal}.maintenance-purchase-link-table{min-width:720px}}
 
 
-${erpListDesignCss.replace(/\r?\n$/, "")}
+${erpListDesignCss}
 `;
