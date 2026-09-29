@@ -30,6 +30,53 @@ def replace_menu_block(source: str, tab: str, next_tab: str, replacement: str) -
     return pattern.sub(lambda match: replacement + match.group("next"), source, count=1)
 
 
+if 'from "./features/master-data/MasterDataScreens"' in app:
+    home_start = """  return (
+    <section className="card">
+      <div className="between">
+        <h2>생산라인 구성도</h2>"""
+    home_start_replacement = """  return (
+    <section className="card basic-master-page basic-layout-page">
+      <header className="basic-page-header basic-layout-header">
+        <div className="basic-page-heading">
+          <span className="basic-eyebrow">MASTER DATA</span>
+          <h2>생산라인 구성도</h2>
+          <p>생산라인별 정비 이력을 확인하고 클릭 영역을 관리합니다.</p>
+        </div>"""
+    if home_start in app:
+        app = replace_once(app, home_start, home_start_replacement, "생산라인 시작 태그")
+    elif "basic-layout-page" not in app:
+        raise RuntimeError("기초등록 feature 적용 후 생산라인 시작 태그를 찾지 못했습니다.")
+
+    home_end = """        )}
+      </div>
+
+      {editLayout && ("""
+    home_end_replacement = """        )}
+      </header>
+
+      {editLayout && ("""
+    if home_end in app:
+        app = replace_once(app, home_end, home_end_replacement, "생산라인 종료 태그")
+    elif "basic-layout-header" not in app:
+        raise RuntimeError("기초등록 feature 적용 후 생산라인 종료 태그를 찾지 못했습니다.")
+
+    scroll_table_old = """function ScrollTable({ children }: { children: any }) {
+  return <div className="scroll-table">{children}</div>;
+}"""
+    scroll_table_new = """function ScrollTable({ children, className = "" }: { children: any; className?: string }) {
+  return <div className={""" + chr(96) + """scroll-table ${className}""" + chr(96) + """.trim()}>{children}</div>;
+}"""
+    if scroll_table_old in app:
+        app = replace_once(app, scroll_table_old, scroll_table_new, "공통 테이블 컴포넌트")
+    elif 'function ScrollTable({ children, className = "" }' not in app:
+        raise RuntimeError("기초등록 feature 적용 후 공통 테이블 컴포넌트를 찾지 못했습니다.")
+
+    APP_PATH.write_text(app, encoding="utf-8")
+    print("기초등록 화면은 feature에서 관리하고 생산라인·공통 테이블 패치를 유지했습니다.")
+    raise SystemExit(0)
+
+
 sections = r"""        {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} />}
 
         {menuTab === "vendors" && (

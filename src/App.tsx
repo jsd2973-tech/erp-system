@@ -28,6 +28,10 @@ import {
 import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
 import { createPurchaseService } from "./features/purchase/purchaseService";
 import { PurchaseEntryView, PurchasePriceHistoryModal } from "./features/purchase/PurchaseEntry";
+import { ItemMasterScreen, MasterDataDialogs, VendorMasterScreen, WarehouseMasterScreen } from "./features/master-data/MasterDataScreens";
+import { nextWarehouseCode } from "./features/master-data/masterDataModel";
+import type { MasterItem as Item, Vendor, Warehouse, WarehouseGroup as Group } from "./features/master-data/masterDataTypes";
+import { useMasterDataModule } from "./features/master-data/useMasterDataModule";
 import { MaintenanceEntry } from "./features/maintenance/MaintenanceEntry";
 import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
 import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
@@ -72,10 +76,6 @@ const cardService = createCardService(supabase);
 const maintenanceService = createMaintenanceService(supabase);
 const maintenancePurchaseLinkService = createMaintenancePurchaseLinkService(supabase);
 
-type Vendor = { id: string; code: string; name: string; owner?: string; phone?: string; mobile?: string; address?: string; address_detail?: string };
-type Group = { id: string; code: string; name: string };
-type Warehouse = { id: string; code: string; group: string; name: string };
-type Item = { id: string; code: string; name: string; spec?: string; unit?: string; price?: number };
 type PermitRenewal = {
   id: string;
   company: string;
@@ -190,21 +190,6 @@ const read = <T,>(key: string, fallback: T): T => {
 };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-const nextNumericCode = (arr: { code?: string }[], prefix = "", width = 4) => {
-  const maxCode = (arr || []).reduce((max, item) => {
-    const raw = String(item.code || "").trim();
-    const numericText = prefix && raw.toUpperCase().startsWith(prefix.toUpperCase()) ? raw.slice(prefix.length) : raw;
-    const numericCode = /^\d+$/.test(numericText) ? Number(numericText) : 0;
-    return Number.isFinite(numericCode) ? Math.max(max, numericCode) : max;
-  }, 0);
-  return `${prefix}${String(maxCode + 1).padStart(width, "0")}`;
-};
-const nextCode = (arr: { code?: string }[]) => nextNumericCode(arr, "", 4);
-const nextVendorCode = (arr: { code?: string }[]) => nextNumericCode(arr, "V", 3);
-const nextItemCode = (arr: { code?: string }[]) => {
-  return nextNumericCode(arr, "", 4);
-};
-
 const formatInputDate = (value: string) => {
   const numbers = value.replace(/\D/g, "").slice(0, 8);
 
@@ -1266,31 +1251,6 @@ html, body, #root {
 `;
 
 export default function App() {
-  const [vendors, setVendors] = useState<Vendor[]>(() =>
-    read(KEY.vendors, [
-      { id: uid(), code: "V001", name: "수산세보틱스", owner: "", phone: "", mobile: "" },
-      { id: uid(), code: "V002", name: "영재카", owner: "", phone: "", mobile: "" },
-    ])
-  );
-  const [groups, setGroups] = useState<Group[]>(() =>
-    read(KEY.groups, [
-      { id: uid(), code: "0001", name: "크라샤" },
-      { id: uid(), code: "0002", name: "폐목" },
-    ])
-  );
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(() =>
-    read(KEY.warehouses, [
-      { id: uid(), code: "0001", group: "크라샤", name: "로더" },
-      { id: uid(), code: "0002", group: "크라샤", name: "암프" },
-    ])
-  );
-  const [items, setItems] = useState<Item[]>(() =>
-    read(KEY.items, [
-      { id: uid(), code: "0001", name: "유압호스", spec: "A형", unit: "ea", price: 50000 },
-      { id: uid(), code: "0002", name: "베어링", spec: "B형", unit: "ea", price: 20000 },
-      { id: uid(), code: "0003", name: "타이어", spec: "29인치", unit: "ea", price: 300000 },
-    ])
-  );
   const [purchases, setPurchases] = useState<Purchase[]>(() => read(KEY.purchases, []));
   const [maints, setMaints] = useState<Maint[]>(() => read(KEY.maints, []));
   const [cardUses, setCardUses] = useState<CardUse[]>([]);
@@ -1392,85 +1352,6 @@ export default function App() {
   const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
-  const [vendorForm, setVendorForm] = useState({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
-  const [vendorImportMessage, setVendorImportMessage] = useState("");
-  const [editingVendorId, setEditingVendorId] = useState("");
-  const [vendorAddressSearchOpen, setVendorAddressSearchOpen] = useState(false);
-  const [vendorAddressSearchReady, setVendorAddressSearchReady] = useState(false);
-  const [vendorAddressSearchError, setVendorAddressSearchError] = useState("");
-  const vendorAddressSearchContainerRef = useRef<HTMLDivElement | null>(null);
-  const vendorAddressDetailRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    const postcodeWindow = window as any;
-    const markReady = () => {
-      if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode) {
-        setVendorAddressSearchReady(true);
-        setVendorAddressSearchError("");
-      }
-    };
-    markReady();
-    if (postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode) return;
-
-    const existingScript = document.getElementById("kakao-postcode-script") as HTMLScriptElement | null;
-    const script = existingScript || document.createElement("script");
-    const handleError = () => setVendorAddressSearchError("주소 검색 서비스를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.");
-    script.addEventListener("load", markReady);
-    script.addEventListener("error", handleError);
-    if (!existingScript) {
-      script.id = "kakao-postcode-script";
-      script.src = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-    return () => {
-      script.removeEventListener("load", markReady);
-      script.removeEventListener("error", handleError);
-    };
-  }, []);
-
-  const openVendorAddressSearch = () => {
-    setVendorAddressSearchError("");
-    setVendorAddressSearchOpen(true);
-  };
-
-  useEffect(() => {
-    if (!vendorAddressSearchOpen || !vendorAddressSearchReady || !vendorAddressSearchContainerRef.current) return;
-    const postcodeWindow = window as any;
-    const Postcode = postcodeWindow.kakao?.Postcode || postcodeWindow.daum?.Postcode;
-    if (!Postcode) return;
-
-    const container = vendorAddressSearchContainerRef.current;
-    container.innerHTML = "";
-    new Postcode({
-      oncomplete: (data: any) => {
-        const selectedAddress = data.userSelectedType === "J"
-          ? data.jibunAddress
-          : data.roadAddress || data.address;
-        setVendorForm((prev) => ({ ...prev, address: selectedAddress || data.address || "" }));
-        setVendorAddressSearchOpen(false);
-        window.setTimeout(() => vendorAddressDetailRef.current?.focus(), 0);
-      },
-      width: "100%",
-      height: "100%",
-    }).embed(container, { autoClose: false });
-  }, [vendorAddressSearchOpen, vendorAddressSearchReady]);
-
-  useEffect(() => {
-    if (!vendorAddressSearchOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setVendorAddressSearchOpen(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [vendorAddressSearchOpen]);
-  const [groupForm, setGroupForm] = useState({ code: nextCode(groups), name: "" });
-  const [warehouseForm, setWarehouseForm] = useState({ group: "", code: nextCode(warehouses), name: "" });
-  const [editingGroupId, setEditingGroupId] = useState("");
-  const [editingWarehouseId, setEditingWarehouseId] = useState("");
-  const [itemForm, setItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
-  const [itemImportMessage, setItemImportMessage] = useState("");
-  const [editingItemId, setEditingItemId] = useState("");
-  const [itemSearch, setItemSearch] = useState("");
   const [maintForm, setMaintForm] = useState({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
@@ -1500,8 +1381,6 @@ export default function App() {
     linkCandidates: maintenancePurchaseLinkCandidates,
     copyCandidates: maintenancePurchaseCopyCandidates,
   } = purchaseMaintenanceUi;
-  const [newItemModal, setNewItemModal] = useState<{ open: boolean; rowIndex: number | null }>({ open: false, rowIndex: null });
-  const [newItemForm, setNewItemForm] = useState({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
   const auxiliarySavingRef = useRef<Set<string>>(new Set());
   const [auxiliarySaving, setAuxiliarySaving] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ id: number; message: string; tone: "success" | "info" } | null>(null);
@@ -1515,6 +1394,30 @@ export default function App() {
       toastTimerRef.current = null;
     }, 3200);
   };
+
+  const masterData = useMasterDataModule({
+    supabase,
+    canCreateRecords,
+    canEditDeleteRecords,
+    isAdmin,
+    createId: uid,
+    getTodayKey,
+    showToast: (message) => showToast(message),
+    downloadExcel: (fileName, rows) => downloadExcel(fileName, rows),
+    moveToTrash: (record) => moveToTrash(record),
+    moveRecordsToTrash: (records) => moveRecordsToTrash(records),
+    onPurchaseItemCreated: (rowIndex, item) => {
+      setRows((previous) => previous.map((row, index) => {
+        if (index !== rowIndex) return row;
+        const qty = Number(row.qty || 0);
+        const supply = qty * Number(item.price || 0);
+        const vat = Math.round(supply * 0.1);
+        return { ...row, item: item.name, spec: item.spec || "", price: Number(item.price || 0), supply, vat, total: supply + vat };
+      }));
+    },
+  });
+  const { vendors, groups, warehouses, items } = masterData.data;
+
 
   useEffect(() => () => {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -2114,41 +2017,30 @@ export default function App() {
 
 
   const loadAll = async () => {
-    const [vRes, gRes, wRes, iRes, pRes, mRes, cRes, mplRes] = await Promise.all([
-      fetchAllRows("vendors", "code", 1000),
-      fetchAllRows("warehouse_groups", "code", 1000),
-      fetchAllRows("warehouses", "code", 1000),
-      fetchAllRows("items", "code", 1000),
+    const [masterRes, pRes, mRes, cRes, mplRes] = await Promise.all([
+      masterData.fetchMasterData(),
       purchaseService.fetchPurchases(),
       maintenanceService.fetchMaintenances(),
       cardService.fetchCardUses(),
       purchaseService.fetchMaintenancePurchaseLinks(),
     ]);
 
-    if (vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error) {
-      console.error(vRes.error || gRes.error || wRes.error || iRes.error || pRes.error || mRes.error || cRes.error || mplRes.error);
+    if (masterRes.vendors.error || masterRes.groups.error || masterRes.warehouses.error || masterRes.items.error || pRes.error || mRes.error || cRes.error || mplRes.error) {
+      console.error(masterRes.vendors.error || masterRes.groups.error || masterRes.warehouses.error || masterRes.items.error || pRes.error || mRes.error || cRes.error || mplRes.error);
       alert("Supabase 데이터를 불러오지 못했습니다. .env와 RLS 정책을 확인하세요.");
       return;
     }
 
-    const nextVendors = (vRes.data || []) as Vendor[];
-    const nextGroups = (gRes.data || []) as Group[];
-    const nextWarehouses = (wRes.data || []) as Warehouse[];
-    const nextItems = ((iRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
-
-    setVendors(nextVendors);
-    setGroups(nextGroups);
-    setWarehouses(nextWarehouses);
-    setItems(nextItems);
+    masterData.applySnapshot({
+      vendors: masterRes.vendors.data || [],
+      groups: masterRes.groups.data || [],
+      warehouses: masterRes.warehouses.data || [],
+      items: masterRes.items.data || [],
+    });
     setPurchases(((pRes.data || []) as any[]).map(toPurchase));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as Record<string, unknown>[]).map(normalizeCardUse));
     setMaintenancePurchaseLinks(((mplRes.data || []) as any[]).map(toMaintenancePurchaseLink));
-
-    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
-    setGroupForm({ code: nextCode(nextGroups), name: "" });
-    setWarehouseForm({ group: "", code: nextCode(nextWarehouses), name: "" });
-    setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
   };
 
   useEffect(() => {
@@ -2341,14 +2233,6 @@ export default function App() {
     [items]
   );
 
-  const filteredItems = useMemo(() => {
-    const q = itemSearch.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) =>
-      `${it.code || ""} ${it.name || ""} ${it.spec || ""} ${it.unit || ""}`.toLowerCase().includes(q)
-    );
-  }, [items, itemSearch]);
-
   const updateRow = (index: number, key: keyof PurchaseRow, value: any, selectedItem?: Partial<Item>) => {
     const next = [...rows];
     next[index] = { ...next[index], [key]: value };
@@ -2481,7 +2365,7 @@ export default function App() {
 
       const nextGroup = {
         id: uid(),
-        code: nextCode(workingGroups),
+        code: nextWarehouseCode(workingGroups),
         name: trimmed,
       };
 
@@ -3609,339 +3493,6 @@ export default function App() {
       return String(b.id || "").localeCompare(String(a.id || ""));
     });
 
-  const saveVendor = async () => {
-    if (editingVendorId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    const code = vendorForm.code.trim();
-    const name = vendorForm.name.trim();
-    if (!name) return;
-
-    const existing = editingVendorId ? vendors.find((v) => v.id === editingVendorId) : undefined;
-    if (editingVendorId && !existing) return alert("수정할 거래처를 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 시도해 주세요.");
-
-    const duplicate = vendors.find(
-      (v) => v.id !== editingVendorId && ((code !== "" && v.code.trim() === code) || v.name.trim() === name)
-    );
-    if (duplicate) {
-      const duplicateField = code !== "" && duplicate.code.trim() === code ? "거래처코드" : "거래처명";
-      return alert(`같은 ${duplicateField}의 거래처가 이미 있습니다. 기존 거래처를 선택해 수정해 주세요.`);
-    }
-
-    const payload: Vendor = { ...vendorForm, id: existing?.id || uid(), code, name };
-    const { error } = await supabase.from("vendors").upsert(payload);
-    if (error) return alert(`거래처 저장 실패: ${error.message}`);
-    const next = existing ? vendors.map((v) => (v.id === existing.id ? payload : v)) : [...vendors, payload];
-    setVendors(next);
-    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
-    setEditingVendorId("");
-    showToast(existing ? "거래처 정보를 수정했습니다." : "거래처를 등록했습니다.");
-  };
-
-  const importVendors = async (file: File) => {
-    const rows = await readExcelRows(file);
-    const importedCodes: { code?: string }[] = [...vendors];
-    const imported = rows
-      .map((r) => {
-        const code = String(pick(r, ["거래처코드", "코드", "사업자번호"]) || "").trim() || nextVendorCode(importedCodes);
-        importedCodes.push({ code });
-        return {
-          id: uid(),
-          code,
-          name: String(pick(r, ["거래처명", "상호"]) || "").trim(),
-          owner: String(pick(r, ["대표자", "대표자명"]) || "").trim(),
-          phone: String(pick(r, ["전화", "전화번호", "연락처"]) || "").trim(),
-          mobile: String(pick(r, ["모바일", "휴대폰", "휴대전화"]) || "").trim(),
-          address: String(pick(r, ["주소", "사업장주소", "소재지"]) || "").trim(),
-          address_detail: String(pick(r, ["상세주소", "주소상세", "상세 주소"]) || "").trim(),
-        };
-      })
-      .filter((x) => x.name);
-    const merged = [...vendors];
-    imported.forEach((row) => {
-      const idx = merged.findIndex((v) => v.code === row.code || v.name === row.name);
-      if (idx >= 0) merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
-      else merged.push(row);
-    });
-    const { error } = await supabase.from("vendors").upsert(merged);
-    if (error) return alert(`거래처 업로드 실패: ${error.message}`);
-    setVendors(merged);
-    setVendorImportMessage(`${imported.length}건 불러왔습니다.`);
-  };
-
-  const saveGroup = async () => {
-    if (editingGroupId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    const nextGroupName = groupForm.name.trim();
-    if (!nextGroupName) return;
-    const previousGroup = editingGroupId ? groups.find((group) => group.id === editingGroupId) : undefined;
-    const payload: Group = { id: editingGroupId || uid(), ...groupForm, name: nextGroupName };
-    const { error } = await supabase.from("warehouse_groups").upsert(payload);
-    if (error) return alert(`저장 실패: ${error.message}`);
-
-    if (previousGroup && previousGroup.name.trim() !== payload.name) {
-      const previousGroupName = previousGroup.name.trim();
-      const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group.trim() === previousGroupName);
-      if (linkedWarehouses.length) {
-        const linkedWarehouseIds = linkedWarehouses.map((warehouse) => warehouse.id);
-        const { data: updatedWarehouses, error: warehouseError } = await supabase
-          .from("warehouses")
-          .update({ group: payload.name })
-          .in("id", linkedWarehouseIds)
-          .select("id, group");
-        const updatedIds = new Set((updatedWarehouses || []).map((warehouse: any) => String(warehouse.id)));
-        const allWarehousesUpdated = linkedWarehouseIds.every((id) => updatedIds.has(String(id)));
-
-        if (warehouseError || !allWarehousesUpdated) {
-          if (updatedIds.size) {
-            await supabase.from("warehouses").update({ group: previousGroup.name }).in("id", Array.from(updatedIds));
-          }
-          const { error: rollbackError } = await supabase.from("warehouse_groups").upsert(previousGroup);
-          const failureMessage = warehouseError?.message || "일부 세부창고가 변경되지 않았습니다.";
-          if (rollbackError) {
-            return alert(`세부창고 연결 변경 실패: ${failureMessage}\n대분류 이름 복구도 실패했습니다: ${rollbackError.message}`);
-          }
-          return alert(`세부창고 연결 변경에 실패하여 대분류 이름을 원래대로 복구했습니다: ${failureMessage}`);
-        }
-
-        setWarehouses((current) => current.map((warehouse) =>
-          linkedWarehouseIds.includes(warehouse.id) ? { ...warehouse, group: payload.name } : warehouse
-        ));
-        setWarehouseForm((current) =>
-          current.group.trim() === previousGroupName ? { ...current, group: payload.name } : current
-        );
-      }
-    }
-    const next = editingGroupId ? groups.map((g) => (g.id === editingGroupId ? payload : g)) : [...groups, payload];
-    setGroups(next);
-    setGroupForm({ code: nextCode(next), name: "" });
-    setEditingGroupId("");
-    showToast(editingGroupId ? "창고 대분류를 수정했습니다." : "창고 대분류를 등록했습니다.");
-  };
-
-  const saveWarehouse = async () => {
-    if (editingWarehouseId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-    if (!warehouseForm.group || !warehouseForm.name) return;
-    const payload: Warehouse = { id: editingWarehouseId || uid(), ...warehouseForm };
-    const { error } = await supabase.from("warehouses").upsert(payload);
-    if (error) return alert(`창고 저장 실패: ${error.message}`);
-    const next = editingWarehouseId ? warehouses.map((w) => (w.id === editingWarehouseId ? payload : w)) : [...warehouses, payload];
-    setWarehouses(next);
-    setWarehouseForm({ group: "", code: nextCode(next), name: "" });
-    setEditingWarehouseId("");
-    showToast(editingWarehouseId ? "세부 창고를 수정했습니다." : "세부 창고를 등록했습니다.");
-  };
-
-  const deleteGroup = async (id: string, name: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const target = groups.find((group) => group.id === id);
-    if (!target) return alert("삭제할 창고 대분류를 찾지 못했습니다.");
-    const linkedWarehouses = warehouses.filter((warehouse) => warehouse.group === name);
-    if (!confirm(`창고 대분류와 연결된 세부창고 ${linkedWarehouses.length}건을 휴지통으로 이동할까요?`)) return;
-
-    const ok = await moveRecordsToTrash([
-      {
-        source_table: "warehouse_groups",
-        module: "창고분류",
-        record_id: target.id,
-        title: target.name || "",
-        detail: `연결 세부창고 ${linkedWarehouses.length}건`,
-        data: target,
-      },
-      ...linkedWarehouses.map((warehouse) => ({
-        source_table: "warehouses",
-        module: "창고",
-        record_id: warehouse.id,
-        title: warehouse.name || "",
-        detail: warehouse.group || "",
-        data: warehouse,
-      })),
-    ]);
-    if (!ok) return;
-
-    const delWh = await supabase.from("warehouses").delete().eq("group", name);
-    if (delWh.error) return alert(`세부창고 삭제 실패: ${delWh.error.message}`);
-    const delGroup = await supabase.from("warehouse_groups").delete().eq("id", id);
-    if (delGroup.error) return alert(`대분류 삭제 실패: ${delGroup.error.message}`);
-
-    const newGroups = groups.filter((group) => group.id !== id);
-    const newWarehouses = warehouses.filter((warehouse) => warehouse.group !== name);
-    setGroups(newGroups);
-    setWarehouses(newWarehouses);
-    setGroupForm({ code: nextCode(newGroups), name: "" });
-    setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
-  };
-  const deleteWarehouse = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const target = warehouses.find((warehouse) => warehouse.id === id);
-    if (!target) return alert("삭제할 창고를 찾지 못했습니다.");
-    if (!confirm("세부창고를 휴지통으로 이동할까요?")) return;
-
-    const ok = await moveToTrash({
-      source_table: "warehouses",
-      module: "창고",
-      record_id: id,
-      title: target.name || "",
-      detail: target.group || "",
-      data: target,
-    });
-    if (!ok) return;
-
-    const { error } = await supabase.from("warehouses").delete().eq("id", id);
-    if (error) return alert(`창고 삭제 실패: ${error.message}`);
-    const newWarehouses = warehouses.filter((warehouse) => warehouse.id !== id);
-    setWarehouses(newWarehouses);
-    setWarehouseForm({ group: "", code: nextCode(newWarehouses), name: "" });
-  };
-
-  const saveItem = async () => {
-    if (editingItemId && !canEditDeleteRecords) return alert("수정은 관리자만 가능합니다.");
-    if (!canCreateRecords) return alert("등록 권한이 없습니다.");
-
-    const code = String(itemForm.code || "").trim();
-    const name = String(itemForm.name || "").trim();
-    if (!code) return alert("품목코드를 입력하세요.");
-    if (!name) return alert("품목명을 입력하세요.");
-
-    const latestRes = await fetchAllRows("items", "code", 1000);
-    if (latestRes.error) return alert(`품목 최신자료 불러오기 실패: ${latestRes.error.message}`);
-
-    const latestItems = ((latestRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
-    const duplicateCode = latestItems.find((i) => i.code === code && i.id !== editingItemId);
-    if (duplicateCode) return alert("이미 사용 중인 품목코드입니다.");
-
-    const existing = editingItemId ? latestItems.find((i) => i.id === editingItemId) : undefined;
-    const payload = { id: existing?.id || uid(), ...itemForm, code, name, price: Number(itemForm.price || 0) };
-    const { error } = await supabase.from("items").upsert(payload);
-    if (error) return alert(`저장 실패: ${error.message}`);
-
-    const next = existing ? latestItems.map((i) => (i.id === existing.id ? payload : i)) : [...latestItems, payload];
-    setItems(next);
-    setItemForm({ code: nextItemCode(next), name: "", spec: "", unit: "", price: "" });
-    setEditingItemId("");
-    showToast(existing ? "품목 정보를 수정했습니다." : "품목을 등록했습니다.");
-  };
-
-  const importItems = async (file: File) => {
-    const rows = await readExcelRows(file);
-
-    const existingRes = await fetchAllRows("items", "code", 1000);
-    if (existingRes.error) return alert(`기존 품목 불러오기 실패: ${existingRes.error.message}`);
-
-    const existingItems = ((existingRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
-
-    const tempImportedCodes: { code?: string }[] = [];
-    const imported = rows
-      .map((r) => {
-        const rawCode = String(pick(r, ["품목코드", "코드"]) || "").trim();
-        const name = String(pick(r, ["품목명", "품명"]) || "").trim();
-        const spec = String(pick(r, ["규격정보", "규격"]) || "").trim();
-        const unit = String(pick(r, ["단위"]) || "").trim();
-        const price = Number(pick(r, ["단가", "입고단가", "매입단가"]) || 0);
-        const code = rawCode || nextItemCode([...existingItems, ...tempImportedCodes]);
-
-        tempImportedCodes.push({ code });
-
-        return {
-          id: uid(),
-          code,
-          name,
-          spec,
-          unit,
-          price,
-        };
-      })
-      .filter((x) => x.name || x.code);
-
-    const merged = [...existingItems];
-
-    imported.forEach((row) => {
-      const idx = merged.findIndex((i) => row.code && i.code === row.code);
-      if (idx >= 0) {
-        merged[idx] = { ...merged[idx], ...row, id: merged[idx].id };
-      } else {
-        merged.push(row);
-      }
-    });
-
-    const error = await upsertInChunks("items", merged, 500);
-    if (error) return alert(`품목 업로드 실패: ${error.message}`);
-
-    const reloadRes = await fetchAllRows("items", "code", 1000);
-    if (reloadRes.error) return alert(`품목 다시 불러오기 실패: ${reloadRes.error.message}`);
-
-    const nextItems = ((reloadRes.data || []) as any[]).map((x) => ({ ...x, price: Number(x.price || 0) })) as Item[];
-    setItems(nextItems);
-    setItemImportMessage(`${imported.length}건 업로드 / 현재 ${nextItems.length}건 표시`);
-    setItemForm({ code: nextItemCode(nextItems), name: "", spec: "", unit: "", price: "" });
-  };
-
-  const openNewItemModal = (rowIndex: number) => {
-    setNewItemForm({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
-    setNewItemModal({ open: true, rowIndex });
-  };
-
-  const closeNewItemModal = () => {
-    setNewItemModal({ open: false, rowIndex: null });
-    setNewItemForm({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" });
-  };
-
-  const saveNewItemFromModal = async () => {
-    const code = newItemForm.code.trim();
-    if (!code) return alert("품목코드를 입력하세요.");
-    if (items.some((item) => String(item.code || "").trim().toLowerCase() === code.toLowerCase())) {
-      return alert("이미 등록된 품목코드입니다. 다른 코드를 입력하세요.");
-    }
-
-    const name = newItemForm.name.trim();
-    if (!name) return alert("품목명을 입력하세요.");
-
-    const spec = newItemForm.spec.trim();
-    const unit = newItemForm.unit.trim();
-    const price = Number(String(newItemForm.price || "0").replace(/,/g, "")) || 0;
-
-    const newItem = {
-      id: uid(),
-      code,
-      name,
-      spec,
-      unit,
-      price,
-    };
-
-    const { error } = await supabase.from("items").insert(newItem);
-    if (error) return alert(`신규 저장 실패: ${error.message}`);
-    setItems((prev) => [...prev, newItem]);
-
-    if (newItemModal.rowIndex !== null) {
-      const targetRowIndex = newItemModal.rowIndex;
-
-      setRows((prev) =>
-        prev.map((row, index) => {
-          if (index !== targetRowIndex) return row;
-
-          const qty = Number(row.qty || 0);
-          const supply = qty * price;
-          const vat = Math.round(supply * 0.1);
-
-          return {
-            ...row,
-            item: name,
-            spec,
-            price,
-            supply,
-            vat,
-            total: supply + vat,
-          };
-        })
-      );
-    }
-
-    showToast("신규 품목을 등록하고 입력란에 반영했습니다.");
-    closeNewItemModal();
-  };
-
-
   const updateMaintItem = (index: number, key: keyof MaintItem, value: any, selectedItem?: Partial<Item>) => {
     let found: Partial<Item> | undefined;
     if (key === "item") {
@@ -4530,26 +4081,6 @@ const purchasePriceHistoryMap = useMemo(
   };
 
 
-  const editVendor = (v: Vendor) => {
-    setEditingVendorId(v.id);
-    setVendorForm({ code: v.code || "", name: v.name || "", owner: v.owner || "", phone: v.phone || "", mobile: v.mobile || "", address: v.address || "", address_detail: v.address_detail || "" });
-  };
-
-  const editGroup = (g: Group) => {
-    setEditingGroupId(g.id);
-    setGroupForm({ code: g.code || "", name: g.name || "" });
-  };
-
-  const editWarehouse = (w: Warehouse) => {
-    setEditingWarehouseId(w.id);
-    setWarehouseForm({ code: w.code || "", group: w.group || "", name: w.name || "" });
-  };
-
-  const editItem = (it: Item) => {
-    setEditingItemId(it.id);
-    setItemForm({ code: it.code || "", name: it.name || "", spec: it.spec || "", unit: it.unit || "", price: String(it.price || "") });
-  };
-
   const deletePurchase = async (id: string) => {
     if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
     const target = purchases.find((p) => p.id === id);
@@ -4575,94 +4106,6 @@ const purchasePriceHistoryMap = useMemo(
     if (error) return alert(`구매 삭제 실패: ${error.message}`);
     setPurchases((prev) => prev.filter((p) => p.id !== id));
     await addActivityLog({ module: "구매", action: "휴지통 이동", target_id: id, target_title: target.vendor || "", detail: getPurchaseItemSummary(target) });
-  };
-
-  const deleteVendor = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const target = vendors.find((vendor) => vendor.id === id);
-    if (!target) return alert("삭제할 거래처를 찾지 못했습니다.");
-    if (!confirm("거래처를 휴지통으로 이동할까요?")) return;
-
-    const ok = await moveToTrash({
-      source_table: "vendors",
-      module: "거래처",
-      record_id: id,
-      title: target.name || "",
-      detail: target.code || "",
-      data: target,
-    });
-    if (!ok) return;
-
-    const { error } = await supabase.from("vendors").delete().eq("id", id);
-    if (error) return alert(`거래처 삭제 실패: ${error.message}`);
-    setVendors((prev) => prev.filter((v) => v.id !== id));
-  };
-
-  const clearVendors = async () => {
-    if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
-    if (!vendors.length) return alert("삭제할 거래처가 없습니다.");
-    if (!confirm(`거래처 ${vendors.length}건을 모두 휴지통으로 이동할까요?`)) return;
-    const ok = await moveRecordsToTrash(vendors.map((vendor) => ({
-      source_table: "vendors",
-      module: "거래처",
-      record_id: vendor.id,
-      title: vendor.name || "",
-      detail: vendor.code || "",
-      data: vendor,
-    })));
-    if (!ok) return;
-
-    const { error } = await supabase.from("vendors").delete().neq("id", "");
-    if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
-    setVendors([]);
-    setVendorImportMessage("거래처 전체 삭제 완료");
-    setVendorForm({ code: "", name: "", owner: "", phone: "", mobile: "", address: "", address_detail: "" });
-  };
-
-  const deleteItem = async (id: string) => {
-    if (!canEditDeleteRecords) return alert("삭제는 관리자만 가능합니다.");
-    const target = items.find((item) => item.id === id);
-    if (!target) return alert("삭제할 품목을 찾지 못했습니다.");
-    if (!confirm("품목을 휴지통으로 이동할까요?")) return;
-
-    const ok = await moveToTrash({
-      source_table: "items",
-      module: "품목",
-      record_id: id,
-      title: target.name || "",
-      detail: `${target.code || "-"} · ${target.spec || "규격 없음"}`,
-      data: target,
-    });
-    if (!ok) return;
-
-    const { error } = await supabase.from("items").delete().eq("id", id);
-    if (error) return alert(`품목 삭제 실패: ${error.message}`);
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const clearItems = async () => {
-    if (!isAdmin) return alert("관리자만 전체삭제할 수 있습니다.");
-    if (!items.length) return alert("삭제할 품목이 없습니다.");
-    if (!confirm(`품목 ${items.length}건을 모두 휴지통으로 이동할까요?`)) return;
-
-    const ok = await moveRecordsToTrash(items.map((item) => ({
-      source_table: "items",
-      module: "품목",
-      record_id: item.id,
-      title: item.name || "",
-      detail: `${item.code || "-"} · ${item.spec || "규격 없음"}`,
-      data: item,
-    })));
-    if (!ok) return;
-
-    const { error } = await supabase.from("items").delete().neq("id", "");
-    if (error) return alert(`품목 전체삭제 실패: ${error.message}`);
-
-    setItems([]);
-    setItemSearch("");
-    setItemImportMessage("품목 전체 삭제 완료");
-    setItemForm({ code: "0001", name: "", spec: "", unit: "", price: "" });
-    setEditingItemId("");
   };
 
   const deleteMaint = async (id: string) => {
@@ -5587,34 +5030,7 @@ const purchasePriceHistoryMap = useMemo(
           <i aria-hidden="true" />
         </div>
       )}
-      {vendorAddressSearchOpen && (
-        <div className="vendor-address-modal-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setVendorAddressSearchOpen(false);
-        }}>
-          <div className="vendor-address-modal" role="dialog" aria-modal="true" aria-label="거래처 주소 검색">
-            <div className="vendor-address-modal-head">
-              <div>
-                <strong>주소 검색</strong>
-                <span>도로명 또는 지번주소를 검색하세요.</span>
-              </div>
-              <button type="button" onClick={() => setVendorAddressSearchOpen(false)} aria-label="주소 검색 닫기"><X size={18} /></button>
-            </div>
-            <div className="vendor-address-modal-body">
-              {!vendorAddressSearchReady && !vendorAddressSearchError && (
-                <div className="vendor-address-modal-status">주소 검색 기능을 불러오는 중입니다...</div>
-              )}
-              {vendorAddressSearchError && (
-                <div className="vendor-address-modal-status error">
-                  <strong>주소 검색을 불러오지 못했습니다.</strong>
-                  <span>{vendorAddressSearchError}</span>
-                  <button type="button" onClick={() => window.location.reload()}>다시 불러오기</button>
-                </div>
-              )}
-              <div ref={vendorAddressSearchContainerRef} className={`vendor-address-embed${vendorAddressSearchReady ? " ready" : ""}`} />
-            </div>
-          </div>
-        </div>
-      )}
+      <MasterDataDialogs dialogs={masterData.dialogs} save={{ isSaving: isAuxiliarySaving, runSave: runAuxiliarySave }} />
       <div className={`app app-tab-${menuTab}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <header className="hero">
           <div className="hero-brand-mark" aria-hidden="true">TM</div>
@@ -7249,7 +6665,7 @@ const purchasePriceHistoryMap = useMemo(
             getPurchasePriceHistoryForRow,
             setPurchasePriceHistoryModal,
             updateRow,
-            openNewItemModal,
+            openNewItemModal: masterData.itemScreen.onOpenNewItem,
             removePurchaseRow,
             emptyRow,
             purchaseUploading,
@@ -7276,17 +6692,11 @@ const purchasePriceHistoryMap = useMemo(
         {menuTab === "card_list" && <CardList model={cardModule.list} ui={cardModuleUi} />}
         {menuTab === "card_stats" && <CardUseStats cardUses={cardUses} ui={cardModuleUi} />}
 
-        {menuTab === "vendors" && (
-          <section className="card"><h2>거래처등록</h2><div className="between"><span>{vendorImportMessage || `현재 ${vendors.length}개 거래처 등록됨`}</span><label className="upload"><Upload size={16} /> 거래처 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importVendors(e.target.files[0])} /></label></div><div className="grid5 vendor-register-grid"><Field label="거래처코드"><input value={vendorForm.code} onChange={(e) => setVendorForm({ ...vendorForm, code: e.target.value })} placeholder="거래처코드 직접 입력" /></Field><Field label="상호"><input value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} /></Field><Field label="대표자"><input value={vendorForm.owner} onChange={(e) => setVendorForm({ ...vendorForm, owner: e.target.value })} /></Field><Field label="전화번호"><input value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} /></Field><Field label="모바일"><input value={vendorForm.mobile} onChange={(e) => setVendorForm({ ...vendorForm, mobile: e.target.value })} /></Field><Field label="기본주소"><div className="vendor-address-input"><input value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} placeholder="주소 검색을 눌러 입력하세요" /><button type="button" onClick={openVendorAddressSearch}>주소 검색</button></div></Field><Field label="상세주소"><input ref={vendorAddressDetailRef} value={vendorForm.address_detail} onChange={(e) => setVendorForm({ ...vendorForm, address_detail: e.target.value })} placeholder="건물명, 층, 호수 등" /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("vendor")} onClick={clearVendors}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("vendor")} onClick={() => runAuxiliarySave("vendor", saveVendor)}>{isAuxiliarySaving("vendor") ? "저장 중..." : editingVendorId ? "수정 저장" : "저장"}</button>}</div><SimpleVendorTable vendors={vendors} deleteVendor={deleteVendor} editVendor={editVendor} isAdmin={canEditDeleteRecords} /></section>
-        )}
+        {menuTab === "vendors" && <VendorMasterScreen model={masterData.vendorScreen} access={{ isAdmin, canEditDeleteRecords }} save={{ isSaving: isAuxiliarySaving, runSave: runAuxiliarySave }} />}
 
-        {menuTab === "warehouse_groups" && (
-          <section className="card"><h2>창고등록</h2><div className="two"><div><h3>대분류 창고</h3><Field label="대분류 코드"><input value={groupForm.code} readOnly /></Field><Field label="대분류 이름"><input value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" disabled={isAuxiliarySaving("group")} onClick={() => runAuxiliarySave("group", saveGroup)}>{isAuxiliarySaving("group") ? "저장 중..." : editingGroupId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>이름</th><th>관리</th></tr></thead><tbody>{groups.map((g) => <tr key={g.id}><td>{g.code}</td><td>{g.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editGroup(g)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteGroup(g.id, g.name)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div><div><h3>세부 창고</h3><SearchSelect label="상위 분류" value={warehouseForm.group} options={groups.map((g) => g.name)} onChange={(v) => setWarehouseForm({ ...warehouseForm, group: v })} placeholder="크라샤 입력" /><Field label="세부 코드"><input value={warehouseForm.code} readOnly /></Field><Field label="세부 이름"><input value={warehouseForm.name} onChange={(e) => setWarehouseForm({ ...warehouseForm, name: e.target.value })} /></Field>{isAdmin && <button className="primary" disabled={isAuxiliarySaving("warehouse")} onClick={() => runAuxiliarySave("warehouse", saveWarehouse)}>{isAuxiliarySaving("warehouse") ? "저장 중..." : editingWarehouseId ? "수정 저장" : "저장"}</button>}<ScrollTable><table><thead><tr><th>코드</th><th>대분류</th><th>창고명</th><th>관리</th></tr></thead><tbody>{warehouses.map((w) => <tr key={w.id}><td>{w.code}</td><td>{w.group}</td><td>{w.name}</td><td>{isAdmin ? <><button className="icon" onClick={() => editWarehouse(w)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteWarehouse(w.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></div></div></section>
-        )}
+        {menuTab === "warehouse_groups" && <WarehouseMasterScreen model={masterData.warehouseScreen} access={{ isAdmin, canEditDeleteRecords }} save={{ isSaving: isAuxiliarySaving, runSave: runAuxiliarySave }} SearchSelect={SearchSelect} />}
 
-        {menuTab === "items" && (
-          <section className="card"><h2>품목등록</h2><div className="between"><span>{itemImportMessage || `현재 ${items.length}개 품목 등록됨`}</span><label className="upload"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && importItems(e.target.files[0])} /></label></div><div className="item-search"><input placeholder="품목코드 / 품목명 / 규격 / 단위 검색" value={itemSearch} onChange={(e) => setItemSearch(e.target.value)} /><span>{filteredItems.length}건 표시</span></div><div className="grid5"><Field label="품목코드"><input value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} /></Field><Field label="품목명"><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} /></Field><Field label="규격정보"><input value={itemForm.spec} onChange={(e) => setItemForm({ ...itemForm, spec: e.target.value })} /></Field><Field label="단위"><input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} /></Field><Field label="입고단가"><input inputMode="decimal" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} /></Field></div><div className="actions right-actions">{isAdmin && <button disabled={isAuxiliarySaving("item")} onClick={clearItems}>전체삭제</button>}{isAdmin && <button className="primary" disabled={isAuxiliarySaving("item")} onClick={() => runAuxiliarySave("item", saveItem)}>{isAuxiliarySaving("item") ? "저장 중..." : editingItemId ? "수정 저장" : "저장"}</button>}</div><ScrollTable><table><thead><tr><th>품목코드</th><th>품목명</th><th>규격정보</th><th>단위</th><th>입고단가</th><th>관리</th></tr></thead><tbody>{filteredItems.map((it) => <tr key={it.id}><td>{it.code}</td><td>{it.name}</td><td>{it.spec || "-"}</td><td>{it.unit || "-"}</td><td className="right">{money(it.price)}</td><td>{isAdmin ? <><button className="icon" onClick={() => editItem(it)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteItem(it.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable></section>
-        )}
+        {menuTab === "items" && <ItemMasterScreen model={masterData.itemScreen} access={{ isAdmin, canEditDeleteRecords }} save={{ isSaving: isAuxiliarySaving, runSave: runAuxiliarySave }} />}
 
         {menuTab === "maint_new" && (
           <MaintenanceEntry
@@ -7520,34 +6930,7 @@ const purchasePriceHistoryMap = useMemo(
           />
         )}
 
-        {newItemModal.open && (
-          <div className="modal-backdrop">
-            <div className="modal-box">
-              <h2>신규 품목 추가</h2>
-              <div className="grid2">
-                <Field label="품목코드" required>
-                  <input value={newItemForm.code} onChange={(e) => setNewItemForm({ ...newItemForm, code: e.target.value })} autoFocus placeholder="예: 0001" />
-                </Field>
-                <Field label="품목명">
-                  <input value={newItemForm.name} onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })} />
-                </Field>
-                <Field label="규격정보">
-                  <input value={newItemForm.spec} onChange={(e) => setNewItemForm({ ...newItemForm, spec: e.target.value })} />
-                </Field>
-                <Field label="단위">
-                  <input value={newItemForm.unit} onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value })} placeholder="ea" />
-                </Field>
-                <Field label="입고단가">
-                  <input inputMode="decimal" value={newItemForm.price} onChange={(e) => setNewItemForm({ ...newItemForm, price: e.target.value })} placeholder="0" />
-                </Field>
-              </div>
-              <div className="actions right-actions">
-                <button disabled={isAuxiliarySaving("newItemModal")} onClick={closeNewItemModal}>취소</button>
-                <button className="primary" disabled={isAuxiliarySaving("newItemModal")} onClick={() => runAuxiliarySave("newItemModal", saveNewItemFromModal)}>{isAuxiliarySaving("newItemModal") ? "저장 중..." : "저장"}</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <MasterDataDialogs placement="app" dialogs={masterData.dialogs} save={{ isSaving: isAuxiliarySaving, runSave: runAuxiliarySave }} />
 
         {photoLinkModal.mode && (
           <div className="photo-link-modal-backdrop" onClick={() => setPhotoLinkModal({ mode: "", targetId: "", search: "" })}>
@@ -10032,9 +9415,7 @@ function HomeDashboard({
   );
 }
 
-function SimpleVendorTable({ vendors, deleteVendor, editVendor, isAdmin }: any) {
-  return <ScrollTable><table><thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>주소</th><th>관리</th></tr></thead><tbody>{vendors.map((v: Vendor) => <tr key={v.id}><td>{v.code}</td><td>{v.name}</td><td>{v.owner || "-"}</td><td>{v.phone || "-"}</td><td>{v.mobile || "-"}</td><td>{[v.address, v.address_detail].filter(Boolean).join(" ") || "-"}</td><td>{isAdmin ? <><button className="icon" onClick={() => editVendor(v)}><Pencil size={16} /></button><button className="icon" onClick={() => deleteVendor(v.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>)}</tbody></table></ScrollTable>;
-}
+
 
 /*
 MOBILE_MENU_AUDIT
