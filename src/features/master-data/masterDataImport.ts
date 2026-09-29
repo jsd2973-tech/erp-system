@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 import { cleanVendorImportText, nextItemCode, nextVendorCode } from "./masterDataModel";
 import type { EcountVendorImportRow, MasterItem, Vendor } from "./masterDataTypes";
 

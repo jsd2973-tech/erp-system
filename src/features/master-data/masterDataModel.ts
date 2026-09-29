@@ -28,8 +28,7 @@ export const filterMasterItems = (items: MasterItem[], query: string) => {
   const keyword = query.trim().toLowerCase();
   if (!keyword) return items;
   return items.filter((item) =>
-    [item.code, item.name, item.spec, item.unit]
-      .some((value) => String(value || "").toLowerCase().includes(keyword)),
+    `${item.code || ""} ${item.name || ""} ${item.spec || ""} ${item.unit || ""}`.toLowerCase().includes(keyword),
   );
 };
 
