@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
 import DispatchPage from "./features/dispatch/DispatchPage";
+import DispatchManagerDashboard from "./features/dispatch/DispatchManagerDashboard";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
 import BiddingPage from "./features/bidding/BiddingPage";
@@ -620,7 +621,7 @@ type SiteNotice = {
   created_at?: string;
 };
 
-type UserRole = "admin" | "office" | "field";
+type UserRole = "admin" | "office" | "field" | "dispatch_manager";
 
 type UserPermission = {
   id: string;
@@ -715,6 +716,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "dispatch_list", label: "운행관리 · 배차목록" },
   { key: "dispatch_status", label: "운행관리 · 운행현황" },
   { key: "dispatch_results", label: "운행관리 · 운송실적" },
+  { key: "dispatch_location", label: "운행관리 · 위치조회" },
   { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
   { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
   { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
@@ -1307,6 +1309,7 @@ export default function App() {
   const canAccessTab = (tab: string) => {
     if (!isPermissionApproved) return false;
     if (!tab) return true;
+    if (currentRole === "dispatch_manager") return DISPATCH_VIEWS.includes(tab as DispatchView);
     if (tab === "home") return true;
     if (tab === "site_notices") return true;
     if (tab === "activity_logs") return isAdmin;
@@ -1319,6 +1322,7 @@ export default function App() {
   };
 
   const getFirstAllowedTab = () => {
+    if (currentRole === "dispatch_manager") return "dispatch_status";
     if (isAdmin || currentRole === "office") return "home";
     return "home";
   };
@@ -4728,7 +4732,10 @@ const purchasePriceHistoryMap = useMemo(
       id: target.id || uid(),
       email,
       role: target.role || "field",
-      permissions: target.permissions || {},
+      permissions: target.role === "dispatch_manager" ? {
+        dispatch_register: true, dispatch_list: true, dispatch_status: true, dispatch_results: true,
+        dispatch_vehicles: true, dispatch_drivers: true, dispatch_basics: true, dispatch_location: true,
+      } : (target.permissions || {}),
       updated_at: new Date().toISOString(),
     };
 
@@ -5183,7 +5190,7 @@ const purchasePriceHistoryMap = useMemo(
           {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => { setMenuTab("activity_logs"); setOpenMenuGroup(null); }}><ClipboardList size={17} /> 작업로그</button>}
           {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => { setMenuTab("trash_bin"); setOpenMenuGroup(null); }}><Trash2 size={17} /> 휴지통</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => { setMenuTab("backup_permissions"); setOpenMenuGroup(null); }}><ShieldCheck size={17} /> 백업/권한관리</button>}
-          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : currentRole === "dispatch_manager" ? " · 배차관리자" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
@@ -6630,7 +6637,7 @@ const purchasePriceHistoryMap = useMemo(
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
+        {menuTab === "home" && (currentRole === "dispatch_manager" ? <DispatchManagerDashboard supabase={supabase} onNavigate={(view) => setMenuTab(view)} /> : <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />)}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
 
@@ -7152,12 +7159,27 @@ const purchasePriceHistoryMap = useMemo(
                 </div></details>}
               </>)}
             </div>
+            {mobileSheet === "more" && currentRole === "dispatch_manager" && (
+              <div className="dispatch-manager-mobile-more">
+                <button type="button" onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>
+                <button type="button" onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>
+                <button type="button" onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>
+              </div>
+            )}
             {mobileSheet === "more" && <div className="mobile-menu-footer"><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button className="role-mobile-logout" onClick={logout}>로그아웃</button></div>}
           </div>
         </div>
 
         <div className="mobile-bottom-nav permission-aware-mobile-nav role-aware-bottom-nav">
-          {currentRole === "field" ? (
+          {currentRole === "dispatch_manager" ? (
+            <>
+              <button className={menuTab === "dispatch_status" ? "active" : ""} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>
+              <button className={menuTab === "dispatch_register" ? "active" : ""} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>
+              <button className={menuTab === "dispatch_list" ? "active" : ""} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>
+              <button className={menuTab === "dispatch_results" ? "active" : ""} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>
+              <button className={["dispatch_vehicles","dispatch_drivers","dispatch_basics"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet(mobileSheet === "more" ? "" : "more")}>더보기</button>
+            </>
+          ) : currentRole === "field" ? (
             <>
               <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
               {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
@@ -7184,8 +7206,8 @@ const purchasePriceHistoryMap = useMemo(
 function Field({ label, children, required = false, className = "" }: { label: string; children: any; required?: boolean; className?: string }) {
   return <div className={`field ${className}`.trim()}><label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>{children}</div>;
 }
-function ScrollTable({ children }: { children: any }) {
-  return <div className="scroll-table">{children}</div>;
+function ScrollTable({ children, className = "" }: { children: any; className?: string }) {
+  return <div className={`scroll-table ${className}`.trim()}>{children}</div>;
 }
 
 function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSchedule, updateStatus }: any) {
@@ -7809,9 +7831,13 @@ function Home({
   };
 
   return (
-    <section className="card">
-      <div className="between">
-        <h2>생산라인 구성도</h2>
+    <section className="card basic-master-page basic-layout-page">
+      <header className="basic-page-header basic-layout-header">
+        <div className="basic-page-heading">
+          <span className="basic-eyebrow">MASTER DATA</span>
+          <h2>생산라인 구성도</h2>
+          <p>생산라인별 정비 이력을 확인하고 클릭 영역을 관리합니다.</p>
+        </div>
 
         {isAdmin && (
           <div className="layout-edit-actions">
@@ -7834,7 +7860,7 @@ function Home({
             )}
           </div>
         )}
-      </div>
+      </header>
 
       {editLayout && (
         <div className="layout-edit-guide">
@@ -8624,7 +8650,7 @@ function BackupPermissionPage({
     });
   };
 
-  const dispatchPermissionKeys = [...DISPATCH_VIEWS];
+  const dispatchPermissionKeys = [...DISPATCH_VIEWS, "dispatch_location"];
   const fieldPermissionGroups = [
     { label: "운행관리", keys: dispatchPermissionKeys },
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
@@ -8770,6 +8796,7 @@ function BackupPermissionPage({
           <Field label="권한 단계">
             <select value={permissionForm.role} onChange={(e) => setPermissionForm({ ...permissionForm, role: e.target.value as UserRole })}>
               <option value="office">사무실직원</option>
+              <option value="dispatch_manager">배차관리자</option>
               <option value="field">현장직원</option>
             </select>
           </Field>
@@ -8794,6 +8821,12 @@ function BackupPermissionPage({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {permissionForm.role === "dispatch_manager" && (
+          <div className="permission-checks">
+            <div className="permission-default-access"><b>배차관리자 전용</b><span>운행관리 전 메뉴 · 상하차 위치조회가 기본 허용됩니다. 구매·카드·정비·유류·백업 메뉴는 표시되지 않습니다.</span></div>
           </div>
         )}
 
@@ -21542,5 +21575,570 @@ html,body,#root{
 .maintenance-purchase-link-editor{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:7px}.maintenance-purchase-link-editor>button:first-child{padding:5px 8px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor>span{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 6px;border:1px solid #dbeafe;border-radius:8px;background:#f8fbff;color:#475569;font-size:10px;font-weight:800}.maintenance-purchase-link-editor span button{padding:2px 4px;border:0;background:transparent;color:#2563eb;font-size:10px;font-weight:900;cursor:pointer}.maintenance-purchase-link-editor span button:last-child{color:#dc2626}.maintenance-purchase-link-editor.mobile{display:grid;align-items:stretch;gap:7px}.maintenance-purchase-link-editor.mobile>span{white-space:normal;line-height:1.35}
 .maintenance-purchase-link-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto}.maintenance-purchase-link-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}.maintenance-purchase-link-target strong{color:#172033;font-size:14px;font-weight:950}.maintenance-purchase-link-target span{color:#64748b;font-size:12px;font-weight:800}.maintenance-purchase-link-modal>input{width:100%;margin-bottom:10px}.maintenance-purchase-link-table{min-width:760px}.maintenance-purchase-link-table tr.selected{background:#eff6ff}.maintenance-purchase-link-table td:nth-child(3){min-width:180px}.maintenance-purchase-link-table td:nth-child(3) small{display:block;margin-top:3px;color:#64748b;font-size:10px}.maintenance-purchase-link-quantity{display:flex;align-items:end;gap:12px;margin-top:12px}.maintenance-purchase-link-quantity .field{max-width:220px;flex:0 0 220px}.maintenance-purchase-link-quantity>span{padding-bottom:10px;color:#64748b;font-size:11px;font-weight:750}.maintenance-link-badge{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary,.maintenance-purchase-summary{display:grid;gap:8px;margin-top:16px;padding:13px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;text-align:left}.purchase-maintenance-summary h3,.maintenance-purchase-summary h3{margin:0;color:#172033;font-size:14px;font-weight:950}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(180px,1.5fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #e5edf7}.purchase-maintenance-summary>div:first-of-type,.maintenance-purchase-summary>div:first-of-type{border-top:0}.purchase-maintenance-summary span,.maintenance-purchase-summary span{color:#64748b;font-size:11px;font-weight:800}.purchase-maintenance-summary b,.maintenance-purchase-summary b{color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary p,.maintenance-purchase-summary p{margin:0}.purchase-maintenance-usage-cell{display:grid;gap:3px;min-width:150px}.purchase-maintenance-usage-cell span{color:#475569;font-size:10px;line-height:1.35}
 @media(max-width:700px){.maintenance-purchase-link-modal{width:96vw;max-height:92vh;padding:15px}.maintenance-purchase-link-quantity{display:grid;align-items:stretch}.maintenance-purchase-link-quantity .field{max-width:none;width:100%;flex:auto}.maintenance-purchase-link-quantity>span{padding:0}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{grid-template-columns:1fr;gap:3px}.purchase-maintenance-summary b,.maintenance-purchase-summary b{white-space:normal}.maintenance-purchase-link-table{min-width:720px}}
+
+
+/* ===== ERP List Pages: Unified Detail Layout ===== */
+/* 목록·세부목록 화면만 대상으로 하는 최종 공통 스타일입니다. 데이터/권한/동작은 변경하지 않습니다. */
+.app.app-tab-list,
+.app.app-tab-status,
+.app.app-tab-card_list,
+.app.app-tab-card_stats,
+.app.app-tab-maint_list,
+.app.app-tab-maint_stats,
+.app.app-tab-maintenance_schedules,
+.app.app-tab-permits,
+.app.app-tab-receipt_photos,
+.app.app-tab-maintenance_photos,
+.app.app-tab-vendor_accounts,
+.app.app-tab-bulk_transfer,
+.app.app-tab-trash_bin,
+.app.app-tab-activity_logs,
+.app.app-tab-vendors,
+.app.app-tab-warehouse_groups,
+.app.app-tab-items,
+.app.app-tab-site_notices,
+.app.app-tab-bid_notices,
+.app.app-tab-update_history,
+.app.app-tab-update_notices,
+.app.app-tab-backup_permissions{
+  --erp-list-line:#e3eaf2;
+  --erp-list-soft:#f7faff;
+  --erp-list-muted:#718096;
+  --erp-list-ink:#172033;
+}
+
+/* PC: 화면마다 같은 폭·외곽선·제목/목록 리듬을 사용합니다. */
+@media (min-width:901px){
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page,
+  .app.app-tab-vendors>.basic-master-page,
+  .app.app-tab-warehouse_groups>.basic-master-page,
+  .app.app-tab-items>.basic-master-page{
+    border-color:var(--erp-list-line);
+    box-shadow:0 10px 30px rgba(15,23,42,.045);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child,
+  .app.app-tab-status>.card>.between:first-child,
+  .app.app-tab-card_list>.lookup-page>.between:first-child,
+  .app.app-tab-card_stats>.card>.between:first-child,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child,
+  .app.app-tab-maint_stats>.card>.between:first-child,
+  .app.app-tab-permits .permit-head,
+  .app.app-tab-vendor_accounts .vendor-account-head,
+  .app.app-tab-bulk_transfer .bulk-transfer-head,
+  .app.app-tab-trash_bin>.trash-page>.between:first-child,
+  .app.app-tab-activity_logs>.activity-log-page>.between:first-child{
+    position:relative;
+    margin-bottom:20px !important;
+    padding-bottom:16px !important;
+    border-bottom:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child h2,
+  .app.app-tab-status>.card>.between:first-child h2,
+  .app.app-tab-card_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-card_stats>.card>.between:first-child h2,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-maint_stats>.card>.between:first-child h2{
+    color:var(--erp-list-ink);
+    font-size:25px;
+    font-weight:950;
+    letter-spacing:-.7px;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5,
+  .app.app-tab-maint_list .maint-filter,
+  .app.app-tab-permits>.permit-page>.grid5,
+  .app.app-tab-permits>.permit-page>.grid3,
+  .app.app-tab-trash_bin>.trash-page>.grid3,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3{
+    margin-bottom:18px;
+    padding:15px 16px;
+    border:1px solid var(--erp-list-line);
+    border-radius:14px;
+    background:var(--erp-list-soft);
+  }
+
+  .app.app-tab-maint_list .maint-filter{
+    grid-template-columns:minmax(150px,.7fr) minmax(150px,.7fr) minmax(190px,1fr) minmax(220px,1.35fr) 120px;
+    gap:12px;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5 .field,
+  .app.app-tab-status>.card>.grid5 .field,
+  .app.app-tab-card_list>.lookup-page>.grid5 .field,
+  .app.app-tab-card_stats>.card>.grid5 .field,
+  .app.app-tab-maint_stats>.card>.grid5 .field,
+  .app.app-tab-maint_list .maint-filter .field,
+  .app.app-tab-permits>.permit-page>.grid5 .field,
+  .app.app-tab-permits>.permit-page>.grid3 .field,
+  .app.app-tab-trash_bin>.trash-page>.grid3 .field,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3 .field{
+    margin:0;
+  }
+
+  .app.app-tab-list .scroll-table,
+  .app.app-tab-status .scroll-table,
+  .app.app-tab-card_list .scroll-table,
+  .app.app-tab-card_stats .scroll-table,
+  .app.app-tab-maint_list .scroll-table,
+  .app.app-tab-maint_stats .scroll-table,
+  .app.app-tab-permits .scroll-table,
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table,
+  .app.app-tab-vendors .basic-table-scroll,
+  .app.app-tab-warehouse_groups .basic-table-scroll,
+  .app.app-tab-items .basic-table-scroll{
+    margin-top:0;
+    overflow:auto;
+    border:1px solid var(--erp-list-line);
+    border-radius:13px;
+    box-shadow:0 4px 14px rgba(15,23,42,.025);
+  }
+
+  .app.app-tab-list .scroll-table th,
+  .app.app-tab-status .scroll-table th,
+  .app.app-tab-card_list .scroll-table th,
+  .app.app-tab-card_stats .scroll-table th,
+  .app.app-tab-maint_list .scroll-table th,
+  .app.app-tab-maint_stats .scroll-table th,
+  .app.app-tab-permits .scroll-table th,
+  .app.app-tab-trash_bin .scroll-table th,
+  .app.app-tab-activity_logs .scroll-table th,
+  .app.app-tab-vendors .basic-table-scroll th,
+  .app.app-tab-warehouse_groups .basic-table-scroll th,
+  .app.app-tab-items .basic-table-scroll th{
+    height:44px;
+    padding:10px 9px;
+    background:#eef4fa;
+    color:#40516a;
+    font-size:12px;
+    font-weight:950;
+    text-align:center;
+    vertical-align:middle;
+  }
+
+  .app.app-tab-list .scroll-table td,
+  .app.app-tab-status .scroll-table td,
+  .app.app-tab-card_list .scroll-table td,
+  .app.app-tab-card_stats .scroll-table td,
+  .app.app-tab-maint_list .scroll-table td,
+  .app.app-tab-maint_stats .scroll-table td,
+  .app.app-tab-permits .scroll-table td,
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td,
+  .app.app-tab-vendors .basic-table-scroll td,
+  .app.app-tab-warehouse_groups .basic-table-scroll td,
+  .app.app-tab-items .basic-table-scroll td{
+    min-height:44px;
+    padding:9px 8px;
+    color:#334155;
+    font-size:13px;
+    text-align:center;
+    vertical-align:middle;
+  }
+
+  .app.app-tab-list .scroll-table tbody tr:hover td,
+  .app.app-tab-status .scroll-table tbody tr:hover td,
+  .app.app-tab-card_list .scroll-table tbody tr:hover td,
+  .app.app-tab-card_stats .scroll-table tbody tr:hover td,
+  .app.app-tab-maint_list .scroll-table tbody tr:hover td,
+  .app.app-tab-maint_stats .scroll-table tbody tr:hover td,
+  .app.app-tab-permits .scroll-table tbody tr:hover td,
+  .app.app-tab-trash_bin .scroll-table tbody tr:hover td,
+  .app.app-tab-activity_logs .scroll-table tbody tr:hover td,
+  .app.app-tab-vendors .basic-table-scroll tbody tr:hover td,
+  .app.app-tab-warehouse_groups .basic-table-scroll tbody tr:hover td,
+  .app.app-tab-items .basic-table-scroll tbody tr:hover td{
+    background:#f8fbff;
+  }
+
+  .app.app-tab-status>.card>h3,
+  .app.app-tab-card_stats>.card>h3,
+  .app.app-tab-maint_stats>.card>h3,
+  .app.app-tab-maint_list .basic-list-heading{
+    margin:22px 0 10px;
+    padding:0 0 10px;
+    border-bottom:1px solid #edf1f5;
+    color:#26364d;
+    font-size:17px;
+    font-weight:950;
+  }
+
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    gap:10px;
+    margin:0 0 20px;
+  }
+
+  .app.app-tab-status>.card>.status-cards>div,
+  .app.app-tab-card_list>.lookup-page>.status-cards>div,
+  .app.app-tab-card_stats>.card>.status-cards>div,
+  .app.app-tab-maint_stats>.card>.status-cards>div{
+    min-height:82px;
+    padding:14px 15px;
+    border-color:var(--erp-list-line);
+    background:linear-gradient(180deg,#fbfdff,#f5f8fc);
+  }
+
+  .app.app-tab-status>.card>.status-cards span,
+  .app.app-tab-card_list>.lookup-page>.status-cards span,
+  .app.app-tab-card_stats>.card>.status-cards span,
+  .app.app-tab-maint_stats>.card>.status-cards span{
+    font-size:11px;
+    font-weight:900;
+  }
+
+  .app.app-tab-status>.card>.status-cards b,
+  .app.app-tab-card_list>.lookup-page>.status-cards b,
+  .app.app-tab-card_stats>.card>.status-cards b,
+  .app.app-tab-maint_stats>.card>.status-cards b{
+    color:#1d4ed8;
+    font-size:20px;
+    line-height:1.25;
+  }
+
+  .app.app-tab-list .purchase-page-summary{
+    margin:0 0 10px;
+    color:#718096;
+    font-size:12px;
+    font-weight:800;
+  }
+
+  .app.app-tab-list .purchase-pagination{
+    margin-top:14px;
+  }
+
+  .app.app-tab-list .purchase-item-detail-button,
+  .app.app-tab-maint_list .link-btn{
+    color:#1d4ed8;
+    font-weight:850;
+  }
+
+  /* 카드형 목록은 외곽선·상태·액션을 같은 리듬으로 맞춥니다. */
+  .app.app-tab-list .mobile-purchase-card,
+  .app.app-tab-card_list .mobile-list-card,
+  .app.app-tab-maint_list .mobile-list-card,
+  .app.app-tab-trash_bin .mobile-list-card,
+  .app.app-tab-activity_logs .mobile-list-card,
+  .app.app-tab-permits .permit-card,
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card,
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    border-color:var(--erp-list-line);
+    border-radius:15px;
+    box-shadow:0 6px 18px rgba(15,23,42,.045);
+  }
+
+  .app.app-tab-list .mobile-purchase-card-head,
+  .app.app-tab-card_list .mobile-list-top,
+  .app.app-tab-maint_list .mobile-list-top,
+  .app.app-tab-trash_bin .mobile-list-top,
+  .app.app-tab-activity_logs .mobile-list-top{
+    padding-bottom:10px;
+    border-bottom:1px solid #edf1f5;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-head strong,
+  .app.app-tab-card_list .mobile-list-top b,
+  .app.app-tab-maint_list .mobile-list-top b,
+  .app.app-tab-trash_bin .mobile-list-top b,
+  .app.app-tab-activity_logs .mobile-list-top b{
+    color:var(--erp-list-ink);
+    font-size:15px;
+    font-weight:950;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-row{
+    padding:8px 0;
+    font-size:12px;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-row b{
+    color:#1d4ed8;
+    font-size:13px;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card{
+    background:#fff;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-title,
+  .app.app-tab-bulk_transfer .bulk-card-main{
+    padding-bottom:11px;
+    border-bottom:1px solid #edf1f5;
+  }
+
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    box-shadow:0 6px 18px rgba(15,23,42,.04);
+  }
+
+  .app.app-tab-receipt_photos .receipt-list-head,
+  .app.app-tab-maintenance_photos .receipt-list-head{
+    margin-top:20px;
+    padding-top:18px;
+    border-top:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table{
+    max-height:calc(100vh - 405px);
+  }
+
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td{
+    font-size:12px;
+  }
+
+  /* 상세 모달의 표도 목록 표와 같은 밀도로 보이게 합니다. */
+  .app .purchase-detail-modal .scroll-table,
+  .app .wide-modal .scroll-table{
+    border-radius:12px;
+    border-color:var(--erp-list-line);
+  }
+  .app .purchase-detail-modal th,
+  .app .wide-modal th{
+    background:#eef4fa;
+    color:#40516a;
+    text-align:center;
+  }
+  .app .purchase-detail-modal td,
+  .app .wide-modal td{
+    text-align:center;
+    vertical-align:middle;
+  }
+}
+
+@media (max-width:900px){
+  /* 모바일은 페이지 여백을 줄이고, 제목→필터→목록 순서를 또렷하게 합니다. */
+  .app.app-tab-list>.lookup-page,
+  .app.app-tab-status>.card,
+  .app.app-tab-card_list>.lookup-page,
+  .app.app-tab-card_stats>.card,
+  .app.app-tab-maint_list>.lookup-page,
+  .app.app-tab-maint_stats>.card,
+  .app.app-tab-permits>.permit-page,
+  .app.app-tab-receipt_photos>.receipt-photo-page,
+  .app.app-tab-maintenance_photos>.receipt-photo-page,
+  .app.app-tab-vendor_accounts>.vendor-account-page,
+  .app.app-tab-bulk_transfer>.bulk-transfer-page,
+  .app.app-tab-trash_bin>.trash-page,
+  .app.app-tab-activity_logs>.activity-log-page{
+    padding:15px !important;
+    border-color:var(--erp-list-line);
+    border-radius:16px !important;
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child,
+  .app.app-tab-status>.card>.between:first-child,
+  .app.app-tab-card_list>.lookup-page>.between:first-child,
+  .app.app-tab-card_stats>.card>.between:first-child,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child,
+  .app.app-tab-maint_stats>.card>.between:first-child{
+    gap:9px !important;
+    margin-bottom:14px !important;
+    padding-bottom:13px !important;
+    border-bottom:1px solid var(--erp-list-line);
+  }
+
+  .app.app-tab-list>.lookup-page>.between:first-child h2,
+  .app.app-tab-status>.card>.between:first-child h2,
+  .app.app-tab-card_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-card_stats>.card>.between:first-child h2,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child h2,
+  .app.app-tab-maint_stats>.card>.between:first-child h2{
+    margin:0 !important;
+    color:var(--erp-list-ink);
+    font-size:22px !important;
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5,
+  .app.app-tab-status>.card>.grid5,
+  .app.app-tab-card_list>.lookup-page>.grid5,
+  .app.app-tab-card_stats>.card>.grid5,
+  .app.app-tab-maint_stats>.card>.grid5,
+  .app.app-tab-maint_list .maint-filter,
+  .app.app-tab-permits>.permit-page>.grid5,
+  .app.app-tab-permits>.permit-page>.grid3,
+  .app.app-tab-trash_bin>.trash-page>.grid3,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3{
+    gap:9px !important;
+    margin-bottom:13px !important;
+    padding:11px !important;
+    border-color:var(--erp-list-line);
+    border-radius:13px;
+    background:var(--erp-list-soft);
+  }
+
+  .app.app-tab-list>.lookup-page>.grid5 .field,
+  .app.app-tab-status>.card>.grid5 .field,
+  .app.app-tab-card_list>.lookup-page>.grid5 .field,
+  .app.app-tab-card_stats>.card>.grid5 .field,
+  .app.app-tab-maint_stats>.card>.grid5 .field,
+  .app.app-tab-maint_list .maint-filter .field,
+  .app.app-tab-permits>.permit-page>.grid5 .field,
+  .app.app-tab-permits>.permit-page>.grid3 .field,
+  .app.app-tab-trash_bin>.trash-page>.grid3 .field,
+  .app.app-tab-activity_logs>.activity-log-page>.grid3 .field{
+    margin:0 !important;
+  }
+
+  .app.app-tab-status>.card>h3,
+  .app.app-tab-card_stats>.card>h3,
+  .app.app-tab-maint_stats>.card>h3{
+    margin:19px 0 9px !important;
+    padding-bottom:8px;
+    border-bottom:1px solid #edf1f5;
+    font-size:16px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    margin:0 0 16px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards>div,
+  .app.app-tab-card_list>.lookup-page>.status-cards>div,
+  .app.app-tab-card_stats>.card>.status-cards>div,
+  .app.app-tab-maint_stats>.card>.status-cards>div{
+    min-height:76px !important;
+    padding:11px !important;
+    border-radius:13px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards span,
+  .app.app-tab-card_list>.lookup-page>.status-cards span,
+  .app.app-tab-card_stats>.card>.status-cards span,
+  .app.app-tab-maint_stats>.card>.status-cards span{
+    margin-bottom:5px !important;
+    font-size:10px !important;
+  }
+
+  .app.app-tab-status>.card>.status-cards b,
+  .app.app-tab-card_list>.lookup-page>.status-cards b,
+  .app.app-tab-card_stats>.card>.status-cards b,
+  .app.app-tab-maint_stats>.card>.status-cards b{
+    color:#1d4ed8 !important;
+    font-size:17px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-cards,
+  .app.app-tab-card_list .mobile-card-list,
+  .app.app-tab-maint_list .mobile-card-list,
+  .app.app-tab-trash_bin .mobile-card-list,
+  .app.app-tab-activity_logs .mobile-card-list{
+    gap:9px !important;
+    margin-top:10px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card,
+  .app.app-tab-card_list .mobile-list-card,
+  .app.app-tab-maint_list .mobile-list-card,
+  .app.app-tab-trash_bin .mobile-list-card,
+  .app.app-tab-activity_logs .mobile-list-card{
+    padding:13px !important;
+    border-radius:14px !important;
+    box-shadow:0 5px 15px rgba(15,23,42,.04) !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-actions,
+  .app.app-tab-card_list .mobile-card-actions,
+  .app.app-tab-maint_list .mobile-card-actions,
+  .app.app-tab-trash_bin .mobile-list-actions{
+    gap:7px !important;
+    margin-top:10px !important;
+  }
+
+  .app.app-tab-list .mobile-purchase-card-actions button,
+  .app.app-tab-card_list .mobile-card-actions button,
+  .app.app-tab-maint_list .mobile-card-actions button,
+  .app.app-tab-trash_bin .mobile-list-actions button{
+    min-height:36px !important;
+    border-radius:10px !important;
+    font-size:12px !important;
+  }
+
+  .app.app-tab-list .purchase-page-summary{
+    margin:0 0 8px;
+    font-size:11px;
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-card,
+  .app.app-tab-bulk_transfer .bulk-transfer-card,
+  .app.app-tab-permits .permit-card,
+  .app.app-tab-receipt_photos .receipt-clean-card,
+  .app.app-tab-maintenance_photos .receipt-clean-card{
+    border-radius:14px;
+    box-shadow:0 5px 15px rgba(15,23,42,.04);
+  }
+
+  .app.app-tab-vendor_accounts .vendor-account-title,
+  .app.app-tab-bulk_transfer .bulk-card-main{
+    padding-bottom:9px;
+  }
+
+  .app.app-tab-trash_bin .scroll-table,
+  .app.app-tab-activity_logs .scroll-table{
+    max-height:none;
+    overflow-x:auto !important;
+  }
+
+  .app.app-tab-trash_bin .scroll-table td,
+  .app.app-tab-activity_logs .scroll-table td{
+    font-size:11px !important;
+  }
+
+  .app .purchase-detail-modal,
+  .app .wide-modal{
+    width:calc(100vw - 24px);
+    max-width:none;
+    padding:15px;
+    border-radius:17px;
+  }
+
+  .app .purchase-detail-modal .scroll-table,
+  .app .wide-modal .scroll-table{
+    overflow-x:auto !important;
+  }
+
+  .app .purchase-detail-modal table,
+  .app .wide-modal table{
+    min-width:640px;
+  }
+}
+
+@media (max-width:390px){
+  .app.app-tab-status>.card>.status-cards,
+  .app.app-tab-card_list>.lookup-page>.status-cards,
+  .app.app-tab-card_stats>.card>.status-cards,
+  .app.app-tab-maint_stats>.card>.status-cards{
+    grid-template-columns:1fr !important;
+  }
+}
 
 `;

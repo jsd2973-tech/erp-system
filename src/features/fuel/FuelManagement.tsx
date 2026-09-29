@@ -77,6 +77,8 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
   const [editSaving, setEditSaving] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState<FuelRecord | null>(null);
   const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
+  const [mobileReceiptPreview, setMobileReceiptPreview] = useState<{ id: string; url: string; mime: string; name: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const receiptInput = useRef<HTMLInputElement>(null);
 
@@ -289,6 +291,8 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       return;
     }
     setReceiptTarget({ ...receiptTarget, ...patch });
+    setReceiptPreviewUrl("");
+    setMobileReceiptPreview(null);
     if (receiptInput.current) receiptInput.current.value = "";
     setReceiptBusy(false);
     await load();
@@ -296,11 +300,49 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
 
   const viewReceipt = async () => {
     if (!receiptTarget?.receipt_path) return;
-    setReceiptBusy(true); setError("");
+    setReceiptBusy(true); setError(""); setReceiptPreviewUrl("");
     const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, receiptTarget.receipt_path);
     setReceiptBusy(false);
     if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    setReceiptPreviewUrl(data.signedUrl);
+  };
+
+  const toggleMobileReceipt = async (record: FuelRecord) => {
+    if (!record.receipt_path) {
+      setMobileReceiptPreview(null);
+      setReceiptTarget({ ...record });
+      return;
+    }
+    if (mobileReceiptPreview?.id === record.id) {
+      setMobileReceiptPreview(null);
+      return;
+    }
+    setReceiptBusy(true); setError("");
+    const { data, error: signedError } = await getFuelReceiptSignedUrl(supabase, record.receipt_path);
+    setReceiptBusy(false);
+    if (signedError || !data?.signedUrl) { setError(`영수증을 열지 못했습니다. (${signedError?.message || "signed URL 생성 실패"})`); return; }
+    setMobileReceiptPreview({ id: record.id, url: data.signedUrl, mime: record.receipt_mime_type || "", name: record.receipt_name || "영수증" });
+  };
+
+  const replaceReceiptForRecord = (record: FuelRecord) => {
+    setReceiptTarget({ ...record });
+    setError("");
+    window.setTimeout(() => receiptInput.current?.click(), 0);
+  };
+
+  const deleteReceiptForRecord = async (record: FuelRecord) => {
+    if (!record.receipt_path) return;
+    if (!window.confirm(`${record.fuel_date} / ${record.vehicle_number} 영수증을 삭제할까요?`)) return;
+    const oldPath = record.receipt_path;
+    setReceiptBusy(true); setError("");
+    const { patch, updateError, removeError } = await clearFuelRecordReceipt(supabase, record.id, oldPath);
+    if (updateError || !patch) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError?.message || "알 수 없는 오류"})`); return; }
+    if (receiptTarget?.id === record.id) setReceiptTarget({ ...record, ...patch });
+    setReceiptPreviewUrl("");
+    setMobileReceiptPreview(null);
+    setReceiptBusy(false);
+    if (removeError) setError(`영수증 정보는 삭제됐지만 파일 정리에 실패했습니다. (${removeError.message})`);
+    await load();
   };
 
   const deleteReceipt = async () => {
@@ -311,6 +353,8 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
     const { patch, updateError, removeError } = await clearFuelRecordReceipt(supabase, receiptTarget.id, oldPath);
     if (updateError || !patch) { setReceiptBusy(false); setError(`영수증 정보를 삭제하지 못했습니다. (${updateError?.message || "알 수 없는 오류"})`); return; }
     setReceiptTarget({ ...receiptTarget, ...patch });
+    setReceiptPreviewUrl("");
+    setMobileReceiptPreview(null);
     setReceiptBusy(false);
     if (removeError) setError(`영수증 정보는 삭제됐지만 파일 정리에 실패했습니다. (${removeError.message})`);
     await load();
@@ -374,8 +418,13 @@ export default function FuelManagement({ supabase, vendors = EMPTY_STATEMENT_PAR
       <div className="fuel-section-title"><div><h3>영수증 첨부</h3><p>{receiptTarget.fuel_date} · {receiptTarget.vehicle_number} · {money(receiptTarget.total_amount)}원</p></div></div>
       <input ref={receiptInput} type="file" accept="image/*,application/pdf" hidden onChange={(event) => void uploadReceipt(event.target.files?.[0])} />
       <div className="fuel-manual-total"><span>첨부 상태</span><strong>{receiptTarget.receipt_path ? receiptTarget.receipt_name || "영수증 첨부됨" : "첨부된 영수증 없음"}</strong></div>
+      {receiptPreviewUrl && <div className="fuel-receipt-preview">
+        {receiptTarget.receipt_mime_type === "application/pdf" || /\.pdf$/i.test(receiptTarget.receipt_name || "")
+          ? <iframe src={receiptPreviewUrl} title="영수증 PDF 미리보기" />
+          : <img src={receiptPreviewUrl} alt={receiptTarget.receipt_name || "영수증"} />}
+      </div>}
       <div className="fuel-form-actions">
-        <button type="button" disabled={receiptBusy} onClick={() => setReceiptTarget(null)}>닫기</button>
+        <button type="button" disabled={receiptBusy} onClick={() => { setReceiptPreviewUrl(""); setReceiptTarget(null); }}>닫기</button>
         {receiptTarget.receipt_path && <button type="button" disabled={receiptBusy} onClick={() => void viewReceipt()}><Eye size={15} /> 보기</button>}
         {receiptTarget.receipt_path && <button type="button" disabled={receiptBusy} onClick={() => void deleteReceipt()}><Trash2 size={15} /> 영수증 삭제</button>}
         <button type="button" className="fuel-primary" disabled={receiptBusy} onClick={() => receiptInput.current?.click()}><Upload size={15} /> {receiptTarget.receipt_path ? "영수증 교체" : "영수증 첨부"}</button>
