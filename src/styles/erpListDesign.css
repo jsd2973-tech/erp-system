@@ -1,17 +1,3 @@
-from pathlib import Path
-
-
-ROOT = Path(__file__).resolve().parents[1]
-APP_PATH = ROOT / "src" / "App.tsx"
-app = APP_PATH.read_text(encoding="utf-8")
-
-MARKER = "/* ===== ERP List Pages: Unified Detail Layout ===== */"
-if MARKER in app:
-    print("ERP 목록 공통 디자인 패치가 이미 적용되어 있습니다.")
-    raise SystemExit(0)
-
-
-CSS = r'''
 /* ===== ERP List Pages: Unified Detail Layout ===== */
 /* 목록·세부목록 화면만 대상으로 하는 최종 공통 스타일입니다. 데이터/권한/동작은 변경하지 않습니다. */
 .app.app-tab-list,
@@ -575,15 +561,3 @@ CSS = r'''
     grid-template-columns:1fr !important;
   }
 }
-'''
-
-css_start = app.find("const css = `")
-if css_start < 0:
-    raise RuntimeError("기존 앱 CSS 시작점을 찾지 못했습니다.")
-css_end = app.find("\n`;", css_start)
-if css_end < 0:
-    raise RuntimeError("기존 앱 CSS 종료점을 찾지 못했습니다.")
-
-app = app[:css_end] + f"\n{CSS}" + app[css_end:]
-APP_PATH.write_text(app, encoding="utf-8")
-print("ERP 목록 공통 디자인 패치를 적용했습니다.")

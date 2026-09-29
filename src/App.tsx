@@ -2,7 +2,9 @@ import PushSettings, { disableDevicePush } from "./features/push/PushSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { Trash2, Pencil, Upload, X, CheckCircle2, Home as HomeIcon, Bell, Factory, ShoppingCart, CreditCard, Wrench, Database, FileCheck2, ClipboardList, ShieldCheck, Truck, Fuel } from "lucide-react";
+import erpListDesignCss from "./styles/erpListDesign.css?inline";
 import DispatchPage from "./features/dispatch/DispatchPage";
+import DispatchManagerDashboard from "./features/dispatch/DispatchManagerDashboard";
 import { DISPATCH_VIEWS, type DispatchView } from "./features/dispatch/dispatchTypes";
 import FuelManagement from "./features/fuel/FuelManagement";
 import BiddingPage from "./features/bidding/BiddingPage";
@@ -620,7 +622,7 @@ type SiteNotice = {
   created_at?: string;
 };
 
-type UserRole = "admin" | "office" | "field";
+type UserRole = "admin" | "office" | "field" | "dispatch_manager";
 
 type UserPermission = {
   id: string;
@@ -715,6 +717,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "dispatch_list", label: "운행관리 · 배차목록" },
   { key: "dispatch_status", label: "운행관리 · 운행현황" },
   { key: "dispatch_results", label: "운행관리 · 운송실적" },
+  { key: "dispatch_location", label: "운행관리 · 위치조회" },
   { key: "dispatch_vehicles", label: "운행관리 · 차량관리" },
   { key: "dispatch_drivers", label: "운행관리 · 기사관리" },
   { key: "dispatch_basics", label: "운행관리 · 배차 기초관리" },
@@ -1307,6 +1310,7 @@ export default function App() {
   const canAccessTab = (tab: string) => {
     if (!isPermissionApproved) return false;
     if (!tab) return true;
+    if (currentRole === "dispatch_manager") return DISPATCH_VIEWS.includes(tab as DispatchView);
     if (tab === "home") return true;
     if (tab === "site_notices") return true;
     if (tab === "activity_logs") return isAdmin;
@@ -1319,6 +1323,7 @@ export default function App() {
   };
 
   const getFirstAllowedTab = () => {
+    if (currentRole === "dispatch_manager") return "dispatch_status";
     if (isAdmin || currentRole === "office") return "home";
     return "home";
   };
@@ -4728,7 +4733,10 @@ const purchasePriceHistoryMap = useMemo(
       id: target.id || uid(),
       email,
       role: target.role || "field",
-      permissions: target.permissions || {},
+      permissions: target.role === "dispatch_manager" ? {
+        dispatch_register: true, dispatch_list: true, dispatch_status: true, dispatch_results: true,
+        dispatch_vehicles: true, dispatch_drivers: true, dispatch_basics: true, dispatch_location: true,
+      } : (target.permissions || {}),
       updated_at: new Date().toISOString(),
     };
 
@@ -5183,7 +5191,7 @@ const purchasePriceHistoryMap = useMemo(
           {isAdmin && <button className={menuTab === "activity_logs" ? "active" : ""} onClick={() => { setMenuTab("activity_logs"); setOpenMenuGroup(null); }}><ClipboardList size={17} /> 작업로그</button>}
           {isAdmin && <button className={menuTab === "trash_bin" ? "active" : ""} onClick={() => { setMenuTab("trash_bin"); setOpenMenuGroup(null); }}><Trash2 size={17} /> 휴지통</button>}
           {isAdmin && <button className={menuTab === "backup_permissions" ? "active" : ""} onClick={() => { setMenuTab("backup_permissions"); setOpenMenuGroup(null); }}><ShieldCheck size={17} /> 백업/권한관리</button>}
-          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
+          <div className="user-box"><span>{userEmail}{currentRole === "admin" ? " · 관리자" : currentRole === "office" ? " · 사무실직원" : currentRole === "dispatch_manager" ? " · 배차관리자" : " · 현장직원"}</span><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button onClick={logout}>로그아웃</button></div>
         </nav>
         {menuTab === "update_history" && (
           <section className="notice-pro-wrap notice-only">
@@ -6630,7 +6638,7 @@ const purchasePriceHistoryMap = useMemo(
           />
         )}
 
-        {menuTab === "home" && <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />}
+        {menuTab === "home" && (currentRole === "dispatch_manager" ? <DispatchManagerDashboard supabase={supabase} onNavigate={(view) => setMenuTab(view)} /> : <HomeDashboard purchases={purchases} maints={maints} cardUses={cardUses} maintenanceSchedules={maintenanceSchedules} receiptPhotos={receiptPhotos} maintenancePhotos={maintenancePhotos} siteNotices={visibleSiteNotices} deletedRecords={deletedRecords} setMenuTab={setMenuTab} currentRole={currentRole}  logout={logout} />)}
 
         {menuTab === "layout" && <Home setMenuTab={setMenuTab} setMaintSearch={setMaintSearch} warehouses={warehouses} isAdmin={isAdmin} showToast={showToast} />}
 
@@ -7152,12 +7160,27 @@ const purchasePriceHistoryMap = useMemo(
                 </div></details>}
               </>)}
             </div>
+            {mobileSheet === "more" && currentRole === "dispatch_manager" && (
+              <div className="dispatch-manager-mobile-more">
+                <button type="button" onClick={() => { setMenuTab("dispatch_vehicles"); setMobileSheet(""); }}>차량관리</button>
+                <button type="button" onClick={() => { setMenuTab("dispatch_drivers"); setMobileSheet(""); }}>기사관리</button>
+                <button type="button" onClick={() => { setMenuTab("dispatch_basics"); setMobileSheet(""); }}>배차 기초관리</button>
+              </div>
+            )}
             {mobileSheet === "more" && <div className="mobile-menu-footer"><button type="button" onClick={() => window.dispatchEvent(new Event("ERP_OPEN_NOTIFICATIONS"))}>알림 설정</button><button className="role-mobile-logout" onClick={logout}>로그아웃</button></div>}
           </div>
         </div>
 
         <div className="mobile-bottom-nav permission-aware-mobile-nav role-aware-bottom-nav">
-          {currentRole === "field" ? (
+          {currentRole === "dispatch_manager" ? (
+            <>
+              <button className={menuTab === "dispatch_status" ? "active" : ""} onClick={() => { setMenuTab("dispatch_status"); setMobileSheet(""); }}>운행현황</button>
+              <button className={menuTab === "dispatch_register" ? "active" : ""} onClick={() => { setMenuTab("dispatch_register"); setMobileSheet(""); }}>배차등록</button>
+              <button className={menuTab === "dispatch_list" ? "active" : ""} onClick={() => { setMenuTab("dispatch_list"); setMobileSheet(""); }}>배차목록</button>
+              <button className={menuTab === "dispatch_results" ? "active" : ""} onClick={() => { setMenuTab("dispatch_results"); setMobileSheet(""); }}>운송실적</button>
+              <button className={["dispatch_vehicles","dispatch_drivers","dispatch_basics"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet(mobileSheet === "more" ? "" : "more")}>더보기</button>
+            </>
+          ) : currentRole === "field" ? (
             <>
               <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
               {canAccessTab("receipt_photos") && <button className={menuTab === "receipt_photos" ? "active" : ""} onClick={() => { setMenuTab("receipt_photos"); setMobileSheet(""); }}>입고사진</button>}
@@ -7184,8 +7207,8 @@ const purchasePriceHistoryMap = useMemo(
 function Field({ label, children, required = false, className = "" }: { label: string; children: any; required?: boolean; className?: string }) {
   return <div className={`field ${className}`.trim()}><label>{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</label>{children}</div>;
 }
-function ScrollTable({ children }: { children: any }) {
-  return <div className="scroll-table">{children}</div>;
+function ScrollTable({ children, className = "" }: { children: any; className?: string }) {
+  return <div className={`scroll-table ${className}`.trim()}>{children}</div>;
 }
 
 function MaintenanceScheduleList({ schedules, isAdmin, editSchedule, deleteSchedule, updateStatus }: any) {
@@ -7809,9 +7832,13 @@ function Home({
   };
 
   return (
-    <section className="card">
-      <div className="between">
-        <h2>생산라인 구성도</h2>
+    <section className="card basic-master-page basic-layout-page">
+      <header className="basic-page-header basic-layout-header">
+        <div className="basic-page-heading">
+          <span className="basic-eyebrow">MASTER DATA</span>
+          <h2>생산라인 구성도</h2>
+          <p>생산라인별 정비 이력을 확인하고 클릭 영역을 관리합니다.</p>
+        </div>
 
         {isAdmin && (
           <div className="layout-edit-actions">
@@ -7834,7 +7861,7 @@ function Home({
             )}
           </div>
         )}
-      </div>
+      </header>
 
       {editLayout && (
         <div className="layout-edit-guide">
@@ -8624,7 +8651,7 @@ function BackupPermissionPage({
     });
   };
 
-  const dispatchPermissionKeys = [...DISPATCH_VIEWS];
+  const dispatchPermissionKeys = [...DISPATCH_VIEWS, "dispatch_location"];
   const fieldPermissionGroups = [
     { label: "운행관리", keys: dispatchPermissionKeys },
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
@@ -8770,6 +8797,7 @@ function BackupPermissionPage({
           <Field label="권한 단계">
             <select value={permissionForm.role} onChange={(e) => setPermissionForm({ ...permissionForm, role: e.target.value as UserRole })}>
               <option value="office">사무실직원</option>
+              <option value="dispatch_manager">배차관리자</option>
               <option value="field">현장직원</option>
             </select>
           </Field>
@@ -8794,6 +8822,12 @@ function BackupPermissionPage({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {permissionForm.role === "dispatch_manager" && (
+          <div className="permission-checks">
+            <div className="permission-default-access"><b>배차관리자 전용</b><span>운행관리 전 메뉴 · 상하차 위치조회가 기본 허용됩니다. 구매·카드·정비·유류·백업 메뉴는 표시되지 않습니다.</span></div>
           </div>
         )}
 
@@ -21543,4 +21577,6 @@ html,body,#root{
 .maintenance-purchase-link-modal{width:min(1040px,96vw);max-height:90vh;overflow:auto}.maintenance-purchase-link-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff}.maintenance-purchase-link-target strong{color:#172033;font-size:14px;font-weight:950}.maintenance-purchase-link-target span{color:#64748b;font-size:12px;font-weight:800}.maintenance-purchase-link-modal>input{width:100%;margin-bottom:10px}.maintenance-purchase-link-table{min-width:760px}.maintenance-purchase-link-table tr.selected{background:#eff6ff}.maintenance-purchase-link-table td:nth-child(3){min-width:180px}.maintenance-purchase-link-table td:nth-child(3) small{display:block;margin-top:3px;color:#64748b;font-size:10px}.maintenance-purchase-link-quantity{display:flex;align-items:end;gap:12px;margin-top:12px}.maintenance-purchase-link-quantity .field{max-width:220px;flex:0 0 220px}.maintenance-purchase-link-quantity>span{padding-bottom:10px;color:#64748b;font-size:11px;font-weight:750}.maintenance-link-badge{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary,.maintenance-purchase-summary{display:grid;gap:8px;margin-top:16px;padding:13px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;text-align:left}.purchase-maintenance-summary h3,.maintenance-purchase-summary h3{margin:0;color:#172033;font-size:14px;font-weight:950}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{display:grid;grid-template-columns:minmax(100px,.8fr) minmax(180px,1.5fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #e5edf7}.purchase-maintenance-summary>div:first-of-type,.maintenance-purchase-summary>div:first-of-type{border-top:0}.purchase-maintenance-summary span,.maintenance-purchase-summary span{color:#64748b;font-size:11px;font-weight:800}.purchase-maintenance-summary b,.maintenance-purchase-summary b{color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap}.purchase-maintenance-summary p,.maintenance-purchase-summary p{margin:0}.purchase-maintenance-usage-cell{display:grid;gap:3px;min-width:150px}.purchase-maintenance-usage-cell span{color:#475569;font-size:10px;line-height:1.35}
 @media(max-width:700px){.maintenance-purchase-link-modal{width:96vw;max-height:92vh;padding:15px}.maintenance-purchase-link-quantity{display:grid;align-items:stretch}.maintenance-purchase-link-quantity .field{max-width:none;width:100%;flex:auto}.maintenance-purchase-link-quantity>span{padding:0}.purchase-maintenance-summary>div,.maintenance-purchase-summary>div{grid-template-columns:1fr;gap:3px}.purchase-maintenance-summary b,.maintenance-purchase-summary b{white-space:normal}.maintenance-purchase-link-table{min-width:720px}}
 
+
+${erpListDesignCss}
 `;
