@@ -5,6 +5,10 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = ROOT / "src" / "App.tsx"
 app = APP_PATH.read_text(encoding="utf-8")
 
+if 'from "./features/master-data/MasterDataScreens"' in app:
+    print("Ecount vendor import is owned by the master-data feature.")
+    raise SystemExit(0)
+
 if "const readEcountVendorRows = async" in app:
     print("Ecount 거래처 추가정보 반영 패치가 이미 적용되어 있습니다.")
     raise SystemExit(0)

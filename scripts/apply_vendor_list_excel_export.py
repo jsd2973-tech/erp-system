@@ -5,6 +5,10 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = ROOT / "src" / "App.tsx"
 app = APP_PATH.read_text(encoding="utf-8")
 
+if 'from "./features/master-data/MasterDataScreens"' in app:
+    print("Vendor Excel export is owned by the master-data feature.")
+    raise SystemExit(0)
+
 MARKER = "/* ===== Vendor List Excel Export ===== */"
 if MARKER in app:
     print("거래처 목록 엑셀 다운로드 패치가 이미 적용되어 있습니다.")
