@@ -48,16 +48,4 @@ export const groupEcountVendorRowsByName = (rows: EcountVendorImportRow[]) => {
   return Array.from(groups.entries()).filter(([, sameNameRows]) => sameNameRows.length > 1);
 };
 
-export const buildVendorExportRows = (vendors: Vendor[]) => vendors.map((vendor) => ({
-  거래처코드: String(vendor.code || ""),
-  상호: String(vendor.name || ""),
-  대표자: String(vendor.owner || ""),
-  전화번호: String(vendor.phone || ""),
-  모바일: String(vendor.mobile || ""),
-  기본주소: String(vendor.address || ""),
-  상세주소: String(vendor.address_detail || ""),
-}));
-
-export const vendorExportFileName = (todayKey: string) => `거래처목록_${todayKey}`;
-
 export const cleanVendorImportText = (value: unknown) => String(value ?? "").replace(/\u00a0/g, " ").trim();
