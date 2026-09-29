@@ -26,6 +26,9 @@ const linkedCandidateSource = candidateSource
   .replace('from "./purchasePriceHistory"', `from "./${historyModuleUrl.pathname.split("/").at(-1)}"`);
 await writeFile(candidateModuleUrl, transpile(linkedCandidateSource));
 const {
+  filterPurchases,
+} = await import(pathToFileURL(modelModuleUrl.pathname).href);
+const {
   buildPurchaseMaintenanceCopyCandidates,
   buildPurchaseMaintenanceCopyRows,
   buildPurchaseMaintenanceLinkCandidates,
@@ -60,6 +63,55 @@ const link = (purchaseId, purchaseRowId, usedQty, maintenanceId = "maint-old") =
   maintenance_date_snapshot: "2026-09-28",
   maintenance_equipment_snapshot: "E2E 창고",
   maintenance_title_snapshot: "정비",
+});
+
+test("구매조회 필터는 기존 검색조건과 날짜·ID 정렬을 유지한다", () => {
+  const purchases = [
+    {
+      ...purchase("same-date-a", "2026-09-27", [row("row-a", "볼트", "M10", 2)], "창고 A"),
+      vendor: "한빛자재",
+      taxInvoiceReceived: true,
+      paymentStatus: "paid",
+    },
+    {
+      ...purchase("same-date-z", "2026-09-27", [row("row-z", "볼트", "M10", 2)], "창고 A"),
+      vendor: "한빛자재",
+      taxInvoiceReceived: true,
+      paymentStatus: "paid",
+    },
+    {
+      ...purchase("unreceived", "2026-09-26", [row("row-unreceived", "볼트", "M10", 2)], "창고 A"),
+      vendor: "한빛자재",
+      taxInvoiceReceived: false,
+      paymentStatus: "paid",
+    },
+    {
+      ...purchase("unpaid", "2026-09-25", [row("row-unpaid", "볼트", "M10", 2)], "창고 A"),
+      vendor: "한빛자재",
+      taxInvoiceReceived: true,
+      paymentStatus: "unpaid",
+    },
+    {
+      ...purchase("other-item", "2026-09-28", [row("row-other", "너트", "M10", 2)], "창고 A"),
+      vendor: "한빛자재",
+      taxInvoiceReceived: true,
+      paymentStatus: "paid",
+    },
+  ];
+  const filtered = filterPurchases(purchases, {
+    from: "2026-09-25",
+    to: "2026-09-28",
+    vendor: "한빛",
+    warehouse: "창고 A",
+    item: "볼트",
+    taxInvoice: "received",
+    paymentStatus: "paid",
+  });
+
+  assert.deepEqual(filtered.map(({ id }) => id), ["same-date-z", "same-date-a"]);
+  assert.deepEqual(filterPurchases(purchases, {
+    from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "",
+  }).map(({ id }) => id), ["other-item", "same-date-z", "same-date-a", "unreceived", "unpaid"]);
 });
 
 test("구매 연결 후보는 stable row ID와 사용·잔여 수량을 유지하고 동일 규격을 우선한다", () => {

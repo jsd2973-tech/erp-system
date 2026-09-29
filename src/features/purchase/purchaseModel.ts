@@ -1,4 +1,4 @@
-import type { MaintenancePurchaseLink, Purchase, PurchaseRow } from "./purchaseTypes";
+import type { MaintenancePurchaseLink, Purchase, PurchaseRow, PurchaseSearch } from "./purchaseTypes";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -45,6 +45,24 @@ export const fromPurchase = (purchase: Purchase) => ({
 });
 
 export const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
+
+export const filterPurchases = (purchases: Purchase[], search: PurchaseSearch) =>
+  purchases
+    .filter(
+      (purchase) =>
+        (!search.from || (purchase.date || "") >= search.from) &&
+        (!search.to || (purchase.date || "") <= search.to) &&
+        (!search.vendor || purchase.vendor.includes(search.vendor)) &&
+        (!search.warehouse || purchase.warehouse.includes(search.warehouse)) &&
+        (!search.item || purchase.rows.some((row) => row.item.includes(search.item))) &&
+        (!search.taxInvoice || (search.taxInvoice === "received" ? Boolean(purchase.taxInvoiceReceived) : !purchase.taxInvoiceReceived)) &&
+        (!search.paymentStatus || (search.paymentStatus === "paid" ? isPurchasePaid(purchase) : !isPurchasePaid(purchase)))
+    )
+    .sort((a, b) => {
+      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    });
 
 export const numericValue = (value: unknown) => {
   const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);
