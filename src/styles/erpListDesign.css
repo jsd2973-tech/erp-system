@@ -30,6 +30,112 @@
 
 /* PC: 화면마다 같은 폭·외곽선·제목/목록 리듬을 사용합니다. */
 @media (min-width:901px){
+  /* 조회·통계만 가용 폭을 사용합니다. 입력폼과 다른 업무 화면은 유지합니다. */
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card{
+    width:100% !important;
+    max-width:none;
+    margin-inline:0;
+    padding-inline:22px;
+  }
+
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card>.between:first-child{
+    flex-wrap:wrap;
+    margin-top:0 !important;
+  }
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card>.between:first-child button{
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .app.app-tab-list .purchase-lookup-actions,
+  .app.app-tab-maint_list>.lookup-page>.between:first-child>div{
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card>:is(.grid5,.maint-filter){
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr)) !important;
+    align-items:end;
+    gap:12px;
+  }
+  .app.app-tab-list>.lookup-page>.purchase-filter-grid{
+    grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  }
+  .app.app-tab-list .purchase-payment-filter-row label{
+    white-space:nowrap;
+  }
+
+  /* 좁은 PC에서는 표 안에서만 스크롤합니다. 금액·상태·액션은 압축하지 않습니다. */
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card>.scroll-table{
+    overflow-x:auto !important;
+  }
+  .app:is(.app-tab-list,.app-tab-maint_list,.app-tab-card_list)>.lookup-page>.scroll-table>table{
+    width:100% !important;
+    min-width:var(--erp-list-table-min) !important;
+    max-width:none !important;
+    table-layout:fixed !important;
+  }
+  .app:is(.app-tab-list,.app-tab-maint_list,.app-tab-card_list)>.lookup-page>.scroll-table th,
+  .app:is(.app-tab-list,.app-tab-maint_list,.app-tab-card_list)>.lookup-page>.scroll-table td:is(:first-child,:last-child){
+    white-space:nowrap !important;
+  }
+
+  /* 금액·상태·관리 열을 고정하고 남은 폭을 주요 텍스트 열에 배분합니다. */
+  .app.app-tab-list>.lookup-page{--erp-list-table-min:1000px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(1){width:124px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(4){width:84px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(5){width:104px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(6){width:84px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(7){width:92px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(8){width:58px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(9){width:108px}
+  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):nth-child(5){text-align:right;white-space:nowrap !important}
+  .app.app-tab-list>.lookup-page>.scroll-table td:is(:nth-child(6),:nth-child(7),:nth-child(8)){
+    white-space:nowrap !important;
+  }
+
+  .app.app-tab-maint_list>.lookup-page{--erp-list-table-min:1000px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(1){width:114px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(2){width:84px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(3){width:84px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(4){width:auto}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(5){width:auto}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(6){width:88px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(7){width:70px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(8){width:100px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(9){width:72px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(10){width:52px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table th:nth-child(11){width:122px}
+  .app.app-tab-maint_list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(6),:nth-child(7),:nth-child(8)){
+    text-align:right;
+    white-space:nowrap !important;
+  }
+  .app.app-tab-maint_list>.lookup-page>.scroll-table td:is(:nth-child(9),:nth-child(10)){
+    white-space:nowrap !important;
+  }
+
+  .app.app-tab-card_list>.lookup-page{--erp-list-table-min:860px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table th:nth-child(1){width:128px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table th:nth-child(2){width:100px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table th:nth-child(4){width:112px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table th:nth-child(6){width:76px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table th:nth-child(7){width:88px}
+  .app.app-tab-card_list>.lookup-page>.scroll-table :is(th,td):nth-child(4){text-align:right;white-space:nowrap !important}
+
+  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(2),:nth-child(3)),
+  .app.app-tab-maint_list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(4),:nth-child(5)),
+  .app.app-tab-card_list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(3),:nth-child(5)){
+    white-space:normal !important;
+    text-align:left;
+    word-break:keep-all;
+    overflow-wrap:anywhere;
+  }
+  .app.app-tab-list>.lookup-page>.scroll-table .purchase-item-detail-button,
+  .app.app-tab-maint_list>.lookup-page>.scroll-table .link-btn{
+    max-width:100%;
+    white-space:normal;
+    text-align:left;
+  }
+
   .app.app-tab-list>.lookup-page,
   .app.app-tab-status>.card,
   .app.app-tab-card_list>.lookup-page,
@@ -348,6 +454,12 @@
   .app .wide-modal td{
     text-align:center;
     vertical-align:middle;
+  }
+}
+
+@media (min-width:901px) and (max-width:1499px){
+  .app.app-tab-list>.lookup-page>.purchase-filter-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
   }
 }
 
