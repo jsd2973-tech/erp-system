@@ -46,6 +46,16 @@ export const fromPurchase = (purchase: Purchase) => ({
 
 export const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
 
+export const createEmptyPurchaseSearch = (): PurchaseSearch => ({
+  from: "",
+  to: "",
+  vendor: "",
+  warehouse: "",
+  item: "",
+  taxInvoice: "",
+  paymentStatus: "",
+});
+
 export const buildPurchaseNumberMap = (purchases: Purchase[]): Map<string, string> => {
   const orderedByOldest = [...purchases].sort((a, b) => {
     const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
