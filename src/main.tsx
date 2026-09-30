@@ -10,11 +10,21 @@ import './features/dispatch/dispatch-responsive.css'
 import './features/dispatch/dispatch-mobile-fixes.css'
 import './features/dispatch/dispatch-alignment.css'
 import './features/card/cardReceiptOcr.css'
+import AppErrorBoundary from './components/AppErrorBoundary'
+import { initializeErrorMonitoring } from './lib/errorMonitoring'
+
+initializeErrorMonitoring({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.DEV ? 'development' : import.meta.env.VITE_MONITORING_ENVIRONMENT,
+  release: import.meta.env.VITE_MONITORING_RELEASE,
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthEntry>
-      <DispatchAuthGate><App /></DispatchAuthGate>
-    </AuthEntry>
+    <AppErrorBoundary>
+      <AuthEntry>
+        <DispatchAuthGate><App /></DispatchAuthGate>
+      </AuthEntry>
+    </AppErrorBoundary>
   </StrictMode>,
 )

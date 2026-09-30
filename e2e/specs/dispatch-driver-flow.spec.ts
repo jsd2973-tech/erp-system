@@ -264,6 +264,9 @@ test("@regression 배차 운행·GPS·정정·운송실적 핵심 흐름", async
     expect(corrections?.map((row) => row.action)).toEqual(["하차완료 취소", "상차완료 취소", "운행시작 취소"]);
     expect(corrections?.[0].reason).toBe(`${e2e.prefix} E2E correction`);
   } finally {
+    // Keep the workflow's 45s budget; fixture cleanup needs its own network time.
+    // All assertions above keep their original deadlines and retries remain zero.
+    test.setTimeout(test.info().timeout + 30_000);
     try {
       await driverContext?.close();
     } finally {

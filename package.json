@@ -16,6 +16,7 @@
     "test:e2e:typecheck": "tsc --noEmit -p tsconfig.e2e.json"
   },
   "dependencies": {
+    "@sentry/react": "11.1.0",
     "@supabase/supabase-js": "^2.105.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.9.0",
