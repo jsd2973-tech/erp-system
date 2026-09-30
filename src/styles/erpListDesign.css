@@ -1,5 +1,5 @@
 /* ===== ERP List Pages: Unified Detail Layout ===== */
-/* 목록·세부목록 화면만 대상으로 하는 최종 공통 스타일입니다. 데이터/권한/동작은 변경하지 않습니다. */
+/* PC 업무영역과 목록·세부목록의 공통 스타일입니다. 데이터/권한/동작은 변경하지 않습니다. */
 .app.app-tab-list,
 .app.app-tab-status,
 .app.app-tab-card_list,
@@ -30,12 +30,117 @@
 
 /* PC: 화면마다 같은 폭·외곽선·제목/목록 리듬을 사용합니다. */
 @media (min-width:901px){
-  /* 조회·통계만 가용 폭을 사용합니다. 입력폼과 다른 업무 화면은 유지합니다. */
-  .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card{
+  /* 구매·카드·정비 15개 화면의 바깥 작업영역은 같은 가용 폭을 사용합니다. */
+  .app:is(
+    .app-tab-new,.app-tab-list,.app-tab-status,.app-tab-bulk_transfer,.app-tab-receipt_photos,.app-tab-vendor_accounts,
+    .app-tab-card_use,.app-tab-card_list,.app-tab-card_stats,
+    .app-tab-maint_new,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-maintenance_photos,.app-tab-maintenance_schedule_new,.app-tab-maintenance_schedules
+  )>:is(.card:not(.purchase-entry-popup-card),.maintenance-schedule-pro-page,.maintenance-schedule-pro-list){
     width:100% !important;
     max-width:none;
-    margin-inline:0;
-    padding-inline:22px;
+    margin:22px 0 0;
+    padding-inline:22px !important;
+  }
+
+  /* 입력은 기존 순서를 유지하고, 기본정보만 읽기 편한 폭으로 제한합니다. */
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3,
+  .app.app-tab-maint_new>.card>.grid3,
+  .app.app-tab-card_use>.card>.grid5{
+    width:100%;
+    max-width:1200px;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3,
+  .app.app-tab-maint_new>.card>.grid3{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.purchase-entry-footer,
+  .app.app-tab-maint_new>.card>.maintenance-entry-footer{
+    grid-template-columns:minmax(0,1fr) minmax(300px,420px);
+  }
+
+  /* 사진은 기존 정보/업로드 2열을 재사용하고 업로드·미리보기에 여유를 줍니다. */
+  .app:is(.app-tab-receipt_photos,.app-tab-maintenance_photos)>.receipt-photo-page>.receipt-clean-form-wrap{
+    grid-template-columns:minmax(0,min(46%,640px)) minmax(0,1fr);
+    align-items:start;
+  }
+  .app:is(.app-tab-receipt_photos,.app-tab-maintenance_photos) .receipt-clean-grid{
+    grid-template-columns:minmax(160px,.8fr) minmax(0,1fr);
+  }
+  .app:is(.app-tab-receipt_photos,.app-tab-maintenance_photos) .upload-preview-grid{
+    grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  }
+
+  /* 대량이체는 반쪽 카드 대신 넓은 업무 행을 사용합니다. */
+  .app.app-tab-bulk_transfer .bulk-transfer-list{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .app.app-tab-bulk_transfer .bulk-edit-grid{
+    grid-template-columns:minmax(88px,.5fr) minmax(180px,1.3fr) minmax(120px,.8fr) repeat(2,minmax(140px,1fr));
+  }
+  .app.app-tab-bulk_transfer .bulk-transfer-filter{
+    grid-template-columns:minmax(150px,.75fr) minmax(200px,1fr) minmax(240px,1.5fr) minmax(160px,.85fr);
+  }
+  .app:is(.app-tab-bulk_transfer,.app-tab-vendor_accounts) :is(.bulk-transfer-head,.vendor-account-head){
+    flex-wrap:wrap;
+  }
+  .app:is(.app-tab-bulk_transfer,.app-tab-vendor_accounts) :is(.bulk-transfer-head,.vendor-account-head)>.actions{
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .app:is(.app-tab-bulk_transfer,.app-tab-vendor_accounts) :is(.bulk-transfer-head,.vendor-account-head) button{
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+
+  /* 계좌 목록은 넓게, 신규 등록은 제한된 3열 폼으로 유지합니다. */
+  .app.app-tab-vendor_accounts .vendor-account-add-card{
+    max-width:1200px;
+  }
+  .app.app-tab-vendor_accounts .vendor-account-add-card>.vendor-account-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .app.app-tab-vendor_accounts .vendor-account-add-card>.vendor-account-grid>.field:last-child{
+    grid-column:1/-1;
+  }
+  .app.app-tab-vendor_accounts .vendor-account-list .vendor-account-grid{
+    grid-template-columns:minmax(140px,.9fr) minmax(80px,.4fr) minmax(160px,1fr) minmax(180px,1.2fr) minmax(220px,1.5fr);
+  }
+
+  /* 일정등록은 입력폼과 기존 요약/미리보기를 나누되 폼의 폭은 제한합니다. */
+  .app.app-tab-maintenance_schedule_new .schedule-pro-layout{
+    grid-template-columns:minmax(0,min(68%,1040px)) minmax(280px,1fr) !important;
+  }
+  .app.app-tab-maintenance_schedule_new .schedule-pro-side{
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  }
+  .app.app-tab-maintenance_schedule_new .schedule-pro-preview{
+    grid-column:1/-1;
+  }
+
+  /* 일정조회는 필터와 표를 넓게 쓰고 날짜·상태·관리 열은 압축하지 않습니다. */
+  .app.app-tab-maintenance_schedules .schedule-filter-card{
+    grid-template-columns:repeat(2,minmax(150px,.9fr)) minmax(220px,1.4fr) repeat(2,minmax(110px,.65fr)) auto;
+  }
+  .app.app-tab-maintenance_schedules .schedule-table-card>.scroll-table{
+    overflow-x:auto !important;
+  }
+  .app.app-tab-maintenance_schedules .schedule-table-card>.scroll-table>table{
+    min-width:1000px !important;
+    max-width:none !important;
+  }
+  .app.app-tab-maintenance_schedules .schedule-table-card th:nth-child(1){width:112px}
+  .app.app-tab-maintenance_schedules .schedule-table-card th:nth-child(4){width:96px}
+  .app.app-tab-maintenance_schedules .schedule-table-card th:is(:nth-child(5),:nth-child(6)){width:84px}
+  .app.app-tab-maintenance_schedules .schedule-table-card th:nth-child(8){width:166px}
+  .app.app-tab-maintenance_schedules .schedule-table-card td{
+    font-size:14px;
+  }
+  .app.app-tab-maintenance_schedules .schedule-table-card th,
+  .app.app-tab-maintenance_schedules .schedule-table-card td:is(:nth-child(1),:nth-child(4),:nth-child(5),:nth-child(6),:nth-child(8)){
+    white-space:nowrap !important;
+  }
+  .app.app-tab-maintenance_schedules .schedule-table-card :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(7)){
+    text-align:left;
   }
 
   .app:is(.app-tab-list,.app-tab-status,.app-tab-maint_list,.app-tab-maint_stats,.app-tab-card_list,.app-tab-card_stats)>.card>.between:first-child{
@@ -454,6 +559,50 @@
   .app .wide-modal td{
     text-align:center;
     vertical-align:middle;
+  }
+}
+
+/* 큰 PC에서는 카드 입력과 기존 영수증 영역을 나란히 배치합니다. */
+@media (min-width:1500px){
+  .app.app-tab-card_use>.card{
+    display:grid;
+    grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);
+    column-gap:20px;
+    align-items:start;
+  }
+  .app.app-tab-card_use>.card>:is(h2,.entry-actions,.draft-help-text){grid-column:1/-1}
+  .app.app-tab-card_use>.card>.card-receipt-upload-area{
+    grid-column:2;
+    grid-row:2;
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+}
+
+/* 사이드바가 있는 중간 PC 폭에서는 기존 필드를 무리하게 압축하지 않습니다. */
+@media (min-width:901px) and (max-width:1250px){
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3,
+  .app.app-tab-maint_new>.card>.grid3,
+  .app.app-tab-card_use>.card>.grid5,
+  .app.app-tab-vendor_accounts .vendor-account-grid,
+  .app.app-tab-vendor_accounts .vendor-account-list .vendor-account-grid,
+  .app.app-tab-bulk_transfer :is(.bulk-transfer-filter,.bulk-edit-grid),
+  .app.app-tab-maintenance_schedules .schedule-filter-card{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.grid3>.field:last-child,
+  .app.app-tab-card_use>.card>.grid5>.field:last-child{
+    grid-column:1/-1;
+  }
+  .app.app-tab-new>.purchase-entry-card:not(.purchase-entry-popup-card)>.purchase-entry-footer,
+  .app.app-tab-maint_new>.card>.maintenance-entry-footer,
+  .app:is(.app-tab-receipt_photos,.app-tab-maintenance_photos)>.receipt-photo-page>.receipt-clean-form-wrap{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .app.app-tab-maintenance_schedule_new .schedule-pro-layout{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+  .app.app-tab-maintenance_schedule_new .schedule-pro-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
 }
 
