@@ -178,7 +178,7 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
       {selected && (
         <MaintenanceDetail
           record={selected}
-          maintenanceNumber={maintNoMap.get(selected.id) || "-"}
+          maintenanceNumber={selected.managementNo || "-"}
           purchases={purchases}
           links={maintenancePurchaseLinks}
           canEdit={isAdmin}
