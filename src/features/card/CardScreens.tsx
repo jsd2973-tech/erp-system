@@ -51,15 +51,10 @@ export function CardList({ model, ui }: { model: CardListModel; ui: CardModuleUi
             {!filteredCardUses.length ? (
               <tr><td colSpan={7} className="empty">저장된 카드사용 내역 없음</td></tr>
             ) : (
-              filteredCardUses.map((cardUse, index) => {
-                const sameDateBeforeCount = filteredCardUses
-                  .slice(0, index)
-                  .filter((item) => item.date === cardUse.date).length;
-                const seq = sameDateBeforeCount + 1;
-
+              filteredCardUses.map((cardUse) => {
                 return (
                   <tr key={cardUse.id}>
-                    <td>{`${cardUse.date || ""}-${String(seq).padStart(2, "0")}`}</td>
+                    <td>{cardUse.managementNo || "-"}</td>
                     <td>{cardUse.user_name || "-"}</td>
                     <td>{cardUse.place}</td>
                     <td className="right bold">{money(cardUse.amount)}</td>
@@ -74,16 +69,11 @@ export function CardList({ model, ui }: { model: CardListModel; ui: CardModuleUi
         </table>
       </ScrollTable>
       <div className="mobile-card-list mobile-card-list-carduses">
-        {filteredCardUses.map((cardUse, index) => {
-          const sameDateBeforeCount = filteredCardUses
-            .slice(0, index)
-            .filter((item) => item.date === cardUse.date).length;
-          const seq = sameDateBeforeCount + 1;
-
+        {filteredCardUses.map((cardUse) => {
           return (
             <div className="mobile-list-card" key={cardUse.id}>
               <div className="mobile-list-top mobile-maint-card-top">
-                <b>{`${cardUse.date || ""}-${String(seq).padStart(2, "0")}`}</b>
+                <b>{cardUse.managementNo || "-"}</b>
                 <span>{money(cardUse.amount)}원</span>
               </div>
               <div className="mobile-list-body">
