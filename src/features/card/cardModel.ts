@@ -18,6 +18,23 @@ export const normalizeCardUse = (row: Record<string, unknown>): CardUse => ({
   amount: Number(row.amount || 0),
 }) as CardUse;
 
+export const buildCardNumberMap = (records: CardUse[]): Map<string, string> => {
+  const orderedByOldest = [...records].sort((a, b) => {
+    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare !== 0) return dateCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  const running = new Map<string, number>();
+  const map = new Map<string, string>();
+  orderedByOldest.forEach((record) => {
+    const date = record.date || "날짜없음";
+    const nextNo = (running.get(date) || 0) + 1;
+    running.set(date, nextNo);
+    map.set(record.id, `${date}-${String(nextNo).padStart(2, "0")}`);
+  });
+  return map;
+};
+
 export const getCardOcrDetectedLabels = (result: ReceiptOcrResult) => [
   result.date ? "날짜" : "",
   result.merchant ? "상호명" : "",
