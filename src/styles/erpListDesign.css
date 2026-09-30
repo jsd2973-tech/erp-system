@@ -625,12 +625,25 @@
   }
   .app:is(.app-tab-list,.app-tab-status,.app-tab-card_list,.app-tab-card_stats,.app-tab-maint_list,.app-tab-maint_stats)>.card .scroll-table :is(th,td),
   .app.app-tab-maintenance_schedules .schedule-table-card th{
-    font-size:14px;
+    font-size:15px !important;
   }
   .app:is(.app-tab-list,.app-tab-maint_list)>.lookup-page>.scroll-table :is(.purchase-item-detail-button,.link-btn,.maint-detail-text){
-    font-size:14px;
+    font-size:15px !important;
   }
-  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td){font-size:14px !important}
+  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td){font-size:15px !important}
+  /* PC 표 가독성만 보강: 기존 열 너비와 가운데/금액 정렬은 보존합니다. */
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-card_list,.app-tab-card_stats,.app-tab-maint_list,.app-tab-maint_stats)>.card .scroll-table th{
+    font-weight:800;
+  }
+  .app:is(.app-tab-list,.app-tab-status,.app-tab-card_list,.app-tab-card_stats,.app-tab-maint_list,.app-tab-maint_stats)>.card .scroll-table td{
+    padding-block:10px;
+  }
+  .app:is(.app-tab-list,.app-tab-card_list,.app-tab-maint_list)>.lookup-page>.scroll-table :is(th,td):first-child{
+    text-align:center !important;
+  }
+  .app:is(.app-tab-list,.app-tab-card_list,.app-tab-maint_list)>.lookup-page :is(.purchase-filter-grid,.grid5,.maint-filter) :is(input,select){
+    font-size:15px;
+  }
   .app:is(.app-tab-list,.app-tab-card_list,.app-tab-maint_list)>.lookup-page{
     min-height:0 !important;
   }
