@@ -717,6 +717,28 @@
   .app.app-tab-bulk_transfer .bulk-edit-grid>.field:nth-child(3) input{text-align:right;font-variant-numeric:tabular-nums}
   .app.app-tab-vendor_accounts .vendor-account-grid input{font-size:14px}
   .app.app-tab-vendor_accounts :is(.vendor-account-title,.vendor-account-add-head h3){text-align:left}
+
+  /* 텍스트 열은 제목과 본문의 시작점을 맞추고 열 경계에서 여유를 둡니다. */
+  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(2),:nth-child(3)):not([colspan]){
+    padding-inline:16px !important;
+    text-align:left;
+  }
+  .app.app-tab-card_list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(5)):not([colspan]),
+  .app.app-tab-maint_list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(4),:nth-child(5)):not([colspan]){
+    padding-inline:14px !important;
+    text-align:left;
+  }
+  .app:is(.app-tab-status,.app-tab-card_stats,.app-tab-maint_stats)>.card .scroll-table :is(th,td):is(
+    .erp-stats-ranking :nth-child(2),.erp-stats-totals :nth-child(1),
+    .erp-maint-warehouses :nth-child(2),.erp-maint-items :nth-child(2),
+    .erp-purchase-prices :nth-child(1),.erp-purchase-prices :nth-child(2),.erp-purchase-prices :nth-child(12),
+    .erp-purchase-details :nth-child(2),.erp-purchase-details :nth-child(4),
+    .erp-card-recent :nth-child(2),.erp-card-recent :nth-child(3),
+    .erp-maint-recent :nth-child(3),.erp-maint-recent :nth-child(4)
+  ):not([colspan]){padding-inline:14px}
+  .app.app-tab-maint_new>.card>h3,
+  .app.app-tab-maint_new>.card>.grid3 .field label,
+  .app.app-tab-maint_new .maint-suggest-head :is(strong,span){text-align:left}
 }
 
 @media (min-width:1251px){
@@ -737,8 +759,10 @@
   }
   .app.app-tab-maint_new>.card>:not(.grid3,.maint-suggest-box){grid-column:1/-1}
   .app.app-tab-maint_new>.card>.grid3{grid-column:1;grid-row:2;max-width:none;margin-block:0;align-self:start}
-  .app.app-tab-maint_new>.card>.maint-suggest-box{grid-column:2;grid-row:2;margin:0;align-self:start}
-  .app.app-tab-maint_new .maint-suggest-head{flex-direction:column;text-align:left}
+  .app.app-tab-maint_new>.card>.maint-suggest-box{grid-column:2;grid-row:2;margin:0;align-self:stretch;display:flex;flex-direction:column}
+  .app.app-tab-maint_new .maint-suggest-head{flex-direction:column;align-items:stretch;text-align:left;gap:10px}
+  .app.app-tab-maint_new .maint-suggest-empty{flex:1;min-height:100px;line-height:1.6}
+  .app.app-tab-maint_new .maint-suggest-chips{align-items:flex-start;align-content:flex-start}
   .app.app-tab-maint_new .maint-suggest-chips button{max-width:100%;white-space:normal;text-align:left}
 }
 
