@@ -321,7 +321,7 @@ export function MaintenanceStats({ maints, ui }: { maints: Maint[]; ui: Maintena
 
       <h3>창고별 정비비</h3>
       <ScrollTable>
-        <table>
+        <table className="erp-maint-warehouses">
           <thead><tr><th>순위</th><th>창고</th><th>정비건수</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
           <tbody>
             {!byWarehouse.length ? <tr><td colSpan={6} className="empty">조회된 창고별 정비비 없음</td></tr> : byWarehouse.map((w, i) => (
@@ -340,7 +340,7 @@ export function MaintenanceStats({ maints, ui }: { maints: Maint[]; ui: Maintena
 
       <h3>월별 정비비</h3>
       <ScrollTable>
-        <table>
+        <table className="erp-stats-monthly">
           <thead><tr><th>월</th><th>정비건수</th><th>합계</th></tr></thead>
           <tbody>
             {!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 정비비 없음</td></tr> : byMonth.map((m) => (
@@ -356,7 +356,7 @@ export function MaintenanceStats({ maints, ui }: { maints: Maint[]; ui: Maintena
 
       <h3>품목별 사용금액 TOP 20</h3>
       <ScrollTable>
-        <table>
+        <table className="erp-maint-items">
           <thead><tr><th>순위</th><th>품목</th><th>사용횟수</th><th>수량합계</th><th>금액합계</th></tr></thead>
           <tbody>
             {!byItem.length ? <tr><td colSpan={5} className="empty">조회된 품목 사용내역 없음</td></tr> : byItem.map((it, i) => (
@@ -374,7 +374,7 @@ export function MaintenanceStats({ maints, ui }: { maints: Maint[]; ui: Maintena
 
       <h3>최근 정비내역</h3>
       <ScrollTable>
-        <table>
+        <table className="erp-maint-recent">
           <thead><tr><th>일자</th><th>창고</th><th>제목</th><th>내용</th><th>합계</th></tr></thead>
           <tbody>
             {!recent.length ? <tr><td colSpan={5} className="empty">최근 정비내역 없음</td></tr> : recent.map((m) => (
