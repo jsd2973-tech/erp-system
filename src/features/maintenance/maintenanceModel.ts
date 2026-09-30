@@ -138,8 +138,9 @@ export const getMaintenanceCost = (maintenance: Maint, field: "supplyTotal" | "v
   return Number(maintenance[field] || (field === "total" ? maintenance.cost : 0) || fallback);
 };
 
-export const filterAndSortMaintenances = (maints: Maint[], search: MaintenanceSearch): Maint[] =>
-  maints
+export const filterAndSortMaintenances = (maints: Maint[], search: MaintenanceSearch): Maint[] => {
+  const numberMap = buildMaintenanceNumberMap(maints);
+  return maints
     .filter((m) =>
       (!search.from || (m.date || "") >= search.from) &&
       (!search.to || (m.date || "") <= search.to) &&
@@ -150,7 +151,9 @@ export const filterAndSortMaintenances = (maints: Maint[], search: MaintenanceSe
       const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
       if (dateCompare !== 0) return dateCompare;
       return String(b.id || "").localeCompare(String(a.id || ""));
-    });
+    })
+    .map((maintenance) => ({ ...maintenance, managementNo: numberMap.get(maintenance.id) || "" }));
+};
 
 export const buildMaintenanceNumberMap = (maints: Maint[]): Map<string, string> => {
   const orderedByOldest = [...maints].sort((a, b) => {
