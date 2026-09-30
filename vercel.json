@@ -4,6 +4,7 @@
     "deploymentEnabled": {
       "*": false,
       "main": true,
+      "style/pc-ui-finish-20260930": true,
       "design/dispatch-pc-refinement-20260911": true
     }
   },

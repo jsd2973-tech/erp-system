@@ -213,7 +213,7 @@ export function CardUseStats({ cardUses, ui }: { cardUses: CardUse[]; ui: CardMo
       </div>
 
       <h3>월별 카드사용</h3>
-      <ScrollTable><table>
+      <ScrollTable><table className="erp-stats-monthly">
         <thead><tr><th>월</th><th>건수</th><th>합계</th></tr></thead>
         <tbody>{!byMonth.length ? <tr><td colSpan={3} className="empty">조회된 월별 카드사용 없음</td></tr> : byMonth.map((month) => (
           <tr key={month.month}><td>{month.month}</td><td>{month.count}</td><td className="right bold">{money(month.total)}</td></tr>
@@ -221,7 +221,7 @@ export function CardUseStats({ cardUses, ui }: { cardUses: CardUse[]; ui: CardMo
       </table></ScrollTable>
 
       <h3>담당자별 카드사용</h3>
-      <ScrollTable><table>
+      <ScrollTable><table className="erp-stats-ranking">
         <thead><tr><th>순위</th><th>작업자</th><th>건수</th><th>합계</th></tr></thead>
         <tbody>{!byUser.length ? <tr><td colSpan={4} className="empty">조회된 담당자별 카드사용 없음</td></tr> : byUser.map((user, index) => (
           <tr key={user.user_name}><td>{index + 1}</td><td>{user.user_name}</td><td>{user.count}</td><td className="right bold">{money(user.total)}</td></tr>
@@ -229,7 +229,7 @@ export function CardUseStats({ cardUses, ui }: { cardUses: CardUse[]; ui: CardMo
       </table></ScrollTable>
 
       <h3>사용처별 카드사용 TOP 30</h3>
-      <ScrollTable><table>
+      <ScrollTable><table className="erp-stats-ranking">
         <thead><tr><th>순위</th><th>사용처</th><th>건수</th><th>합계</th></tr></thead>
         <tbody>{!byPlace.length ? <tr><td colSpan={4} className="empty">조회된 사용처별 카드사용 없음</td></tr> : byPlace.map((usedPlace, index) => (
           <tr key={usedPlace.place}><td>{index + 1}</td><td>{usedPlace.place}</td><td>{usedPlace.count}</td><td className="right bold">{money(usedPlace.total)}</td></tr>
@@ -237,7 +237,7 @@ export function CardUseStats({ cardUses, ui }: { cardUses: CardUse[]; ui: CardMo
       </table></ScrollTable>
 
       <h3>최근 카드사용 내역</h3>
-      <ScrollTable><table>
+      <ScrollTable><table className="erp-card-recent">
         <thead><tr><th>일자</th><th>담당자</th><th>사용처</th><th>금액</th><th>영수증</th></tr></thead>
         <tbody>{!recent.length ? <tr><td colSpan={5} className="empty">최근 카드사용 없음</td></tr> : recent.map((cardUse) => (
           <tr key={cardUse.id}>

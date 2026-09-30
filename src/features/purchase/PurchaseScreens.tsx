@@ -602,7 +602,7 @@ export function PurchaseStatus({ purchases, ui }: PurchaseStatusProps) {
       </div>
       <div className={`purchase-status-collapsible-body${mobileMonthlyOpen ? " open" : ""}`}>
       <ScrollTable>
-        <table>
+        <table className="erp-purchase-monthly">
           <thead><tr><th>월</th><th>집계기간</th><th>구매건수</th><th>품목행수</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
           <tbody>{!monthly.length ? <tr><td colSpan={7} className="empty">조회된 월별 구매현황 없음</td></tr> : monthly.map((m) => <tr key={m.month}><td className="bold">{m.month}</td><td>{m.period}</td><td className="right">{money(m.count)}</td><td className="right">{money(m.rowCount)}</td><td className="right">{money(m.supply)}</td><td className="right">{money(m.vat)}</td><td className="right bold">{money(m.total)}</td></tr>)}</tbody>
         </table>
@@ -617,7 +617,7 @@ export function PurchaseStatus({ purchases, ui }: PurchaseStatusProps) {
       </div>
       <div className={`purchase-status-collapsible-body${mobileVendorOpen ? " open" : ""}`}>
       <ScrollTable>
-        <table>
+        <table className="erp-stats-totals">
           <thead><tr><th>거래처</th><th>구매건수</th><th>합계</th></tr></thead>
           <tbody>{!byVendor.length ? <tr><td colSpan={3} className="empty">조회된 거래처 없음</td></tr> : byVendor.map((v) => <tr key={v.vendor}><td>{v.vendor}</td><td>{v.count}</td><td className="right bold">{money(v.total)}</td></tr>)}</tbody>
         </table>
@@ -649,7 +649,7 @@ export function PurchaseStatus({ purchases, ui }: PurchaseStatusProps) {
       </div>
       <div className="purchase-price-analysis-desktop">
         <ScrollTable>
-          <table>
+          <table className="erp-purchase-prices">
             <thead><tr><th>품목</th><th>규격</th><th>구매횟수</th><th>총수량</th><th>최근단가</th><th>직전단가</th><th>전회대비</th><th>최저단가</th><th>최고단가</th><th>가중평균</th><th>최근구매일</th><th>주요거래처</th></tr></thead>
             <tbody>{!itemAnalysis.length ? <tr><td colSpan={12} className="empty">조회된 품목 단가이력 없음</td></tr> : itemAnalysis.map((analysis) => (
               <tr key={analysis.key}>
@@ -721,7 +721,7 @@ export function PurchaseStatus({ purchases, ui }: PurchaseStatusProps) {
         </div>
         <div className={`purchase-status-collapsible-body${mobilePurchaseDetailOpen ? " open" : ""}`}>
         <ScrollTable>
-          <table>
+          <table className="erp-purchase-details">
             <thead><tr><th>일자</th><th>거래처</th><th>창고</th><th>대표품목</th><th>수량</th><th>공급가액</th><th>부가세액</th><th>합계</th></tr></thead>
             <tbody>{!filtered.length ? <tr><td colSpan={8} className="empty">조회된 구매내역 없음</td></tr> : filtered.map((p) => <tr key={p.id}><td>{p.date}</td><td>{p.vendor}</td><td>{p.warehouse}</td><td>{getPurchaseItemSummary(p)}</td><td className="right">{money((p.rows || []).reduce((sum, r) => sum + Number(r.qty || 0), 0))}</td><td className="right">{money(p.supplyTotal)}</td><td className="right">{money(p.vatTotal)}</td><td className="right bold">{money(p.total)}</td></tr>)}</tbody>
           </table>
