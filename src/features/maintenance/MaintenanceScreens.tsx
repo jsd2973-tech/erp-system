@@ -2,7 +2,7 @@ import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import type { PurchaseEntryUi } from "../purchase/PurchaseEntry";
 import type { MaintenancePurchaseLink, Purchase } from "../purchase/purchaseTypes";
-import { buildMaintenanceNumberMap, getMaintenanceCost } from "./maintenanceModel";
+import { getMaintenanceCost } from "./maintenanceModel";
 import type { Maint, MaintenanceSearch } from "./maintenanceTypes";
 import { MaintenanceDetail } from "./MaintenanceDetail";
 
@@ -36,7 +36,6 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
   } = model;
   const { Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money, downloadExcel, todayText, withTotalRow } = ui;
   const [selected, setSelected] = useState<Maint | null>(null);
-  const maintNoMap = useMemo(() => buildMaintenanceNumberMap(maints), [maints]);
 
   return (
     <section className="card lookup-page maint-lookup-page">
@@ -48,7 +47,7 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
               const supply = getMaintenanceCost(m, "supplyTotal");
               const vat = getMaintenanceCost(m, "vatTotal");
               const total = getMaintenanceCost(m, "total");
-              return { 관리번호: maintNoMap.get(m.id) || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
+              return { 관리번호: m.managementNo || "", 일자: m.date, 창고: m.warehouse, 제목: m.title, 내용: m.detail, 작업자: m.manager, 공급가액: supply, 부가세: vat, 합계: total };
             }),
             {
               관리번호: "총합계",
@@ -109,7 +108,7 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
                 const links = maintenancePurchaseLinks.filter((link: MaintenancePurchaseLink) => link.maintenance_id === m.id);
                 return (
                   <tr key={m.id}>
-                    <td>{maintNoMap.get(m.id) || "-"}</td>
+                    <td>{m.managementNo || "-"}</td>
                     <td>{m.warehouse}</td>
                     <td>{m.manager || "-"}</td>
                     <td><button className="link-btn" onClick={() => setSelected(m)}>{m.title}</button></td>
@@ -136,12 +135,7 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
         </table>
       </ScrollTable>
       <div className="mobile-card-list mobile-card-list-maints">
-        {maints.map((m: Maint, index: number) => {
-          const sameDateBeforeCount = maints
-            .slice(0, index)
-            .filter((x: Maint) => x.date === m.date).length;
-          const seq = sameDateBeforeCount + 1;
-
+        {maints.map((m: Maint) => {
           const supply = getMaintenanceCost(m, "supplyTotal");
           const vat = getMaintenanceCost(m, "vatTotal");
           const total = getMaintenanceCost(m, "total");
@@ -149,7 +143,7 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
           return (
             <div className="mobile-list-card" key={m.id}>
               <div className="mobile-list-top">
-                <b>{`${m.date || ""}-${String(seq).padStart(2, "0")}`}</b>
+                <b>{m.managementNo || "-"}</b>
                 <span>{money(total)}원</span>
               </div>
 
