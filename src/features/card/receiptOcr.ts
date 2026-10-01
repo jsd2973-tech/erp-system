@@ -219,8 +219,10 @@ const parseAmount = (lines: TextLine[]) => {
       const before = searchableText.slice(0, match.index);
       const afterAmounts = extractAmountTokens(after);
       const beforeAmounts = extractAmountTokens(before);
-      const nextAmounts = extractAmountTokens(normalizeAmountLabelText(lines[lineIndex + 1]?.text || ""));
-      const selected = afterAmounts[0] || beforeAmounts[beforeAmounts.length - 1] || nextAmounts[0];
+      const nextText = normalizeAmountLabelText(lines[lineIndex + 1]?.text || "");
+      const nextAmounts = extractAmountTokens(nextText);
+      const nextLooksLikeMoney = /[원₩￦]/.test(nextText) || /\d{1,3}(?:[\s,.]\d{3})+/.test(nextText);
+      const selected = afterAmounts[0] || beforeAmounts[beforeAmounts.length - 1] || (nextLooksLikeMoney ? nextAmounts[0] : undefined);
       if (!selected) return;
 
       const context = `${line.text} ${searchableText}`;
