@@ -1806,11 +1806,11 @@ export default function App() {
       return {
         ...merged,
         amount: Number(merged.amount || 0),
-        bank_code: String(merged.bank_code || ""),
-        bank_name: String(merged.bank_name || ""),
-        account_name: String(merged.account_name || ""),
-        customer_display_name: String(merged.customer_display_name || merged.account_name || merged.vendor || ""),
-        account_number: String(merged.account_number || ""),
+        bank_code: String(merged.bank_code || "").trim(),
+        bank_name: String(merged.bank_name || "").trim(),
+        account_name: String(merged.account_name || "").trim(),
+        customer_display_name: String(merged.customer_display_name || merged.account_name || merged.vendor || "").trim(),
+        account_number: cleanAccountNumber(merged.account_number || ""),
         memo: String(merged.memo || ""),
         matched: !!(merged.bank_code && merged.account_number),
       };
@@ -6324,7 +6324,6 @@ const purchasePriceHistoryMap = useMemo(
                 })
               )}
             </div>
-            </div>
           </section>
         )}
 
@@ -6336,8 +6335,11 @@ const purchasePriceHistoryMap = useMemo(
                 <h2>대량이체 생성</h2>
                 <p>구매내역을 거래처별로 합산하고 계좌정보를 매칭해 은행 업로드용 엑셀을 만듭니다.</p>
               </div>
-              <div className="actions">
-                <label className="upload">
+              <div className="actions bulk-transfer-head-actions">
+                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
+                {canEditDeleteRecords && <button className="bulk-paid-button" onClick={markSelectedPurchasesPaid} disabled={!selectedBulkTransferIds.length}>선택건 지급완료</button>}
+                <span className="bulk-action-divider" aria-hidden="true" />
+                <label className="upload secondary">
                   <Upload size={16} /> 업체 계좌 업로드
                   <input
                     type="file"
@@ -6348,9 +6350,7 @@ const purchasePriceHistoryMap = useMemo(
                     }}
                   />
                 </label>
-                <button onClick={loadVendorAccounts}>계좌 새로고침</button>
-                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
-                {canEditDeleteRecords && <button onClick={markSelectedPurchasesPaid} disabled={!selectedBulkTransferIds.length}>선택건 지급완료</button>}
+                <button className="secondary" onClick={loadVendorAccounts}>계좌 새로고침</button>
               </div>
             </div>
 
@@ -6417,8 +6417,9 @@ const purchasePriceHistoryMap = useMemo(
               <div className="bulk-summary">
                 <span>대상 거래처 <b>{bulkTransferRows.length}</b></span>
                 <span>선택 거래처 <b>{selectedBulkTransferIds.length}</b></span>
-                <span>계좌 미매칭 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
-                <span>합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
+                <span>계좌 확인 필요 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
+                <span>선택 금액 <b>{money(selectedBulkTransferAmount)}</b></span>
+                <span>대상 합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
               </div>
             </div>
 
@@ -6434,15 +6435,16 @@ const purchasePriceHistoryMap = useMemo(
                           <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
                           <span>선택</span>
                         </label>
-                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
+                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : getBulkTransferIssue(row)}</span>
                         <b>{row.vendor}</b>
+                        <small className="bulk-bank-name">{row.bank_name || "은행 미지정"}</small>
                       </div>
                       <strong>{money(row.amount)}원</strong>
                     </div>
 
                     <div className="bulk-edit-grid">
-                      <Field label="입금은행">
-                        <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} />
+                      <Field label="은행코드">
+                        <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} placeholder="예: 11" />
                       </Field>
                       <Field label="입금계좌">
                         <input value={row.account_number} onChange={(e) => updateBulkTransferEdit(row.id, "account_number", e.target.value)} />
