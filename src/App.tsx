@@ -1676,7 +1676,7 @@ export default function App() {
 
   const saveNewVendorAccount = async () => {
     const vendorName = newVendorAccountForm.vendor_name.trim();
-    if (!vendorName) return alert("거래처명을 입력하세요.");
+    if (!vendorName) { alert("거래처명을 입력하세요."); return false; }
 
     const id = `account-${normalizeVendorName(vendorName)}`;
     const payload: VendorAccount = {
@@ -1691,14 +1691,15 @@ export default function App() {
     };
 
     const duplicated = vendorAccounts.find((row) => normalizeVendorName(row.vendor_name) === normalizeVendorName(vendorName));
-    if (duplicated && !confirm("이미 같은 거래처명이 있습니다. 계좌정보를 덮어쓸까요?")) return;
+    if (duplicated && !confirm("이미 같은 거래처명이 있습니다. 계좌정보를 덮어쓸까요?")) return false;
 
     const { error } = await supabase.from("vendor_accounts").upsert(payload, { onConflict: "id" });
-    if (error) return alert(`계좌 추가 실패: ${error.message}`);
+    if (error) { alert(`계좌 추가 실패: ${error.message}`); return false; }
 
     await loadVendorAccounts();
     resetNewVendorAccountForm();
     showToast("거래처 계좌가 저장되었습니다.");
+    return true;
   };
 
   const importVendorAccountsExcel = async (file: File) => {
@@ -6186,8 +6187,8 @@ const purchasePriceHistoryMap = useMemo(
 
                   <div className="vendor-account-add-submit">
                     <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", async () => {
-                      await saveNewVendorAccount();
-                      setVendorAccountAddOpen(false);
+                      const saved = await saveNewVendorAccount();
+                      if (saved !== false) setVendorAccountAddOpen(false);
                     })}>
                       {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
                     </button>
@@ -6218,7 +6219,6 @@ const purchasePriceHistoryMap = useMemo(
                     <div className={editing ? "vendor-account-card editing" : "vendor-account-card"} key={account.id}>
                       <div className="vendor-account-title">
                         <strong>{account.vendor_name}</strong>
-                        {!editing && <small>{account.memo || "등록 계좌"}</small>}
                       </div>
 
                       <div className="vendor-account-grid">
