@@ -5809,15 +5809,24 @@ const purchasePriceHistoryMap = useMemo(
             <div className="receipt-list-head">
               <div>
                 <h3>등록된 정비사진</h3>
-                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건</p>
+                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건 · 표시 {filteredMaintenancePhotos.length}건</p>
+              </div>
+              <div className="receipt-list-controls">
+                <input value={maintenancePhotoSearch} onChange={(e) => setMaintenancePhotoSearch(e.target.value)} placeholder="설비명 · 내용 · 등록자 검색" />
+                <select value={maintenancePhotoStatus} onChange={(e) => setMaintenancePhotoStatus(e.target.value)} aria-label="정비사진 상태 필터">
+                  <option value="">상태 전체</option>
+                  <option value="pending">미처리</option>
+                  <option value="urgent">긴급 미처리</option>
+                  <option value="processed">처리완료</option>
+                </select>
               </div>
             </div>
 
             <div className="receipt-clean-list">
-              {!maintenancePhotos.length ? (
-                <div className="receipt-clean-empty">등록된 정비사진이 없습니다.</div>
+              {!filteredMaintenancePhotos.length ? (
+                <div className="receipt-clean-empty">{maintenancePhotos.length ? "검색 조건에 맞는 정비사진이 없습니다." : "등록된 정비사진이 없습니다."}</div>
               ) : (
-                maintenancePhotos.map((item) => (
+                filteredMaintenancePhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
@@ -6030,15 +6039,23 @@ const purchasePriceHistoryMap = useMemo(
             <div className="receipt-list-head">
               <div>
                 <h3>등록된 입고사진</h3>
-                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건</p>
+                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건 · 표시 {filteredReceiptPhotos.length}건</p>
+              </div>
+              <div className="receipt-list-controls">
+                <input value={receiptPhotoSearch} onChange={(e) => setReceiptPhotoSearch(e.target.value)} placeholder="거래처 · 내용 · 등록자 검색" />
+                <select value={receiptPhotoStatus} onChange={(e) => setReceiptPhotoStatus(e.target.value)} aria-label="입고사진 상태 필터">
+                  <option value="">상태 전체</option>
+                  <option value="pending">미처리</option>
+                  <option value="processed">처리완료</option>
+                </select>
               </div>
             </div>
 
             <div className="receipt-clean-list">
-              {!receiptPhotos.length ? (
-                <div className="receipt-clean-empty">등록된 입고사진이 없습니다.</div>
+              {!filteredReceiptPhotos.length ? (
+                <div className="receipt-clean-empty">{receiptPhotos.length ? "검색 조건에 맞는 입고사진이 없습니다." : "등록된 입고사진이 없습니다."}</div>
               ) : (
-                receiptPhotos.map((item) => (
+                filteredReceiptPhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
@@ -13180,6 +13197,8 @@ td .icon{
 }
 
 @media (max-width:900px){
+  .receipt-list-head{align-items:stretch;flex-direction:column;gap:10px}
+  .receipt-list-controls{grid-template-columns:1fr}
   .receipt-photo-page{
     padding:18px;
   }
@@ -13504,6 +13523,22 @@ td .icon{
   color:#64748b;
   font-size:14px;
   font-weight:900;
+}
+.receipt-list-controls{
+  display:grid;
+  grid-template-columns:minmax(220px,360px) 140px;
+  gap:8px;
+  min-width:0;
+}
+.receipt-list-controls input,
+.receipt-list-controls select{
+  min-height:40px;
+  border:1px solid #d7e0ea;
+  border-radius:10px;
+  background:#fff;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
 }
 
 .receipt-clean-list{
