@@ -1532,6 +1532,9 @@ export default function App() {
 
 
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
+  const [vendorAccountSearch, setVendorAccountSearch] = useState("");
+  const [vendorAccountAddOpen, setVendorAccountAddOpen] = useState(false);
+  const [editingVendorAccountId, setEditingVendorAccountId] = useState("");
   const [newVendorAccountForm, setNewVendorAccountForm] = useState({
     vendor_name: "",
     bank_name: "",
@@ -1715,7 +1718,7 @@ export default function App() {
         const bankCode = String(pick(r, ["코드명", "은행코드", "코드"]) || bankCodeByName(bankName)).trim();
         const accountName = String(pick(r, ["이름", "예금주", "입금자명"]) || "").trim();
         const customerDisplayName = String(pick(r, ["고객관리성명", "고객관리명"]) || accountName || vendorName).trim();
-        const accountNumber = String(pick(r, ["계좌번호", "계좌"]) || "").trim();
+        const accountNumber = cleanAccountNumber(String(pick(r, ["계좌번호", "계좌"]) || ""));
 
         rows.push({
           id: `account-${normalizeVendorName(vendorName)}`,
@@ -1756,6 +1759,36 @@ export default function App() {
 
     await loadVendorAccounts();
     showToast(`거래처 계좌 ${dedupedRows.length}건을 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
+  };
+
+  const filteredVendorAccounts = useMemo(() => {
+    const keyword = vendorAccountSearch.trim().toLowerCase().replace(/\s+/g, "");
+    if (!keyword) return vendorAccounts;
+    return vendorAccounts.filter((account) => [
+      account.vendor_name,
+      account.bank_name,
+      account.bank_code,
+      account.account_name,
+      account.customer_display_name,
+      account.account_number,
+    ].some((value) => String(value || "").toLowerCase().replace(/[\s-]+/g, "").includes(keyword)));
+  }, [vendorAccounts, vendorAccountSearch]);
+
+  const saveVendorAccountRow = async (account: VendorAccount) => {
+    const normalized: VendorAccount = {
+      ...account,
+      bank_name: String(account.bank_name || "").trim(),
+      bank_code: String(account.bank_code || "").trim() || bankCodeByName(account.bank_name || ""),
+      account_name: String(account.account_name || "").trim(),
+      customer_display_name: String(account.customer_display_name || account.account_name || account.vendor_name || "").trim(),
+      account_number: cleanAccountNumber(account.account_number || ""),
+      memo: String(account.memo || "").trim(),
+    };
+    const { error } = await supabase.from("vendor_accounts").upsert(normalized, { onConflict: "id" });
+    if (error) return alert(`저장 실패: ${error.message}`);
+    setEditingVendorAccountId("");
+    showToast("거래처 계좌를 저장했습니다.");
+    await loadVendorAccounts();
   };
 
   const findVendorAccount = (vendorName: string) => {
@@ -3565,6 +3598,17 @@ export default function App() {
 
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
+  const selectedBulkTransferAmount = bulkTransferRows
+    .filter((row) => selectedBulkTransferIds.includes(row.id))
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const getBulkTransferIssue = (row: BulkTransferRow) => {
+    const missingBank = !String(row.bank_code || "").trim();
+    const missingAccount = !cleanAccountNumber(row.account_number || "");
+    if (missingBank && missingAccount) return "은행코드·계좌번호 없음";
+    if (missingBank) return "은행코드 없음";
+    if (missingAccount) return "계좌번호 없음";
+    return "";
+  };
 
   const markSelectedPurchasesPaid = async () => {
     if (!canEditDeleteRecords) return alert("지급완료 처리는 관리자만 가능합니다.");
