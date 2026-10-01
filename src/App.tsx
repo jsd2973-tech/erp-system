@@ -1555,6 +1555,7 @@ export default function App() {
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
+  const [bulkTransferDownloadIds, setBulkTransferDownloadIds] = useState<string[]>([]);
   const bulkTransferFilterKeyRef = useRef("");
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
@@ -1763,7 +1764,7 @@ export default function App() {
   };
 
   const filteredVendorAccounts = useMemo(() => {
-    const keyword = vendorAccountSearch.trim().toLowerCase().replace(/\s+/g, "");
+    const keyword = vendorAccountSearch.trim().toLowerCase().replace(/[\s-]+/g, "");
     if (!keyword) return vendorAccounts;
     return vendorAccounts.filter((account) => [
       account.vendor_name,
@@ -1897,14 +1898,21 @@ export default function App() {
   const openBulkTransferDownloadPopup = () => {
     const rows = applyBulkTransferEdits(getBulkTransferRows());
     if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
-    setSelectedBulkTransferIds(rows.map((row) => row.id));
+    setBulkTransferDownloadIds(rows.map((row) => row.id));
     setBulkTransferSelectOpen(true);
   };
 
   const downloadSelectedBulkTransferExcel = () => {
-    const rows = bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id));
+    const rows = bulkTransferRows.filter((row) => bulkTransferDownloadIds.includes(row.id));
+    if (!rows.length) return alert("다운로드할 거래처를 선택하세요.");
     createBulkTransferExcel(rows);
     setBulkTransferSelectOpen(false);
+  };
+
+  const toggleBulkTransferDownloadSelection = (id: string) => {
+    setBulkTransferDownloadIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const toggleBulkTransferSelection = (id: string) => {
@@ -5126,14 +5134,14 @@ const purchasePriceHistoryMap = useMemo(
                 <button onClick={() => setBulkTransferSelectOpen(false)}>닫기</button>
               </div>
               <div className="bulk-select-actions">
-                <button onClick={() => setSelectedBulkTransferIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
-                <button onClick={() => setSelectedBulkTransferIds([])}>전체해제</button>
-                <strong>선택 {selectedBulkTransferIds.length}건 / {money(bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
+                <button onClick={() => setBulkTransferDownloadIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
+                <button onClick={() => setBulkTransferDownloadIds([])}>전체해제</button>
+                <strong>선택 {bulkTransferDownloadIds.length}건 / {money(bulkTransferRows.filter((row) => bulkTransferDownloadIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
               </div>
               <div className="bulk-select-list">
                 {bulkTransferRows.map((row) => (
                   <label className={row.matched ? "bulk-select-row" : "bulk-select-row missing"} key={row.id}>
-                    <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
+                    <input type="checkbox" checked={bulkTransferDownloadIds.includes(row.id)} onChange={() => toggleBulkTransferDownloadSelection(row.id)} />
                     <span>{row.vendor}</span>
                     <em>{row.matched ? "계좌매칭" : "계좌확인필요"}</em>
                     <b>{money(row.amount)}원</b>
@@ -6132,7 +6140,7 @@ const purchasePriceHistoryMap = useMemo(
                         setNewVendorAccountForm((prev) => ({
                           ...prev,
                           bank_name: e.target.value,
-                          bank_code: bankCodeByName(e.target.value) || prev.bank_code,
+                          bank_code: bankCodeByName(e.target.value),
                         }))
                       }
                       placeholder="예: 농협"
