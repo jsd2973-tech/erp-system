@@ -286,6 +286,30 @@
 .app .basic-entry-section .basic-list-heading{margin-top:23px}
 .app .basic-entry-section .basic-table-scroll{flex:1}
 .app .basic-items-list-heading{align-items:end}
+
+.app .basic-danger-zone{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:18px;
+  padding:14px 16px;
+  border:1px solid #fecaca;
+  border-radius:14px;
+  background:#fff7f7;
+}
+.app .basic-danger-zone>div{display:grid;gap:3px;min-width:0}
+.app .basic-danger-zone strong{color:#991b1b;font-size:13px;font-weight:950}
+.app .basic-danger-zone span{color:#a16262;font-size:11px;line-height:1.4}
+.app .basic-danger-zone .danger{
+  flex:0 0 auto;
+  min-width:92px;
+  min-height:38px;
+  border-color:#fecaca;
+  background:#fff;
+  color:#b91c1c;
+  font-weight:900;
+}
 .app .basic-layout-page>.layout-map{margin-top:20px}
 .app .basic-layout-page>.layout-edit-guide{margin-top:16px}
 .app .basic-mobile-list{display:none}
@@ -415,6 +439,8 @@
     color:#64748b;
   }
   .app .basic-item-mobile-row .basic-mobile-row-copy strong{font-size:16px}
+  .app .basic-danger-zone{align-items:stretch;flex-direction:column;gap:10px;margin-top:14px;padding:12px}
+  .app .basic-danger-zone .danger{width:100%;min-height:42px}
   .app .basic-mobile-empty{
     padding:24px 12px;
     border:1px dashed #cbd5e1;
