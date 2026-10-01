@@ -12677,6 +12677,10 @@ td .icon{
 /* ===== Vendor Account Management ===== */
 .vendor-account-add-card{
   display:grid;
+  width:100% !important;
+  max-width:none !important;
+  grid-column:1 / -1;
+  box-sizing:border-box;
   grid-template-columns:minmax(220px,260px) minmax(0,1fr);
   align-items:stretch;
   gap:18px;
