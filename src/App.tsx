@@ -1458,11 +1458,15 @@ export default function App() {
   }, [menuTab, editingPurchaseId, editingMaintId, purchaseHeader.date, maintForm.date]);
 
   const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
+  const [receiptPhotoSearch, setReceiptPhotoSearch] = useState("");
+  const [receiptPhotoStatus, setReceiptPhotoStatus] = useState("");
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
   const [receiptUploadPreviewUrls, setReceiptUploadPreviewUrls] = useState<string[]>([]);
   const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
   const [maintenancePhotos, setMaintenancePhotos] = useState<MaintenancePhoto[]>([]);
+  const [maintenancePhotoSearch, setMaintenancePhotoSearch] = useState("");
+  const [maintenancePhotoStatus, setMaintenancePhotoStatus] = useState("");
   const [maintenancePhotoForm, setMaintenancePhotoForm] = useState({
     maint_date: getTodayKey(),
     equipment_name: "",
@@ -1476,6 +1480,30 @@ export default function App() {
   const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
   const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
   const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
+
+  const filteredReceiptPhotos = useMemo(() => {
+    const keyword = receiptPhotoSearch.trim().toLowerCase();
+    return receiptPhotos.filter((item) => {
+      const matchesStatus = !receiptPhotoStatus
+        || (receiptPhotoStatus === "pending" && !item.is_processed)
+        || (receiptPhotoStatus === "processed" && item.is_processed);
+      const haystack = `${item.receipt_date || ""} ${item.vendor_name || ""} ${item.memo || ""} ${item.created_by || ""}`.toLowerCase();
+      return matchesStatus && (!keyword || haystack.includes(keyword));
+    });
+  }, [receiptPhotos, receiptPhotoSearch, receiptPhotoStatus]);
+
+  const filteredMaintenancePhotos = useMemo(() => {
+    const keyword = maintenancePhotoSearch.trim().toLowerCase();
+    return maintenancePhotos.filter((item) => {
+      const matchesStatus = !maintenancePhotoStatus
+        || (maintenancePhotoStatus === "pending" && !item.is_processed)
+        || (maintenancePhotoStatus === "processed" && item.is_processed)
+        || (maintenancePhotoStatus === "urgent" && item.is_urgent && !item.is_processed);
+      const haystack = `${item.maint_date || ""} ${item.equipment_name || ""} ${item.memo || ""} ${item.created_by || ""}`.toLowerCase();
+      return matchesStatus && (!keyword || haystack.includes(keyword));
+    });
+  }, [maintenancePhotos, maintenancePhotoSearch, maintenancePhotoStatus]);
+
   const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([]);
   const [maintenanceScheduleForm, setMaintenanceScheduleForm] = useState({
     schedule_date: getTodayKey(),
@@ -4332,7 +4360,11 @@ const purchasePriceHistoryMap = useMemo(
   };
 
   const loadActivityLogs = async () => {
-    const { data, error } = await fetchAllRows("activity_logs", "created_at", 1000, false);
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(300);
 
     if (error) {
       console.error(error);
@@ -5781,15 +5813,24 @@ const purchasePriceHistoryMap = useMemo(
             <div className="receipt-list-head">
               <div>
                 <h3>등록된 정비사진</h3>
-                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건</p>
+                <p>미처리 {maintenancePhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {maintenancePhotos.filter((item) => item.is_processed).length}건 · 표시 {filteredMaintenancePhotos.length}건</p>
+              </div>
+              <div className="receipt-list-controls">
+                <input value={maintenancePhotoSearch} onChange={(e) => setMaintenancePhotoSearch(e.target.value)} placeholder="설비명 · 내용 · 등록자 검색" />
+                <select value={maintenancePhotoStatus} onChange={(e) => setMaintenancePhotoStatus(e.target.value)} aria-label="정비사진 상태 필터">
+                  <option value="">상태 전체</option>
+                  <option value="pending">미처리</option>
+                  <option value="urgent">긴급 미처리</option>
+                  <option value="processed">처리완료</option>
+                </select>
               </div>
             </div>
 
             <div className="receipt-clean-list">
-              {!maintenancePhotos.length ? (
-                <div className="receipt-clean-empty">등록된 정비사진이 없습니다.</div>
+              {!filteredMaintenancePhotos.length ? (
+                <div className="receipt-clean-empty">{maintenancePhotos.length ? "검색 조건에 맞는 정비사진이 없습니다." : "등록된 정비사진이 없습니다."}</div>
               ) : (
-                maintenancePhotos.map((item) => (
+                filteredMaintenancePhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
@@ -6002,15 +6043,23 @@ const purchasePriceHistoryMap = useMemo(
             <div className="receipt-list-head">
               <div>
                 <h3>등록된 입고사진</h3>
-                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건</p>
+                <p>미처리 {receiptPhotos.filter((item) => !item.is_processed).length}건 · 처리완료 {receiptPhotos.filter((item) => item.is_processed).length}건 · 표시 {filteredReceiptPhotos.length}건</p>
+              </div>
+              <div className="receipt-list-controls">
+                <input value={receiptPhotoSearch} onChange={(e) => setReceiptPhotoSearch(e.target.value)} placeholder="거래처 · 내용 · 등록자 검색" />
+                <select value={receiptPhotoStatus} onChange={(e) => setReceiptPhotoStatus(e.target.value)} aria-label="입고사진 상태 필터">
+                  <option value="">상태 전체</option>
+                  <option value="pending">미처리</option>
+                  <option value="processed">처리완료</option>
+                </select>
               </div>
             </div>
 
             <div className="receipt-clean-list">
-              {!receiptPhotos.length ? (
-                <div className="receipt-clean-empty">등록된 입고사진이 없습니다.</div>
+              {!filteredReceiptPhotos.length ? (
+                <div className="receipt-clean-empty">{receiptPhotos.length ? "검색 조건에 맞는 입고사진이 없습니다." : "등록된 입고사진이 없습니다."}</div>
               ) : (
-                receiptPhotos.map((item) => (
+                filteredReceiptPhotos.map((item) => (
                   <div className={item.is_processed ? "receipt-clean-card processed" : "receipt-clean-card pending"} key={item.id}>
                     <div className="receipt-clean-card-top">
                       <span className={item.is_processed ? "receipt-badge processed" : "receipt-badge pending"}>
@@ -13492,6 +13541,24 @@ td .icon{
   font-weight:900;
 }
 
+.receipt-list-controls{
+  display:grid;
+  grid-template-columns:minmax(220px,360px) 140px;
+  gap:8px;
+  min-width:0;
+}
+
+.receipt-list-controls input,
+.receipt-list-controls select{
+  min-height:40px;
+  border:1px solid #d7e0ea;
+  border-radius:10px;
+  background:#fff;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+}
+
 .receipt-clean-list{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
@@ -13657,6 +13724,17 @@ td .icon{
 }
 
 @media (max-width:900px){
+  .receipt-list-head{
+    align-items:stretch;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .receipt-list-controls{
+    grid-template-columns:1fr;
+    width:100%;
+  }
+
   .receipt-photo-page-clean{
     padding:18px !important;
   }
