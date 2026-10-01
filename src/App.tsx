@@ -13706,6 +13706,15 @@ td .icon{
 }
 
 @media (max-width:900px){
+  .receipt-list-head{
+    align-items:stretch;
+    flex-direction:column;
+    gap:10px;
+  }
+  .receipt-list-controls{
+    grid-template-columns:1fr;
+    width:100%;
+  }
   .receipt-photo-page-clean{
     padding:18px !important;
   }
