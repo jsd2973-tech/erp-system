@@ -18,7 +18,7 @@ export function CardList({ model, ui }: { model: CardListModel; ui: CardModuleUi
 
   return (
     <section className="card lookup-page card-lookup-page">
-      <div className="between" style={{ marginTop: 24 }}>
+      <div className="between">
         <h2>카드조회</h2>
         <button onClick={() => downloadExcel(`카드사용_${todayText()}`, withTotalRow(
           filteredCardUses.map((cardUse) => ({ 사용일자: cardUse.date, 담당자: cardUse.user_name, 사용처: cardUse.place, 금액: cardUse.amount, 메모: cardUse.memo || "", 영수증: cardUse.image_url || "" })),

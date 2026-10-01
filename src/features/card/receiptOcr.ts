@@ -40,7 +40,7 @@ const AMOUNT_KEYWORDS = [
 
 const EXCLUDED_AMOUNT_CONTEXT = /공급\s*가액|공급액|과세\s*금액|부가세|vat|할인|거스름돈|카드\s*잔액|잔액|적립|포인트|승인\s*번호|사업자\s*등록\s*번호|카드\s*번호/i;
 const MERCHANT_LABEL = /(?:상호명?|가맹점명|판매자명|상점명)\s*[:：]?\s*(.+)$/i;
-const MERCHANT_EXCLUDED = /사업자|등록\s*번호|대표자?|주소|도로명|지번|전화|tel|fax|카드|승인|할부|포인트|적립|영수증|거래명세서|신용|체크|pos|van|고객|번호|일시|일자|합계|금액|부가세|공급가액|(?:^|\s)(?:업태|종목|업종)\s*[:：]?|(?:^|\s)도\s*[,·ㆍ.]?\s*소매|(?:^|\s)(?:도매|소매)업/i;
+const MERCHANT_EXCLUDED = /사업자|등록\s*번호|대표자?|주소|도로명|지번|전화|tel|fax|카드|승인|할부|포인트|적립|영수증|거래명세서|신용|체크|pos|van|고객|번호|일시|일자|합계|금액|부가세|공급가액|cashnote\s*pay|캐시노트|(?:^|\s)(?:업태|종목|업종)\s*[:：]?|(?:^|\s)도\s*[,·ㆍ.]?\s*소매|(?:^|\s)(?:도매|소매)업/i;
 
 const cleanText = (value: unknown) => String(value ?? "")
   .replace(/[\u200b\u00a0]/g, " ")
@@ -165,7 +165,7 @@ const parseMerchant = (lines: TextLine[]) => {
     if (!isMerchantCandidate(line.text)) return;
     const normalized = line.text.replace(/\s+/g, " ");
     const koreanCount = (normalized.match(/[가-힣]/g) || []).length;
-    const businessHint = /주식회사|㈜|\(주\)|마트|식당|카페|공구|주유소|건설|산업|농협|편의점|점$/.test(normalized) ? 18 : 0;
+    const businessHint = /주식회사|㈜|\(주\)|마트|식당|카페|공구|주유소|건설|산업|농협|편의점|택배|화물|운송|물류|점$/.test(normalized) ? 24 : 0;
     const score = 60 + businessHint + koreanCount * 0.5 - index * 5 - (/[0-9]{4,}/.test(normalized) ? 15 : 0);
     candidates.push({ value: cleanMerchant(normalized), score });
   });
@@ -175,9 +175,9 @@ const parseMerchant = (lines: TextLine[]) => {
 
 const extractAmountTokens = (value: string) => {
   const result: Array<{ value: number; position: number }> = [];
-  const pattern = /(?<![\d-])(?:₩|￦)?\s*(\d{1,3}(?:[\s,]\d{3})+|\d{2,})(?:\.\d+)?\s*원?/g;
+  const pattern = /(?<![\d-])(?:₩|￦)?\s*(\d{1,3}(?:[\s,.]\d{3})+|\d{2,})\s*원?/g;
   for (const match of value.matchAll(pattern)) {
-    const numeric = Number(match[1].replace(/[\s,]/g, ""));
+    const numeric = Number(match[1].replace(/[\s,.]/g, ""));
     if (Number.isFinite(numeric) && numeric > 0 && numeric < 1_000_000_000) {
       result.push({ value: Math.round(numeric), position: match.index || 0 });
     }
@@ -189,6 +189,23 @@ const extractAmountTokens = (value: string) => {
 // 숫자 사이 공백은 금액 토큰에서 유효하므로 한글 문자 사이 공백만 정규화한다.
 const normalizeAmountLabelText = (value: string) =>
   value.replace(/(?<=[가-힣])\s+(?=[가-힣])/g, "");
+
+const parseReceiptComponents = (lines: TextLine[]) => {
+  let supply: number | undefined;
+  let vat: number | undefined;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = normalizeAmountLabelText(lines[index].text);
+    const readNearby = () => {
+      const current = extractAmountTokens(line);
+      if (current.length) return current[current.length - 1].value;
+      const next = extractAmountTokens(normalizeAmountLabelText(lines[index + 1]?.text || ""));
+      return next[0]?.value;
+    };
+    if (/판매금액|공급가액|공급액|과세금액/.test(line)) supply = readNearby();
+    if (/부가가치세|부가세|vat/i.test(line)) vat = readNearby();
+  }
+  return { supply, vat };
+};
 
 const parseAmount = (lines: TextLine[]) => {
   const candidates: AmountCandidate[] = [];
@@ -223,6 +240,18 @@ const parseAmount = (lines: TextLine[]) => {
       const amounts = extractAmountTokens(line.text);
       const selected = amounts[amounts.length - 1];
       if (selected) candidates.push({ value: selected.value, line, score: 35 + line.index * 0.05 });
+    });
+  }
+
+  const { supply, vat } = parseReceiptComponents(lines);
+  if (supply != null && vat != null && supply > 0 && vat >= 0) {
+    const inferredTotal = supply + vat;
+    const exact = candidates.find((candidate) => Math.abs(candidate.value - inferredTotal) <= 1);
+    if (exact) return { value: inferredTotal, confidence: 0.98 };
+    candidates.push({
+      value: inferredTotal,
+      line: { text: "판매금액+부가세", index: lines.length },
+      score: 118,
     });
   }
 

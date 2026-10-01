@@ -134,7 +134,7 @@
   .app.app-tab-maintenance_schedules .schedule-table-card th:is(:nth-child(5),:nth-child(6)){width:84px}
   .app.app-tab-maintenance_schedules .schedule-table-card th:nth-child(8){width:166px}
   .app.app-tab-maintenance_schedules .schedule-table-card td{
-    font-size:14px;
+    font-size:15px;
   }
   .app.app-tab-maintenance_schedules .schedule-table-card th,
   .app.app-tab-maintenance_schedules .schedule-table-card td:is(:nth-child(1),:nth-child(4),:nth-child(5),:nth-child(6),:nth-child(8)){
@@ -653,7 +653,7 @@
   }
   .app.app-tab-list>.lookup-page>.purchase-filter-grid{margin-bottom:0}
   .app.app-tab-list .purchase-payment-filter-row{margin:10px 0 6px}
-  .app.app-tab-list .purchase-page-summary{margin:0 0 10px;text-align:left;font-size:13px}
+  .app.app-tab-list .purchase-page-summary{margin:0 0 10px;text-align:left;font-size:15px}
 
   /* 통계 표는 구분용 class만 추가하고 짧은 열과 텍스트 열의 비율을 나눕니다. */
   .app:is(.app-tab-status,.app-tab-card_stats,.app-tab-maint_stats)>.card .scroll-table{
