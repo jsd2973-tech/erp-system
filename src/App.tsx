@@ -6096,206 +6096,234 @@ const purchasePriceHistoryMap = useMemo(
                 </label>
 
                 <button onClick={loadVendorAccounts}>새로고침</button>
-              </div>
-            </div>
-
-            <div className="vendor-account-add-card">
-              <div className="vendor-account-add-head">
-                <div>
-                  <h3>신규 계좌 직접 추가</h3>
-                  <p>엑셀 없이 거래처 계좌를 바로 등록합니다.</p>
-                </div>
-                <button onClick={resetNewVendorAccountForm}>초기화</button>
-              </div>
-
-              <div className="vendor-account-grid">
-                <Field label="거래처명">
-                  <input
-                    value={newVendorAccountForm.vendor_name}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, vendor_name: e.target.value }))}
-                    placeholder="예: 출장빵구정비"
-                  />
-                </Field>
-
-                <Field label="은행명">
-                  <input
-                    value={newVendorAccountForm.bank_name}
-                    onChange={(e) =>
-                      setNewVendorAccountForm((prev) => ({
-                        ...prev,
-                        bank_name: e.target.value,
-                        bank_code: prev.bank_code || bankCodeByName(e.target.value),
-                      }))
-                    }
-                    placeholder="예: 농협"
-                  />
-                </Field>
-
-                <Field label="은행코드">
-                  <input
-                    value={newVendorAccountForm.bank_code}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, bank_code: e.target.value }))}
-                    placeholder="예: 11"
-                  />
-                </Field>
-
-                <Field label="예금주">
-                  <input
-                    value={newVendorAccountForm.account_name}
-                    onChange={(e) =>
-                      setNewVendorAccountForm((prev) => ({
-                        ...prev,
-                        account_name: e.target.value,
-                        customer_display_name: prev.customer_display_name || e.target.value,
-                      }))
-                    }
-                    placeholder="예금주"
-                  />
-                </Field>
-
-                <Field label="고객관리성명">
-                  <input
-                    value={newVendorAccountForm.customer_display_name}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, customer_display_name: e.target.value }))}
-                    placeholder="대량이체 표시명"
-                  />
-                </Field>
-
-                <Field label="계좌번호">
-                  <input
-                    value={newVendorAccountForm.account_number}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, account_number: e.target.value }))}
-                    placeholder="숫자 또는 하이픈 입력"
-                  />
-                </Field>
-
-                <Field label="메모">
-                  <input
-                    value={newVendorAccountForm.memo}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, memo: e.target.value }))}
-                    placeholder="선택"
-                  />
-                </Field>
-              </div>
-
-              <div className="vendor-account-bottom">
-                <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", saveNewVendorAccount)}>
-                  {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
+                <button className="primary" onClick={() => setVendorAccountAddOpen((open) => !open)}>
+                  {vendorAccountAddOpen ? "추가 닫기" : "+ 계좌 추가"}
                 </button>
               </div>
             </div>
 
-            <div className="vendor-account-list">
-              {!vendorAccounts.length ? (
-                <div className="empty">등록된 거래처 계좌가 없습니다.</div>
-              ) : (
-                vendorAccounts.map((account) => (
-                  <div className="vendor-account-card" key={account.id}>
-                    <div className="vendor-account-title">
-                      <strong>{account.vendor_name}</strong>
-                    </div>
-
-                    <div className="vendor-account-grid">
-                      <Field label="은행명">
-                        <input
-                          value={account.bank_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, bank_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="은행코드">
-                        <input
-                          value={account.bank_code || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, bank_code: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="예금주">
-                        <input
-                          value={account.account_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, account_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="고객관리성명">
-                        <input
-                          value={account.customer_display_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, customer_display_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="계좌번호">
-                        <input
-                          value={account.account_number || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, account_number: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="vendor-account-bottom">
-                      <button
-                        className="primary"
-                        disabled={isAuxiliarySaving(`vendorAccount:${account.id}`)}
-                        onClick={() => runAuxiliarySave(`vendorAccount:${account.id}`, async () => {
-                          const { error } = await supabase
-                            .from("vendor_accounts")
-                            .upsert(account, { onConflict: "id" });
-
-                          if (error) {
-                            alert(`저장 실패: ${error.message}`);
-                            return;
-                          }
-
-                          showToast("거래처 계좌를 저장했습니다.");
-                          await loadVendorAccounts();
-                        })}
-                      >
-                        {isAuxiliarySaving(`vendorAccount:${account.id}`) ? "저장 중..." : "저장"}
-                      </button>
-                    </div>
+            {vendorAccountAddOpen && (
+              <div className="vendor-account-add-card">
+                <div className="vendor-account-add-head">
+                  <div>
+                    <h3>신규 계좌 직접 추가</h3>
+                    <p>엑셀 없이 거래처 계좌를 바로 등록합니다.</p>
                   </div>
-                ))
+                  <div className="actions">
+                    <button onClick={resetNewVendorAccountForm}>초기화</button>
+                    <button onClick={() => setVendorAccountAddOpen(false)}>닫기</button>
+                  </div>
+                </div>
+
+                <div className="vendor-account-grid vendor-account-add-grid">
+                  <Field label="거래처명">
+                    <input
+                      value={newVendorAccountForm.vendor_name}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, vendor_name: e.target.value }))}
+                      placeholder="예: 출장빵구정비"
+                    />
+                  </Field>
+
+                  <Field label="은행명">
+                    <input
+                      value={newVendorAccountForm.bank_name}
+                      onChange={(e) =>
+                        setNewVendorAccountForm((prev) => ({
+                          ...prev,
+                          bank_name: e.target.value,
+                          bank_code: bankCodeByName(e.target.value) || prev.bank_code,
+                        }))
+                      }
+                      placeholder="예: 농협"
+                    />
+                  </Field>
+
+                  <Field label="은행코드">
+                    <input
+                      value={newVendorAccountForm.bank_code}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, bank_code: e.target.value }))}
+                      placeholder="예: 11"
+                    />
+                  </Field>
+
+                  <Field label="예금주">
+                    <input
+                      value={newVendorAccountForm.account_name}
+                      onChange={(e) =>
+                        setNewVendorAccountForm((prev) => ({
+                          ...prev,
+                          account_name: e.target.value,
+                          customer_display_name: prev.customer_display_name || e.target.value,
+                        }))
+                      }
+                      placeholder="예금주"
+                    />
+                  </Field>
+
+                  <Field label="고객관리성명">
+                    <input
+                      value={newVendorAccountForm.customer_display_name}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, customer_display_name: e.target.value }))}
+                      placeholder="대량이체 표시명"
+                    />
+                  </Field>
+
+                  <Field label="계좌번호">
+                    <input
+                      value={newVendorAccountForm.account_number}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, account_number: e.target.value }))}
+                      placeholder="숫자 또는 하이픈 입력"
+                    />
+                  </Field>
+
+                  <Field label="메모">
+                    <input
+                      value={newVendorAccountForm.memo}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, memo: e.target.value }))}
+                      placeholder="선택"
+                    />
+                  </Field>
+
+                  <div className="vendor-account-add-submit">
+                    <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", async () => {
+                      await saveNewVendorAccount();
+                      setVendorAccountAddOpen(false);
+                    })}>
+                      {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="vendor-account-toolbar">
+              <div className="vendor-account-search">
+                <input
+                  value={vendorAccountSearch}
+                  onChange={(e) => setVendorAccountSearch(e.target.value)}
+                  placeholder="거래처명 · 은행 · 예금주 · 계좌번호 검색"
+                />
+                {vendorAccountSearch && <button type="button" onClick={() => setVendorAccountSearch("")}>검색 초기화</button>}
+              </div>
+              <span>전체 <b>{vendorAccounts.length}</b> · 표시 <b>{filteredVendorAccounts.length}</b></span>
+            </div>
+
+            <div className="vendor-account-list">
+              {!filteredVendorAccounts.length ? (
+                <div className="empty">{vendorAccounts.length ? "검색 결과가 없습니다." : "등록된 거래처 계좌가 없습니다."}</div>
+              ) : (
+                filteredVendorAccounts.map((account) => {
+                  const editing = editingVendorAccountId === account.id;
+                  return (
+                    <div className={editing ? "vendor-account-card editing" : "vendor-account-card"} key={account.id}>
+                      <div className="vendor-account-title">
+                        <strong>{account.vendor_name}</strong>
+                        {!editing && <small>{account.memo || "등록 계좌"}</small>}
+                      </div>
+
+                      <div className="vendor-account-grid">
+                        <Field label="은행명">
+                          {editing ? (
+                            <input
+                              value={account.bank_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id
+                                      ? { ...row, bank_name: e.target.value, bank_code: bankCodeByName(e.target.value) || "" }
+                                      : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.bank_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="은행코드">
+                          {editing ? (
+                            <input
+                              value={account.bank_code || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, bank_code: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.bank_code || "-"}</div>}
+                        </Field>
+
+                        <Field label="예금주">
+                          {editing ? (
+                            <input
+                              value={account.account_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, account_name: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.account_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="고객관리성명">
+                          {editing ? (
+                            <input
+                              value={account.customer_display_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, customer_display_name: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.customer_display_name || account.account_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="계좌번호">
+                          {editing ? (
+                            <input
+                              value={account.account_number || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, account_number: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value account-number">{account.account_number || "-"}</div>}
+                        </Field>
+                      </div>
+
+                      <div className="vendor-account-bottom">
+                        {editing ? (
+                          <>
+                            <button onClick={async () => {
+                              setEditingVendorAccountId("");
+                              await loadVendorAccounts();
+                            }}>취소</button>
+                            <button
+                              className="primary"
+                              disabled={isAuxiliarySaving(`vendorAccount:${account.id}`)}
+                              onClick={() => runAuxiliarySave(`vendorAccount:${account.id}`, () => saveVendorAccountRow(account))}
+                            >
+                              {isAuxiliarySaving(`vendorAccount:${account.id}`) ? "저장 중..." : "저장"}
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => setEditingVendorAccountId(account.id)}>수정</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
+            </div>
             </div>
           </section>
         )}
