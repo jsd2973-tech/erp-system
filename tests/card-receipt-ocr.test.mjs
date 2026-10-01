@@ -40,6 +40,23 @@ test("카드 OCR은 점을 천 단위 구분자로 읽은 원화 합계도 보�
   assert.equal(result.totalAmount, 70000);
 });
 
+
+test("카드 OCR은 합계가 깨져도 판매금액과 부가세 합으로 총액을 복원한다", () => {
+  const result = parseReceiptOcr({
+    text: [
+      "CCashnote Pay (포상금 10만원 지급) 매출전표 사본을 첨부하여",
+      "대신정기화물택배 세",
+      "판매금액 63,637원",
+      "부가가치세 6,363원",
+      "합 계 5585",
+      "거래일시:26-09-29 18:58:40",
+    ].join("\n"),
+  });
+
+  assert.equal(result.merchant, "대신정기화물택배 세");
+  assert.equal(result.totalAmount, 70000);
+});
+
 test.after(async () => {
   await unlink(parserPath).catch(() => undefined);
 });
