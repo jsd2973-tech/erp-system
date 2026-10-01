@@ -190,6 +190,23 @@ const extractAmountTokens = (value: string) => {
 const normalizeAmountLabelText = (value: string) =>
   value.replace(/(?<=[가-힣])\s+(?=[가-힣])/g, "");
 
+const parseReceiptComponents = (lines: TextLine[]) => {
+  let supply: number | undefined;
+  let vat: number | undefined;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = normalizeAmountLabelText(lines[index].text);
+    const readNearby = () => {
+      const current = extractAmountTokens(line);
+      if (current.length) return current[current.length - 1].value;
+      const next = extractAmountTokens(normalizeAmountLabelText(lines[index + 1]?.text || ""));
+      return next[0]?.value;
+    };
+    if (/판매금액|공급가액|공급액|과세금액/.test(line)) supply = readNearby();
+    if (/부가가치세|부가세|vat/i.test(line)) vat = readNearby();
+  }
+  return { supply, vat };
+};
+
 const parseAmount = (lines: TextLine[]) => {
   const candidates: AmountCandidate[] = [];
   lines.forEach((line, lineIndex) => {
@@ -223,6 +240,18 @@ const parseAmount = (lines: TextLine[]) => {
       const amounts = extractAmountTokens(line.text);
       const selected = amounts[amounts.length - 1];
       if (selected) candidates.push({ value: selected.value, line, score: 35 + line.index * 0.05 });
+    });
+  }
+
+  const { supply, vat } = parseReceiptComponents(lines);
+  if (supply != null && vat != null && supply > 0 && vat >= 0) {
+    const inferredTotal = supply + vat;
+    const exact = candidates.find((candidate) => Math.abs(candidate.value - inferredTotal) <= 1);
+    if (exact) return { value: inferredTotal, confidence: 0.98 };
+    candidates.push({
+      value: inferredTotal,
+      line: { text: "판매금액+부가세", index: lines.length },
+      score: 118,
     });
   }
 
