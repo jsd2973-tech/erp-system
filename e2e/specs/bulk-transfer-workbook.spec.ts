@@ -60,7 +60,7 @@ test("@regression 대량이체 workbook 형식과 미지급 구매 후보를 고
   await expect(candidateCard).toContainText("220,000원");
   await expect(bulkPage.locator(".bulk-transfer-list")).not.toContainText("110,000원");
   const inputFor = (label: string) => candidateCard.locator(".bulk-edit-grid .field").filter({ hasText: label }).locator("input");
-  await inputFor("입금은행").fill("088");
+  await inputFor("은행코드").fill("088");
   await inputFor("입금계좌").fill("123-456-789012");
   await inputFor("고객관리성명").fill(`${e2e.prefix} 표시명`);
   await expect(candidateCard.getByText("계좌매칭", { exact: true })).toBeVisible();

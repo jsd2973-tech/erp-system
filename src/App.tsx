@@ -1532,6 +1532,9 @@ export default function App() {
 
 
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([]);
+  const [vendorAccountSearch, setVendorAccountSearch] = useState("");
+  const [vendorAccountAddOpen, setVendorAccountAddOpen] = useState(false);
+  const [editingVendorAccountId, setEditingVendorAccountId] = useState("");
   const [newVendorAccountForm, setNewVendorAccountForm] = useState({
     vendor_name: "",
     bank_name: "",
@@ -1552,6 +1555,7 @@ export default function App() {
   const [bulkTransferEdits, setBulkTransferEdits] = useState<Record<string, Partial<BulkTransferRow>>>({});
   const [bulkTransferSelectOpen, setBulkTransferSelectOpen] = useState(false);
   const [selectedBulkTransferIds, setSelectedBulkTransferIds] = useState<string[]>([]);
+  const [bulkTransferDownloadIds, setBulkTransferDownloadIds] = useState<string[]>([]);
   const bulkTransferFilterKeyRef = useRef("");
   const [permits, setPermits] = useState<PermitRenewal[]>([]);
   const [permitSearch, setPermitSearch] = useState({ company: "", keyword: "", status: "" });
@@ -1673,7 +1677,7 @@ export default function App() {
 
   const saveNewVendorAccount = async () => {
     const vendorName = newVendorAccountForm.vendor_name.trim();
-    if (!vendorName) return alert("거래처명을 입력하세요.");
+    if (!vendorName) { alert("거래처명을 입력하세요."); return false; }
 
     const id = `account-${normalizeVendorName(vendorName)}`;
     const payload: VendorAccount = {
@@ -1688,14 +1692,15 @@ export default function App() {
     };
 
     const duplicated = vendorAccounts.find((row) => normalizeVendorName(row.vendor_name) === normalizeVendorName(vendorName));
-    if (duplicated && !confirm("이미 같은 거래처명이 있습니다. 계좌정보를 덮어쓸까요?")) return;
+    if (duplicated && !confirm("이미 같은 거래처명이 있습니다. 계좌정보를 덮어쓸까요?")) return false;
 
     const { error } = await supabase.from("vendor_accounts").upsert(payload, { onConflict: "id" });
-    if (error) return alert(`계좌 추가 실패: ${error.message}`);
+    if (error) { alert(`계좌 추가 실패: ${error.message}`); return false; }
 
     await loadVendorAccounts();
     resetNewVendorAccountForm();
     showToast("거래처 계좌가 저장되었습니다.");
+    return true;
   };
 
   const importVendorAccountsExcel = async (file: File) => {
@@ -1715,7 +1720,7 @@ export default function App() {
         const bankCode = String(pick(r, ["코드명", "은행코드", "코드"]) || bankCodeByName(bankName)).trim();
         const accountName = String(pick(r, ["이름", "예금주", "입금자명"]) || "").trim();
         const customerDisplayName = String(pick(r, ["고객관리성명", "고객관리명"]) || accountName || vendorName).trim();
-        const accountNumber = String(pick(r, ["계좌번호", "계좌"]) || "").trim();
+        const accountNumber = cleanAccountNumber(String(pick(r, ["계좌번호", "계좌"]) || ""));
 
         rows.push({
           id: `account-${normalizeVendorName(vendorName)}`,
@@ -1758,6 +1763,36 @@ export default function App() {
     showToast(`거래처 계좌 ${dedupedRows.length}건을 저장했습니다. 중복 ${rows.length - dedupedRows.length}건은 자동 정리했습니다.`);
   };
 
+  const filteredVendorAccounts = useMemo(() => {
+    const keyword = vendorAccountSearch.trim().toLowerCase().replace(/[\s-]+/g, "");
+    if (!keyword) return vendorAccounts;
+    return vendorAccounts.filter((account) => [
+      account.vendor_name,
+      account.bank_name,
+      account.bank_code,
+      account.account_name,
+      account.customer_display_name,
+      account.account_number,
+    ].some((value) => String(value || "").toLowerCase().replace(/[\s-]+/g, "").includes(keyword)));
+  }, [vendorAccounts, vendorAccountSearch]);
+
+  const saveVendorAccountRow = async (account: VendorAccount) => {
+    const normalized: VendorAccount = {
+      ...account,
+      bank_name: String(account.bank_name || "").trim(),
+      bank_code: String(account.bank_code || "").trim() || bankCodeByName(account.bank_name || ""),
+      account_name: String(account.account_name || "").trim(),
+      customer_display_name: String(account.customer_display_name || account.account_name || account.vendor_name || "").trim(),
+      account_number: cleanAccountNumber(account.account_number || ""),
+      memo: String(account.memo || "").trim(),
+    };
+    const { error } = await supabase.from("vendor_accounts").upsert(normalized, { onConflict: "id" });
+    if (error) return alert(`저장 실패: ${error.message}`);
+    setEditingVendorAccountId("");
+    showToast("거래처 계좌를 저장했습니다.");
+    await loadVendorAccounts();
+  };
+
   const findVendorAccount = (vendorName: string) => {
     const key = normalizeVendorName(vendorName);
     if (!key) return undefined;
@@ -1773,11 +1808,11 @@ export default function App() {
       return {
         ...merged,
         amount: Number(merged.amount || 0),
-        bank_code: String(merged.bank_code || ""),
-        bank_name: String(merged.bank_name || ""),
-        account_name: String(merged.account_name || ""),
-        customer_display_name: String(merged.customer_display_name || merged.account_name || merged.vendor || ""),
-        account_number: String(merged.account_number || ""),
+        bank_code: String(merged.bank_code || "").trim(),
+        bank_name: String(merged.bank_name || "").trim(),
+        account_name: String(merged.account_name || "").trim(),
+        customer_display_name: String(merged.customer_display_name || merged.account_name || merged.vendor || "").trim(),
+        account_number: cleanAccountNumber(merged.account_number || ""),
         memo: String(merged.memo || ""),
         matched: !!(merged.bank_code && merged.account_number),
       };
@@ -1863,14 +1898,21 @@ export default function App() {
   const openBulkTransferDownloadPopup = () => {
     const rows = applyBulkTransferEdits(getBulkTransferRows());
     if (!rows.length) return alert("대량이체로 만들 구매내역이 없습니다.");
-    setSelectedBulkTransferIds(rows.map((row) => row.id));
+    setBulkTransferDownloadIds(rows.map((row) => row.id));
     setBulkTransferSelectOpen(true);
   };
 
   const downloadSelectedBulkTransferExcel = () => {
-    const rows = bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id));
+    const rows = bulkTransferRows.filter((row) => bulkTransferDownloadIds.includes(row.id));
+    if (!rows.length) return alert("다운로드할 거래처를 선택하세요.");
     createBulkTransferExcel(rows);
     setBulkTransferSelectOpen(false);
+  };
+
+  const toggleBulkTransferDownloadSelection = (id: string) => {
+    setBulkTransferDownloadIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const toggleBulkTransferSelection = (id: string) => {
@@ -3565,6 +3607,17 @@ export default function App() {
 
 
   const bulkTransferRows = applyBulkTransferEdits(getBulkTransferRows());
+  const selectedBulkTransferAmount = bulkTransferRows
+    .filter((row) => selectedBulkTransferIds.includes(row.id))
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const getBulkTransferIssue = (row: BulkTransferRow) => {
+    const missingBank = !String(row.bank_code || "").trim();
+    const missingAccount = !cleanAccountNumber(row.account_number || "");
+    if (missingBank && missingAccount) return "은행코드·계좌번호 없음";
+    if (missingBank) return "은행코드 없음";
+    if (missingAccount) return "계좌번호 없음";
+    return "";
+  };
 
   const markSelectedPurchasesPaid = async () => {
     if (!canEditDeleteRecords) return alert("지급완료 처리는 관리자만 가능합니다.");
@@ -5081,14 +5134,14 @@ const purchasePriceHistoryMap = useMemo(
                 <button onClick={() => setBulkTransferSelectOpen(false)}>닫기</button>
               </div>
               <div className="bulk-select-actions">
-                <button onClick={() => setSelectedBulkTransferIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
-                <button onClick={() => setSelectedBulkTransferIds([])}>전체해제</button>
-                <strong>선택 {selectedBulkTransferIds.length}건 / {money(bulkTransferRows.filter((row) => selectedBulkTransferIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
+                <button onClick={() => setBulkTransferDownloadIds(bulkTransferRows.map((row) => row.id))}>전체선택</button>
+                <button onClick={() => setBulkTransferDownloadIds([])}>전체해제</button>
+                <strong>선택 {bulkTransferDownloadIds.length}건 / {money(bulkTransferRows.filter((row) => bulkTransferDownloadIds.includes(row.id)).reduce((sum, row) => sum + row.amount, 0))}원</strong>
               </div>
               <div className="bulk-select-list">
                 {bulkTransferRows.map((row) => (
                   <label className={row.matched ? "bulk-select-row" : "bulk-select-row missing"} key={row.id}>
-                    <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
+                    <input type="checkbox" checked={bulkTransferDownloadIds.includes(row.id)} onChange={() => toggleBulkTransferDownloadSelection(row.id)} />
                     <span>{row.vendor}</span>
                     <em>{row.matched ? "계좌매칭" : "계좌확인필요"}</em>
                     <b>{money(row.amount)}원</b>
@@ -6052,205 +6105,231 @@ const purchasePriceHistoryMap = useMemo(
                 </label>
 
                 <button onClick={loadVendorAccounts}>새로고침</button>
-              </div>
-            </div>
-
-            <div className="vendor-account-add-card">
-              <div className="vendor-account-add-head">
-                <div>
-                  <h3>신규 계좌 직접 추가</h3>
-                  <p>엑셀 없이 거래처 계좌를 바로 등록합니다.</p>
-                </div>
-                <button onClick={resetNewVendorAccountForm}>초기화</button>
-              </div>
-
-              <div className="vendor-account-grid">
-                <Field label="거래처명">
-                  <input
-                    value={newVendorAccountForm.vendor_name}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, vendor_name: e.target.value }))}
-                    placeholder="예: 출장빵구정비"
-                  />
-                </Field>
-
-                <Field label="은행명">
-                  <input
-                    value={newVendorAccountForm.bank_name}
-                    onChange={(e) =>
-                      setNewVendorAccountForm((prev) => ({
-                        ...prev,
-                        bank_name: e.target.value,
-                        bank_code: prev.bank_code || bankCodeByName(e.target.value),
-                      }))
-                    }
-                    placeholder="예: 농협"
-                  />
-                </Field>
-
-                <Field label="은행코드">
-                  <input
-                    value={newVendorAccountForm.bank_code}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, bank_code: e.target.value }))}
-                    placeholder="예: 11"
-                  />
-                </Field>
-
-                <Field label="예금주">
-                  <input
-                    value={newVendorAccountForm.account_name}
-                    onChange={(e) =>
-                      setNewVendorAccountForm((prev) => ({
-                        ...prev,
-                        account_name: e.target.value,
-                        customer_display_name: prev.customer_display_name || e.target.value,
-                      }))
-                    }
-                    placeholder="예금주"
-                  />
-                </Field>
-
-                <Field label="고객관리성명">
-                  <input
-                    value={newVendorAccountForm.customer_display_name}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, customer_display_name: e.target.value }))}
-                    placeholder="대량이체 표시명"
-                  />
-                </Field>
-
-                <Field label="계좌번호">
-                  <input
-                    value={newVendorAccountForm.account_number}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, account_number: e.target.value }))}
-                    placeholder="숫자 또는 하이픈 입력"
-                  />
-                </Field>
-
-                <Field label="메모">
-                  <input
-                    value={newVendorAccountForm.memo}
-                    onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, memo: e.target.value }))}
-                    placeholder="선택"
-                  />
-                </Field>
-              </div>
-
-              <div className="vendor-account-bottom">
-                <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", saveNewVendorAccount)}>
-                  {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
+                <button className="primary" onClick={() => setVendorAccountAddOpen((open) => !open)}>
+                  {vendorAccountAddOpen ? "추가 닫기" : "+ 계좌 추가"}
                 </button>
               </div>
             </div>
 
-            <div className="vendor-account-list">
-              {!vendorAccounts.length ? (
-                <div className="empty">등록된 거래처 계좌가 없습니다.</div>
-              ) : (
-                vendorAccounts.map((account) => (
-                  <div className="vendor-account-card" key={account.id}>
-                    <div className="vendor-account-title">
-                      <strong>{account.vendor_name}</strong>
-                    </div>
-
-                    <div className="vendor-account-grid">
-                      <Field label="은행명">
-                        <input
-                          value={account.bank_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, bank_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="은행코드">
-                        <input
-                          value={account.bank_code || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, bank_code: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="예금주">
-                        <input
-                          value={account.account_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, account_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="고객관리성명">
-                        <input
-                          value={account.customer_display_name || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, customer_display_name: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-
-                      <Field label="계좌번호">
-                        <input
-                          value={account.account_number || ""}
-                          onChange={(e) =>
-                            setVendorAccounts((prev) =>
-                              prev.map((row) =>
-                                row.id === account.id
-                                  ? { ...row, account_number: e.target.value }
-                                  : row
-                              )
-                            )
-                          }
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="vendor-account-bottom">
-                      <button
-                        className="primary"
-                        disabled={isAuxiliarySaving(`vendorAccount:${account.id}`)}
-                        onClick={() => runAuxiliarySave(`vendorAccount:${account.id}`, async () => {
-                          const { error } = await supabase
-                            .from("vendor_accounts")
-                            .upsert(account, { onConflict: "id" });
-
-                          if (error) {
-                            alert(`저장 실패: ${error.message}`);
-                            return;
-                          }
-
-                          showToast("거래처 계좌를 저장했습니다.");
-                          await loadVendorAccounts();
-                        })}
-                      >
-                        {isAuxiliarySaving(`vendorAccount:${account.id}`) ? "저장 중..." : "저장"}
-                      </button>
-                    </div>
+            {vendorAccountAddOpen && (
+              <div className="vendor-account-add-card">
+                <div className="vendor-account-add-head">
+                  <div>
+                    <h3>신규 계좌 직접 추가</h3>
+                    <p>엑셀 없이 거래처 계좌를 바로 등록합니다.</p>
                   </div>
-                ))
+                  <div className="actions">
+                    <button onClick={resetNewVendorAccountForm}>초기화</button>
+                    <button onClick={() => setVendorAccountAddOpen(false)}>닫기</button>
+                  </div>
+                </div>
+
+                <div className="vendor-account-grid vendor-account-add-grid">
+                  <Field label="거래처명">
+                    <input
+                      value={newVendorAccountForm.vendor_name}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, vendor_name: e.target.value }))}
+                      placeholder="예: 출장빵구정비"
+                    />
+                  </Field>
+
+                  <Field label="은행명">
+                    <input
+                      value={newVendorAccountForm.bank_name}
+                      onChange={(e) =>
+                        setNewVendorAccountForm((prev) => ({
+                          ...prev,
+                          bank_name: e.target.value,
+                          bank_code: bankCodeByName(e.target.value),
+                        }))
+                      }
+                      placeholder="예: 농협"
+                    />
+                  </Field>
+
+                  <Field label="은행코드">
+                    <input
+                      value={newVendorAccountForm.bank_code}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, bank_code: e.target.value }))}
+                      placeholder="예: 11"
+                    />
+                  </Field>
+
+                  <Field label="예금주">
+                    <input
+                      value={newVendorAccountForm.account_name}
+                      onChange={(e) =>
+                        setNewVendorAccountForm((prev) => ({
+                          ...prev,
+                          account_name: e.target.value,
+                          customer_display_name: prev.customer_display_name || e.target.value,
+                        }))
+                      }
+                      placeholder="예금주"
+                    />
+                  </Field>
+
+                  <Field label="고객관리성명">
+                    <input
+                      value={newVendorAccountForm.customer_display_name}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, customer_display_name: e.target.value }))}
+                      placeholder="대량이체 표시명"
+                    />
+                  </Field>
+
+                  <Field label="계좌번호">
+                    <input
+                      value={newVendorAccountForm.account_number}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, account_number: e.target.value }))}
+                      placeholder="숫자 또는 하이픈 입력"
+                    />
+                  </Field>
+
+                  <Field label="메모">
+                    <input
+                      value={newVendorAccountForm.memo}
+                      onChange={(e) => setNewVendorAccountForm((prev) => ({ ...prev, memo: e.target.value }))}
+                      placeholder="선택"
+                    />
+                  </Field>
+
+                  <div className="vendor-account-add-submit">
+                    <button className="primary" disabled={isAuxiliarySaving("vendorAccount")} onClick={() => runAuxiliarySave("vendorAccount", async () => {
+                      const saved = await saveNewVendorAccount();
+                      if (saved !== false) setVendorAccountAddOpen(false);
+                    })}>
+                      {isAuxiliarySaving("vendorAccount") ? "저장 중..." : "계좌 추가"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="vendor-account-toolbar">
+              <div className="vendor-account-search">
+                <input
+                  value={vendorAccountSearch}
+                  onChange={(e) => setVendorAccountSearch(e.target.value)}
+                  placeholder="거래처명 · 은행 · 예금주 · 계좌번호 검색"
+                />
+                {vendorAccountSearch && <button type="button" onClick={() => setVendorAccountSearch("")}>검색 초기화</button>}
+              </div>
+              <span>전체 <b>{vendorAccounts.length}</b> · 표시 <b>{filteredVendorAccounts.length}</b></span>
+            </div>
+
+            <div className="vendor-account-list">
+              {!filteredVendorAccounts.length ? (
+                <div className="empty">{vendorAccounts.length ? "검색 결과가 없습니다." : "등록된 거래처 계좌가 없습니다."}</div>
+              ) : (
+                filteredVendorAccounts.map((account) => {
+                  const editing = editingVendorAccountId === account.id;
+                  return (
+                    <div className={editing ? "vendor-account-card editing" : "vendor-account-card"} key={account.id}>
+                      <div className="vendor-account-title">
+                        <strong>{account.vendor_name}</strong>
+                      </div>
+
+                      <div className="vendor-account-grid">
+                        <Field label="은행명">
+                          {editing ? (
+                            <input
+                              value={account.bank_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id
+                                      ? { ...row, bank_name: e.target.value, bank_code: bankCodeByName(e.target.value) || "" }
+                                      : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.bank_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="은행코드">
+                          {editing ? (
+                            <input
+                              value={account.bank_code || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, bank_code: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.bank_code || "-"}</div>}
+                        </Field>
+
+                        <Field label="예금주">
+                          {editing ? (
+                            <input
+                              value={account.account_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, account_name: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.account_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="고객관리성명">
+                          {editing ? (
+                            <input
+                              value={account.customer_display_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, customer_display_name: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value">{account.customer_display_name || account.account_name || "-"}</div>}
+                        </Field>
+
+                        <Field label="계좌번호">
+                          {editing ? (
+                            <input
+                              value={account.account_number || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, account_number: e.target.value } : row
+                                  )
+                                )
+                              }
+                            />
+                          ) : <div className="vendor-account-value account-number">{account.account_number || "-"}</div>}
+                        </Field>
+                      </div>
+
+                      <div className="vendor-account-bottom">
+                        {editing ? (
+                          <>
+                            <button onClick={async () => {
+                              setEditingVendorAccountId("");
+                              await loadVendorAccounts();
+                            }}>취소</button>
+                            <button
+                              className="primary"
+                              disabled={isAuxiliarySaving(`vendorAccount:${account.id}`)}
+                              onClick={() => runAuxiliarySave(`vendorAccount:${account.id}`, () => saveVendorAccountRow(account))}
+                            >
+                              {isAuxiliarySaving(`vendorAccount:${account.id}`) ? "저장 중..." : "저장"}
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => setEditingVendorAccountId(account.id)}>수정</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </section>
@@ -6264,8 +6343,11 @@ const purchasePriceHistoryMap = useMemo(
                 <h2>대량이체 생성</h2>
                 <p>구매내역을 거래처별로 합산하고 계좌정보를 매칭해 은행 업로드용 엑셀을 만듭니다.</p>
               </div>
-              <div className="actions">
-                <label className="upload">
+              <div className="actions bulk-transfer-head-actions">
+                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
+                {canEditDeleteRecords && <button className="bulk-paid-button" onClick={markSelectedPurchasesPaid} disabled={!selectedBulkTransferIds.length}>선택건 지급완료</button>}
+                <span className="bulk-action-divider" aria-hidden="true" />
+                <label className="upload secondary">
                   <Upload size={16} /> 업체 계좌 업로드
                   <input
                     type="file"
@@ -6276,9 +6358,7 @@ const purchasePriceHistoryMap = useMemo(
                     }}
                   />
                 </label>
-                <button onClick={loadVendorAccounts}>계좌 새로고침</button>
-                <button className="primary" onClick={openBulkTransferDownloadPopup}>대량이체 엑셀 다운로드</button>
-                {canEditDeleteRecords && <button onClick={markSelectedPurchasesPaid} disabled={!selectedBulkTransferIds.length}>선택건 지급완료</button>}
+                <button className="secondary" onClick={loadVendorAccounts}>계좌 새로고침</button>
               </div>
             </div>
 
@@ -6345,8 +6425,9 @@ const purchasePriceHistoryMap = useMemo(
               <div className="bulk-summary">
                 <span>대상 거래처 <b>{bulkTransferRows.length}</b></span>
                 <span>선택 거래처 <b>{selectedBulkTransferIds.length}</b></span>
-                <span>계좌 미매칭 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
-                <span>합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
+                <span>계좌 확인 필요 <b>{bulkTransferRows.filter((r) => !r.matched).length}</b></span>
+                <span>선택 금액 <b>{money(selectedBulkTransferAmount)}</b></span>
+                <span>대상 합계 <b>{money(bulkTransferRows.reduce((sum, r) => sum + r.amount, 0))}</b></span>
               </div>
             </div>
 
@@ -6362,15 +6443,16 @@ const purchasePriceHistoryMap = useMemo(
                           <input type="checkbox" checked={selectedBulkTransferIds.includes(row.id)} onChange={() => toggleBulkTransferSelection(row.id)} />
                           <span>선택</span>
                         </label>
-                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : "계좌확인필요"}</span>
+                        <span className={row.matched ? "bulk-status ok" : "bulk-status missing"}>{row.matched ? "계좌매칭" : getBulkTransferIssue(row)}</span>
                         <b>{row.vendor}</b>
+                        <small className="bulk-bank-name">{row.bank_name || "은행 미지정"}</small>
                       </div>
                       <strong>{money(row.amount)}원</strong>
                     </div>
 
                     <div className="bulk-edit-grid">
-                      <Field label="입금은행">
-                        <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} />
+                      <Field label="은행코드">
+                        <input value={row.bank_code} onChange={(e) => updateBulkTransferEdit(row.id, "bank_code", e.target.value)} placeholder="예: 11" />
                       </Field>
                       <Field label="입금계좌">
                         <input value={row.account_number} onChange={(e) => updateBulkTransferEdit(row.id, "account_number", e.target.value)} />
@@ -12346,7 +12428,7 @@ td .icon{
   grid-column:1 / -1;
   width:100%;
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:10px;
 }
 
@@ -12374,16 +12456,16 @@ td .icon{
 
 .bulk-transfer-list{
   display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:12px;
+  grid-template-columns:1fr;
+  gap:9px;
 }
 
 .bulk-transfer-card{
-  padding:16px;
-  border-radius:18px;
+  padding:13px 15px;
+  border-radius:14px;
   background:#ffffff;
   border:1px solid #e5e7eb;
-  box-shadow:0 6px 18px rgba(15,23,42,.06);
+  box-shadow:0 3px 10px rgba(15,23,42,.045);
 }
 
 .bulk-transfer-card.missing{
@@ -12394,7 +12476,7 @@ td .icon{
 .bulk-card-main{
   display:flex;
   justify-content:space-between;
-  align-items:flex-start;
+  align-items:center;
   gap:14px;
 }
 .bulk-card-main>div:first-child{
@@ -12421,6 +12503,13 @@ td .icon{
 .bulk-card-main>div:first-child>b{
   flex-basis:100%;
   margin-top:0;
+}
+.bulk-bank-name{
+  flex-basis:100%;
+  margin-top:-3px;
+  color:#94a3b8;
+  font-size:11px;
+  font-weight:800;
 }
 
 .bulk-card-main b{
@@ -12474,21 +12563,10 @@ td .icon{
 }
 
 @media (max-width:1100px){
-  .bulk-transfer-head{
-    flex-direction:column;
-  }
-
-  .bulk-transfer-filter{
-    grid-template-columns:1fr;
-  }
-
-  .bulk-summary{
-    grid-template-columns:repeat(4,minmax(0,1fr));
-  }
-
-  .bulk-transfer-list{
-    grid-template-columns:1fr;
-  }
+  .bulk-transfer-head{flex-direction:column}
+  .bulk-transfer-filter{grid-template-columns:1fr}
+  .bulk-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bulk-transfer-list{grid-template-columns:1fr}
 }
 
 @media (max-width:600px){
@@ -12521,9 +12599,9 @@ td .icon{
 /* ===== Bulk Transfer Edit Fields ===== */
 .bulk-edit-grid{
   display:grid;
-  grid-template-columns:90px 1fr 120px 1fr 1fr;
+  grid-template-columns:100px minmax(180px,1.3fr) 140px minmax(150px,1fr) minmax(180px,1.2fr);
   gap:8px;
-  margin-top:12px;
+  margin-top:10px;
 }
 
 .bulk-edit-grid .field{
@@ -12539,6 +12617,28 @@ td .icon{
 .bulk-edit-grid input{
   height:36px;
   font-size:13px;
+}
+.bulk-transfer-head-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.bulk-transfer-head-actions .secondary{
+  background:#f8fafc;
+  color:#64748b;
+}
+.bulk-action-divider{
+  width:1px;
+  height:28px;
+  background:#e2e8f0;
+  margin:0 2px;
+}
+.bulk-paid-button{
+  border-color:#bfdbfe !important;
+  color:#1d4ed8 !important;
+  background:#eff6ff !important;
 }
 
 @media (max-width:1100px){
@@ -12575,84 +12675,197 @@ td .icon{
 @media (max-width:700px){.bulk-select-row{grid-template-columns:28px 1fr}.bulk-select-row em,.bulk-select-row b{grid-column:2;text-align:left}.bulk-select-actions strong{margin-left:0;width:100%}}
 
 /* ===== Vendor Account Management ===== */
-.vendor-account-add-card{margin:16px 0 18px;padding:18px;border:1px solid #dbeafe;border-radius:18px;background:#f8fbff}.vendor-account-add-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.vendor-account-add-head h3{margin:0;color:#0f172a;font-size:17px;font-weight:950}.vendor-account-add-head p{margin:5px 0 0;color:#64748b;font-size:13px;font-weight:800}.vendor-account-add-head button{border:1px solid #cbd5e1;background:white;border-radius:12px;padding:9px 12px;font-weight:900;cursor:pointer}.vendor-account-page{
-  padding:26px;
+.vendor-account-add-card{
+  margin:0 0 14px;
+  padding:16px;
+  border:1px solid #dbeafe;
+  border-radius:16px;
+  background:#f8fbff;
 }
-
+.vendor-account-add-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.vendor-account-add-head h3{margin:0;color:#0f172a;font-size:17px;font-weight:950}
+.vendor-account-add-head p{margin:5px 0 0;color:#64748b;font-size:13px;font-weight:800}
+.vendor-account-add-head .actions{display:flex;gap:8px}
+.vendor-account-add-head button{
+  border:1px solid #cbd5e1;
+  background:white;
+  border-radius:10px;
+  padding:8px 11px;
+  font-weight:900;
+  cursor:pointer;
+}
+.vendor-account-page{padding:26px}
 .vendor-account-head{
   display:flex;
   justify-content:space-between;
   gap:16px;
   margin-bottom:18px;
 }
-
-.vendor-account-head h2{
-  margin:0;
-  color:#111827;
-  font-size:24px;
-  font-weight:1000;
+.vendor-account-head h2{margin:0;color:#111827;font-size:24px;font-weight:1000}
+.vendor-account-head p{margin:6px 0 0;color:#64748b;font-size:14px;font-weight:800}
+.vendor-account-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+  padding:12px 14px;
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  background:#f8fafc;
 }
-
-.vendor-account-head p{
-  margin:6px 0 0;
+.vendor-account-search{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:min(720px,100%);
+}
+.vendor-account-search input{height:40px}
+.vendor-account-search button{
+  min-width:92px;
+  height:40px;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  background:#fff;
+  color:#475569;
+  font-weight:900;
+}
+.vendor-account-toolbar>span{
+  white-space:nowrap;
   color:#64748b;
-  font-size:14px;
-  font-weight:800;
+  font-size:13px;
+  font-weight:850;
 }
-
+.vendor-account-toolbar>span b{color:#1d4ed8}
 .vendor-account-list{
   display:grid;
-  gap:14px;
+  gap:8px;
 }
-
 .vendor-account-card{
-  padding:18px;
-  border-radius:20px;
+  display:grid;
+  grid-template-columns:minmax(170px,.8fr) minmax(0,4fr) auto;
+  align-items:end;
+  gap:14px;
+  padding:12px 14px;
+  border-radius:14px;
   background:#fff;
   border:1px solid #e5e7eb;
-  box-shadow:0 6px 18px rgba(15,23,42,.06);
+  box-shadow:0 2px 8px rgba(15,23,42,.035);
 }
-
+.vendor-account-card.editing{
+  border-color:#bfdbfe;
+  background:#fbfdff;
+}
 .vendor-account-title{
-  margin-bottom:14px;
+  min-width:0;
+  margin:0;
+  align-self:center;
 }
-
 .vendor-account-title strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
   color:#111827;
-  font-size:18px;
+  font-size:15px;
   font-weight:1000;
 }
-
+.vendor-account-title small{
+  display:block;
+  margin-top:4px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#94a3b8;
+  font-size:11px;
+  font-weight:800;
+}
 .vendor-account-grid{
   display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
-  gap:10px;
+  grid-template-columns:minmax(110px,.8fr) minmax(80px,.55fr) minmax(120px,.9fr) minmax(140px,1fr) minmax(180px,1.35fr);
+  gap:8px;
+  min-width:0;
 }
-
+.vendor-account-grid .field{margin:0;min-width:0}
+.vendor-account-grid .field>label{
+  margin-bottom:5px;
+  color:#64748b;
+  font-size:11px;
+  font-weight:950;
+}
+.vendor-account-grid input{
+  height:38px;
+  min-width:0;
+  font-size:13px;
+}
+.vendor-account-value{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  padding:0 10px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:#f8fafc;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.vendor-account-value.account-number{font-variant-numeric:tabular-nums}
 .vendor-account-bottom{
   display:flex;
+  align-items:flex-end;
   justify-content:flex-end;
-  margin-top:14px;
+  gap:7px;
+  margin:0;
 }
-
-.vendor-account-bottom .primary{
-  min-width:120px;
+.vendor-account-bottom button{
+  min-width:64px;
+  height:38px;
+  border-radius:9px;
+}
+.vendor-account-bottom .primary{min-width:72px}
+.vendor-account-add-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:end;
+  gap:10px;
+}
+.vendor-account-add-submit{
+  display:flex;
+  align-items:flex-end;
+  min-width:0;
+}
+.vendor-account-add-submit .primary{
+  width:100%;
+  min-height:42px;
 }
 
 @media (max-width:1200px){
-  .vendor-account-grid{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-  }
+  .vendor-account-card{grid-template-columns:1fr;align-items:stretch}
+  .vendor-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vendor-account-bottom{justify-content:flex-end}
+  .vendor-account-add-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-
 @media (max-width:700px){
-  .vendor-account-head{
-    flex-direction:column;
-  }
-
-  .vendor-account-grid{
-    grid-template-columns:1fr;
-  }
+  .vendor-account-head{flex-direction:column}
+  .vendor-account-toolbar{align-items:stretch;flex-direction:column}
+  .vendor-account-search{width:100%}
+  .vendor-account-search button{min-width:84px}
+  .vendor-account-grid,
+  .vendor-account-add-grid{grid-template-columns:1fr}
+  .vendor-account-card{padding:13px}
+  .vendor-account-value{min-height:42px}
+  .vendor-account-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vendor-account-bottom button{width:100%}
 }
 
 /* ===== Inline Date Picker ===== */
