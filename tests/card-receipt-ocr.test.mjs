@@ -57,6 +57,26 @@ test("카드 OCR은 합계가 깨져도 판매금액과 부가세 합으로 총�
   assert.equal(result.totalAmount, 70000);
 });
 
+
+test("합계 라벨 다음 카드번호 일부를 금액으로 오인하지 않는다", () => {
+  const result = parseReceiptOcr({
+    text: [
+      "대신정기화물택배 세",
+      "판매금액",
+      "부가가치세",
+      "합 계",
+      "5585-26****-9801(C)",
+      "63,637원",
+      "6,363원",
+      "70,000원",
+      "거래일시:26-09-29 18:58:40",
+    ].join("\n"),
+  });
+
+  assert.equal(result.merchant, "대신정기화물택배 세");
+  assert.equal(result.totalAmount, 70000);
+});
+
 test.after(async () => {
   await unlink(parserPath).catch(() => undefined);
 });
