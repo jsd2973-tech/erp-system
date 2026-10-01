@@ -46,8 +46,36 @@ export const fromPurchase = (purchase: Purchase) => ({
 
 export const isPurchasePaid = (purchase: Purchase) => purchase.paymentStatus === "paid";
 
-export const filterPurchases = (purchases: Purchase[], search: PurchaseSearch) =>
-  purchases
+export const createEmptyPurchaseSearch = (): PurchaseSearch => ({
+  from: "",
+  to: "",
+  vendor: "",
+  warehouse: "",
+  item: "",
+  taxInvoice: "",
+  paymentStatus: "",
+});
+
+export const buildPurchaseNumberMap = (purchases: Purchase[]): Map<string, string> => {
+  const orderedByOldest = [...purchases].sort((a, b) => {
+    const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+    if (dateCompare !== 0) return dateCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  const running = new Map<string, number>();
+  const map = new Map<string, string>();
+  orderedByOldest.forEach((purchase) => {
+    const date = purchase.date || "날짜없음";
+    const nextNo = (running.get(date) || 0) + 1;
+    running.set(date, nextNo);
+    map.set(purchase.id, `${date}-${String(nextNo).padStart(2, "0")}`);
+  });
+  return map;
+};
+
+export const filterPurchases = (purchases: Purchase[], search: PurchaseSearch) => {
+  const numberMap = buildPurchaseNumberMap(purchases);
+  return purchases
     .filter(
       (purchase) =>
         (!search.from || (purchase.date || "") >= search.from) &&
@@ -62,7 +90,9 @@ export const filterPurchases = (purchases: Purchase[], search: PurchaseSearch) =
       const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
       if (dateCompare !== 0) return dateCompare;
       return String(b.id || "").localeCompare(String(a.id || ""));
-    });
+    })
+    .map((purchase) => ({ ...purchase, managementNo: numberMap.get(purchase.id) || "" }));
+};
 
 export const numericValue = (value: unknown) => {
   const parsed = Number(String(value ?? "").replace(/,/g, "").trim() || 0);

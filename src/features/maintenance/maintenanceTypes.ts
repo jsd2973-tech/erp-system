@@ -11,6 +11,7 @@ export type MaintItem = {
 
 export type Maint = {
   id: string;
+  managementNo?: string;
   date: string;
   warehouse: string;
   manager: string;

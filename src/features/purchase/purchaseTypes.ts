@@ -13,6 +13,7 @@ export type PurchasePaymentStatus = "unpaid" | "paid";
 
 export type Purchase = {
   id: string;
+  managementNo?: string;
   date: string;
   vendor: string;
   warehouse: string;

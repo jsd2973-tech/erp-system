@@ -1,5 +1,6 @@
 export type CardUse = {
   id: string;
+  managementNo?: string;
   date: string;
   user_name: string;
   place: string;

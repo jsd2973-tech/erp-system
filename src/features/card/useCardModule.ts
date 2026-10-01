@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import type { CardReceiptUploadTools, createCardService } from "./cardService";
-import { CARD_DRAFT_KEY, createEmptyCardForm, getCardOcrFeedback, mergeCardOcrForm, normalizeCardUse } from "./cardModel";
+import { buildCardNumberMap, CARD_DRAFT_KEY, createEmptyCardForm, getCardOcrFeedback, mergeCardOcrForm, normalizeCardUse } from "./cardModel";
 import type { CardForm, CardOcrState, CardOcrTouchedFields, CardSearch, CardUse } from "./cardTypes";
 import { requestCardReceiptOcr } from "./cardOcr";
 
@@ -309,12 +309,18 @@ export const useCardModule = ({
     });
   };
 
+  const cardNumberMap = useMemo(() => buildCardNumberMap(records), [records]);
   const filteredCardUses = useMemo(() => records
     .filter((cardUse) => (!cardSearch.from || (cardUse.date || "") >= cardSearch.from)
       && (!cardSearch.to || (cardUse.date || "") <= cardSearch.to)
       && (!cardSearch.user_name || (cardUse.user_name || "").includes(cardSearch.user_name))
       && (!cardSearch.place || (cardUse.place || "").includes(cardSearch.place)))
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))), [records, cardSearch]);
+    .sort((a, b) => {
+      const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));
+      if (dateCompare !== 0) return dateCompare;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    })
+    .map((cardUse) => ({ ...cardUse, managementNo: cardNumberMap.get(cardUse.id) || "" })), [records, cardSearch, cardNumberMap]);
 
   const entry = {
     cardForm,
