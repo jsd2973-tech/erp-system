@@ -12676,6 +12676,10 @@ td .icon{
 
 /* ===== Vendor Account Management ===== */
 .vendor-account-add-card{
+  display:grid;
+  grid-template-columns:minmax(220px,260px) minmax(0,1fr);
+  align-items:stretch;
+  gap:18px;
   margin:0 0 14px;
   padding:16px;
   border:1px solid #dbeafe;
@@ -12684,14 +12688,17 @@ td .icon{
 }
 .vendor-account-add-head{
   display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
   gap:12px;
-  margin-bottom:12px;
+  margin:0;
+  padding-right:18px;
+  border-right:1px solid #dbeafe;
 }
 .vendor-account-add-head h3{margin:0;color:#0f172a;font-size:17px;font-weight:950}
 .vendor-account-add-head p{margin:5px 0 0;color:#64748b;font-size:13px;font-weight:800}
-.vendor-account-add-head .actions{display:flex;gap:8px}
+.vendor-account-add-head .actions{display:flex;gap:8px;margin-top:auto}
 .vendor-account-add-head button{
   border:1px solid #cbd5e1;
   background:white;
@@ -12853,6 +12860,9 @@ td .icon{
   .vendor-account-card{grid-template-columns:1fr;align-items:stretch}
   .vendor-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vendor-account-bottom{justify-content:flex-end}
+  .vendor-account-add-card{grid-template-columns:1fr;gap:12px}
+  .vendor-account-add-head{padding:0 0 12px;border-right:0;border-bottom:1px solid #dbeafe}
+  .vendor-account-add-head .actions{margin-top:0}
   .vendor-account-add-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:700px){
