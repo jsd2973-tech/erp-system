@@ -1458,11 +1458,15 @@ export default function App() {
   }, [menuTab, editingPurchaseId, editingMaintId, purchaseHeader.date, maintForm.date]);
 
   const [receiptPhotos, setReceiptPhotos] = useState<ReceiptPhoto[]>([]);
+  const [receiptPhotoSearch, setReceiptPhotoSearch] = useState("");
+  const [receiptPhotoStatus, setReceiptPhotoStatus] = useState("");
   const [receiptPhotoForm, setReceiptPhotoForm] = useState({ receipt_date: getTodayKey(), vendor_name: "", memo: "" });
   const [receiptPhotoFiles, setReceiptPhotoFiles] = useState<File[]>([]);
   const [receiptUploadPreviewUrls, setReceiptUploadPreviewUrls] = useState<string[]>([]);
   const [receiptPhotoPreviewOpen, setReceiptPhotoPreviewOpen] = useState<ReceiptPhoto | null>(null);
   const [maintenancePhotos, setMaintenancePhotos] = useState<MaintenancePhoto[]>([]);
+  const [maintenancePhotoSearch, setMaintenancePhotoSearch] = useState("");
+  const [maintenancePhotoStatus, setMaintenancePhotoStatus] = useState("");
   const [maintenancePhotoForm, setMaintenancePhotoForm] = useState({
     maint_date: getTodayKey(),
     equipment_name: "",
@@ -1476,6 +1480,30 @@ export default function App() {
   const [linkingMaintenancePhotoId, setLinkingMaintenancePhotoId] = useState("");
   const [receiptPhotoSaving, setReceiptPhotoSaving] = useState(false);
   const [maintenancePhotoSaving, setMaintenancePhotoSaving] = useState(false);
+
+  const filteredReceiptPhotos = useMemo(() => {
+    const keyword = receiptPhotoSearch.trim().toLowerCase();
+    return receiptPhotos.filter((item) => {
+      const matchesStatus = !receiptPhotoStatus
+        || (receiptPhotoStatus === "pending" && !item.is_processed)
+        || (receiptPhotoStatus === "processed" && item.is_processed);
+      const haystack = `${item.receipt_date || ""} ${item.vendor_name || ""} ${item.memo || ""} ${item.created_by || ""}`.toLowerCase();
+      return matchesStatus && (!keyword || haystack.includes(keyword));
+    });
+  }, [receiptPhotos, receiptPhotoSearch, receiptPhotoStatus]);
+
+  const filteredMaintenancePhotos = useMemo(() => {
+    const keyword = maintenancePhotoSearch.trim().toLowerCase();
+    return maintenancePhotos.filter((item) => {
+      const matchesStatus = !maintenancePhotoStatus
+        || (maintenancePhotoStatus === "pending" && !item.is_processed)
+        || (maintenancePhotoStatus === "processed" && item.is_processed)
+        || (maintenancePhotoStatus === "urgent" && item.is_urgent && !item.is_processed);
+      const haystack = `${item.maint_date || ""} ${item.equipment_name || ""} ${item.memo || ""} ${item.created_by || ""}`.toLowerCase();
+      return matchesStatus && (!keyword || haystack.includes(keyword));
+    });
+  }, [maintenancePhotos, maintenancePhotoSearch, maintenancePhotoStatus]);
+
   const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([]);
   const [maintenanceScheduleForm, setMaintenanceScheduleForm] = useState({
     schedule_date: getTodayKey(),
