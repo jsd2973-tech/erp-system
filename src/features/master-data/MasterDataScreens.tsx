@@ -37,31 +37,31 @@ function SimpleVendorTable({ model, access }: {
   model: MasterDataModule["vendorScreen"];
   access: ScreenAccess;
 }) {
-  const { vendors, onDelete, onEdit } = model;
+  const { vendors, filteredVendors, onDelete, onEdit } = model;
   return (
     <>
     <ScrollTable className="basic-table-scroll">
       <table className="basic-vendor-table">
         <thead><tr><th>코드</th><th>상호</th><th>대표자</th><th>전화번호</th><th>모바일</th><th>주소</th><th>관리</th></tr></thead>
         <tbody>
-          {vendors.length ? vendors.map((vendor) => (
+          {filteredVendors.length ? filteredVendors.map((vendor) => (
             <tr key={vendor.id}>
               <td>{vendor.code}</td><td>{vendor.name}</td><td>{vendor.owner || "-"}</td>
               <td>{vendor.phone || "-"}</td><td>{vendor.mobile || "-"}</td>
               <td>{[vendor.address, vendor.address_detail].filter(Boolean).join(" ") || "-"}</td>
               <td>{access.canEditDeleteRecords ? <><button className="icon" onClick={() => onEdit(vendor)}><Pencil size={16} /></button><button className="icon" onClick={() => onDelete(vendor.id)}><Trash2 size={16} /></button></> : "-"}</td>
             </tr>
-          )) : <tr><td colSpan={7} className="empty">등록된 거래처가 없습니다.</td></tr>}
+          )) : <tr><td colSpan={7} className="empty">{vendors.length ? "검색 결과가 없습니다." : "등록된 거래처가 없습니다."}</td></tr>}
         </tbody>
       </table>
     </ScrollTable>
     <div className="basic-mobile-list">
-      {vendors.length ? vendors.map((vendor) => (
+      {filteredVendors.length ? filteredVendors.map((vendor) => (
         <article className="basic-mobile-row basic-vendor-mobile-row" key={vendor.id}>
           <div className="basic-mobile-row-copy"><span>{vendor.code} · {vendor.owner || "대표자 미입력"}</span><strong>{vendor.name}</strong><small>{vendor.phone || vendor.mobile || "연락처 미입력"} · {[vendor.address, vendor.address_detail].filter(Boolean).join(" ") || "주소 미입력"}</small></div>
           {access.canEditDeleteRecords && <div className="basic-mobile-row-actions"><button className="icon" title="수정" aria-label="거래처 수정" onClick={() => onEdit(vendor)}><Pencil size={16} /></button><button className="icon" title="삭제" aria-label="거래처 삭제" onClick={() => onDelete(vendor.id)}><Trash2 size={16} /></button></div>}
         </article>
-      )) : <div className="basic-mobile-empty">등록된 거래처가 없습니다.</div>}
+      )) : <div className="basic-mobile-empty">{vendors.length ? "검색 결과가 없습니다." : "등록된 거래처가 없습니다."}</div>}
     </div>
     </>
   );
@@ -72,7 +72,7 @@ export function VendorMasterScreen({ model, access, save }: {
   access: ScreenAccess;
   save: SaveControls;
 }) {
-  const { vendors, form, setForm, importMessage, editingId } = model;
+  const { vendors, form, setForm, importMessage, editingId, search, setSearch, filteredVendors } = model;
   return (
     <section className="card basic-master-page basic-vendors-page">
       <header className="basic-page-header">
@@ -108,16 +108,24 @@ export function VendorMasterScreen({ model, access, save }: {
           <Field label="상세주소"><input ref={model.addressDetailRef} value={form.address_detail || ""} onChange={(event) => setForm({ ...form, address_detail: event.target.value })} placeholder="건물명, 층, 호수 등" /></Field>
         </div>
         <div className="actions right-actions basic-form-actions">
-          {access.isAdmin && <button disabled={save.isSaving("vendor")} onClick={model.onClear}>전체삭제</button>}
           {access.isAdmin && <button className="primary" disabled={save.isSaving("vendor")} onClick={() => void save.runSave("vendor", model.onSave)}>{save.isSaving("vendor") ? "저장 중..." : editingId ? "수정 저장" : "저장"}</button>}
         </div>
       </section>
 
-      <div className="basic-list-heading">
-        <div><h3>거래처 목록</h3><p>등록된 거래처의 코드와 연락처를 확인할 수 있습니다.</p></div>
-        <strong>{vendors.length}개</strong>
+      <div className="basic-list-heading basic-vendors-list-heading">
+        <div><h3>거래처 목록</h3><p>코드·상호·대표자·연락처·주소로 검색할 수 있습니다.</p></div>
+        <div className="basic-list-controls">
+          <div className="basic-search-input"><input placeholder="거래처코드 / 상호 / 대표자 / 연락처 / 주소 검색" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+          <strong>{filteredVendors.length}건</strong>
+        </div>
       </div>
       <SimpleVendorTable model={model} access={access} />
+      {access.isAdmin && (
+        <div className="basic-danger-zone">
+          <div><strong>거래처 전체삭제</strong><span>등록된 거래처 {vendors.length}건을 모두 휴지통으로 이동합니다.</span></div>
+          <button className="danger" disabled={save.isSaving("vendor") || !vendors.length} onClick={model.onClear}>전체삭제</button>
+        </div>
+      )}
     </section>
   );
 }
@@ -204,7 +212,7 @@ export function ItemMasterScreen({ model, access, save }: {
         </div>
         <div className="basic-page-header-actions">
           <span className="basic-count-badge">{importMessage || (items.length + "개 품목")}</span>
-          <label className="upload basic-upload-button"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => event.target.files?.[0] && void model.onImport(event.target.files[0])} /></label>
+          <label className="upload basic-upload-button"><Upload size={16} /> 품목 엑셀 업로드<input type="file" accept=".xlsx,.xls,.csv" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void model.onImport(file); }} /></label>
         </div>
       </header>
 
@@ -221,7 +229,6 @@ export function ItemMasterScreen({ model, access, save }: {
           <Field label="입고단가"><input inputMode="decimal" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></Field>
         </div>
         <div className="actions right-actions basic-form-actions">
-          {access.isAdmin && <button disabled={save.isSaving("item")} onClick={model.onClear}>전체삭제</button>}
           {access.isAdmin && <button className="primary" disabled={save.isSaving("item")} onClick={() => void save.runSave("item", model.onSave)}>{save.isSaving("item") ? "저장 중..." : editingId ? "수정 저장" : "저장"}</button>}
         </div>
       </section>
@@ -238,6 +245,12 @@ export function ItemMasterScreen({ model, access, save }: {
       <div className="basic-mobile-list">
         {filteredItems.length ? filteredItems.map((item) => <article className="basic-mobile-row basic-item-mobile-row" key={item.id}><div className="basic-mobile-row-copy"><span>{item.code} · {item.unit || "단위 미입력"}</span><strong>{item.name}</strong><small>{item.spec || "규격 없음"} · {money(item.price)}원</small></div>{access.isAdmin && <div className="basic-mobile-row-actions"><button className="icon" title="수정" aria-label="품목 수정" onClick={() => model.onEdit(item)}><Pencil size={16} /></button><button className="icon" title="삭제" aria-label="품목 삭제" onClick={() => model.onDelete(item.id)}><Trash2 size={16} /></button></div>}</article>) : <div className="basic-mobile-empty">{search ? "검색 결과가 없습니다." : "등록된 품목이 없습니다."}</div>}
       </div>
+      {access.isAdmin && (
+        <div className="basic-danger-zone">
+          <div><strong>품목 전체삭제</strong><span>등록된 품목 {items.length}건을 모두 휴지통으로 이동합니다.</span></div>
+          <button className="danger" disabled={save.isSaving("item") || !items.length} onClick={model.onClear}>전체삭제</button>
+        </div>
+      )}
     </section>
   );
 }

@@ -111,6 +111,7 @@ export const useMasterDataModule = ({
 
   const [vendorForm, setVendorForm] = useState<VendorForm>(emptyVendorForm);
   const [vendorImportMessage, setVendorImportMessage] = useState("");
+  const [vendorSearch, setVendorSearch] = useState("");
   const [editingVendorId, setEditingVendorId] = useState("");
   const [vendorEcountReview, setVendorEcountReview] = useState<VendorEcountReview | null>(null);
   const [vendorEcountSelections, setVendorEcountSelections] = useState<Record<string, string>>({});
@@ -131,6 +132,20 @@ export const useMasterDataModule = ({
   const [itemSearch, setItemSearch] = useState("");
   const [newItemModal, setNewItemModal] = useState<PurchaseItemFormState>({ open: false, rowIndex: null });
   const [newItemForm, setNewItemForm] = useState<ItemForm>(() => ({ code: nextItemCode(items), name: "", spec: "", unit: "", price: "" }));
+
+  const filteredVendors = useMemo(() => {
+    const keyword = vendorSearch.trim().toLowerCase().replace(/[\s-]+/g, "");
+    if (!keyword) return vendors;
+    return vendors.filter((vendor) => [
+      vendor.code,
+      vendor.name,
+      vendor.owner,
+      vendor.phone,
+      vendor.mobile,
+      vendor.address,
+      vendor.address_detail,
+    ].some((value) => String(value || "").toLowerCase().replace(/[\s-]+/g, "").includes(keyword)));
+  }, [vendors, vendorSearch]);
 
   const filteredItems = useMemo(() => filterMasterItems(items, itemSearch), [items, itemSearch]);
 
@@ -196,6 +211,7 @@ export const useMasterDataModule = ({
   const applySnapshot = (snapshot: MasterDataSnapshot) => {
     const nextItems = normalizeMasterItems(snapshot.items as unknown as Array<Record<string, unknown>>);
     setVendors(snapshot.vendors);
+    setVendorSearch("");
     setGroups(snapshot.groups);
     setWarehouses(snapshot.warehouses);
     setItems(nextItems);
@@ -657,6 +673,7 @@ export const useMasterDataModule = ({
     const { error } = await service.deleteAllVendors();
     if (error) return alert(`거래처 전체삭제 실패: ${error.message}`);
     setVendors([]);
+    setVendorSearch("");
     setVendorImportMessage("거래처 전체 삭제 완료");
     setVendorForm(emptyVendorForm());
   };
@@ -712,6 +729,9 @@ export const useMasterDataModule = ({
       setForm: setVendorForm,
       importMessage: vendorImportMessage,
       editingId: editingVendorId,
+      search: vendorSearch,
+      setSearch: setVendorSearch,
+      filteredVendors,
       onSave: saveVendor,
       onImport: handleVendorExcelImport,
       onExport: downloadVendorsExcel,
