@@ -39,9 +39,9 @@ export function MaintenanceList({ model, ui }: { model: MaintenanceListModel; ui
 
   return (
     <section className="card lookup-page maint-lookup-page">
-      <div className="between" style={{marginBottom:16}}>
-        <h2 style={{margin:0}}>정비조회</h2>
-        <div style={{display:"flex", gap:8}}>
+      <div className="between">
+        <h2>정비조회</h2>
+        <div className="actions">
           <button onClick={() => downloadExcel(`정비조회_${todayText()}`, withTotalRow(
             maints.map((m: Maint) => {
               const supply = getMaintenanceCost(m, "supplyTotal");
