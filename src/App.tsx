@@ -4142,14 +4142,45 @@ const purchasePriceHistoryMap = useMemo(
   };
   const editMaint = (m: Maint) => {
     const editData = buildMaintenanceEditData(m, uid);
+    const currentLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id);
+    const refreshedLinks = currentLinks.map((link) => {
+      const purchase = purchases.find((item) => item.id === link.purchase_id);
+      const purchaseRow = purchase?.rows.find((row) => String(row.id) === link.purchase_row_id);
+      if (!purchase || !purchaseRow) return link;
+      return {
+        ...link,
+        item_name: String(purchaseRow.item || link.item_name || ""),
+        spec: String(purchaseRow.spec || link.spec || ""),
+        unit_price_snapshot: getPurchaseEffectiveUnitPrice(purchaseRow).price,
+        purchase_date_snapshot: purchase.date || link.purchase_date_snapshot || "",
+        vendor_snapshot: purchase.vendor || link.vendor_snapshot || "",
+      };
+    });
+
+    const linksByMaintenanceRow = new Map<string, MaintenancePurchaseLink[]>();
+    refreshedLinks.forEach((link) => {
+      const rows = linksByMaintenanceRow.get(link.maintenance_row_id) || [];
+      rows.push(link);
+      linksByMaintenanceRow.set(link.maintenance_row_id, rows);
+    });
+    const refreshedItems = editData.items.map((row) => {
+      const links = linksByMaintenanceRow.get(row.id) || [];
+      if (links.length !== 1) return row;
+      const currentPrice = numericValue(links[0].unit_price_snapshot);
+      return calculateLinkedMaintenanceItem(row, currentPrice);
+    });
+
     setMenuTab("maint_new");
     setMaintSaveError("");
     clearMaintDraft();
     setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
-    setMaintForm(editData.form);
-    setMaintItems(editData.items);
-    setMaintPurchaseLinksDraft(maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id));
+    setMaintForm({
+      ...editData.form,
+      cost: String(sumMaintenanceRowTotals(refreshedItems)),
+    });
+    setMaintItems(refreshedItems);
+    setMaintPurchaseLinksDraft(refreshedLinks);
   };
 
 
