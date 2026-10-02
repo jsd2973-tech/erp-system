@@ -31,10 +31,15 @@ const link = (id, patch = {}) => ({
   maintenance_title_snapshot: "정비", ...patch,
 });
 
-const createLinkSupabaseMock = ({ failFirstSelectedInsert = false } = {}) => {
+const createLinkSupabaseMock = ({ failRpc = false } = {}) => {
   const calls = [];
-  let selectedInsertCount = 0;
   const client = {
+    rpc(name, args) {
+      const call = { rpc: name, args };
+      calls.push(call);
+      if (failRpc) return Promise.resolve({ data: null, error: { message: "atomic replace failed" } });
+      return Promise.resolve({ data: args.p_links, error: null });
+    },
     from(table) {
       const call = { table };
       calls.push(call);
@@ -48,10 +53,7 @@ const createLinkSupabaseMock = ({ failFirstSelectedInsert = false } = {}) => {
           return {
             select(columns) {
               call.select = columns;
-              selectedInsertCount += 1;
-              return Promise.resolve(failFirstSelectedInsert && selectedInsertCount === 1
-                ? { data: null, error: { message: "insert failed" } }
-                : { data: rows, error: null });
+              return Promise.resolve({ data: rows, error: null });
             },
             then(resolve, reject) {
               return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
@@ -66,7 +68,7 @@ const createLinkSupabaseMock = ({ failFirstSelectedInsert = false } = {}) => {
   return { client, calls };
 };
 
-test("정비 연결 service는 기존과 신규 link를 구분해 기록하고 기존 수량을 복구한다", async () => {
+test("정비 연결 service는 RPC 한 번으로 기존 link를 원자적으로 교체한다", async () => {
   const previous = [link("old-link")];
   const next = [link("", { used_qty: 1 })];
   const { client, calls } = createLinkSupabaseMock();
@@ -77,30 +79,28 @@ test("정비 연결 service는 기존과 신규 link를 구분해 기록하고 �
   assert.equal(result.changed, true);
   assert.equal(result.added[0].used_qty, 1);
   assert.equal(result.removed[0].id, "old-link");
-  assert.deepEqual(calls[0], {
-    table: "maintenance_purchase_links", delete: true, eq: ["maintenance_id", "maint-1"],
-  });
-  assert.equal(calls[1].insert[0].maintenance_id, "maint-1");
-  assert.equal(calls[1].insert[0].used_qty, 1);
+  assert.equal(calls[0].rpc, "replace_maintenance_purchase_links");
+  assert.equal(calls[0].args.p_maintenance_id, "maint-1");
+  assert.equal(calls[0].args.p_links[0].maintenance_id, "maint-1");
+  assert.equal(calls[0].args.p_links[0].used_qty, 1);
 
   await service.restoreMaintenanceLinks("maint-1", previous);
-  assert.equal(calls[2].insert[0].id, "old-link");
-  assert.equal(calls[2].insert[0].used_qty, 2);
-  assert.equal(calls[2].insert[0].maintenance_id, "maint-1");
+  assert.equal(calls[1].insert[0].id, "old-link");
+  assert.equal(calls[1].insert[0].used_qty, 2);
+  assert.equal(calls[1].insert[0].maintenance_id, "maint-1");
   assert.deepEqual(getMaintenancePurchaseLinkChanges(previous, previous).added, []);
 });
 
-test("정비 연결 새 저장이 실패하면 지운 기존 link를 다시 insert한다", async () => {
+test("정비 연결 원자 교체가 실패하면 클라이언트가 기존 link를 지우거나 복구하지 않는다", async () => {
   const previous = [link("old-link")];
-  const { client, calls } = createLinkSupabaseMock({ failFirstSelectedInsert: true });
+  const { client, calls } = createLinkSupabaseMock({ failRpc: true });
   const result = await createMaintenancePurchaseLinkService(client)
     .replaceForMaintenance("maint-1", [link("", { used_qty: 3 })], previous);
 
-  assert.equal(result.stage, "insert");
-  assert.equal(result.error.message, "insert failed");
-  assert.equal(calls.length, 3);
-  assert.equal(calls[2].insert[0].id, "old-link");
-  assert.equal(calls[2].insert[0].used_qty, 2);
+  assert.equal(result.stage, "atomic");
+  assert.equal(result.error.message, "atomic replace failed");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].rpc, "replace_maintenance_purchase_links");
 });
 
 test("정비 조회·저장·삭제와 첨부 업로드 query를 기존 순서대로 사용한다", async () => {
