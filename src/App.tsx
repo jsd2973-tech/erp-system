@@ -3777,11 +3777,13 @@ const purchasePriceHistoryMap = useMemo(
 
   const applyMaintPurchaseLink = () => {
     const targetRow = maintItems.find((row) => row.id === maintenancePurchaseLinkModal.maintenanceRowId);
-    const candidate = maintenancePurchaseLinkCandidates.find((item) =>
-      item.purchase.id === maintenancePurchaseLinkModal.selectedPurchaseId &&
-      String(item.row.id) === maintenancePurchaseLinkModal.selectedPurchaseRowId
+    const selectedPurchase = purchases.find((purchase) => purchase.id === maintenancePurchaseLinkModal.selectedPurchaseId);
+    const selectedPurchaseRow = selectedPurchase?.rows.find(
+      (row) => String(row.id) === maintenancePurchaseLinkModal.selectedPurchaseRowId
     );
-    if (!targetRow || !candidate) return alert("연결할 구매 품목을 선택하세요.");
+    if (!targetRow || !selectedPurchase || !selectedPurchaseRow) {
+      return alert("연결할 구매 품목을 선택하세요.");
+    }
 
     const usedQty = numericValue(maintenancePurchaseLinkModal.usedQty);
     const maintenanceQty = numericValue(targetRow.qty);
@@ -3790,10 +3792,30 @@ const purchasePriceHistoryMap = useMemo(
       link.maintenance_row_id === targetRow.id && maintenancePurchaseLinkIdentity(link) !== editingIdentity
     );
     const linkedQtyForRow = otherLinksForMaintenanceRow.reduce((sum, link) => sum + numericValue(link.used_qty), 0);
+
+    const listedCandidate = maintenancePurchaseLinkCandidates.find((item) =>
+      item.purchase.id === selectedPurchase.id &&
+      String(item.row.id) === String(selectedPurchaseRow.id)
+    );
+    const committedForRemaining = maintenancePurchaseLinks.filter((link) =>
+      (!editingMaintId || link.maintenance_id !== editingMaintId) &&
+      link.purchase_id === selectedPurchase.id &&
+      link.purchase_row_id === String(selectedPurchaseRow.id)
+    );
+    const draftForRemaining = maintPurchaseLinksDraft.filter((link) =>
+      maintenancePurchaseLinkIdentity(link) !== editingIdentity &&
+      link.purchase_id === selectedPurchase.id &&
+      link.purchase_row_id === String(selectedPurchaseRow.id)
+    );
+    const consumedQty = [...committedForRemaining, ...draftForRemaining]
+      .reduce((sum, link) => sum + numericValue(link.used_qty), 0);
+    const remainingQty = listedCandidate?.remainingQty
+      ?? Math.max(0, numericValue(selectedPurchaseRow.qty) - consumedQty);
+
     const quantityValidation = validateMaintenancePurchaseLinkQuantity({
       usedQty,
       maintenanceQty,
-      remainingQty: candidate.remainingQty,
+      remainingQty,
       linkedQtyForMaintenanceRow: linkedQtyForRow,
     });
     if (!quantityValidation.valid) {
@@ -3805,10 +3827,10 @@ const purchasePriceHistoryMap = useMemo(
       }
     }
 
-    const linkedItemName = String(candidate.row.item || targetRow.item || "").trim();
+    const linkedItemName = String(selectedPurchaseRow.item || targetRow.item || "").trim();
     if (!linkedItemName) return alert("선택한 구매품목의 품목명을 확인하세요.");
-    const linkedSpec = String(targetRow.spec || candidate.row.spec || "");
-    const linkedUnitPrice = getPurchaseEffectiveUnitPrice(candidate.row).price;
+    const linkedSpec = String(targetRow.spec || selectedPurchaseRow.spec || "");
+    const linkedUnitPrice = getPurchaseEffectiveUnitPrice(selectedPurchaseRow).price;
     const nextItems = maintItems.map((row) => {
       if (row.id !== targetRow.id) return row;
       return calculateLinkedMaintenanceItem({ ...row, item: linkedItemName, spec: linkedSpec }, linkedUnitPrice);
@@ -3818,14 +3840,14 @@ const purchasePriceHistoryMap = useMemo(
       id: "",
       maintenance_id: editingMaintId || "",
       maintenance_row_id: targetRow.id,
-      purchase_id: candidate.purchase.id,
-      purchase_row_id: String(candidate.row.id),
+      purchase_id: selectedPurchase.id,
+      purchase_row_id: String(selectedPurchaseRow.id),
       item_name: linkedItemName,
-      spec: String(candidate.row.spec || targetRow.spec || ""),
+      spec: String(selectedPurchaseRow.spec || targetRow.spec || ""),
       used_qty: usedQty,
       unit_price_snapshot: linkedUnitPrice,
-      purchase_date_snapshot: candidate.purchase.date || "",
-      vendor_snapshot: candidate.purchase.vendor || "",
+      purchase_date_snapshot: selectedPurchase.date || "",
+      vendor_snapshot: selectedPurchase.vendor || "",
       maintenance_date_snapshot: maintForm.date || getTodayKey(),
       maintenance_equipment_snapshot: maintForm.warehouse || "",
       maintenance_title_snapshot: maintForm.title || "",
@@ -4152,14 +4174,45 @@ const purchasePriceHistoryMap = useMemo(
   };
   const editMaint = (m: Maint) => {
     const editData = buildMaintenanceEditData(m, uid);
+    const currentLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id);
+    const refreshedLinks = currentLinks.map((link) => {
+      const purchase = purchases.find((item) => item.id === link.purchase_id);
+      const purchaseRow = purchase?.rows.find((row) => String(row.id) === link.purchase_row_id);
+      if (!purchase || !purchaseRow) return link;
+      return {
+        ...link,
+        item_name: String(purchaseRow.item || link.item_name || ""),
+        spec: String(purchaseRow.spec || link.spec || ""),
+        unit_price_snapshot: getPurchaseEffectiveUnitPrice(purchaseRow).price,
+        purchase_date_snapshot: purchase.date || link.purchase_date_snapshot || "",
+        vendor_snapshot: purchase.vendor || link.vendor_snapshot || "",
+      };
+    });
+
+    const linksByMaintenanceRow = new Map<string, MaintenancePurchaseLink[]>();
+    refreshedLinks.forEach((link) => {
+      const rows = linksByMaintenanceRow.get(link.maintenance_row_id) || [];
+      rows.push(link);
+      linksByMaintenanceRow.set(link.maintenance_row_id, rows);
+    });
+    const refreshedItems = editData.items.map((row) => {
+      const links = linksByMaintenanceRow.get(row.id) || [];
+      if (links.length !== 1) return row;
+      const currentPrice = numericValue(links[0].unit_price_snapshot);
+      return calculateLinkedMaintenanceItem(row, currentPrice);
+    });
+
     setMenuTab("maint_new");
     setMaintSaveError("");
     clearMaintDraft();
     setLinkingMaintenancePhotoId("");
     setEditingMaintId(m.id);
-    setMaintForm(editData.form);
-    setMaintItems(editData.items);
-    setMaintPurchaseLinksDraft(maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id));
+    setMaintForm({
+      ...editData.form,
+      cost: String(sumMaintenanceRowTotals(refreshedItems)),
+    });
+    setMaintItems(refreshedItems);
+    setMaintPurchaseLinksDraft(refreshedLinks);
   };
 
 
