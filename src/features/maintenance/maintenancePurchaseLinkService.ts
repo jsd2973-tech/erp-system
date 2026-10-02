@@ -6,7 +6,7 @@ import {
 } from "../purchase/purchaseModel";
 import type { MaintenancePurchaseLink } from "../purchase/purchaseTypes";
 
-type MaintenanceLinkSupabaseClient = Pick<SupabaseClient, "from">;
+type MaintenanceLinkSupabaseClient = Pick<SupabaseClient, "from" | "rpc">;
 
 const toDatabaseLink = (link: MaintenancePurchaseLink, maintenanceId = link.maintenance_id) => {
   const row: Record<string, unknown> = {
@@ -85,30 +85,16 @@ export const createMaintenancePurchaseLinkService = (supabase: MaintenanceLinkSu
     previousLinks: MaintenancePurchaseLink[],
   ) => {
     const validLinkRows = nextLinks.map((link) => toDatabaseLink(link, maintenanceId));
-    const { error: deleteError } = await supabase
-      .from("maintenance_purchase_links")
-      .delete()
-      .eq("maintenance_id", maintenanceId);
-    if (deleteError) return { savedLinks: [], error: deleteError, stage: "delete" as const };
+    const { data, error } = await supabase.rpc("replace_maintenance_purchase_links", {
+      p_maintenance_id: maintenanceId,
+      p_links: validLinkRows,
+    });
 
-    if (!validLinkRows.length) {
-      return { savedLinks: [], error: null, stage: null, ...getMaintenancePurchaseLinkChanges(previousLinks, []) };
+    if (error) {
+      return { savedLinks: [], error, stage: "atomic" as const };
     }
 
-    const { data, error: insertError } = await supabase
-      .from("maintenance_purchase_links")
-      .insert(validLinkRows)
-      .select("*");
-    if (insertError) {
-      if (previousLinks.length) {
-        await supabase
-          .from("maintenance_purchase_links")
-          .insert(previousLinks.map((link) => toRestoreLink(link)));
-      }
-      return { savedLinks: [], error: insertError, stage: "insert" as const };
-    }
-
-    const savedLinks = ((data || validLinkRows) as unknown[]).map(toMaintenancePurchaseLink);
+    const savedLinks = ((data || []) as unknown[]).map(toMaintenancePurchaseLink);
     return {
       savedLinks,
       error: null,
