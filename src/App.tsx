@@ -3993,10 +3993,7 @@ const purchasePriceHistoryMap = useMemo(
     const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
     const syncResult = await maintenancePurchaseLinkService.replaceForMaintenance(maintenanceId, nextLinks, previousLinks);
     if (syncResult.error) {
-      const message = syncResult.stage === "delete"
-        ? "정비 구매연결을 갱신하지 못했습니다: " + syncResult.error.message
-        : "정비 구매연결 저장에 실패했습니다: " + syncResult.error.message;
-      alert(message);
+      alert("정비 구매연결 저장에 실패했습니다: " + syncResult.error.message);
       return false;
     }
 
