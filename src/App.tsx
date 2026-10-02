@@ -1805,12 +1805,22 @@ export default function App() {
   }, [vendorAccounts, vendorAccountSearch]);
 
   const saveVendorAccountRow = async (account: VendorAccount) => {
+    const vendorName = String(account.vendor_name || "").trim();
+    if (!vendorName) return alert("거래처명을 입력하세요.");
+
+    const duplicated = vendorAccounts.find((row) =>
+      row.id !== account.id &&
+      normalizeVendorName(row.vendor_name) === normalizeVendorName(vendorName)
+    );
+    if (duplicated) return alert("이미 같은 거래처명이 등록되어 있습니다.");
+
     const normalized: VendorAccount = {
       ...account,
+      vendor_name: vendorName,
       bank_name: String(account.bank_name || "").trim(),
       bank_code: String(account.bank_code || "").trim() || bankCodeByName(account.bank_name || ""),
       account_name: String(account.account_name || "").trim(),
-      customer_display_name: String(account.customer_display_name || account.account_name || account.vendor_name || "").trim(),
+      customer_display_name: String(account.customer_display_name || account.account_name || vendorName || "").trim(),
       account_number: cleanAccountNumber(account.account_number || ""),
       memo: String(account.memo || "").trim(),
     };
@@ -6275,7 +6285,23 @@ const purchasePriceHistoryMap = useMemo(
                   return (
                     <div className={editing ? "vendor-account-card editing" : "vendor-account-card"} key={account.id}>
                       <div className="vendor-account-title">
-                        <strong>{account.vendor_name}</strong>
+                        {editing ? (
+                          <Field label="거래처명">
+                            <input
+                              value={account.vendor_name || ""}
+                              onChange={(e) =>
+                                setVendorAccounts((prev) =>
+                                  prev.map((row) =>
+                                    row.id === account.id ? { ...row, vendor_name: e.target.value } : row
+                                  )
+                                )
+                              }
+                              placeholder="거래처명"
+                            />
+                          </Field>
+                        ) : (
+                          <strong>{account.vendor_name}</strong>
+                        )}
                       </div>
 
                       <div className="vendor-account-grid">
