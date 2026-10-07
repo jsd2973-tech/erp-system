@@ -41,8 +41,11 @@ test("@regression 신규 구매의 수취완료/취소와 지급상태가 독립
   await expect(receipt).toHaveValue("received");
   await expect(table.locator(".purchase-receipt-date")).toHaveText(today());
   await expect.poll(() => readState(e2e, row.id)).toEqual({ receipt_status: "received", received_date: today(), payment_status: "unpaid", paid_date: null });
+  const warehouseCell = table.locator("tbody tr").first().locator("td").nth(3);
+  expect(await warehouseCell.evaluate(cell => cell.scrollWidth <= cell.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("purchase-receipt-1440.png") });
   await page.setViewportSize({ width: 1920, height: 1080 });
+  expect(await warehouseCell.evaluate(cell => cell.scrollWidth <= cell.clientWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("purchase-receipt-1920.png") });
 
   await payment.click();
