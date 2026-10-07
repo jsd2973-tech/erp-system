@@ -1,0 +1,12 @@
+.purchase-receipt-control{display:grid;justify-items:center;gap:3px}
+.purchase-receipt-control .purchase-receipt-status{width:100%;max-width:104px;height:30px;min-height:30px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#334155;font:inherit;font-weight:800;text-align:center;cursor:pointer}
+.purchase-receipt-status.received{border-color:#cbd5e1;background:#eef4fa;color:#1d4ed8}
+.purchase-receipt-status.unknown{color:#64748b}
+.purchase-receipt-status:disabled{cursor:default;opacity:.8}
+.purchase-receipt-control small{font-size:11px;color:#64748b;line-height:1.2;white-space:nowrap}
+.purchase-payment-filter-row{flex-wrap:wrap;gap:8px 16px}
+@media(max-width:900px){
+  .mobile-purchase-card-row .purchase-receipt-status{height:34px;min-height:34px;font-size:13px}
+  .mobile-purchase-card-row .purchase-receipt-control{min-width:104px}
+  .purchase-payment-filter-row>label{max-width:100%;flex-wrap:wrap}
+}

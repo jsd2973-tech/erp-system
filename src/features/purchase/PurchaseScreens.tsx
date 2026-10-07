@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType, type Dispatch, type SetStateAction } from "react";
 import { Pencil, Trash2 } from "lucide-react";
+import "./purchaseReceipt.css";
 import {
   createEmptyPurchaseSearch,
   getPurchaseItemSummary,
   isPurchasePaid,
   maintenancePurchaseLinkIdentity,
   numericValue,
+  normalizePurchaseReceiptStatus,
 } from "./purchaseModel";
 import { PurchasePriceHistoryModal, signedMoney, signedPercent, type PurchaseEntryUi } from "./PurchaseEntry";
 import {
@@ -14,7 +16,7 @@ import {
   getPurchasePriceHistoryKey,
   type PurchasePriceHistory,
 } from "./purchasePriceHistory";
-import type { MaintenancePurchaseLink, Purchase, PurchasePaymentStatus, PurchaseRow, PurchaseSearch } from "./purchaseTypes";
+import type { MaintenancePurchaseLink, Purchase, PurchasePaymentStatus, PurchaseReceiptStatus, PurchaseRow, PurchaseSearch } from "./purchaseTypes";
 
 export type PurchaseAttachmentViewer = { title: string; urls: string[] };
 export type PurchaseAttachmentViewerModalProps = {
@@ -54,6 +56,8 @@ export type PurchaseListProps = {
   onUpdateTaxInvoice: (purchase: Purchase, received: boolean) => void | Promise<void>;
   paymentSavingId: string;
   onUpdatePayment: (purchase: Purchase, status: PurchasePaymentStatus) => void | Promise<void>;
+  receiptSavingId: string;
+  onUpdateReceipt: (purchase: Purchase, status: Exclude<PurchaseReceiptStatus, "unknown">) => void | Promise<void>;
   onLinkPhoto: (purchase: Purchase) => void;
   onQuickPurchase: () => void;
   onImportPurchaseExcel: (file: File) => void | Promise<void>;
@@ -78,6 +82,8 @@ export function PurchaseList({
   onUpdateTaxInvoice,
   paymentSavingId,
   onUpdatePayment,
+  receiptSavingId,
+  onUpdateReceipt,
   onLinkPhoto,
   onQuickPurchase,
   onImportPurchaseExcel,
@@ -114,7 +120,7 @@ export function PurchaseList({
 
   useEffect(() => {
     setPurchasePage(1);
-  }, [search.from, search.to, search.vendor, search.warehouse, search.item, search.taxInvoice, search.paymentStatus]);
+  }, [search.from, search.to, search.vendor, search.warehouse, search.item, search.taxInvoice, search.paymentStatus, search.receiptStatus]);
 
   useEffect(() => {
     if (purchasePage > purchaseTotalPages) setPurchasePage(purchaseTotalPages);
@@ -194,13 +200,36 @@ export function PurchaseList({
     );
   };
 
+  const renderReceiptStatus = (purchase: Purchase) => {
+    const status = normalizePurchaseReceiptStatus(purchase.receiptStatus);
+    return <div className="purchase-receipt-control" aria-busy={receiptSavingId === purchase.id}>
+      <select
+        className={`purchase-receipt-status ${status}`}
+        aria-label="물품 수취상태"
+        data-testid={`purchase-receipt-status-${purchase.id}`}
+        value={status}
+        disabled={!isAdmin || Boolean(receiptSavingId)}
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next === "received" || next === "unreceived") onUpdateReceipt(purchase, next);
+        }}
+      >
+        <option value="unknown" disabled>미확인</option>
+        <option value="unreceived">미수취</option>
+        <option value="received">수취완료</option>
+      </select>
+      {receiptSavingId === purchase.id ? <small>저장 중</small>
+        : status === "received" && purchase.receivedDate ? <small className="purchase-receipt-date">{purchase.receivedDate}</small> : null}
+    </div>;
+  };
+
   return <>
     <AttachmentViewerModal viewer={attachmentViewer} onClose={() => setAttachmentViewer(null)} />
     <section className="card lookup-page purchase-lookup-page"><div className="between"><h2>구매조회</h2><div className="purchase-lookup-actions"><button className="primary" onClick={onQuickPurchase}>구매입력</button><button onClick={() => purchaseImportInputRef.current?.click()}>엑셀 업로드</button><input ref={purchaseImportInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { const file = e.target.files?.[0]; if (file) onImportPurchaseExcel(file); e.currentTarget.value = ""; }} /><button onClick={() => downloadExcel(`구매조회_${todayText()}`, withTotalRow(
   purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })),
   { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }
 ))}>엑셀 다운로드</button><button onClick={() => downloadPdf(`구매조회_${todayText()}`, "구매조회", withTotalRow(purchases.map((p: Purchase) => ({ 일자: p.date, 거래처: p.vendor, 창고: p.warehouse, 대표품목: getPurchaseItemSummary(p), 세금계산서: p.taxInvoiceReceived ? "받음" : "미수취", 공급가액: p.supplyTotal, 부가세액: p.vatTotal, 합계: p.total })), { 일자: "총합계", 공급가액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.supplyTotal || 0), 0), 부가세액: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.vatTotal || 0), 0), 합계: purchases.reduce((sum: number, p: Purchase) => sum + Number(p.total || 0), 0) }))}>PDF 출력</button></div></div><div className="purchase-period-buttons"><button onClick={() => setPurchasePeriod(getTodayKey(), getTodayKey())}>오늘</button><button onClick={setThisWeekPeriod}>이번주</button><button onClick={setThisMonthPeriod}>이번달</button><button onClick={setLastMonthPeriod}>지난달</button><button onClick={setThisYearPeriod}>올해</button><button onClick={() => setSearch(createEmptyPurchaseSearch())}>전체</button></div><div className="grid5 purchase-filter-grid"><input placeholder="시작일 240107 또는 20240107" value={search.from} onChange={(e) => setSearch({ ...search, from: formatInputDate(e.target.value) })} /><input placeholder="종료일 240107 또는 20240107" value={search.to} onChange={(e) => setSearch({ ...search, to: formatInputDate(e.target.value) })} /><input placeholder="거래처 검색" value={search.vendor} onChange={(e) => setSearch({ ...search, vendor: e.target.value })} /><input placeholder="창고 검색" value={search.warehouse} onChange={(e) => setSearch({ ...search, warehouse: e.target.value })} /><input placeholder="품목 검색" value={search.item} onChange={(e) => setSearch({ ...search, item: e.target.value })} /><select aria-label="세금계산서 수취 여부" value={search.taxInvoice || ""} onChange={(e) => setSearch({ ...search, taxInvoice: e.target.value })}><option value="">세금계산서 전체</option><option value="received">받음</option><option value="unreceived">미수취</option></select></div>
-      <div className="purchase-payment-filter-row"><label>지급상태 <select aria-label="지급상태" value={search.paymentStatus || ""} onChange={(e) => setSearch({ ...search, paymentStatus: e.target.value })}><option value="">전체</option><option value="unpaid">미지급</option><option value="paid">지급완료</option></select></label></div>
+      <div className="purchase-payment-filter-row"><label>지급상태 <select aria-label="지급상태" value={search.paymentStatus || ""} onChange={(e) => setSearch({ ...search, paymentStatus: e.target.value })}><option value="">전체</option><option value="unpaid">미지급</option><option value="paid">지급완료</option></select></label><label>물품 수취상태 <select aria-label="수취상태 필터" value={search.receiptStatus || ""} onChange={(e) => setSearch({ ...search, receiptStatus: e.target.value })}><option value="">전체</option><option value="unknown">미확인</option><option value="unreceived">미수취</option><option value="received">수취완료</option></select></label></div>
       <div className="purchase-page-summary">검색결과 {money(purchases.length)}건 · {purchases.length ? `${money(purchaseStartIndex + 1)}-${money(purchaseEndIndex)}건` : "0건"} 표시</div>
       <div className="mobile-purchase-cards">
   {!pagedPurchases.length ? (
@@ -216,6 +245,7 @@ export function PurchaseList({
         <div className="mobile-purchase-card-row"><span>창고</span><b>{p.warehouse || "-"}</b></div>
         <div className="mobile-purchase-card-row"><span>합계</span><b>{money(p.total)}원</b></div>
         <div className="mobile-purchase-card-row"><span>지급상태</span><b>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</b></div>
+        <div className="mobile-purchase-card-row"><span>물품 수취상태</span><b>{renderReceiptStatus(p)}</b></div>
         <div className="mobile-purchase-card-row"><span>세금계산서</span><b><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></b></div>
         <div className="mobile-purchase-card-row"><span>첨부</span><b><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></b></div>
         {isAdmin && (
@@ -228,8 +258,8 @@ export function PurchaseList({
       </div>
     );
   })}
-</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>지급상태</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={9} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase) => {
-  return <tr key={p.id}><td>{p.managementNo || "-"}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
+</div><ScrollTable><table><thead><tr><th>관리번호</th><th>거래처</th><th>품목</th><th>창고</th><th>합계</th><th>지급상태</th><th>수취상태</th><th>세금계산서</th><th>첨부</th><th>관리</th></tr></thead><tbody>{!pagedPurchases.length ? <tr><td colSpan={10} className="empty">저장된 구매내역 없음</td></tr> : pagedPurchases.map((p: Purchase) => {
+  return <tr key={p.id}><td>{p.managementNo || "-"}</td><td>{p.vendor}</td><td><button className="purchase-item-detail-button" onClick={() => openPurchaseDetail(p)}>{getPurchaseItemSummary(p)}</button></td><td>{p.warehouse}</td><td>{money(p.total)}</td><td>{renderPaymentStatusCheck(p)}{isPurchasePaid(p) && p.paidDate ? <small className="purchase-payment-date">{p.paidDate}</small> : null}</td><td>{renderReceiptStatus(p)}</td><td><label className={`tax-invoice-check${p.taxInvoiceReceived ? " checked" : ""}`}><input type="checkbox" checked={Boolean(p.taxInvoiceReceived)} disabled={!canUpdateTaxInvoice || Boolean(taxInvoiceSavingId)} onChange={(e) => onUpdateTaxInvoice(p, e.target.checked)} /><em>{taxInvoiceSavingId === p.id ? "저장 중" : p.taxInvoiceReceived ? "받음" : "미수취"}</em></label></td><td><AttachmentSummaryButton urls={p.image_urls || (p.image_url ? [p.image_url] : [])} onOpen={() => setAttachmentViewer({ title: `${p.vendor || "거래처 미입력"} · ${p.date || "-"}`, urls: p.image_urls || (p.image_url ? [p.image_url] : []) })} /></td><td>{isAdmin ? <><button className="icon" onClick={() => onLinkPhoto(p)}>사진</button><button className="icon" onClick={() => editPurchase(p)}><Pencil size={16} /></button><button className="icon" onClick={() => deletePurchase(p.id)}><Trash2 size={16} /></button></> : "-"}</td></tr>})}</tbody></table></ScrollTable>{renderPurchasePages()}</section>
     {liveDetailPurchase && (
       <div className="purchase-detail-modal-backdrop" onClick={() => setDetailPurchase(null)}>
         <div className="purchase-detail-modal" onClick={(e) => e.stopPropagation()}>

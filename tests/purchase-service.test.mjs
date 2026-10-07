@@ -54,6 +54,15 @@ const createSupabaseMock = () => {
         update(fields) {
           call.update = fields;
           return {
+            select(columns) {
+              call.select = columns;
+              return {
+                eq(column, value) {
+                  call.eq = [column, value];
+                  return { single() { return Promise.resolve({ data: fields, error: null }); } };
+                },
+              };
+            },
             eq(column, value) { call.eq = [column, value]; return Promise.resolve({ error: null }); },
             in(column, values) { call.in = [column, values]; return Promise.resolve({ error: null }); },
           };
@@ -111,6 +120,8 @@ test("구매 CRUD, 지급, 첨부 쿼리의 payload와 청크 처리를 유지�
     tax_invoice_received: false,
     payment_status: "unpaid",
     paid_date: null,
+    receipt_status: "unknown",
+    received_date: null,
     image_url: "",
     image_urls: [],
   });
@@ -138,6 +149,19 @@ test("구매 CRUD, 지급, 첨부 쿼리의 payload와 청크 처리를 유지�
   assert.equal(await service.upsertPurchasesInChunks(batch), null);
   const upsertCalls = calls.filter((call) => call.table === "purchases" && call.upsert);
   assert.deepEqual(upsertCalls.slice(-2).map((call) => call.upsert.length), [500, 1]);
+});
+
+test("수취완료/취소는 수취 필드만 update하며 실제 저장된 단일 행을 반환한다", async () => {
+  const { client, calls } = createSupabaseMock();
+  const service = createPurchaseService(client);
+  const result = await service.updatePurchaseReceipt("purchase-1", "received", "2026-10-07");
+  assert.deepEqual(calls.at(-1), {
+    table: "purchases", update: { receipt_status: "received", received_date: "2026-10-07" },
+    select: "receipt_status,received_date", eq: ["id", "purchase-1"],
+  });
+  assert.deepEqual(result.data, { receipt_status: "received", received_date: "2026-10-07" });
+  await service.updatePurchaseReceipt("purchase-1", "unreceived", "2026-10-08");
+  assert.deepEqual(calls.at(-1).update, { receipt_status: "unreceived", received_date: null });
 });
 
 test.after(async () => {

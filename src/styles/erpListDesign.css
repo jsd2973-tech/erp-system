@@ -187,18 +187,19 @@
   }
 
   /* 고정 업무 열을 제외한 폭을 분배해 짧은 열도 중앙과 여유 폭을 확보합니다. */
-  .app.app-tab-list>.lookup-page{--erp-list-table-min:1080px}
+  .app.app-tab-list>.lookup-page{--erp-list-table-min:1180px}
   .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(1){width:132px}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(2){width:calc((100% - 642px)*.38)}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(3){width:calc((100% - 642px)*.40)}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(4){width:calc((100% - 642px)*.22)}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(2){width:calc((100% - 742px)*.38)}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(3){width:calc((100% - 742px)*.40)}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(4){width:calc((100% - 742px)*.22)}
   .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(5){width:126px}
   .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(6){width:90px}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(7){width:104px}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(8){width:64px}
-  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(9){width:126px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(7){width:100px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(8){width:104px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(9){width:64px}
+  .app.app-tab-list>.lookup-page>.scroll-table th:nth-child(10){width:126px}
   .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):nth-child(5){text-align:right !important;white-space:nowrap !important}
-  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(4),:nth-child(6),:nth-child(7),:nth-child(8)){
+  .app.app-tab-list>.lookup-page>.scroll-table :is(th,td):is(:nth-child(4),:nth-child(6),:nth-child(7),:nth-child(8),:nth-child(9)){
     white-space:nowrap !important;
   }
 

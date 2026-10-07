@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fromPurchase } from "./purchaseModel";
-import type { MaintenancePurchaseLink, Purchase, PurchasePaymentStatus } from "./purchaseTypes";
+import { buildPurchaseReceiptUpdate, fromPurchase } from "./purchaseModel";
+import type { MaintenancePurchaseLink, Purchase, PurchasePaymentStatus, PurchaseReceiptStatus } from "./purchaseTypes";
 
 type PurchaseSupabaseClient = Pick<SupabaseClient, "from">;
 type PurchaseLinkReference = Pick<
@@ -92,6 +92,13 @@ export const createPurchaseService = (supabase: PurchaseSupabaseClient) => ({
       .from("purchases")
       .update({ payment_status: "paid", paid_date: paidDate })
       .in("id", purchaseIds),
+
+  updatePurchaseReceipt: (purchaseId: string, status: Exclude<PurchaseReceiptStatus, "unknown">, today: string) =>
+    supabase.from("purchases")
+      .update(buildPurchaseReceiptUpdate(status, today))
+      .select("receipt_status,received_date")
+      .eq("id", purchaseId)
+      .single(),
 
   fetchPurchaseLinkReferences: (purchaseId: string) =>
     supabase

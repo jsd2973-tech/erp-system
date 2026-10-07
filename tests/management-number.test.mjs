@@ -39,9 +39,9 @@ test("구매 관리번호는 필터 결과가 달라져도 전체 원본 기준 
   assert.equal(filtered[0].managementNo, "2026-10-01-02");
 });
 
-test("구매 전체 초기화는 지급상태까지 해제한다", () => {
+test("구매 전체 초기화는 지급상태·수취상태까지 해제한다", () => {
   assert.deepEqual(purchaseModel.createEmptyPurchaseSearch(), {
-    from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "",
+    from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "", receiptStatus: "",
   });
 });
 
