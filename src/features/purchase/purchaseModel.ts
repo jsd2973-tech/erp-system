@@ -1,9 +1,41 @@
-import type { MaintenancePurchaseLink, Purchase, PurchaseRow, PurchaseSearch } from "./purchaseTypes";
+import type { MaintenancePurchaseLink, Purchase, PurchaseReceiptStatus, PurchaseRow, PurchaseSearch } from "./purchaseTypes";
 
 type UnknownRecord = Record<string, unknown>;
 
 const asRecord = (value: unknown): UnknownRecord =>
   value !== null && typeof value === "object" ? value as UnknownRecord : {};
+
+export const normalizePurchaseReceiptStatus = (value: unknown): PurchaseReceiptStatus =>
+  value === "received" || value === "unreceived" ? value : "unknown";
+
+// 신규 등록은 미수취, 수정·재업로드는 미확인/수취완료를 포함한 기존 값을 보존합니다.
+export const getPurchaseReceiptFields = (existing?: Purchase) => {
+  const receiptStatus = existing ? normalizePurchaseReceiptStatus(existing.receiptStatus) : "unreceived";
+  return { receiptStatus, receivedDate: receiptStatus === "received" ? existing?.receivedDate || "" : "" };
+};
+
+export const buildPurchaseReceiptUpdate = (status: Exclude<PurchaseReceiptStatus, "unknown">, today: string) => ({
+  receipt_status: status,
+  received_date: status === "received" ? today : null,
+});
+
+// 저장 전에 시작된 조회가 늦게 완료돼도 방금 저장한 수취 필드만 보존합니다.
+export const createPurchaseReceiptReconciler = () => {
+  let revision = 0;
+  const updates = new Map<string, { revision: number; receiptStatus: PurchaseReceiptStatus; receivedDate: string }>();
+  return {
+    getRevision: () => revision,
+    record: (id: string, receiptStatus: PurchaseReceiptStatus, receivedDate: string) => {
+      updates.set(id, { revision: ++revision, receiptStatus, receivedDate });
+    },
+    reconcile: (rows: Purchase[], loadRevision: number) => rows.map((row) => {
+      const update = updates.get(row.id);
+      return update && update.revision > loadRevision
+        ? { ...row, receiptStatus: update.receiptStatus, receivedDate: update.receivedDate }
+        : row;
+    }),
+  };
+};
 
 export const toPurchase = (value: unknown): Purchase => {
   const p = asRecord(value);
@@ -22,6 +54,9 @@ export const toPurchase = (value: unknown): Purchase => {
     taxInvoiceReceived: Boolean(p.tax_invoice_received ?? p.taxInvoiceReceived ?? false),
     paymentStatus: p.payment_status === "paid" || p.paymentStatus === "paid" ? "paid" : "unpaid",
     paidDate: (p.paid_date ?? p.paidDate ?? "") as string,
+    receiptStatus: normalizePurchaseReceiptStatus(p.receipt_status ?? p.receiptStatus),
+    receivedDate: normalizePurchaseReceiptStatus(p.receipt_status ?? p.receiptStatus) === "received"
+      ? String(p.received_date ?? p.receivedDate ?? "") : "",
     image_url: imageUrl as string,
     image_urls: (p.image_urls || (imageUrl ? [imageUrl] : [])) as string[],
   };
@@ -40,6 +75,8 @@ export const fromPurchase = (purchase: Purchase) => ({
   tax_invoice_received: Boolean(purchase.taxInvoiceReceived),
   payment_status: purchase.paymentStatus === "paid" ? "paid" : "unpaid",
   paid_date: purchase.paymentStatus === "paid" ? purchase.paidDate || null : null,
+  receipt_status: normalizePurchaseReceiptStatus(purchase.receiptStatus),
+  received_date: purchase.receiptStatus === "received" ? purchase.receivedDate || null : null,
   image_url: (purchase.image_urls || [])[0] || purchase.image_url || "",
   image_urls: purchase.image_urls || (purchase.image_url ? [purchase.image_url] : []),
 });
@@ -54,6 +91,7 @@ export const createEmptyPurchaseSearch = (): PurchaseSearch => ({
   item: "",
   taxInvoice: "",
   paymentStatus: "",
+  receiptStatus: "",
 });
 
 export const buildPurchaseNumberMap = (purchases: Purchase[]): Map<string, string> => {
@@ -84,7 +122,8 @@ export const filterPurchases = (purchases: Purchase[], search: PurchaseSearch) =
         (!search.warehouse || purchase.warehouse.includes(search.warehouse)) &&
         (!search.item || purchase.rows.some((row) => row.item.includes(search.item))) &&
         (!search.taxInvoice || (search.taxInvoice === "received" ? Boolean(purchase.taxInvoiceReceived) : !purchase.taxInvoiceReceived)) &&
-        (!search.paymentStatus || (search.paymentStatus === "paid" ? isPurchasePaid(purchase) : !isPurchasePaid(purchase)))
+        (!search.paymentStatus || (search.paymentStatus === "paid" ? isPurchasePaid(purchase) : !isPurchasePaid(purchase))) &&
+        (!search.receiptStatus || normalizePurchaseReceiptStatus(purchase.receiptStatus) === search.receiptStatus)
     )
     .sort((a, b) => {
       const dateCompare = String(b.date || "").localeCompare(String(a.date || ""));

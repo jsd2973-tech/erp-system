@@ -10,6 +10,7 @@ export type PurchaseRow = {
 };
 
 export type PurchasePaymentStatus = "unpaid" | "paid";
+export type PurchaseReceiptStatus = "unknown" | "unreceived" | "received";
 
 export type Purchase = {
   id: string;
@@ -25,6 +26,8 @@ export type Purchase = {
   taxInvoiceReceived?: boolean;
   paymentStatus?: PurchasePaymentStatus;
   paidDate?: string;
+  receiptStatus?: PurchaseReceiptStatus;
+  receivedDate?: string;
   image_urls?: string[];
   image_url?: string;
 };
@@ -37,6 +40,7 @@ export type PurchaseSearch = {
   item: string;
   taxInvoice: string;
   paymentStatus?: string;
+  receiptStatus?: string;
 };
 
 export type MaintenancePurchaseLink = {

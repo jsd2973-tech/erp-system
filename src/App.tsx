@@ -21,6 +21,7 @@ import {
   fromPurchase,
   filterPurchases,
   getPurchaseItemSummary,
+  getPurchaseReceiptFields,
   isPurchasePaid,
   maintenancePurchaseLinkIdentity,
   maintenancePurchaseLinkKey,
@@ -30,6 +31,7 @@ import {
 } from "./features/purchase/purchaseModel";
 import { buildBulkTransferWorkbook, getBulkTransferFileName } from "./features/purchase/bulkTransferWorkbook";
 import { createPurchaseService } from "./features/purchase/purchaseService";
+import { usePurchaseReceiptStatus } from "./features/purchase/usePurchaseReceiptStatus";
 import { PurchaseEntryView, PurchasePriceHistoryModal } from "./features/purchase/PurchaseEntry";
 import { ItemMasterScreen, MasterDataDialogs, VendorMasterScreen, WarehouseMasterScreen } from "./features/master-data/MasterDataScreens";
 import { nextWarehouseCode } from "./features/master-data/masterDataModel";
@@ -1355,7 +1357,7 @@ export default function App() {
   const [purchaseDraftReady, setPurchaseDraftReady] = useState(false);
   const purchaseSavingRef = useRef(false);
   const [purchaseEntryPopupOpen, setPurchaseEntryPopupOpen] = useState(false);
-  const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "" });
+  const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "", receiptStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
   const [maintForm, setMaintForm] = useState({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
@@ -2103,6 +2105,7 @@ export default function App() {
 
 
   const loadAll = async () => {
+    const receiptLoadRevision = purchaseReceipt.getLoadRevision();
     const [masterRes, pRes, mRes, cRes, mplRes] = await Promise.all([
       masterData.fetchMasterData(),
       purchaseService.fetchPurchases(),
@@ -2123,7 +2126,7 @@ export default function App() {
       warehouses: masterRes.warehouses.data || [],
       items: masterRes.items.data || [],
     });
-    setPurchases(((pRes.data || []) as any[]).map(toPurchase));
+    setPurchases(purchaseReceipt.reconcileLoaded(((pRes.data || []) as any[]).map(toPurchase), receiptLoadRevision));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as Record<string, unknown>[]).map(normalizeCardUse));
     setMaintenancePurchaseLinks(((mplRes.data || []) as any[]).map(toMaintenancePurchaseLink));
@@ -2535,6 +2538,7 @@ export default function App() {
         taxInvoiceReceived: Boolean(existingPurchase?.taxInvoiceReceived),
         paymentStatus: existingPurchase?.paymentStatus || "unpaid",
         paidDate: existingPurchase?.paidDate || "",
+        ...getPurchaseReceiptFields(existingPurchase),
         image_urls: [...(existingPurchase?.image_urls || [])],
         image_url: existingPurchase?.image_url || "",
       });
@@ -2662,6 +2666,7 @@ export default function App() {
           : false,
         paymentStatus: existingPurchase?.paymentStatus || "unpaid",
         paidDate: existingPurchase?.paidDate || "",
+        ...getPurchaseReceiptFields(existingPurchase),
         image_urls: purchaseHeader.image_urls || [],
         image_url: (purchaseHeader.image_urls || [])[0] || "",
       };
@@ -4418,6 +4423,15 @@ const purchasePriceHistoryMap = useMemo(
       console.error("activity log failed", error);
     }
   };
+
+  const purchaseReceipt = usePurchaseReceiptStatus({
+    service: purchaseService,
+    canUpdate: canEditDeleteRecords,
+    setPurchases,
+    getTodayKey,
+    showToast,
+    addActivityLog,
+  });
 
   const loadActivityLogs = async () => {
     const { data, error } = await supabase
@@ -6882,7 +6896,7 @@ const purchasePriceHistoryMap = useMemo(
           ui={{ Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money }}
         />
 
-        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} ui={purchaseScreensUi} />}
+        {menuTab === "list" && <PurchaseList purchases={filteredPurchases} maintenancePurchaseLinks={maintenancePurchaseLinks} search={purchaseSearch} setSearch={setPurchaseSearch} editPurchase={editPurchase} deletePurchase={deletePurchase} isAdmin={canEditDeleteRecords} canUpdateTaxInvoice={canCreateRecords} taxInvoiceSavingId={purchaseTaxInvoiceSavingId} onUpdateTaxInvoice={updatePurchaseTaxInvoiceStatus} paymentSavingId={purchasePaymentSavingId} onUpdatePayment={updatePurchasePaymentStatus} receiptSavingId={purchaseReceipt.savingId} onUpdateReceipt={purchaseReceipt.updateReceipt} onLinkPhoto={openPurchasePhotoPicker} onQuickPurchase={openPurchaseEntryPopup} onImportPurchaseExcel={importPurchaseHistoryExcel} ui={purchaseScreensUi} />}
 
         {menuTab === "status" && <PurchaseStatus purchases={purchases} ui={purchaseScreensUi} />}
 
