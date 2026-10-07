@@ -2105,6 +2105,7 @@ export default function App() {
 
 
   const loadAll = async () => {
+    const receiptLoadRevision = purchaseReceipt.getLoadRevision();
     const [masterRes, pRes, mRes, cRes, mplRes] = await Promise.all([
       masterData.fetchMasterData(),
       purchaseService.fetchPurchases(),
@@ -2125,7 +2126,7 @@ export default function App() {
       warehouses: masterRes.warehouses.data || [],
       items: masterRes.items.data || [],
     });
-    setPurchases(((pRes.data || []) as any[]).map(toPurchase));
+    setPurchases(purchaseReceipt.reconcileLoaded(((pRes.data || []) as any[]).map(toPurchase), receiptLoadRevision));
     setMaints(((mRes.data || []) as any[]).map((m) => ({ ...m, cost: Number(m.cost || 0), items: m.items || [] })));
     setCardUses(((cRes.data || []) as Record<string, unknown>[]).map(normalizeCardUse));
     setMaintenancePurchaseLinks(((mplRes.data || []) as any[]).map(toMaintenancePurchaseLink));

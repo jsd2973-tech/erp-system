@@ -19,6 +19,24 @@ export const buildPurchaseReceiptUpdate = (status: Exclude<PurchaseReceiptStatus
   received_date: status === "received" ? today : null,
 });
 
+// 저장 전에 시작된 조회가 늦게 완료돼도 방금 저장한 수취 필드만 보존합니다.
+export const createPurchaseReceiptReconciler = () => {
+  let revision = 0;
+  const updates = new Map<string, { revision: number; receiptStatus: PurchaseReceiptStatus; receivedDate: string }>();
+  return {
+    getRevision: () => revision,
+    record: (id: string, receiptStatus: PurchaseReceiptStatus, receivedDate: string) => {
+      updates.set(id, { revision: ++revision, receiptStatus, receivedDate });
+    },
+    reconcile: (rows: Purchase[], loadRevision: number) => rows.map((row) => {
+      const update = updates.get(row.id);
+      return update && update.revision > loadRevision
+        ? { ...row, receiptStatus: update.receiptStatus, receivedDate: update.receivedDate }
+        : row;
+    }),
+  };
+};
+
 export const toPurchase = (value: unknown): Purchase => {
   const p = asRecord(value);
   const imageUrl = p.image_url || "";

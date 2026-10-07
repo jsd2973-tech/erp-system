@@ -1,5 +1,5 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { normalizePurchaseReceiptStatus } from "./purchaseModel";
+import { createPurchaseReceiptReconciler, normalizePurchaseReceiptStatus } from "./purchaseModel";
 import type { createPurchaseService } from "./purchaseService";
 import type { Purchase, PurchaseReceiptStatus } from "./purchaseTypes";
 
@@ -15,6 +15,9 @@ type ReceiptOptions = {
 export function usePurchaseReceiptStatus(options: ReceiptOptions) {
   const [savingId, setSavingId] = useState("");
   const saving = useRef(false);
+  const receiptUpdates = useRef<ReturnType<typeof createPurchaseReceiptReconciler> | null>(null);
+  if (!receiptUpdates.current) receiptUpdates.current = createPurchaseReceiptReconciler();
+  const updates = receiptUpdates.current;
 
   const updateReceipt = async (purchase: Purchase, status: Exclude<PurchaseReceiptStatus, "unknown">) => {
     if (!options.canUpdate) {
@@ -28,8 +31,11 @@ export function usePurchaseReceiptStatus(options: ReceiptOptions) {
       const { data, error } = await options.service.updatePurchaseReceipt(purchase.id, status, options.getTodayKey());
       if (error) throw error;
       if (!data) throw new Error("저장된 구매건을 확인하지 못했습니다.");
+      const receiptStatus = normalizePurchaseReceiptStatus(data.receipt_status);
+      const receivedDate = data.received_date || "";
+      updates.record(purchase.id, receiptStatus, receivedDate);
       options.setPurchases((previous) => previous.map((item) => item.id === purchase.id
-        ? { ...item, receiptStatus: normalizePurchaseReceiptStatus(data.receipt_status), receivedDate: data.received_date || "" }
+        ? { ...item, receiptStatus, receivedDate }
         : item));
       const cancelled = purchase.receiptStatus === "received" && status === "unreceived";
       options.showToast(status === "received" ? "물품 수취완료 처리했습니다." : cancelled ? "물품 수취를 취소했습니다." : "물품을 미수취로 변경했습니다.");
@@ -53,5 +59,5 @@ export function usePurchaseReceiptStatus(options: ReceiptOptions) {
       setSavingId("");
     }
   };
-  return { savingId, updateReceipt };
+  return { savingId, updateReceipt, getLoadRevision: updates.getRevision, reconcileLoaded: updates.reconcile };
 }

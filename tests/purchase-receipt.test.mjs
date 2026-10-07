@@ -9,7 +9,7 @@ const modulePath = new URL(`../src/features/purchase/.purchaseReceiptModel-${pro
 await writeFile(modulePath, ts.transpileModule(await readFile(source, "utf8"), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
 }).outputText);
-const { toPurchase, fromPurchase, getPurchaseReceiptFields, buildPurchaseReceiptUpdate, filterPurchases, createEmptyPurchaseSearch, isPurchasePaid } = await import(pathToFileURL(modulePath.pathname).href);
+const { toPurchase, fromPurchase, getPurchaseReceiptFields, buildPurchaseReceiptUpdate, createPurchaseReceiptReconciler, filterPurchases, createEmptyPurchaseSearch, isPurchasePaid } = await import(pathToFileURL(modulePath.pathname).href);
 
 const purchase = (id, status, paymentStatus = "unpaid") => toPurchase({
   id, date: "2026-10-07", vendor: "자재업체", warehouse: "1창고", rows: [{ id: "r", item: "볼트", qty: 2 }],
@@ -51,6 +51,26 @@ test("수취완료와 취소 payload는 지급상태/지급일을 포함하지 �
       assert.equal(serialized.paid_date, paid === "paid" ? "2026-10-01" : null);
     }
   }
+});
+
+test("늦은 조회는 저장한 수취상태를 되돌리지 않고 이후 조회·지급 데이터는 존중한다", () => {
+  const updates = createPurchaseReceiptReconciler();
+  const legacy = purchase("p", "unknown");
+  const loadBeforeComplete = updates.getRevision();
+  updates.record("p", "received", "2026-10-07");
+  const completed = updates.reconcile([legacy], loadBeforeComplete)[0];
+  assert.deepEqual(completed, { ...legacy, receiptStatus: "received", receivedDate: "2026-10-07" });
+
+  const loadBeforeCancel = updates.getRevision();
+  updates.record("p", "unreceived", "");
+  const paidServerRow = { ...completed, paymentStatus: "paid", paidDate: "2026-10-01" };
+  assert.deepEqual(updates.reconcile([paidServerRow], loadBeforeCancel)[0], { ...paidServerRow, receiptStatus: "unreceived", receivedDate: "" });
+
+  // 저장 이후 시작된 조회에는 다른 사용자의 최신 변경을 그대로 반영합니다.
+  const freshLoad = updates.getRevision();
+  assert.deepEqual(updates.reconcile([paidServerRow], freshLoad), [paidServerRow]);
+  const other = purchase("other", "unknown", "paid");
+  assert.deepEqual(updates.reconcile([other], loadBeforeComplete), [other]);
 });
 
 test("수취 4종 필터는 기간/업체/품목/창고/지급 필터와 독립적으로 조합된다", () => {

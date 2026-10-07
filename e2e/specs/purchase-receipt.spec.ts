@@ -147,8 +147,11 @@ test("@mobile-smoke 모바일 구매카드에서 수취완료와 취소를 처�
   const card = page.locator(".mobile-purchase-card").filter({ hasText: e2e.vendorName });
   const receipt = card.getByTestId(`purchase-receipt-status-${id}`);
   await expect(receipt).toHaveValue("unknown");
+  await receipt.scrollIntoViewIfNeeded();
   await receipt.selectOption("received");
+  await expect.poll(() => readState(e2e, id)).toEqual({ receipt_status: "received", received_date: today(), payment_status: "unpaid", paid_date: null });
   await expect(card.locator(".purchase-receipt-date")).toHaveText(today());
+  await expect(receipt).toHaveValue("received");
   await expect(receipt).toBeEnabled();
   await receipt.selectOption("unreceived");
   await expect(receipt).toHaveValue("unreceived");
