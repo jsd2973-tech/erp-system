@@ -53,7 +53,7 @@ test("@regression 설비 등록·정비 연결·수정·전체 이력·엑셀·�
   await expect(summaryRow).toContainText("2000-01-05");
   await summaryRow.getByRole("button", { name: "정비 등록", exact: true }).click();
   await expect(page.getByTestId("maintenance-equipment-item")).toHaveValue(equipmentId);
-  await expect(page.getByTestId("maintenance-warehouse")).toHaveValue(new RegExp(e2e.warehouseName));
+  await expect(page.getByTestId("maintenance-warehouse")).toHaveAttribute("placeholder", new RegExp(e2e.warehouseName));
   const title = `${e2e.prefix} 정비 기록`;
   await page.getByTestId("maintenance-title").fill(title);
   await page.getByTestId("maintenance-equipment-type").selectOption("replacement");
@@ -63,9 +63,10 @@ test("@regression 설비 등록·정비 연결·수정·전체 이력·엑셀·�
   await page.getByTestId("maintenance-save").click();
   await expect(page.getByTestId("equipment-overview")).toBeVisible();
   await expect(summaryRow).toContainText("현장 교체업체");
-  const saved = await e2e.db.from("maints").select("id,equipment_item_id,equipment_cycle_included,total").eq("title", title).single();
+  const saved = await e2e.db.from("maints").select("id,warehouse,equipment_item_id,equipment_cycle_included,total").eq("title", title).single();
   if (saved.error) throw saved.error;
   expect(saved.data).toMatchObject({ equipment_item_id: equipmentId, equipment_cycle_included: true, total: 0 });
+  expect(saved.data.warehouse).toContain(e2e.warehouseName);
   const maintenanceId = saved.data.id as string;
   await summaryRow.getByRole("button", { name: itemName, exact: true }).click();
   await expect(page.getByTestId("equipment-history-table").locator("tbody tr")).toHaveCount(8);
