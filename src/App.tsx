@@ -1631,11 +1631,12 @@ export default function App() {
 
   useEffect(() => {
     const previousOptions = previousTransferWarehouseOptionsRef.current;
+    const wasInitialized = transferWarehouseInitializedRef.current;
 
     setSelectedTransferWarehouses((prev) => {
       const validSelection = prev.filter((warehouse) => transferWarehouseOptions.includes(warehouse));
       const previouslySelectedAll =
-        !transferWarehouseInitializedRef.current ||
+        !wasInitialized ||
         (previousOptions.length > 0 && previousOptions.every((warehouse) => prev.includes(warehouse)));
 
       return previouslySelectedAll ? transferWarehouseOptions : validSelection;
@@ -4064,7 +4065,7 @@ const purchasePriceHistoryMap = useMemo(
       return;
     }
 
-    const equipmentError = maintForm.equipment_item_id && (!equipmentModule.ready || equipmentModule.loading || equipmentModule.error)
+    const equipmentError = maintForm.equipment_item_id && (!equipmentModule.ready || equipmentModule.error)
       ? "설비 연결정보를 불러온 후 저장해주세요."
       : validateMaintenanceEquipment(maintForm, equipmentModule.items, warehouses);
     if (equipmentError) {

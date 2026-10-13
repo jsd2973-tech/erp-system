@@ -6,7 +6,14 @@ import { MaintenancePage } from "../pages/maintenance.page";
 import type { Page } from "@playwright/test";
 
 async function openEquipment(page: Page) {
-  await page.goto("/?tab=maint_equipment");
+  const menu = page.getByTestId("menu-maint_equipment");
+  if (await page.locator(".mobile-bottom-nav").isVisible()) {
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "정비", exact: true }).click();
+    await page.locator(".role-mobile-sheet-card").getByRole("button", { name: "설비현황", exact: true }).click();
+  } else {
+    if (!(await menu.isVisible())) await page.getByTestId("nav-group-maintenance").click();
+    await menu.click();
+  }
   await expect(page.getByTestId("equipment-overview")).toBeVisible();
   await expect(page.getByTestId("equipment-export")).toBeEnabled();
 }
