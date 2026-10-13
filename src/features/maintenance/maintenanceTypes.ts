@@ -1,3 +1,5 @@
+import type { EquipmentWorkType } from "./equipmentTypes";
+
 export type MaintItem = {
   id: string;
   item: string;
@@ -24,6 +26,10 @@ export type Maint = {
   supplyTotal?: number;
   vatTotal?: number;
   total?: number;
+  equipment_item_id?: string | null;
+  equipment_work_type?: EquipmentWorkType | null;
+  equipment_vendor?: string;
+  equipment_cycle_included?: boolean;
 };
 
 export type MaintenanceForm = {
@@ -34,6 +40,10 @@ export type MaintenanceForm = {
   detail: string;
   cost: string;
   image_urls: string[];
+  equipment_item_id?: string | null;
+  equipment_work_type?: EquipmentWorkType | null;
+  equipment_vendor?: string;
+  equipment_cycle_included?: boolean;
 };
 
 export type MaintenanceSearch = {

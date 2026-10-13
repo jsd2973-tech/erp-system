@@ -38,6 +38,10 @@ import { nextWarehouseCode } from "./features/master-data/masterDataModel";
 import type { MasterItem as Item, Vendor, Warehouse, WarehouseGroup as Group } from "./features/master-data/masterDataTypes";
 import { useMasterDataModule } from "./features/master-data/useMasterDataModule";
 import { MaintenanceEntry } from "./features/maintenance/MaintenanceEntry";
+import { EquipmentOverview } from "./features/maintenance/EquipmentOverview";
+import { useEquipmentModule } from "./features/maintenance/useEquipmentModule";
+import { maintenanceEquipmentFields, validateMaintenanceEquipment } from "./features/maintenance/equipmentModel";
+import type { EquipmentItem } from "./features/maintenance/equipmentTypes";
 import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
 import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
 import { buildPurchaseMaintenanceCopyRows } from "./features/purchase/purchaseMaintenanceModel";
@@ -49,7 +53,7 @@ import type {
   PurchaseRow,
   PurchaseSearch,
 } from "./features/purchase/purchaseTypes";
-import type { Maint, MaintItem } from "./features/maintenance/maintenanceTypes";
+import type { Maint, MaintItem, MaintenanceForm } from "./features/maintenance/maintenanceTypes";
 import {
   buildMaintenanceEditData,
   buildMaintenanceSuggestedItems,
@@ -738,6 +742,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "card_stats", label: "카드통계" },
   { key: "maint_new", label: "정비등록" },
   { key: "maint_list", label: "정비조회" },
+  { key: "maint_equipment", label: "설비현황" },
   { key: "maint_stats", label: "정비통계" },
   { key: "maintenance_photos", label: "정비사진등록" },
   { key: "maintenance_schedule_new", label: "정비일정등록" },
@@ -1321,6 +1326,7 @@ export default function App() {
     if (DISPATCH_VIEWS.includes(tab as DispatchView)) return isAdmin || !!permissions[tab];
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
+    if (tab === "maint_equipment" && !("maint_equipment" in permissions)) return !!permissions.maint_list;
     return !!permissions[tab];
   };
 
@@ -1360,7 +1366,8 @@ export default function App() {
   const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "", receiptStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
-  const [maintForm, setMaintForm] = useState({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
+  const [maintForm, setMaintForm] = useState<MaintenanceForm>({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
+  const [maintReturnTab, setMaintReturnTab] = useState<"maint_list" | "maint_equipment">("maint_list");
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
@@ -1425,6 +1432,12 @@ export default function App() {
     },
   });
   const { vendors, groups, warehouses, items } = masterData.data;
+  const equipmentModule = useEquipmentModule({
+    supabase,
+    active: !!session && isPermissionApproved && ["maint_new", "maint_equipment"].includes(menuTab) && canAccessTab(menuTab),
+    authKey: session?.user?.id || "",
+    maintenanceRevision: maints,
+  });
 
 
   useEffect(() => () => {
@@ -2210,7 +2223,7 @@ export default function App() {
   useEffect(() => {
     if (!session || !isPermissionApproved) return;
 
-    if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
+    if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_equipment", "maint_stats", "home"].includes(menuTab)) {
       loadAll();
     }
 
@@ -3930,6 +3943,7 @@ const purchasePriceHistoryMap = useMemo(
     maintForm.title ||
     maintForm.detail ||
     maintForm.cost ||
+    maintForm.equipment_item_id ||
     (maintForm.image_urls || []).length ||
     maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total) ||
     maintPurchaseLinksDraft.length ||
@@ -3944,6 +3958,7 @@ const purchasePriceHistoryMap = useMemo(
     setEditingMaintId("");
     setLinkingMaintenancePhotoId("");
     setMaintSaveError("");
+    setMaintReturnTab("maint_list");
     clearMaintDraft();
   };
 
@@ -3961,6 +3976,7 @@ const purchasePriceHistoryMap = useMemo(
       if (Array.isArray(draft?.maintItems) && draft.maintItems.length) setMaintItems(draft.maintItems);
       if (Array.isArray(draft?.maintPurchaseLinks)) setMaintPurchaseLinksDraft(draft.maintPurchaseLinks.map(toMaintenancePurchaseLink));
       if (draft?.editingMaintId) setEditingMaintId(draft.editingMaintId);
+      if (draft?.maintReturnTab === "maint_equipment") setMaintReturnTab("maint_equipment");
     } catch {
       clearMaintDraft();
     } finally {
@@ -3986,13 +4002,14 @@ const purchasePriceHistoryMap = useMemo(
         maintItems,
         maintPurchaseLinks: maintPurchaseLinksDraft,
         editingMaintId,
+        maintReturnTab,
         saved_at: new Date().toISOString(),
       }));
     } catch {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maintForm, maintItems, maintPurchaseLinksDraft, editingMaintId, maintDraftReady]);
+  }, [maintForm, maintItems, maintPurchaseLinksDraft, editingMaintId, maintReturnTab, maintDraftReady]);
 
   const syncMaintenancePurchaseLinks = async (maintenanceId: string, nextLinks: MaintenancePurchaseLink[]) => {
     const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
@@ -4044,6 +4061,15 @@ const purchasePriceHistoryMap = useMemo(
       const message = "창고와 정비제목을 입력하세요.";
       setMaintSaveError(message);
       alert(message);
+      return;
+    }
+
+    const equipmentError = maintForm.equipment_item_id && (!equipmentModule.ready || equipmentModule.loading || equipmentModule.error)
+      ? "설비 연결정보를 불러온 후 저장해주세요."
+      : validateMaintenanceEquipment(maintForm, equipmentModule.items, warehouses);
+    if (equipmentError) {
+      setMaintSaveError(equipmentError);
+      alert(equipmentError);
       return;
     }
 
@@ -4122,6 +4148,7 @@ const purchasePriceHistoryMap = useMemo(
       const payload = {
         id: editingMaintId || uid(),
         ...maintForm,
+        ...maintenanceEquipmentFields(maintForm),
         date: maintForm.date || getTodayKey(),
         image_url: (maintForm.image_urls || [])[0] || "",
         image_urls: maintForm.image_urls || [],
@@ -4164,7 +4191,7 @@ const purchasePriceHistoryMap = useMemo(
 
       clearMaintForm();
       showToast(wasEditing ? "정비내역을 수정했습니다." : "정비내역을 저장했습니다.");
-      setMenuTab("maint_list");
+      setMenuTab(canAccessTab(maintReturnTab) ? maintReturnTab : "maint_list");
     } catch (error: any) {
       const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
       setMaintSaveError(message);
@@ -4175,6 +4202,7 @@ const purchasePriceHistoryMap = useMemo(
     }
   };
   const editMaint = (m: Maint) => {
+    setMaintReturnTab("maint_list");
     const editData = buildMaintenanceEditData(m, uid);
     const currentLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id);
     const refreshedLinks = currentLinks.map((link) => {
@@ -4215,6 +4243,20 @@ const purchasePriceHistoryMap = useMemo(
     });
     setMaintItems(refreshedItems);
     setMaintPurchaseLinksDraft(refreshedLinks);
+  };
+
+  const registerEquipmentMaintenance = (item: EquipmentItem) => {
+    if (!canCreateRecords || !canAccessTab("maint_new") || maintSavingRef.current) return;
+    if (hasMaintFormValue() && !window.confirm("작성 중인 정비등록 내용을 초기화하고 이 설비의 정비를 등록할까요?")) return;
+    clearMaintForm();
+    const warehouse = warehouses.find(row => row.id === item.warehouse_id);
+    setMaintForm({
+      date: getTodayKey(), warehouse: warehouse ? `${warehouse.group} / ${warehouse.name}` : "", manager: "",
+      title: `${item.name} 정비`, detail: "", cost: "", image_urls: [],
+      equipment_item_id: item.id, equipment_work_type: "repair", equipment_vendor: "", equipment_cycle_included: false,
+    });
+    setMaintReturnTab("maint_equipment");
+    setMenuTab("maint_new");
   };
 
 
@@ -5321,12 +5363,13 @@ const purchasePriceHistoryMap = useMemo(
             </div>
           )}
 
-          {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
+          {canShowAny(["maint_new", "maint_list", "maint_equipment", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
             <div className={`menu-group maint-menu-group ${openMenuGroup === "maintenance" ? "expanded" : ""}`}>
               <button type="button" data-testid="nav-group-maintenance" aria-expanded={openMenuGroup === "maintenance"} onClick={() => setOpenMenuGroup((current) => current === "maintenance" ? null : "maintenance")}><Wrench size={17} /> 정비</button>
               <div className="sub maint-sub">
                 {menuButton("maint_new", "정비등록")}
                 {menuButton("maint_list", "정비조회")}
+                {menuButton("maint_equipment", "설비현황")}
                 {menuButton("maint_stats", "정비통계")}
                 {menuButton("maintenance_photos", "정비사진등록")}
                 {menuButton("maintenance_schedule_new", "정비일정등록")}
@@ -6989,6 +7032,7 @@ const purchasePriceHistoryMap = useMemo(
                 itemOptions,
                 getRecentPurchaseInfo,
               },
+              equipment: { items: equipmentModule.items, loading: equipmentModule.loading, error: equipmentModule.error },
               todayKey: getTodayKey(),
             }}
             ui={{ Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money }}
@@ -7010,6 +7054,24 @@ const purchasePriceHistoryMap = useMemo(
               onLinkPhoto: openMaintPhotoPicker,
             }}
             ui={purchaseScreensUi}
+          />
+        )}
+
+        {menuTab === "maint_equipment" && canAccessTab("maint_equipment") && (
+          <EquipmentOverview
+            model={equipmentModule}
+            warehouses={warehouses.map(row => ({ id: row.id, name: `${row.group} / ${row.name}` }))}
+            canCreate={canCreateRecords && canAccessTab("maint_new")}
+            canEdit={canEditDeleteRecords}
+            onRegister={registerEquipmentMaintenance}
+            onEditMaintenance={record => {
+              if (hasMaintFormValue() && !window.confirm("작성 중인 정비등록 내용을 초기화하고 이 기록을 수정할까요?")) return;
+              editMaint(record);
+              setMaintReturnTab("maint_equipment");
+            }}
+            log={addActivityLog}
+            showToast={showToast}
+            todayKey={getTodayKey()}
           />
         )}
 
@@ -7345,6 +7407,7 @@ const purchasePriceHistoryMap = useMemo(
                 <>
                   {canAccessTab("maint_new") && <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>}
                   {canAccessTab("maint_list") && <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>}
+                  {canAccessTab("maint_equipment") && <button onClick={() => { setMenuTab("maint_equipment"); setMobileSheet(""); }}>설비현황</button>}
                   {canAccessTab("maint_stats") && <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>}
                   {canAccessTab("maintenance_photos") && <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>}
                   {canAccessTab("maintenance_schedule_new") && <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>}
@@ -7414,7 +7477,7 @@ const purchasePriceHistoryMap = useMemo(
               <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_equipment","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
               <button className={mobileSheet === "more" || ["site_notices","bid_notices","fuel_management","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
@@ -8877,7 +8940,7 @@ function BackupPermissionPage({
     { label: "운행관리", keys: dispatchPermissionKeys },
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
     { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
-    { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
+    { label: "정비", keys: ["maint_new", "maint_list", "maint_equipment", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
     { label: "장비·유류", keys: ["fuel_management"] },
     { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },
   ].map((group) => ({

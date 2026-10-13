@@ -1,0 +1,45 @@
+.app.app-tab-maint_equipment > .equipment-overview-page { width: 100%; max-width: none; min-width: 0; }
+.equipment-overview-page h2, .equipment-dialog h3 { margin: 0; }
+.equipment-page-heading { gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.equipment-page-heading .actions { flex-wrap: wrap; }
+.equipment-secondary, .equipment-help { color: #5d6875; font-size: 13px; }
+.equipment-page-heading p { margin: 5px 0 0; }
+.equipment-common-note { padding: 12px 14px; background: #f4f7fb; border-left: 3px solid #355b82; white-space: pre-line; margin-bottom: 16px; }
+.equipment-error { color: #a32732; padding: 10px 12px; background: #fff1f2; border-radius: 6px; margin: 10px 0; overflow-wrap: anywhere; }
+.equipment-list-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.equipment-list-controls label { display: grid; gap: 5px; font-size: 13px; }
+.equipment-list-controls input { width: 280px; max-width: 100%; }
+.equipment-table-wrapper { max-width: 100%; overflow-x: auto; }
+.equipment-overview-table { width: 100%; min-width: 1210px; table-layout: fixed; border-collapse: collapse; }
+.equipment-overview-table th, .equipment-overview-table td, .equipment-history-table th, .equipment-history-table td { font-size: 14px; padding: 11px 9px; text-align: center; vertical-align: middle; overflow-wrap: anywhere; border-bottom: 1px solid #dce3ea; }
+.equipment-overview-table th, .equipment-history-table th { background: #f2f5f9; white-space: normal; }
+.equipment-overview-table td { height: 62px; }
+.equipment-overview-table .equipment-spec, .equipment-overview-table .equipment-notes { white-space: pre-line; }
+.equipment-overview-page .equipment-item-link { white-space: normal; font-size: 14px; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+.equipment-date { font-variant-numeric: tabular-nums; white-space: pre-line; }
+.equipment-overview-page .equipment-number { text-align: right; font-variant-numeric: tabular-nums; }
+.equipment-row-actions { display: grid; gap: 5px; }
+.equipment-row-actions button { padding: 6px 7px; font-size: 13px; }
+.equipment-detail-heading { gap: 10px; flex-wrap: wrap; margin: 18px 0 12px; }
+.equipment-detail-heading h3 { margin: 0; }
+.equipment-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 16px; background: #f4f7fb; border-radius: 8px; }
+.equipment-detail-grid dt { font-size: 13px; color: #5d6875; margin-bottom: 5px; }
+.equipment-detail-grid dd { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.equipment-history-table { min-width: 1000px; width: 100%; border-collapse: collapse; }
+.equipment-history-table .equipment-work-detail { min-width: 250px; text-align: left; white-space: pre-line; }
+.equipment-work-detail strong { display: block; margin-bottom: 4px; }
+.equipment-link-fields { margin: 16px 0; }
+.equipment-link-fields .between { gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.equipment-link-fields .equipment-help { margin: 10px 0 0; }
+.equipment-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.equipment-form-grid label { display: grid; gap: 6px; font-size: 13px; }
+.equipment-form-grid input, .equipment-form-grid select, .equipment-form-grid textarea { width: 100%; font: inherit; font-size: 14px; min-height: 38px; padding: 9px 10px; border: 1px solid #cfd7e1; border-radius: 6px; background: white; color: #1f2937; box-sizing: border-box; }
+.equipment-form-grid datalist { display: none; }
+.equipment-form-wide { grid-column: 1 / -1; }
+.equipment-form-grid .equipment-checkbox { display: flex; align-items: center; gap: 8px; align-self: end; min-height: 38px; }
+.equipment-form-grid .equipment-checkbox input { width: 17px; height: 17px; min-height: 0; margin: 0; padding: 0; }
+.equipment-dialog { box-sizing: border-box; width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow-y: auto; border: 1px solid #cbd4df; border-radius: 12px; padding: 22px; color: #243143; background: white; box-shadow: 0 18px 60px #17243533; }
+.equipment-dialog::backdrop { background: #17243573; }
+.equipment-dialog > .between { gap: 12px; margin-bottom: 20px; }
+.equipment-editor-actions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #dce3ea; padding-top: 16px; margin-top: 18px; }
+@media (max-width: 700px) { .equipment-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .equipment-form-grid { grid-template-columns: 1fr; } .equipment-form-grid input, .equipment-form-grid select, .equipment-form-grid textarea { font-size: 16px; } .equipment-dialog { padding: 16px; } .equipment-list-controls label { max-width: 100%; } .equipment-list-controls input { width: 100%; } }

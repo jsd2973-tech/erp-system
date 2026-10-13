@@ -249,6 +249,12 @@ export const buildMaintenanceEditData = (record: Maint, createId: () => string) 
     detail: record.detail || "",
     cost: String(record.cost || ""),
     image_urls: record.image_urls || (record.image_url ? [record.image_url] : []),
+    ...(record.equipment_item_id ? {
+      equipment_item_id: record.equipment_item_id,
+      equipment_work_type: record.equipment_work_type || "repair" as const,
+      equipment_vendor: record.equipment_vendor || "",
+      equipment_cycle_included: record.equipment_cycle_included === true,
+    } : {}),
   };
   const sourceItems = record.items && record.items.length
     ? record.items
