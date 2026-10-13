@@ -41,7 +41,7 @@ import { MaintenanceEntry } from "./features/maintenance/MaintenanceEntry";
 import { EquipmentOverview } from "./features/maintenance/EquipmentOverview";
 import { useEquipmentModule } from "./features/maintenance/useEquipmentModule";
 import { maintenanceEquipmentFields, validateMaintenanceEquipment } from "./features/maintenance/equipmentModel";
-import type { EquipmentItem } from "./features/maintenance/equipmentTypes";
+import type { EquipmentBackupData, EquipmentItem } from "./features/maintenance/equipmentTypes";
 import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
 import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
 import { buildPurchaseMaintenanceCopyRows } from "./features/purchase/purchaseMaintenanceModel";
@@ -663,7 +663,7 @@ type DeletedRecord = {
   deleted_at?: string;
 };
 
-type BackupExport = {
+type BackupExport = EquipmentBackupData & {
   exported_at: string;
   exported_by: string;
   record_counts: Record<string, number>;
@@ -1434,7 +1434,7 @@ export default function App() {
   const { vendors, groups, warehouses, items } = masterData.data;
   const equipmentModule = useEquipmentModule({
     supabase,
-    active: !!session && isPermissionApproved && ["maint_new", "maint_equipment"].includes(menuTab) && canAccessTab(menuTab),
+    active: !!session && isPermissionApproved && ["maint_new", "maint_equipment", "backup_permissions"].includes(menuTab) && canAccessTab(menuTab),
     authKey: session?.user?.id || "",
     maintenanceRevision: maints,
   });
@@ -4698,6 +4698,9 @@ const purchasePriceHistoryMap = useMemo(
         backupItems,
         backupPurchases,
         backupMaints,
+        backupEquipmentItems,
+        backupEquipmentHistory,
+        backupEquipmentSettings,
         backupMaintenancePurchaseLinks,
         backupCardUses,
         backupReceiptPhotos,
@@ -4717,6 +4720,9 @@ const purchasePriceHistoryMap = useMemo(
         fetchBackupTable("items", "code"),
         fetchBackupTable("purchases", "date"),
         fetchBackupTable("maints", "date"),
+        fetchBackupTable("maintenance_equipment_items", "sort_order"),
+        fetchBackupTable("maintenance_equipment_history", "source_rank"),
+        fetchBackupTable("maintenance_equipment_settings", "id"),
         fetchBackupTable("maintenance_purchase_links", "created_at"),
         fetchBackupTable("card_uses", "date"),
         fetchBackupTable("receipt_photos", "receipt_date"),
@@ -4741,6 +4747,9 @@ const purchasePriceHistoryMap = useMemo(
           items: backupItems.length,
           purchases: backupPurchases.length,
           maints: backupMaints.length,
+          maintenance_equipment_items: backupEquipmentItems.length,
+          maintenance_equipment_history: backupEquipmentHistory.length,
+          maintenance_equipment_settings: backupEquipmentSettings.length,
           maintenance_purchase_links: backupMaintenancePurchaseLinks.length,
           card_uses: backupCardUses.length,
           receipt_photos: backupReceiptPhotos.length,
@@ -4760,6 +4769,9 @@ const purchasePriceHistoryMap = useMemo(
         items: backupItems as Item[],
         purchases: (backupPurchases as any[]).map(toPurchase),
         maints: backupMaints as Maint[],
+        maintenance_equipment_items: backupEquipmentItems,
+        maintenance_equipment_history: backupEquipmentHistory,
+        maintenance_equipment_settings: backupEquipmentSettings,
         maintenance_purchase_links: (backupMaintenancePurchaseLinks as any[]).map(toMaintenancePurchaseLink),
         card_uses: backupCardUses as CardUse[],
         receipt_photos: backupReceiptPhotos as ReceiptPhoto[],
@@ -4802,6 +4814,8 @@ const purchasePriceHistoryMap = useMemo(
       { 구분: "품목", 건수: items.length },
       { 구분: "구매", 건수: purchases.length },
       { 구분: "정비", 건수: maints.length },
+      { 구분: "설비현황 항목", 건수: equipmentModule.backupData.maintenance_equipment_items.length },
+      { 구분: "기존 총괄표 이력", 건수: equipmentModule.backupData.maintenance_equipment_history.length },
       { 구분: "구매-정비 연결", 건수: maintenancePurchaseLinks.length },
       { 구분: "카드사용", 건수: cardUses.length },
       { 구분: "입고사진", 건수: receiptPhotos.length },
@@ -6698,6 +6712,10 @@ const purchasePriceHistoryMap = useMemo(
             loadDeletedRecords={loadDeletedRecords}
             backupSaving={backupSaving}
             exportFullBackup={exportFullBackup}
+            equipmentBackup={equipmentModule.backupData}
+            equipmentBackupReady={equipmentModule.ready && !equipmentModule.loading && !equipmentModule.error}
+            equipmentBackupError={equipmentModule.error}
+            reloadEquipmentBackup={equipmentModule.reload}
             exportBackupSummaryExcel={exportBackupSummaryExcel}
             showToast={showToast}
           />
@@ -8444,6 +8462,10 @@ function BackupPermissionPage({
   loadDeletedRecords,
   backupSaving,
   exportFullBackup,
+  equipmentBackup,
+  equipmentBackupReady,
+  equipmentBackupError,
+  reloadEquipmentBackup,
   exportBackupSummaryExcel,
   showToast,
 }: any) {
@@ -8469,6 +8491,7 @@ function BackupPermissionPage({
     backup_version: "taemyung-erp-v1",
     exported_at: new Date().toISOString(),
     data: {
+      ...equipmentBackup,
       purchases,
       maints,
       maintenancePurchaseLinks,
@@ -8563,6 +8586,7 @@ function BackupPermissionPage({
   };
 
   const downloadJsonBackup = () => {
+    if (!equipmentBackupReady) return alert(equipmentBackupError || "설비현황 자료를 불러온 후 백업해주세요.");
     const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8573,6 +8597,7 @@ function BackupPermissionPage({
   };
 
   const downloadBackupWithAttachments = async () => {
+    if (!equipmentBackupReady) return alert(equipmentBackupError || "설비현황 자료를 불러온 후 백업해주세요.");
     if (attachmentBackupBusy || backupSaving) return;
 
     const attachmentMap = collectAttachmentReferences();
@@ -8852,6 +8877,9 @@ function BackupPermissionPage({
         ["warehouse_groups", data.warehouse_groups || data.groups],
         ["warehouses", data.warehouses],
         ["items", data.items],
+        ["maintenance_equipment_items", data.maintenance_equipment_items],
+        ["maintenance_equipment_history", data.maintenance_equipment_history],
+        ["maintenance_equipment_settings", data.maintenance_equipment_settings],
         ["purchases", data.purchases],
         ["maints", data.maints],
         ["maintenance_purchase_links", data.maintenance_purchase_links || data.maintenancePurchaseLinks],
@@ -8991,7 +9019,7 @@ function BackupPermissionPage({
             <div className="backup-recommended-box">
               <strong>권장 백업</strong>
               <span>사진·PDF·음성파일과 복구용 JSON을 폴더 하나에 함께 저장합니다.</span>
-              <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={downloadBackupWithAttachments}>
+              <button className="primary" disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={downloadBackupWithAttachments}>
                 {attachmentBackupBusy ? attachmentBackupProgress || "첨부 백업 중..." : "첨부 포함 전체 백업"}
               </button>
             </div>
@@ -8999,9 +9027,10 @@ function BackupPermissionPage({
               <button disabled={backupSaving || attachmentBackupBusy} onClick={exportFullBackup}>
                 {backupSaving ? "백업 생성 중..." : "데이터 전체 백업"}
               </button>
-              <button disabled={backupSaving || attachmentBackupBusy} onClick={exportBackupSummaryExcel}>백업 현황 엑셀</button>
-              <button disabled={backupSaving || attachmentBackupBusy} onClick={downloadJsonBackup}>현재 화면 간단 백업</button>
+              <button disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={exportBackupSummaryExcel}>백업 현황 엑셀</button>
+              <button disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={downloadJsonBackup}>현재 화면 간단 백업</button>
             </div>
+            {equipmentBackupError ? <p role="alert">설비현황 백업 자료를 불러오지 못했습니다: {equipmentBackupError} <button onClick={() => void reloadEquipmentBackup()}>다시 불러오기</button></p> : !equipmentBackupReady && <p role="status">설비현황 백업 자료를 불러오는 중입니다.</p>}
           </div>
 
           <div className="backup-card danger-zone restore-card">

@@ -41,7 +41,7 @@ test("@regression 설비 등록·정비 연결·수정·전체 이력·엑셀·�
   if (equipment.error) throw equipment.error;
   const equipmentId = equipment.data.id as string;
   const legacy = await e2e.db.from("maintenance_equipment_history").insert([
-    ...Array.from({ length: 6 }, (_, n) => ({ id: `${e2e.prefix}-history-${n}`, equipment_item_id: equipmentId, work_date: `2000-01-0${n + 1}`, vendor_label: `이전 업체 ${n}`, cycle_included: true })),
+    ...Array.from({ length: 6 }, (_, n) => ({ id: `${e2e.prefix}-history-${n}`, equipment_item_id: equipmentId, work_date: `2000-01-0${n + 1}`, date_text: "", vendor_label: `이전 업체 ${n}`, cycle_included: true })),
     { id: `${e2e.prefix}-history-raw`, equipment_item_id: equipmentId, work_date: null, date_text: "204-11-09", vendor_label: "원본 날짜", cycle_included: false },
   ]);
   if (legacy.error) throw legacy.error;
@@ -105,6 +105,38 @@ test("@regression 설비 등록·정비 연결·수정·전체 이력·엑셀·�
   expect(history.filter(row => row["관리 항목"] === itemName)).toHaveLength(8);
   expect(history.find(row => row["관리 항목"] === itemName && row["작업일"] === "204-11-09")?.["업체·작업표시"]).toBe("원본 이력 수정");
   await page.screenshot({ path: testInfo.outputPath("equipment-detail-1440.png") });
+
+  await page.getByRole("button", { name: "백업/권한관리", exact: true }).click();
+  const backupButton = page.getByRole("button", { name: "현재 화면 간단 백업", exact: true });
+  await expect(backupButton).toBeEnabled();
+  const backupDownloadPromise = page.waitForEvent("download");
+  await backupButton.click();
+  const backupDownload = await backupDownloadPromise;
+  const backupStream = await backupDownload.createReadStream();
+  if (!backupStream) throw new Error("Backup download stream missing");
+  const backupChunks: Buffer[] = [];
+  for await (const chunk of backupStream) backupChunks.push(Buffer.from(chunk));
+  const backup = JSON.parse(Buffer.concat(backupChunks).toString("utf8")).data;
+  const ownItems = backup.maintenance_equipment_items.filter((row: { id: string }) => row.id === equipmentId);
+  const ownHistory = backup.maintenance_equipment_history.filter((row: { equipment_item_id: string }) => row.equipment_item_id === equipmentId);
+  const ownMaints = backup.maints.filter((row: { id: string }) => row.id === maintenanceId);
+  expect(ownItems).toHaveLength(1);
+  expect(ownItems[0]).toMatchObject({ spec: "E2E 30kW", notes: "수정 비고" });
+  expect(ownItems[0]).toHaveProperty("source_key");
+  expect(ownHistory).toHaveLength(7);
+  expect(backup.maintenance_equipment_settings).toHaveLength(1);
+  expect(ownMaints).toHaveLength(1);
+  const changed = await e2e.db.from("maintenance_equipment_items").update({ spec: "복구 검증용 임시값" }).eq("id", equipmentId);
+  if (changed.error) throw changed.error;
+  // Restore only this test's IDs; never overwrite another fixture or singleton.
+  await page.locator('.restore-file-picker input[type="file"]').setInputFiles({ name: "equipment-fixture-restore.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ data: { maintenance_equipment_items: ownItems, maintenance_equipment_history: ownHistory, maints: ownMaints } })) });
+  const restoreDialogPromise = page.waitForEvent("dialog");
+  const restoreClick = page.getByRole("button", { name: "선택한 백업 복구", exact: true }).click();
+  const restoreDialog = await restoreDialogPromise;
+  await restoreDialog.accept();
+  await restoreClick;
+  await expect(page.getByText("백업 복구가 완료되었습니다.", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await e2e.db.from("maintenance_equipment_items").select("spec").eq("id", equipmentId).single()).data?.spec).toBe("E2E 30kW");
   const maintenance = new MaintenancePage(page);
   await maintenance.openList();
   await maintenance.deleteFromList(title);
@@ -126,8 +158,12 @@ test("@regression 조회 실패 시 엑셀 차단·낙관적 수정 충돌·점�
   await page.getByTestId("equipment-spec").fill("덮어쓰면 안 되는 값");
   const update = await e2e.db.from("maintenance_equipment_items").update({ spec: "다른 사용자의 수정" }).eq("id", item.id);
   if (update.error) throw update.error;
+  const conflictResponsePromise = page.waitForResponse(response => response.url().includes("/rpc/save_maintenance_equipment_item") && response.request().method() === "POST");
   await page.getByTestId("equipment-item-save").click();
+  expect((await conflictResponsePromise).status()).toBe(409);
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText("다른 사용자가 수정한 항목");
+  const conflict = await e2e.db.from("maintenance_equipment_items").select("spec").eq("id", item.id).single();
+  expect(conflict.data?.spec).toBe("다른 사용자의 수정");
   await page.getByRole("dialog").getByRole("button", { name: "취소", exact: true }).click();
   await page.route(/\/rest\/v1\/maintenance_equipment_history\?/, route => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "E2E 이력 조회 실패" }) }));
   await page.getByRole("button", { name: "새로고침", exact: true }).click();

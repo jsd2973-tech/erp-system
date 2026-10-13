@@ -1,5 +1,10 @@
 export type EquipmentWorkType = "replacement" | "repair" | "inspection" | "installation" | "improvement";
 export type EquipmentCycleMethod = "none" | "average" | "fixed";
+export type EquipmentBackupData = {
+  maintenance_equipment_items: unknown[];
+  maintenance_equipment_history: unknown[];
+  maintenance_equipment_settings: unknown[];
+};
 
 export type EquipmentItem = {
   id: string;

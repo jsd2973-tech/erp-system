@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Maint } from "./maintenanceTypes";
-import type { EquipmentHistoryDraft, EquipmentImportedHistory, EquipmentItem, EquipmentItemDraft, EquipmentSettings } from "./equipmentTypes";
+import type { EquipmentBackupData, EquipmentHistoryDraft, EquipmentImportedHistory, EquipmentItem, EquipmentItemDraft, EquipmentSettings } from "./equipmentTypes";
 import { buildEquipmentOverview, normalizeEquipmentHistory, normalizeEquipmentItem, normalizeEquipmentSettings } from "./equipmentModel";
 import { createEquipmentService } from "./equipmentService";
 
 type Props = { supabase: SupabaseClient; active: boolean; authKey: string; maintenanceRevision: Maint[] };
+const EMPTY_BACKUP: EquipmentBackupData = { maintenance_equipment_items: [], maintenance_equipment_history: [], maintenance_equipment_settings: [] };
 export type EquipmentModule = ReturnType<typeof useEquipmentModule>;
 
 export function useEquipmentModule({ supabase, active, authKey, maintenanceRevision }: Props) {
@@ -14,6 +15,7 @@ export function useEquipmentModule({ supabase, active, authKey, maintenanceRevis
   const [importedHistory, setImportedHistory] = useState<EquipmentImportedHistory[]>([]);
   const [linkedMaintenances, setLinkedMaintenances] = useState<Maint[]>([]);
   const [settings, setSettings] = useState<EquipmentSettings>(normalizeEquipmentSettings(null));
+  const [backupData, setBackupData] = useState<EquipmentBackupData>(EMPTY_BACKUP);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
@@ -35,6 +37,7 @@ export function useEquipmentModule({ supabase, active, authKey, maintenanceRevis
       setImportedHistory((historyResult.data || []).map(normalizeEquipmentHistory));
       setLinkedMaintenances((maintResult.data || []) as Maint[]);
       setSettings(normalizeEquipmentSettings(settingsResult.data));
+      setBackupData({ maintenance_equipment_items: itemResult.data || [], maintenance_equipment_history: historyResult.data || [], maintenance_equipment_settings: settingsResult.data ? [settingsResult.data] : [] });
       setReady(true);
     } catch (caught) {
       if (request === generation.current) {
@@ -50,6 +53,7 @@ export function useEquipmentModule({ supabase, active, authKey, maintenanceRevis
     if (!active) {
       generation.current++;
       setItems([]); setImportedHistory([]); setLinkedMaintenances([]); setReady(false); setError(""); setLoading(false);
+      setBackupData(EMPTY_BACKUP);
       return;
     }
     void reload();
@@ -82,5 +86,5 @@ export function useEquipmentModule({ supabase, active, authKey, maintenanceRevis
     setSettings(normalizeEquipmentSettings(data));
     await reload();
   };
-  return { items, importedHistory, linkedMaintenances, rows, settings, loading, ready, error, reload, saveItem, saveImportedHistory, saveSettings };
+  return { items, importedHistory, linkedMaintenances, rows, settings, backupData, loading, ready, error, reload, saveItem, saveImportedHistory, saveSettings };
 }

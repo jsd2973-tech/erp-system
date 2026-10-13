@@ -23,7 +23,7 @@ do $$ declare a public.maintenance_equipment_items%rowtype; n integer; begin
   begin
     perform * from public.save_maintenance_equipment_item(a.id,a.updated_at,'{"category":"RLS test","name":"Stale"}');
     raise exception 'Stale write accepted';
-  exception when serialization_failure then null; end;
+  exception when sqlstate 'PT409' then null; end;
   begin
     insert into public.maintenance_equipment_history(equipment_item_id,work_date,work_type,cycle_included) values (a.id,'2026-01-01','inspection',true);
     raise exception 'Inspection cycle accepted';

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EquipmentHistoryDraft, EquipmentImportedHistory, EquipmentItem, EquipmentItemDraft, EquipmentSettings } from "./equipmentTypes";
 
 type Client = Pick<SupabaseClient, "from" | "rpc">;
-const conflict = { message: "다른 사용자가 수정한 기록입니다. 새로고침 후 다시 수정해주세요.", code: "40001" };
+const conflict = { message: "다른 사용자가 수정한 기록입니다. 새로고침 후 다시 수정해주세요.", code: "PT409" };
 
 export const createEquipmentService = (client: Client) => {
   const fetchPages = async (table: string, orders: { column: string; ascending: boolean }[], linkedOnly = false, pageSize = 1000) => {
