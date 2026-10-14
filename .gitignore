@@ -24,3 +24,6 @@ test-results/
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI project cache
+supabase/.temp/

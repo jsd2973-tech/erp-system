@@ -82,6 +82,7 @@ export class MaintenancePage {
     await expect(modal).toBeHidden();
     await this.page.getByTestId("maintenance-save").click();
     await expect(this.page.getByText("정비내역을 저장했습니다.", { exact: true })).toBeVisible();
+    await expect(this.page.getByRole("heading", { name: "정비조회", exact: true })).toBeVisible();
     return title;
   }
 }

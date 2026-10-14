@@ -41,18 +41,20 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
 
   data.cleanup = async () => {
     try {
-      const [purchaseResult, maintenanceResult, cardResult, trashResult, cardTrashResult] = await Promise.all([
+      const [purchaseResult, maintenanceResult, cardResult, trashResult, cardTrashResult, equipmentResult] = await Promise.all([
         db.from("purchases").select("id").eq("vendor", data.vendorName),
         db.from("maints").select("id").ilike("title", `${prefix}%`),
         db.from("card_uses").select("id").eq("place", `${prefix} 테스트상사`),
         db.from("deleted_records").select("id").eq("source_table", "maints").ilike("title", `${prefix}%`),
         db.from("deleted_records").select("id,record_id").eq("source_table", "card_uses").eq("title", `${prefix} 테스트상사`),
+        db.from("maintenance_equipment_items").select("id").ilike("name", `${prefix}%`),
       ]);
       if (purchaseResult.error) throw new Error(`E2E purchase cleanup lookup failed: ${purchaseResult.error.message}`);
       if (maintenanceResult.error) throw new Error(`E2E maintenance cleanup lookup failed: ${maintenanceResult.error.message}`);
       if (cardResult.error) throw new Error(`E2E card cleanup lookup failed: ${cardResult.error.message}`);
       if (trashResult.error) throw new Error(`E2E trash cleanup lookup failed: ${trashResult.error.message}`);
       if (cardTrashResult.error) throw new Error(`E2E card trash cleanup lookup failed: ${cardTrashResult.error.message}`);
+      if (equipmentResult.error) throw new Error(`E2E equipment cleanup lookup failed: ${equipmentResult.error.message}`);
       const purchaseIds = (purchaseResult.data || []).map((row) => String(row.id));
       const maintenanceIds = (maintenanceResult.data || []).map((row) => String(row.id));
       const cardIds = (cardResult.data || []).map((row) => String(row.id));
@@ -60,7 +62,11 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
       const cardTrashRows = cardTrashResult.data || [];
       const cardTrashIds = cardTrashRows.map((row) => String(row.id));
       const trashedCardRecordIds = cardTrashRows.map((row) => String(row.record_id));
-      const recordIds = [...purchaseIds, ...maintenanceIds, ...cardIds, ...trashedCardRecordIds];
+      const equipmentIds = (equipmentResult.data || []).map(row => String(row.id));
+      const historyResult = equipmentIds.length ? await db.from("maintenance_equipment_history").select("id").in("equipment_item_id", equipmentIds) : { data: [], error: null };
+      if (historyResult.error) throw new Error(`E2E equipment history cleanup lookup failed: ${historyResult.error.message}`);
+      const historyIds = (historyResult.data || []).map(row => String(row.id));
+      const recordIds = [...purchaseIds, ...maintenanceIds, ...cardIds, ...trashedCardRecordIds, ...equipmentIds, ...historyIds];
 
       const allTrashIds = [...trashIds, ...cardTrashIds];
       if (allTrashIds.length) {
@@ -91,6 +97,12 @@ export async function createE2EData(testInfo: TestInfo): Promise<E2EData> {
       if (purchaseIds.length) {
         const { error } = await db.from("purchases").delete().in("id", purchaseIds);
         if (error) throw new Error(`E2E purchase cleanup failed: ${error.message}`);
+      }
+      if (equipmentIds.length) {
+        const historyDelete = await db.from("maintenance_equipment_history").delete().in("equipment_item_id", equipmentIds);
+        if (historyDelete.error) throw new Error(`E2E equipment history cleanup failed: ${historyDelete.error.message}`);
+        const equipmentDelete = await db.from("maintenance_equipment_items").delete().in("id", equipmentIds);
+        if (equipmentDelete.error) throw new Error(`E2E equipment cleanup failed: ${equipmentDelete.error.message}`);
       }
 
       for (const [table, id] of [["items", data.itemId], ["warehouses", data.warehouseId], ["vendors", data.vendorId]] as const) {

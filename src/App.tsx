@@ -38,6 +38,10 @@ import { nextWarehouseCode } from "./features/master-data/masterDataModel";
 import type { MasterItem as Item, Vendor, Warehouse, WarehouseGroup as Group } from "./features/master-data/masterDataTypes";
 import { useMasterDataModule } from "./features/master-data/useMasterDataModule";
 import { MaintenanceEntry } from "./features/maintenance/MaintenanceEntry";
+import { EquipmentOverview } from "./features/maintenance/EquipmentOverview";
+import { useEquipmentModule } from "./features/maintenance/useEquipmentModule";
+import { maintenanceEquipmentFields, validateMaintenanceEquipment } from "./features/maintenance/equipmentModel";
+import type { EquipmentBackupData, EquipmentItem } from "./features/maintenance/equipmentTypes";
 import { PurchaseList, PurchaseStatus, type PurchaseScreensUi } from "./features/purchase/PurchaseScreens";
 import { usePurchaseMaintenanceUi } from "./features/purchase/usePurchaseMaintenanceUi";
 import { buildPurchaseMaintenanceCopyRows } from "./features/purchase/purchaseMaintenanceModel";
@@ -49,7 +53,7 @@ import type {
   PurchaseRow,
   PurchaseSearch,
 } from "./features/purchase/purchaseTypes";
-import type { Maint, MaintItem } from "./features/maintenance/maintenanceTypes";
+import type { Maint, MaintItem, MaintenanceForm } from "./features/maintenance/maintenanceTypes";
 import {
   buildMaintenanceEditData,
   buildMaintenanceSuggestedItems,
@@ -659,7 +663,7 @@ type DeletedRecord = {
   deleted_at?: string;
 };
 
-type BackupExport = {
+type BackupExport = EquipmentBackupData & {
   exported_at: string;
   exported_by: string;
   record_counts: Record<string, number>;
@@ -738,6 +742,7 @@ const ERP_PERMISSION_MODULES = [
   { key: "card_stats", label: "카드통계" },
   { key: "maint_new", label: "정비등록" },
   { key: "maint_list", label: "정비조회" },
+  { key: "maint_equipment", label: "설비현황" },
   { key: "maint_stats", label: "정비통계" },
   { key: "maintenance_photos", label: "정비사진등록" },
   { key: "maintenance_schedule_new", label: "정비일정등록" },
@@ -1321,6 +1326,7 @@ export default function App() {
     if (DISPATCH_VIEWS.includes(tab as DispatchView)) return isAdmin || !!permissions[tab];
     if (isAdmin) return true;
     if (currentRole === "office") return !ERP_OFFICE_BLOCKED_TABS.has(tab);
+    if (tab === "maint_equipment" && !("maint_equipment" in permissions)) return !!permissions.maint_list;
     return !!permissions[tab];
   };
 
@@ -1360,7 +1366,8 @@ export default function App() {
   const [purchaseSearch, setPurchaseSearch] = useState<PurchaseSearch>({ from: "", to: "", vendor: "", warehouse: "", item: "", taxInvoice: "", paymentStatus: "", receiptStatus: "" });
   const [purchasePriceHistoryModal, setPurchasePriceHistoryModal] = useState<PurchasePriceHistory | null>(null);
 
-  const [maintForm, setMaintForm] = useState({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] as string[] });
+  const [maintForm, setMaintForm] = useState<MaintenanceForm>({ date: getTodayKey(), warehouse: "", manager: "", title: "", detail: "", cost: "", image_urls: [] });
+  const [maintReturnTab, setMaintReturnTab] = useState<"maint_list" | "maint_equipment">("maint_list");
   const [maintItems, setMaintItems] = useState<MaintItem[]>([emptyMaintItem()]);
   const [editingMaintId, setEditingMaintId] = useState("");
   const [maintSaving, setMaintSaving] = useState(false);
@@ -1425,6 +1432,12 @@ export default function App() {
     },
   });
   const { vendors, groups, warehouses, items } = masterData.data;
+  const equipmentModule = useEquipmentModule({
+    supabase,
+    active: !!session && isPermissionApproved && ["maint_new", "maint_equipment", "backup_permissions"].includes(menuTab) && canAccessTab(menuTab),
+    authKey: session?.user?.id || "",
+    maintenanceRevision: maints,
+  });
 
 
   useEffect(() => () => {
@@ -1618,11 +1631,12 @@ export default function App() {
 
   useEffect(() => {
     const previousOptions = previousTransferWarehouseOptionsRef.current;
+    const wasInitialized = transferWarehouseInitializedRef.current;
 
     setSelectedTransferWarehouses((prev) => {
       const validSelection = prev.filter((warehouse) => transferWarehouseOptions.includes(warehouse));
       const previouslySelectedAll =
-        !transferWarehouseInitializedRef.current ||
+        !wasInitialized ||
         (previousOptions.length > 0 && previousOptions.every((warehouse) => prev.includes(warehouse)));
 
       return previouslySelectedAll ? transferWarehouseOptions : validSelection;
@@ -2210,7 +2224,7 @@ export default function App() {
   useEffect(() => {
     if (!session || !isPermissionApproved) return;
 
-    if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_stats", "home"].includes(menuTab)) {
+    if (["new", "list", "status", "bulk_transfer", "card_use", "card_list", "card_stats", "maint_new", "maint_list", "maint_equipment", "maint_stats", "home"].includes(menuTab)) {
       loadAll();
     }
 
@@ -3930,6 +3944,7 @@ const purchasePriceHistoryMap = useMemo(
     maintForm.title ||
     maintForm.detail ||
     maintForm.cost ||
+    maintForm.equipment_item_id ||
     (maintForm.image_urls || []).length ||
     maintItems.some((item) => item.item || item.spec || item.qty || item.price || item.supply || item.vat || item.total) ||
     maintPurchaseLinksDraft.length ||
@@ -3944,6 +3959,7 @@ const purchasePriceHistoryMap = useMemo(
     setEditingMaintId("");
     setLinkingMaintenancePhotoId("");
     setMaintSaveError("");
+    setMaintReturnTab("maint_list");
     clearMaintDraft();
   };
 
@@ -3961,6 +3977,7 @@ const purchasePriceHistoryMap = useMemo(
       if (Array.isArray(draft?.maintItems) && draft.maintItems.length) setMaintItems(draft.maintItems);
       if (Array.isArray(draft?.maintPurchaseLinks)) setMaintPurchaseLinksDraft(draft.maintPurchaseLinks.map(toMaintenancePurchaseLink));
       if (draft?.editingMaintId) setEditingMaintId(draft.editingMaintId);
+      if (draft?.maintReturnTab === "maint_equipment") setMaintReturnTab("maint_equipment");
     } catch {
       clearMaintDraft();
     } finally {
@@ -3986,13 +4003,14 @@ const purchasePriceHistoryMap = useMemo(
         maintItems,
         maintPurchaseLinks: maintPurchaseLinksDraft,
         editingMaintId,
+        maintReturnTab,
         saved_at: new Date().toISOString(),
       }));
     } catch {
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maintForm, maintItems, maintPurchaseLinksDraft, editingMaintId, maintDraftReady]);
+  }, [maintForm, maintItems, maintPurchaseLinksDraft, editingMaintId, maintReturnTab, maintDraftReady]);
 
   const syncMaintenancePurchaseLinks = async (maintenanceId: string, nextLinks: MaintenancePurchaseLink[]) => {
     const previousLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === maintenanceId);
@@ -4044,6 +4062,15 @@ const purchasePriceHistoryMap = useMemo(
       const message = "창고와 정비제목을 입력하세요.";
       setMaintSaveError(message);
       alert(message);
+      return;
+    }
+
+    const equipmentError = maintForm.equipment_item_id && (!equipmentModule.ready || equipmentModule.error)
+      ? "설비 연결정보를 불러온 후 저장해주세요."
+      : validateMaintenanceEquipment(maintForm, equipmentModule.items, warehouses);
+    if (equipmentError) {
+      setMaintSaveError(equipmentError);
+      alert(equipmentError);
       return;
     }
 
@@ -4122,6 +4149,7 @@ const purchasePriceHistoryMap = useMemo(
       const payload = {
         id: editingMaintId || uid(),
         ...maintForm,
+        ...maintenanceEquipmentFields(maintForm),
         date: maintForm.date || getTodayKey(),
         image_url: (maintForm.image_urls || [])[0] || "",
         image_urls: maintForm.image_urls || [],
@@ -4164,7 +4192,7 @@ const purchasePriceHistoryMap = useMemo(
 
       clearMaintForm();
       showToast(wasEditing ? "정비내역을 수정했습니다." : "정비내역을 저장했습니다.");
-      setMenuTab("maint_list");
+      setMenuTab(canAccessTab(maintReturnTab) ? maintReturnTab : "maint_list");
     } catch (error: any) {
       const message = error?.message ? `정비 저장 중 오류: ${error.message}` : "정비 저장 중 알 수 없는 오류가 발생했습니다.";
       setMaintSaveError(message);
@@ -4175,6 +4203,7 @@ const purchasePriceHistoryMap = useMemo(
     }
   };
   const editMaint = (m: Maint) => {
+    setMaintReturnTab("maint_list");
     const editData = buildMaintenanceEditData(m, uid);
     const currentLinks = maintenancePurchaseLinks.filter((link) => link.maintenance_id === m.id);
     const refreshedLinks = currentLinks.map((link) => {
@@ -4215,6 +4244,20 @@ const purchasePriceHistoryMap = useMemo(
     });
     setMaintItems(refreshedItems);
     setMaintPurchaseLinksDraft(refreshedLinks);
+  };
+
+  const registerEquipmentMaintenance = (item: EquipmentItem) => {
+    if (!canCreateRecords || !canAccessTab("maint_new") || maintSavingRef.current) return;
+    if (hasMaintFormValue() && !window.confirm("작성 중인 정비등록 내용을 초기화하고 이 설비의 정비를 등록할까요?")) return;
+    clearMaintForm();
+    const warehouse = warehouses.find(row => row.id === item.warehouse_id);
+    setMaintForm({
+      date: getTodayKey(), warehouse: warehouse ? `${warehouse.group} / ${warehouse.name}` : "", manager: "",
+      title: `${item.name} 정비`, detail: "", cost: "", image_urls: [],
+      equipment_item_id: item.id, equipment_work_type: "repair", equipment_vendor: "", equipment_cycle_included: false,
+    });
+    setMaintReturnTab("maint_equipment");
+    setMenuTab("maint_new");
   };
 
 
@@ -4655,6 +4698,9 @@ const purchasePriceHistoryMap = useMemo(
         backupItems,
         backupPurchases,
         backupMaints,
+        backupEquipmentItems,
+        backupEquipmentHistory,
+        backupEquipmentSettings,
         backupMaintenancePurchaseLinks,
         backupCardUses,
         backupReceiptPhotos,
@@ -4674,6 +4720,9 @@ const purchasePriceHistoryMap = useMemo(
         fetchBackupTable("items", "code"),
         fetchBackupTable("purchases", "date"),
         fetchBackupTable("maints", "date"),
+        fetchBackupTable("maintenance_equipment_items", "sort_order"),
+        fetchBackupTable("maintenance_equipment_history", "source_rank"),
+        fetchBackupTable("maintenance_equipment_settings", "id"),
         fetchBackupTable("maintenance_purchase_links", "created_at"),
         fetchBackupTable("card_uses", "date"),
         fetchBackupTable("receipt_photos", "receipt_date"),
@@ -4698,6 +4747,9 @@ const purchasePriceHistoryMap = useMemo(
           items: backupItems.length,
           purchases: backupPurchases.length,
           maints: backupMaints.length,
+          maintenance_equipment_items: backupEquipmentItems.length,
+          maintenance_equipment_history: backupEquipmentHistory.length,
+          maintenance_equipment_settings: backupEquipmentSettings.length,
           maintenance_purchase_links: backupMaintenancePurchaseLinks.length,
           card_uses: backupCardUses.length,
           receipt_photos: backupReceiptPhotos.length,
@@ -4717,6 +4769,9 @@ const purchasePriceHistoryMap = useMemo(
         items: backupItems as Item[],
         purchases: (backupPurchases as any[]).map(toPurchase),
         maints: backupMaints as Maint[],
+        maintenance_equipment_items: backupEquipmentItems,
+        maintenance_equipment_history: backupEquipmentHistory,
+        maintenance_equipment_settings: backupEquipmentSettings,
         maintenance_purchase_links: (backupMaintenancePurchaseLinks as any[]).map(toMaintenancePurchaseLink),
         card_uses: backupCardUses as CardUse[],
         receipt_photos: backupReceiptPhotos as ReceiptPhoto[],
@@ -4759,6 +4814,8 @@ const purchasePriceHistoryMap = useMemo(
       { 구분: "품목", 건수: items.length },
       { 구분: "구매", 건수: purchases.length },
       { 구분: "정비", 건수: maints.length },
+      { 구분: "설비현황 항목", 건수: equipmentModule.backupData.maintenance_equipment_items.length },
+      { 구분: "기존 총괄표 이력", 건수: equipmentModule.backupData.maintenance_equipment_history.length },
       { 구분: "구매-정비 연결", 건수: maintenancePurchaseLinks.length },
       { 구분: "카드사용", 건수: cardUses.length },
       { 구분: "입고사진", 건수: receiptPhotos.length },
@@ -5321,12 +5378,13 @@ const purchasePriceHistoryMap = useMemo(
             </div>
           )}
 
-          {canShowAny(["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
+          {canShowAny(["maint_new", "maint_list", "maint_equipment", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"]) && (
             <div className={`menu-group maint-menu-group ${openMenuGroup === "maintenance" ? "expanded" : ""}`}>
               <button type="button" data-testid="nav-group-maintenance" aria-expanded={openMenuGroup === "maintenance"} onClick={() => setOpenMenuGroup((current) => current === "maintenance" ? null : "maintenance")}><Wrench size={17} /> 정비</button>
               <div className="sub maint-sub">
                 {menuButton("maint_new", "정비등록")}
                 {menuButton("maint_list", "정비조회")}
+                {menuButton("maint_equipment", "설비현황")}
                 {menuButton("maint_stats", "정비통계")}
                 {menuButton("maintenance_photos", "정비사진등록")}
                 {menuButton("maintenance_schedule_new", "정비일정등록")}
@@ -6654,6 +6712,10 @@ const purchasePriceHistoryMap = useMemo(
             loadDeletedRecords={loadDeletedRecords}
             backupSaving={backupSaving}
             exportFullBackup={exportFullBackup}
+            equipmentBackup={equipmentModule.backupData}
+            equipmentBackupReady={equipmentModule.ready && !equipmentModule.loading && !equipmentModule.error}
+            equipmentBackupError={equipmentModule.error}
+            reloadEquipmentBackup={equipmentModule.reload}
             exportBackupSummaryExcel={exportBackupSummaryExcel}
             showToast={showToast}
           />
@@ -6989,6 +7051,7 @@ const purchasePriceHistoryMap = useMemo(
                 itemOptions,
                 getRecentPurchaseInfo,
               },
+              equipment: { items: equipmentModule.items, loading: equipmentModule.loading, error: equipmentModule.error },
               todayKey: getTodayKey(),
             }}
             ui={{ Field, DateInput, SearchSelect, AttachmentGroup, ScrollTable, money }}
@@ -7010,6 +7073,24 @@ const purchasePriceHistoryMap = useMemo(
               onLinkPhoto: openMaintPhotoPicker,
             }}
             ui={purchaseScreensUi}
+          />
+        )}
+
+        {menuTab === "maint_equipment" && canAccessTab("maint_equipment") && (
+          <EquipmentOverview
+            model={equipmentModule}
+            warehouses={warehouses.map(row => ({ id: row.id, name: `${row.group} / ${row.name}` }))}
+            canCreate={canCreateRecords && canAccessTab("maint_new")}
+            canEdit={canEditDeleteRecords}
+            onRegister={registerEquipmentMaintenance}
+            onEditMaintenance={record => {
+              if (hasMaintFormValue() && !window.confirm("작성 중인 정비등록 내용을 초기화하고 이 기록을 수정할까요?")) return;
+              editMaint(record);
+              setMaintReturnTab("maint_equipment");
+            }}
+            log={addActivityLog}
+            showToast={showToast}
+            todayKey={getTodayKey()}
           />
         )}
 
@@ -7345,6 +7426,7 @@ const purchasePriceHistoryMap = useMemo(
                 <>
                   {canAccessTab("maint_new") && <button onClick={() => { setMenuTab("maint_new"); setMobileSheet(""); }}>정비등록</button>}
                   {canAccessTab("maint_list") && <button onClick={() => { setMenuTab("maint_list"); setMobileSheet(""); }}>정비조회</button>}
+                  {canAccessTab("maint_equipment") && <button onClick={() => { setMenuTab("maint_equipment"); setMobileSheet(""); }}>설비현황</button>}
                   {canAccessTab("maint_stats") && <button onClick={() => { setMenuTab("maint_stats"); setMobileSheet(""); }}>정비통계</button>}
                   {canAccessTab("maintenance_photos") && <button onClick={() => { setMenuTab("maintenance_photos"); setMobileSheet(""); }}>정비사진등록</button>}
                   {canAccessTab("maintenance_schedule_new") && <button onClick={() => { setMenuTab("maintenance_schedule_new"); setMobileSheet(""); }}>정비일정등록</button>}
@@ -7414,7 +7496,7 @@ const purchasePriceHistoryMap = useMemo(
               <button className={menuTab === "home" ? "active" : ""} onClick={() => { setMenuTab("home"); setMobileSheet(""); }}>홈</button>
               <button className={mobileSheet === "buy" || ["new","list","status","bulk_transfer","receipt_photos","vendor_accounts"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "buy" ? "" : "buy")}>구매</button>
               <button className={mobileSheet === "card" || ["card_use","card_list","card_stats"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "card" ? "" : "card")}>카드</button>
-              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
+              <button className={mobileSheet === "maint" || ["maint_new","maint_list","maint_equipment","maint_stats","maintenance_photos","maintenance_schedule_new","maintenance_schedules"].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "maint" ? "" : "maint")}>정비</button>
               <button className={mobileSheet === "more" || ["site_notices","bid_notices","fuel_management","activity_logs","trash_bin","layout","vendors","warehouse_groups","items","permits","backup_permissions",...DISPATCH_VIEWS].includes(menuTab) ? "active" : ""} onClick={() => setMobileSheet((v) => v === "more" ? "" : "more")}>더보기</button>
             </>
           )}
@@ -8380,6 +8462,10 @@ function BackupPermissionPage({
   loadDeletedRecords,
   backupSaving,
   exportFullBackup,
+  equipmentBackup,
+  equipmentBackupReady,
+  equipmentBackupError,
+  reloadEquipmentBackup,
   exportBackupSummaryExcel,
   showToast,
 }: any) {
@@ -8405,6 +8491,7 @@ function BackupPermissionPage({
     backup_version: "taemyung-erp-v1",
     exported_at: new Date().toISOString(),
     data: {
+      ...equipmentBackup,
       purchases,
       maints,
       maintenancePurchaseLinks,
@@ -8499,6 +8586,7 @@ function BackupPermissionPage({
   };
 
   const downloadJsonBackup = () => {
+    if (!equipmentBackupReady) return alert(equipmentBackupError || "설비현황 자료를 불러온 후 백업해주세요.");
     const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8509,6 +8597,7 @@ function BackupPermissionPage({
   };
 
   const downloadBackupWithAttachments = async () => {
+    if (!equipmentBackupReady) return alert(equipmentBackupError || "설비현황 자료를 불러온 후 백업해주세요.");
     if (attachmentBackupBusy || backupSaving) return;
 
     const attachmentMap = collectAttachmentReferences();
@@ -8788,6 +8877,9 @@ function BackupPermissionPage({
         ["warehouse_groups", data.warehouse_groups || data.groups],
         ["warehouses", data.warehouses],
         ["items", data.items],
+        ["maintenance_equipment_items", data.maintenance_equipment_items],
+        ["maintenance_equipment_history", data.maintenance_equipment_history],
+        ["maintenance_equipment_settings", data.maintenance_equipment_settings],
         ["purchases", data.purchases],
         ["maints", data.maints],
         ["maintenance_purchase_links", data.maintenance_purchase_links || data.maintenancePurchaseLinks],
@@ -8877,7 +8969,7 @@ function BackupPermissionPage({
     { label: "운행관리", keys: dispatchPermissionKeys },
     { label: "구매", keys: ["new", "list", "status", "bulk_transfer", "receipt_photos", "vendor_accounts"] },
     { label: "카드", keys: ["card_use", "card_list", "card_stats"] },
-    { label: "정비", keys: ["maint_new", "maint_list", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
+    { label: "정비", keys: ["maint_new", "maint_list", "maint_equipment", "maint_stats", "maintenance_photos", "maintenance_schedule_new", "maintenance_schedules"] },
     { label: "장비·유류", keys: ["fuel_management"] },
     { label: "공통·기초", keys: ["layout", "bid_notices", "vendors", "warehouse_groups", "items", "permits"] },
   ].map((group) => ({
@@ -8927,7 +9019,7 @@ function BackupPermissionPage({
             <div className="backup-recommended-box">
               <strong>권장 백업</strong>
               <span>사진·PDF·음성파일과 복구용 JSON을 폴더 하나에 함께 저장합니다.</span>
-              <button className="primary" disabled={backupSaving || attachmentBackupBusy} onClick={downloadBackupWithAttachments}>
+              <button className="primary" disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={downloadBackupWithAttachments}>
                 {attachmentBackupBusy ? attachmentBackupProgress || "첨부 백업 중..." : "첨부 포함 전체 백업"}
               </button>
             </div>
@@ -8935,9 +9027,10 @@ function BackupPermissionPage({
               <button disabled={backupSaving || attachmentBackupBusy} onClick={exportFullBackup}>
                 {backupSaving ? "백업 생성 중..." : "데이터 전체 백업"}
               </button>
-              <button disabled={backupSaving || attachmentBackupBusy} onClick={exportBackupSummaryExcel}>백업 현황 엑셀</button>
-              <button disabled={backupSaving || attachmentBackupBusy} onClick={downloadJsonBackup}>현재 화면 간단 백업</button>
+              <button disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={exportBackupSummaryExcel}>백업 현황 엑셀</button>
+              <button disabled={backupSaving || attachmentBackupBusy || !equipmentBackupReady} onClick={downloadJsonBackup}>현재 화면 간단 백업</button>
             </div>
+            {equipmentBackupError ? <p role="alert">설비현황 백업 자료를 불러오지 못했습니다: {equipmentBackupError} <button onClick={() => void reloadEquipmentBackup()}>다시 불러오기</button></p> : !equipmentBackupReady && <p role="status">설비현황 백업 자료를 불러오는 중입니다.</p>}
           </div>
 
           <div className="backup-card danger-zone restore-card">

@@ -5,6 +5,7 @@ import { maintenancePurchaseLinkIdentity } from "../purchase/purchaseModel";
 import type { PurchaseEntryUi, PurchaseSelectOption } from "../purchase/PurchaseEntry";
 import type { MaintenancePurchaseLink } from "../purchase/purchaseTypes";
 import type { Maint, MaintItem, MaintenanceForm } from "./maintenanceTypes";
+import { EquipmentLinkFields, type EquipmentLinkCatalog } from "./EquipmentLinkFields";
 
 type PurchaseMaintenanceModalModel = ComponentProps<typeof PurchaseMaintenanceModals>;
 type MaintenanceSuggestion = {
@@ -77,6 +78,7 @@ export type MaintenanceEntryModel = {
     getRecentPurchaseInfo: (itemName: string) => MaintenanceRecentPurchase;
   };
   todayKey: string;
+  equipment?: EquipmentLinkCatalog;
 };
 
 export function MaintenanceEntry({ model, ui }: { model: MaintenanceEntryModel; ui: PurchaseEntryUi }) {
@@ -184,6 +186,8 @@ export function MaintenanceEntry({ model, ui }: { model: MaintenanceEntryModel; 
                 <input value={maintForm.cost} readOnly />
               </Field>
             </div>
+
+            {model.equipment && <EquipmentLinkFields form={maintForm} setForm={setMaintForm} catalog={model.equipment} />}
 
             <div className="maint-suggest-box">
                 <div className="maint-suggest-head">
