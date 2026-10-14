@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx-js-style";
+import XLSX from "xlsx-js-style";
 import { test, expect } from "../fixtures";
 import type { E2EData } from "../helpers/test-data";
 import { loginAsE2EAdmin } from "../pages/login.page";
