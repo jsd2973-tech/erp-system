@@ -7,8 +7,10 @@ import type { Page } from "@playwright/test";
 
 async function openEquipment(page: Page) {
   const menu = page.getByTestId("menu-maint_equipment");
-  if (await page.locator(".mobile-bottom-nav").isVisible()) {
-    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "정비", exact: true }).click();
+  const mobileNavigation = page.locator(".mobile-bottom-nav");
+  if ((page.viewportSize()?.width ?? 1440) <= 900) {
+    await expect(mobileNavigation).toBeVisible();
+    await mobileNavigation.getByRole("button", { name: "정비", exact: true }).click();
     await page.locator(".role-mobile-sheet-card").getByRole("button", { name: "설비현황", exact: true }).click();
   } else {
     if (!(await menu.isVisible())) await page.getByTestId("nav-group-maintenance").click();
