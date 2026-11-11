@@ -35,6 +35,8 @@ type G2bFetchResult = {
 
 const G2B_MAX_PAGES = 50;
 const G2B_PAGE_BATCH_SIZE = 5;
+// 2026-11-10부터 나라장터는 요청 한 번의 조회기간을 최대 7일로 제한합니다.
+const G2B_MAX_RANGE_DAYS = 7;
 const G2B_SEARCH_FIELDS = [
   { key: "bidNtceNm", label: "title" },
   { key: "prdctClsfcNoNm", label: "item" },
@@ -52,11 +54,11 @@ const G2B_REGION_FIELDS = [
   "dlvrPlce",
 ] as const;
 
-const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
+const json = (data: unknown, status = 200, cacheable = status === 200) => new Response(JSON.stringify(data), {
   status,
   headers: {
     "content-type": "application/json; charset=utf-8",
-    "cache-control": status === 200 ? "s-maxage=300, stale-while-revalidate=600" : "no-store",
+    "cache-control": cacheable ? "s-maxage=300, stale-while-revalidate=600" : "no-store",
   },
 });
 
@@ -78,7 +80,7 @@ const splitDateRanges = (from: Date, to: Date) => {
   let cursor = new Date(from);
   while (cursor <= to) {
     const rangeEnd = new Date(cursor);
-    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 29);
+    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + G2B_MAX_RANGE_DAYS - 1);
     if (rangeEnd > to) rangeEnd.setTime(to.getTime());
     ranges.push({ from: new Date(cursor), to: new Date(rangeEnd) });
     cursor = new Date(rangeEnd);
@@ -96,12 +98,19 @@ const settleInBatches = async <T>(tasks: Array<() => Promise<T>>, batchSize = 20
 };
 
 const toPage = (payload: any): G2bPage => {
-  const header = payload?.response?.header;
-  const code = String(header?.resultCode ?? "00");
+  // 일부 오류는 response 바깥의 header로 반환됩니다. 응답 형식이 없으면
+  // 정상 0건으로 간주하지 않아야 연결 실패를 화면에서 확인할 수 있습니다.
+  const header = payload?.response?.header || payload?.header;
+  const code = String(header?.resultCode ?? "").trim();
+  if (!code) throw new Error("나라장터 응답의 결과코드를 확인하지 못했습니다.");
   if (code !== "00" && code !== "000") {
     throw new Error(String(header?.resultMsg || `나라장터 오류 (${code})`));
   }
   const body = payload?.response?.body;
+  const totalCount = Number(body?.totalCount);
+  if (!body || body.totalCount == null || !Number.isInteger(totalCount) || totalCount < 0) {
+    throw new Error("나라장터 응답의 공고 건수를 확인하지 못했습니다.");
+  }
   const rawItems = body?.items;
   const items = Array.isArray(rawItems)
     ? rawItems
@@ -110,11 +119,14 @@ const toPage = (payload: any): G2bPage => {
       : rawItems?.item && typeof rawItems.item === "object"
         ? [rawItems.item]
         : [];
-  const totalCount = Number(body?.totalCount);
+  if ((totalCount > 0 && !items.length)
+    || items.some((item: unknown) => !item || typeof item !== "object" || Array.isArray(item))) {
+    throw new Error("나라장터 응답의 공고 목록을 확인하지 못했습니다.");
+  }
   const rowsPerPage = Number(body?.numOfRows);
   return {
     items,
-    totalCount: Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : items.length,
+    totalCount,
     rowsPerPage: Number.isFinite(rowsPerPage) && rowsPerPage > 0 ? rowsPerPage : 100,
   };
 };
@@ -431,7 +443,7 @@ export default {
             truncated,
           },
         },
-      });
+      }, 200, !partial);
     } catch (error) {
       const message = error instanceof Error ? error.message : "나라장터 공고를 불러오지 못했습니다.";
       return json({ error: message }, 502);
