@@ -81,3 +81,18 @@ test("G2B와 LH가 모두 실패하면 기존 failed 상태와 안내를 반환�
   assert.equal(result.diagnostics.partial, true);
   assert.equal(result.error, "나라장터와 LH 공고를 불러오지 못했습니다. 잠시 후 다시 새로고침해 주세요.");
 });
+
+for (const payload of [null, {}, { error: '조회기간 오류' }, { notices: [], sourceStatus: { g2b: { status: 'failed' } } }]) {
+  test(`HTTP 200인 비정상 나라장터 응답도 정상으로 표시하지 않는다: ${JSON.stringify(payload)}`, async () => {
+    const result = await service.loadBidNotices(
+      { from: '2026-10-13', to: '2026-11-11' },
+      { include: ['골재'], exclude: ['순환골재'] },
+      async (input) => String(input).startsWith('/api/g2b?')
+        ? Response.json(payload)
+        : Response.json({ notices: [notice('LH-OK', '2026-11-11')] }),
+    );
+    assert.equal(result.loadState, 'partial');
+    assert.equal(result.diagnostics.sourceStatus.g2b.status, 'failed');
+    assert.deepEqual(result.notices.map((row) => row.id), ['LH-OK']);
+  });
+}

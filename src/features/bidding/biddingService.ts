@@ -47,12 +47,13 @@ export const loadBidNotices = async (
   const targets: BidApiTarget[] = ["g2b", "lh"];
   const results = await Promise.allSettled(targets.map(async (target) => {
     const response = await fetcher("/api/" + target + "?" + params.toString());
-    const payload = await response.json().catch((): BidApiPayload => ({}));
-    if (!response.ok) {
+    const payload: BidApiPayload | null = await response.json().catch(() => null);
+    if (!response.ok || payload?.error || !Array.isArray(payload?.notices)
+      || payload?.sourceStatus?.[target]?.status === "failed") {
       throw new Error((target === "lh" ? "LH" : "나라장터") + ": "
-        + (payload?.error || "공고 조회 실패 (" + response.status + ")"));
+        + (payload?.error || (!response.ok ? "공고 조회 실패 (" + response.status + ")" : "공고 조회 결과를 확인하지 못했습니다.")));
     }
-    return { target, payload: payload as BidApiPayload };
+    return { target, payload };
   }));
   const successful = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
 
